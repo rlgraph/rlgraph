@@ -47,6 +47,7 @@ class PPOLossFunction(LossFunction):
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
+        self.add_components(self.gae_function)
 
     @rlgraph_api
     def loss(self, log_probs, baseline_values, actions, rewards, terminals):
@@ -89,7 +90,7 @@ class PPOLossFunction(LossFunction):
             pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
 
             if self.standardize_advantages:
-                mean, std = tf.nn.moments(x=pg_advantages, axis=[0])
+                mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
                 pg_advantages = (pg_advantages - mean) / std
 
             v_targets = pg_advantages + baseline_values
