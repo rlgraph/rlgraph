@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -33,6 +34,8 @@ class BaselineActionAdapter(ActionAdapter):
         get_state_values_and_logits(nn_output) (Tuple[SingleDataOp x 2]): The state-value and action logits (reshaped).
     """
     def __init__(self, scope="baseline-action-adapter", **kwargs):
+        raise RLGraphError("BaselineActionAdapter is no longer supported! Use BaselinePolicy instead, which also "
+                           "supports container actions.")
         # Change the number of units in the action layer (+1 for the extra Value function node).
         super(BaselineActionAdapter, self).__init__(add_units=1, scope=scope, **kwargs)
 

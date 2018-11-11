@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.component import Component
-from rlgraph.components.neural_networks.policy import Policy
+from rlgraph.components.policies.policy import Policy
 from rlgraph.components.helpers import dynamic_batching
 
 

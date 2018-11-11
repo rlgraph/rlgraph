@@ -27,6 +27,7 @@ from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
 if get_backend() == "tf":
@@ -49,6 +50,8 @@ class DuelingActionAdapter(ActionAdapter):
                  weights_spec_advantage_stream=None, biases_spec_advantage_stream=None,
                  activation_advantage_stream="relu",
                  scope="dueling-action-adapter", **kwargs):
+        raise RLGraphError("DuelingActionAdapter is no longer supported! Use DuelingPolicy instead, which also "
+                           "supports container actions.")
         # TODO: change add_units=-1 once we have a true base class for action-adapters.
         super(DuelingActionAdapter, self).__init__(add_units=0, scope=scope, **kwargs)
 

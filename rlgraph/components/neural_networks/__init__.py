@@ -24,8 +24,6 @@ from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorSt
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.neural_networks.value_function import ValueFunction
 
-from rlgraph.components.neural_networks.policy import Policy
-
 # The Stacks.
 Stack.__lookup_classes__ = dict(
     dictpreprocessorstack=DictPreprocessorStack,

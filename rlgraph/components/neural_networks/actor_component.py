@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
 from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
-from rlgraph.components.neural_networks.policy import Policy
+from rlgraph.components.policies.policy import Policy
 from rlgraph.components.explorations.exploration import Exploration
 from rlgraph.utils.decorators import rlgraph_api
 

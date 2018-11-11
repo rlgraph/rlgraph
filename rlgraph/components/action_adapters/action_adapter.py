@@ -82,8 +82,9 @@ class ActionAdapter(Component):
         self.weights_spec = weights_spec
         self.biases_spec = biases_spec
         self.activation = activation
-
         self.batch_apply = batch_apply
+
+        assert not isinstance(self.action_space, ContainerSpace), "ERROR: ActionAdapter cannot handle ContainerSpaces!"
 
         # Our (dense) action layer representing the flattened action space.
         self.action_layer = None
@@ -94,16 +95,14 @@ class ActionAdapter(Component):
         if isinstance(self.action_space, IntBox):
             if units is None:
                 units = add_units + self.action_space.flat_dim_with_categories
-            self.reshape = ReShape(
-                new_shape=self.action_space.get_shape(with_category_rank=True),
-                flatten_categories=False
-            )
+            new_shape = self.action_space.get_shape(with_category_rank=True)
         else:
             if units is None:
                 units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
             # Manually add moments after batch/time ranks.
             new_shape = tuple([2] + list(self.action_space.shape))
-            self.reshape = ReShape(new_shape=new_shape)
+
+        self.reshape = ReShape(new_shape=new_shape)
 
         assert units > 0, "ERROR: Number of nodes for action-layer calculated as {}! Must be larger 0.".format(units)
 
