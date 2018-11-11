@@ -12,25 +12,26 @@ matrix:
 #    - DOCKER_IMAGE='tensorflow/tensorflow:latest'
   - env:
     - DOCKER_JOB_NAME='rlgraph_py3'
-    - DOCKER_IMAGE='tensorflow/tensorflow:latest-py3'
+#    - DOCKER_IMAGE='tensorflow/tensorflow:latest-py3'
+    - DOCKER_IMAGE='rlgraph/rlgraph:py3-tf-minimal'
 
 before_install:
   - docker pull ${DOCKER_IMAGE}
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/rlgraph ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
-install:
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get -y install git libsm6 libxrender-dev libxext6 cmake libz-dev';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'curl https://bootstrap.pypa.io/get-pip.py | python';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U setuptools';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U numpy';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install opencv-python psutil pytest-xdist';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pyyaml six requests lz4';
-  # In the future, add further extra packages here, like horovod, pytorch, or ray
-  # TODO: Use our `extras_require` in setup.py, instead of specifying individual packages.
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install gym atari_py';
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install ray';
+#install:
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get -y install git libsm6 libxrender-dev libxext6 cmake libz-dev';
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'curl https://bootstrap.pypa.io/get-pip.py | python';
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U pip';
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U setuptools';
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install -U numpy';
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install opencv-python psutil pytest-xdist';
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pytest-xdist';
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'python -m pip install pyyaml six requests lz4';
+#  # In the future, add further extra packages here, like horovod, pytorch, or ray
+#  # TODO: Use our `extras_require` in setup.py, instead of specifying individual packages.
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install gym atari_py';
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install ray';
 
 script:
   # Test learning capabilities (only one test per Agent).
