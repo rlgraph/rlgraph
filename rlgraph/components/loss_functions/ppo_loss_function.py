@@ -104,7 +104,7 @@ class PPOLossFunction(LossFunction):
                 y=(1 - self.clip_ratio) * pg_advantages
             )
 
-            loss = -tf.reduce_mean(input_tensor=tf.minimum(x=ratio * pg_advantages, y=clipped_advantages))
-            baseline_loss = tf.reduce_mean(input_tensor=(v_targets - baseline_values) ** 2)
+            loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
+            baseline_loss = (v_targets - baseline_values) ** 2
 
             return loss, baseline_loss
