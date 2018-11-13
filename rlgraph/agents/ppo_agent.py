@@ -181,7 +181,6 @@ class PPOAgent(Agent):
             Calls iterative optimization by repeatedly sub-sampling.
             """
             if get_backend() == "tf":
-                print("calling ")
                 batch_size = tf.shape(preprocessed_states)[0]
                 last_terminal = tf.expand_dims(terminals[-1], -1)
 
