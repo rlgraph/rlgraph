@@ -215,6 +215,9 @@ class PPOAgent(Agent):
             if get_backend() == "tf":
                 batch_size = tf.shape(preprocessed_states)[0]
                 last_terminal = tf.expand_dims(terminals[-1], -1)
+
+                # Ensure the very last entry is terminal so we don't connect different episodes when sampling
+                # sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
                 terminals = tf.concat([terminals[:-1], tf.ones_like(last_terminal)], axis=0)
 
                 def opt_body(index, loss, loss_per_item, vf_loss, vf_loss_per_item):
