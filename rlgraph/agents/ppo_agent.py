@@ -164,54 +164,14 @@ class PPOAgent(Agent):
                 records = memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
-            # Pass to iterative-opt graph fn:
-            loss, loss_per_item, vf_loss, vf_loss_per_item = \
-                self_._graph_fn_iterative_opt(preprocessed_s, actions, rewards, terminals)
+            # Route to external update method.
+            return self_._graph_fn_iterative_opt(preprocessed_s, actions, rewards, terminals)
 
-            return loss, loss_per_item, vf_loss, vf_loss_per_item
-
-        # TODO clean up, impl.
-        # # Learn from an external batch.
+        # Learn from an external batch.
+        # TODO fix double call issue.
         # @rlgraph_api(component=self.root_component)
-        # def update_from_external_batch(
-        #         self_, preprocessed_states, actions, rewards, terminals
-        # ):
-        #     # If we are a multi-GPU root:
-        #     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-        #     if "multi-gpu-sync-optimizer" in self_.sub_components:
-        #         main_policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-        #         grads_and_vars, loss, loss_per_item = \
-        #             self_.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch(
-        #                 main_policy_vars, preprocessed_states, actions, rewards, terminals
-        #             )
-        #         step_op = self_.get_sub_component_by_name(optimizer_scope).apply_gradients(grads_and_vars)
-        #         step_and_sync_op = self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
-        #             step_op, main_policy_vars
-        #         )
-        #         return step_and_sync_op, loss, loss_per_item
-        #
-        #     action_log_probs = policy.get_action_log_probs(preprocessed_states, actions)
-        #     baseline_values = value_function.value_output(preprocessed_states)
-        #
-        #     loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-        #         action_log_probs, baseline_values, actions, rewards, terminals
-        #     )
-        #
-        #     # Args are passed in again because some device strategies may want to split them to different devices.
-        #     policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-        #     vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
-        #
-        #     vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope)(
-        #         vf_vars, vf_loss, vf_loss_per_item)
-        #     step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
-        #         policy_vars, loss, loss_per_item)
-        #
-        #     if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
-        #         grads_and_vars = self_.get_sub_component_by_name(optimizer_scope).calculate_gradients(policy_vars, loss)
-        #         return grads_and_vars, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
-        #     else:
-        #         step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
-        #         return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
+        # def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals):
+        #     return self_._graph_fn_iterative_opt(preprocessed_states, actions, rewards, terminals)
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
@@ -221,6 +181,7 @@ class PPOAgent(Agent):
             Calls iterative optimization by repeatedly sub-sampling.
             """
             if get_backend() == "tf":
+                print("calling ")
                 batch_size = tf.shape(preprocessed_states)[0]
                 last_terminal = tf.expand_dims(terminals[-1], -1)
 
