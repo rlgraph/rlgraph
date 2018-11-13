@@ -39,11 +39,14 @@ class PPOAgent(Agent):
 
     Paper: https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, value_function_spec, clip_ratio=0.2, gae_lambda=1.0, standardize_advantages=False,
+    def __init__(self, value_function_spec, value_function_optimizer_spec=None,
+                 clip_ratio=0.2, gae_lambda=1.0, standardize_advantages=False,
                  sample_episodes=True, memory_spec=None, **kwargs):
         """
         Args:
             value_function_spec (list): Neural network specification for baseline.
+            value_function_optimizer_spec (dict): Optimizer config for value function otpimizer. If None, the optimizer
+                spec for the policy is used (same learning rate and optimizer type).
             clip_ratio (float): Clipping parameter for likelihood ratio.
             gae_lambda (float): Lambda for generalized advantage estimation.
             standardize_advantages (bool): If true, standardize advantage values in update.
@@ -89,8 +92,13 @@ class PPOAgent(Agent):
         # TODO make network sharing optional.
         # Create non-shared baseline network.
         self.value_function = ValueFunction(network_spec=value_function_spec)
-        vf_optimizer_spec = self.optimizer_spec
+
         # Cannot use the default scope for another optimizer again.
+        if value_function_optimizer_spec is None:
+            vf_optimizer_spec = self.optimizer_spec
+        else:
+            vf_optimizer_spec = value_function_optimizer_spec
+
         vf_optimizer_spec["scope"] = "value-function-optimizer"
         self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
 
