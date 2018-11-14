@@ -53,7 +53,7 @@ class IMPALAAgent(Agent):
 
     def __init__(self, discount=0.99, fifo_queue_spec=None, architecture="large", environment_spec=None,
                  feed_previous_action_through_nn=True, feed_previous_reward_through_nn=True,
-                 batch_apply=False, batch_apply_action_adapter=True,
+                 batch_apply=False, batch_apply_action_adapters=True,
                  weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
                  **kwargs):
         """
@@ -161,7 +161,7 @@ class IMPALAAgent(Agent):
             action_adapter_spec=action_adapter_spec,
             # TODO: Create some auto-setting based on LSTM inside the NN.
             policy_spec=dict(
-                batch_apply=batch_apply, batch_apply_action_adapter=batch_apply_action_adapter, deterministic=False,
+                batch_apply=batch_apply, batch_apply_action_adapters=batch_apply_action_adapters, deterministic=False,
                 reuse_variable_scope="shared-policy",
             ),
             exploration_spec=self.exploration_spec,

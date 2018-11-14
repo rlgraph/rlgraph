@@ -18,7 +18,7 @@
   "feed_previous_action_through_nn": false,
   "feed_previous_reward_through_nn": false,
   "batch_apply": true,
-  "batch_apply_action_adapter": false,
+  "batch_apply_action_adapters": false,
 
   "preprocessing_spec":
   [

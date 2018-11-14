@@ -98,7 +98,7 @@ class TestAllCompile(unittest.TestCase):
     #        update_spec=dict(batch_size=16),
     #        optimizer_spec=dict(type="adam", learning_rate=0.05),
     #        batch_apply=True,
-    #        batch_apply_action_adapter=False
+    #        batch_apply_action_adapters=False
     #    )
     #    agent.terminate()
     #    print("Compiled IMPALA type=actor agent.")

@@ -39,7 +39,7 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 deterministic=True, batch_apply=False, batch_apply_action_adapter=False,
+                 deterministic=True, batch_apply=False, batch_apply_action_adapters=False,
                  scope="policy", **kwargs):
         """
         Args:
@@ -56,20 +56,20 @@ class Policy(Component):
 
             batch_apply (bool): Whether to wrap both the NN and the ActionAdapter with a BatchApply Component in order
                 to fold time rank into batch rank before a forward pass.
-                Note that only one of `batch_apply` or `batch_apply_action_adapter` may be True.
+                Note that only one of `batch_apply` or `batch_apply_action_adapters` may be True.
                 Default: False.
 
-            batch_apply_action_adapter (bool): Whether to wrap only the ActionAdapter with a BatchApply Component in
+            batch_apply_action_adapters (bool): Whether to wrap only the ActionAdapter with a BatchApply Component in
                 order to fold time rank into batch rank before a forward pass.
-                Note that only one of `batch_apply` or `batch_apply_action_adapter` may be True.
+                Note that only one of `batch_apply` or `batch_apply_action_adapters` may be True.
                 Default: False.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
         self.batch_apply = batch_apply
-        self.batch_apply_action_adapter = batch_apply_action_adapter
-        assert self.batch_apply is False or self.batch_apply_action_adapter is False,\
-            "ERROR: Either one of `batch_apply` or `batch_apply_action_adapter` must be False!"
+        self.batch_apply_action_adapters = batch_apply_action_adapters
+        assert self.batch_apply is False or self.batch_apply_action_adapters is False,\
+            "ERROR: Either one of `batch_apply` or `batch_apply_action_adapters` must be False!"
 
         # Do manual folding and unfolding as not to have to wrap too many components into a BatchApply.
         self.folder = None
@@ -80,16 +80,29 @@ class Policy(Component):
 
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
 
+        # Create the necessary action adapters for this Policy. One for each action space component.
+        self.action_adapters = dict()
         if action_space is None:
-            self.action_adapter = ActionAdapter.from_spec(
-                action_adapter_spec, batch_apply=self.batch_apply_action_adapter
+            self.action_adapters[""] = ActionAdapter.from_spec(
+                action_adapter_spec, batch_apply=self.batch_apply_action_adapters
             )
-            action_space = self.action_adapter.action_space
+            self.action_space = self.action_adapters[""].action_space
+            # Assert single component action space.
+            assert len(self.action_space.flatten()) == 1,\
+                "ERROR: Action space must not be ContainerSpace if no `action_space` is given in Policy c'tor!"
         else:
-            self.action_adapter = ActionAdapter.from_spec(
-                action_adapter_spec, action_space=action_space, batch_apply=self.batch_apply_action_adapter
-            )
-        self.action_space = action_space
+            self.action_space = action_space
+            for flat_key, action_component in self.action_space.flatten().items():
+                self.action_adapters[flat_key] = ActionAdapter.from_spec(
+                    batch_apply=self.batch_apply_action_adapters
+                )
+
+
+
+        #else:
+        #    self.action_adapter = ActionAdapter.from_spec(
+        #        action_adapter_spec, action_space=action_space, batch_apply=self.batch_apply_action_adapters
+        #    )
         self.deterministic = deterministic
 
         # Figure out our Distribution.
@@ -102,7 +115,8 @@ class Policy(Component):
             raise RLGraphError("ERROR: `action_space` is of type {} and not allowed in {} Component!".
                                format(type(action_space).__name__, self.name))
 
-        self.add_components(self.neural_network, self.action_adapter, self.distribution, self.folder, self.unfolder)
+        self.add_components(self.neural_network, list(self.action_adapters.values()), self.distribution, self.folder,
+                            self.unfolder)
 
     # Define our interface.
     @rlgraph_api
