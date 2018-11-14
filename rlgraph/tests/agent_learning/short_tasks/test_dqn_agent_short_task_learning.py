@@ -35,10 +35,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
     Tests whether the DQNAgent can learn in simple environments.
     """
     root_logger.setLevel(level=logging.INFO)
-    grid_world_preprocessing_spec = [dict(
-        type="reshape",
-        flatten=True
-    )]
+    grid_world_2x2_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=4)]
+    grid_world_4x4_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=16)]
     # Preprocessed state spaces.
     grid_world_2x2_flattened_state_space = FloatBox(shape=(4,), add_batch_rank=True)
     grid_world_4x4_flattened_state_space = FloatBox(shape=(16,), add_batch_rank=True)
@@ -66,7 +64,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld("2x2"),
             agent=agent,
-            preprocessing_spec=self.grid_world_preprocessing_spec,
+            preprocessing_spec=self.grid_world_2x2_preprocessing_spec,
             worker_executes_preprocessing=True
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
@@ -112,7 +110,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld("2x2"),
             agent=agent,
-            preprocessing_spec=self.grid_world_preprocessing_spec,
+            preprocessing_spec=self.grid_world_2x2_preprocessing_spec,
             worker_executes_preprocessing=True
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
@@ -158,7 +156,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld("4x4"),
             agent=agent,
-            preprocessing_spec=self.grid_world_preprocessing_spec,
+            preprocessing_spec=self.grid_world_4x4_preprocessing_spec,
             worker_executes_preprocessing=True
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
