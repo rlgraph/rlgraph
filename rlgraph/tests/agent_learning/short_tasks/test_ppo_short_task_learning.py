@@ -63,28 +63,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         print(results)
 
         # Assume we have learned something.
-        self.assertGreater(results["mean_reward"], -0.1)
-
-        # Check the last action probs for the 2 valid next_states (start (after a reset) and one below start).
-        action_probs = results[3]["action_probs"].reshape((80, 4))
-        next_states = results[3]["states"][:, 1:].reshape((80,))
-        for s_, probs in zip(next_states, action_probs):
-            # Start state:
-            # - Assume we picked "right" in state=1 (in order to step into goal state).
-            # - OR we picked "up" or "left" in state=0 (unlikely, but possible).
-            if s_ == 0:
-                recursive_assert_almost_equal(probs[0], 0.0, decimals=2)
-                self.assertTrue(probs[1] > 0.99 or probs[2] > 0.99)
-                recursive_assert_almost_equal(probs[3], 0.0, decimals=2)
-            # One below start:
-            # - Assume we picked "down" in start state with very large probability.
-            # - OR we picked "left" or "down" in state=1 (unlikely, but possible).
-            elif s_ == 1:
-                recursive_assert_almost_equal(probs[0], 0.0, decimals=2)
-                self.assertTrue(probs[1] > 0.99 or probs[2] > 0.99)
-                recursive_assert_almost_equal(probs[3], 0.0, decimals=2)
-
-        agent.terminate()
+        self.assertGreater(results["mean_episode_reward"], -0.1)
 
     def test_ppo_on_cart_pole(self):
         """
