@@ -10,8 +10,8 @@
 
   "memory_spec":
   {
-    "type": "ring_buffer",
-    "capacity": 8
+    "type": "ring-buffer",
+    "capacity": 2000
   },
 
   "preprocessing_spec":
@@ -20,9 +20,6 @@
 
   "observe_spec": {
     "buffer_size": 200
-  },
-  "execution_spec": {
-    "seed": 15
   },
 
   "network_spec":
@@ -47,14 +44,14 @@
 
   "update_spec": {
     "do_updates": true,
-    "update_interval": 1000,
-    "batch_size": 1000,
+    "update_interval": 4,
+    "batch_size": 8,
     "num_iterations": 10,
     "sample_size": 100
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001
+    "learning_rate": 0.01
   }
 }

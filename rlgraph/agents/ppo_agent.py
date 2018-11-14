@@ -21,8 +21,8 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.agents import Agent
-from rlgraph.components import DictMerger, ContainerSplitter, \
-    Memory, PPOLossFunction, ValueFunction, Optimizer
+from rlgraph.components import DictMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction, ValueFunction,\
+    Optimizer
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils.util import strip_list
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -57,12 +57,10 @@ class PPOAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
-        action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="action-adapter"))
         super(PPOAgent, self).__init__(
-            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "actor-critic-agent"), **kwargs
+            policy_spec=dict(deterministic=False),  # Set policy to stochastic.
+            name=kwargs.pop("name", "ppo-agent"), **kwargs
         )
-        # Use a stochastic policy.
-        self.policy.deterministic_policy = False
         self.sample_episodes = sample_episodes
 
         # Extend input Space definitions to this Agent's specific API-methods.
@@ -73,7 +71,7 @@ class PPOAgent(Agent):
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             weights="variables:policy",
-            use_exploration=bool,
+            deterministic=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space
@@ -81,8 +79,14 @@ class PPOAgent(Agent):
 
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "terminals")
-        assert memory_spec["type"] == "ring_buffer", "PPO memory must be ring-buffer for episode-handling."
         self.memory = Memory.from_spec(memory_spec)
+        assert isinstance(self.memory, RingBuffer), "ERROR: PPO memory must be ring-buffer for episode-handling!"
+
+        # Make sure the python buffer is not larger than our memory capacity.
+        assert self.observe_spec["buffer_size"] <= self.memory.capacity,\
+            "ERROR: Buffer's size ({}) in `observe_spec` must be smaller or equal to the memory's capacity ({})!".\
+            format(self.observe_spec["buffer_size"], self.memory.capacity)
+
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
@@ -113,8 +117,10 @@ class PPOAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("value-function", "value-function-optimizer", "policy", "preprocessor-stack",
-                              self.optimizer.scope, *sub_components)
+        self.define_graph_api(
+            "value-function", "value-function-optimizer", "policy", "preprocessor-stack",
+            self.optimizer.scope, *sub_components
+        )
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
@@ -122,12 +128,12 @@ class PPOAgent(Agent):
                               build_options=dict(vf_optimizer=self.value_function_optimizer))
             self.graph_built = True
 
-    def define_graph_api(self, value_function_scope, vf_optimizer_scope,
-                         policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+    def define_graph_api(self, value_function_scope, vf_optimizer_scope, policy_scope, pre_processor_scope,
+                         optimizer_scope, *sub_components):
         super(PPOAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer, value_function, vf_optimizer\
-            = sub_components
+        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer, value_function, \
+            vf_optimizer = sub_components
         sample_episodes = self.sample_episodes
 
         # Reset operation (resets preprocessor).
@@ -139,15 +145,15 @@ class PPOAgent(Agent):
 
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(self, preprocessed_states, use_exploration=True):
-            out = policy.get_action(preprocessed_states, use_exploration)
+        def action_from_preprocessed_state(self, preprocessed_states, deterministic=False):
+            out = policy.get_action(preprocessed_states, deterministic=deterministic)
             return preprocessed_states, out["action"]
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(self, states, use_exploration=True):
+        def get_preprocessed_state_and_action(self, states, deterministic=False):
             preprocessed_states = preprocessor.preprocess(states)
-            return self.action_from_preprocessed_state(preprocessed_states, use_exploration)
+            return self.action_from_preprocessed_state(preprocessed_states, deterministic)
 
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
@@ -165,13 +171,12 @@ class PPOAgent(Agent):
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             # Route to external update method.
-            return self_._graph_fn_iterative_opt(preprocessed_s, actions, rewards, terminals)
+            return self_.update_from_external_batch(preprocessed_s, actions, rewards, terminals)
 
         # Learn from an external batch.
-        # TODO fix double call issue.
-        # @rlgraph_api(component=self.root_component)
-        # def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals):
-        #     return self_._graph_fn_iterative_opt(preprocessed_states, actions, rewards, terminals)
+        @rlgraph_api(component=self.root_component)
+        def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals):
+            return self_._graph_fn_iterative_opt(preprocessed_states, actions, rewards, terminals)
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
@@ -267,7 +272,7 @@ class PPOAgent(Agent):
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, use_exploration],
+            [batched_states, not use_exploration],  # deterministic = not use_exploration
             # 0=preprocessed_states, 1=action
             return_ops
         ))
@@ -278,6 +283,7 @@ class PPOAgent(Agent):
 
     # TODO make next states optional in observe API.
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
+        print("Inserting {} {} {} {}".format(preprocessed_states, actions, rewards, terminals))
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):
@@ -311,4 +317,4 @@ class PPOAgent(Agent):
             self.graph_executor.execute("reset_preprocessor")
 
     def __repr__(self):
-        return "PPOAgent"
+        return "PPOAgent()"

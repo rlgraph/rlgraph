@@ -34,11 +34,8 @@ class TestPPOShortTaskLearning(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
-    grid_world_2x2_preprocessing_spec = [dict(
-        type="reshape",
-        flatten=True,
-        flatten_categories=4
-    )]
+    grid_world_2x2_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=4)]
+    grid_world_4x4_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=16)]
     # Preprocessed state spaces.
     grid_world_2x2_flattened_state_space = FloatBox(shape=(4,), add_batch_rank=True)
     grid_world_4x4_flattened_state_space = FloatBox(shape=(16,), add_batch_rank=True)
@@ -54,14 +51,14 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space,
         )
 
-        time_steps = 300
+        time_steps = 3000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=True,
             preprocessing_spec=self.grid_world_2x2_preprocessing_spec
         )
-        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        results = worker.execute_timesteps(time_steps, max_timesteps_per_episode=100, use_exploration=True)
 
         print(results)
 
