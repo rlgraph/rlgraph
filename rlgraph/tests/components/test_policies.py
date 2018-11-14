@@ -76,7 +76,8 @@ class TestPolicies(unittest.TestCase):
             expected_probabilities_output[1][expected_actions[1]],
         ]))
         test.test(("get_action_log_probs", [states, expected_actions]),
-                  expected_outputs=expected_action_log_prob_output, decimals=5)
+                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output,
+                                        logits=expected_action_layer_output), decimals=5)
 
         print("Probs: {}".format(expected_probabilities_output))
 
@@ -164,7 +165,8 @@ class TestPolicies(unittest.TestCase):
             expected_probabilities_output[2][expected_actions[2]],
         ]))
         test.test(("get_action_log_probs", [nn_input, expected_actions]),
-                  expected_outputs=expected_action_log_prob_output, decimals=5)
+                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output,
+                                        logits=expected_q_values_output), decimals=5)
 
         print("Probs: {}".format(expected_probabilities_output))
 
@@ -321,7 +323,8 @@ class TestPolicies(unittest.TestCase):
             expected_probabilities_output[1][2][expected_actions[1][2]],
         ]]))
         test.test(("get_action_log_probs", [states, expected_actions]),
-                  expected_outputs=expected_action_log_prob_output, decimals=5)
+                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output,
+                                        logits=expected_logits_output), decimals=5)
 
         print("Probs: {}".format(expected_probabilities_output))
 
