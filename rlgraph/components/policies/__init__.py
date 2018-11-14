@@ -1,4 +1,4 @@
-# Copyright 2018 The Rlgraph Authors, All Rights Reserved.
+# Copyright 2018 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,3 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components.policies.policy import Policy
+from rlgraph.components.policies.baseline_policy import BaselinePolicy
+from rlgraph.components.policies.dueling_policy import DuelingPolicy
+
+# The Stacks.
+Policy.__lookup_classes__ = dict(
+    policy=Policy,
+    baselinepolicy=BaselinePolicy,
+    duelingpolicy=DuelingPolicy
+)
+
+__all__ = ["Policy"] + \
+          list(set(map(lambda x: x.__name__, Policy.__lookup_classes__.values())))

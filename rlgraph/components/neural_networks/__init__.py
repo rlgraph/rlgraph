@@ -30,6 +30,6 @@ Stack.__lookup_classes__ = dict(
     preprocessorstack=PreprocessorStack
 )
 
-__all__ = ["NeuralNetwork", "Policy", "ValueFunction"] + \
+__all__ = ["NeuralNetwork", "ValueFunction"] + \
           ["Stack"] + \
           list(set(map(lambda x: x.__name__, Stack.__lookup_classes__.values())))
