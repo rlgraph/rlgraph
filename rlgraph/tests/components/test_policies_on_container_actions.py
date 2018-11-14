@@ -27,7 +27,7 @@ from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import softmax, relu
 
 
-class TestPolicies(unittest.TestCase):
+class TestPoliciesOnContainerActions(unittest.TestCase):
 
     def test_policy_for_discrete_container_action_space(self):
         # state_space.
