@@ -46,7 +46,7 @@ class TestPolicies(unittest.TestCase):
             component=policy,
             input_spaces=dict(
                 nn_input=state_space,
-                #actions=action_space
+                actions=action_space
             ),
             action_space=action_space
         )
@@ -75,28 +75,41 @@ class TestPolicies(unittest.TestCase):
             logits=expected_action_layer_outputs, probabilities=expected_probabilities_output
         ), decimals=5)
 
-        expected_actions = np.argmax(expected_action_layer_outputs, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
-
-        # Action log-probs.
-        expected_action_log_prob_output = np.log(np.array([
-            expected_probabilities_output[0][expected_actions[0]],
-            expected_probabilities_output[1][expected_actions[1]],
-        ]))
-        test.test(("get_action_log_probs", [states, expected_actions]),
-                  expected_outputs=expected_action_log_prob_output, decimals=5)
-
         print("Probs: {}".format(expected_probabilities_output))
+
+        expected_actions = dict(
+            a=np.argmax(expected_action_layer_outputs["a"], axis=-1),
+            b=np.argmax(expected_action_layer_outputs["b"], axis=-1)
+        )
+        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)  # dict(action=expected_actions))
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"]["a"].dtype == np.int32)
+        self.assertTrue(out["action"]["a"].shape == (2,))
+        self.assertTrue(out["action"]["b"].dtype == np.int32)
+        self.assertTrue(out["action"]["b"].shape == (2,))
 
         # Deterministic sample.
         test.test(("get_deterministic_action", states), expected_outputs=None)  # dict(action=expected_actions))
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"]["a"].dtype == np.int32)
+        self.assertTrue(out["action"]["a"].shape == (2,))
+        self.assertTrue(out["action"]["b"].dtype == np.int32)
+        self.assertTrue(out["action"]["b"].shape == (2,))
 
         # Distribution's entropy.
         out = test.test(("get_entropy", states), expected_outputs=None)  # dict(entropy=expected_h), decimals=3)
-        self.assertTrue(out["entropy"].dtype == np.float32)
+        self.assertTrue(out["entropy"]["a"].dtype == np.float32)
+        self.assertTrue(out["entropy"]["a"].shape == (2,))
+        self.assertTrue(out["entropy"]["b"].dtype == np.float32)
+        self.assertTrue(out["entropy"]["b"].shape == (2,))
 
+        # Action log-probs.
+        expected_action_log_prob_output = dict(
+            a=np.log(np.array([expected_probabilities_output["a"][0][expected_actions["a"][0]],
+                               expected_probabilities_output["a"][1][expected_actions["a"][1]]])),
+            b=np.log(np.array([expected_probabilities_output["b"][0][expected_actions["b"][0]],
+                               expected_probabilities_output["b"][1][expected_actions["b"][1]]])),
+        )
+        test.test(("get_action_log_probs", [states, expected_actions]),
+                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output), decimals=5)
