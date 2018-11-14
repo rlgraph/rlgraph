@@ -113,7 +113,7 @@
 
   "observe_spec":
   {
-    "buffer_size": 3000
+    "buffer_size": 1000
   },
 
   "update_spec": {
