@@ -63,7 +63,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         print(results)
 
         # Assume we have learned something.
-        self.assertGreater(results["mean_return"], -0.1)
+        self.assertGreater(results["mean_reward"], -0.1)
 
         # Check the last action probs for the 2 valid next_states (start (after a reset) and one below start).
         action_probs = results[3]["action_probs"].reshape((80, 4))
