@@ -35,6 +35,7 @@ class TestPolicies(unittest.TestCase):
 
         # Container action space.
         action_space = dict(
+            type="dict",
             a=IntBox(2),
             b=IntBox(3),
             add_batch_rank=True
@@ -45,7 +46,7 @@ class TestPolicies(unittest.TestCase):
             component=policy,
             input_spaces=dict(
                 nn_input=state_space,
-                actions=action_space
+                #actions=action_space
             ),
             action_space=action_space
         )
@@ -57,22 +58,25 @@ class TestPolicies(unittest.TestCase):
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
         test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=6)
 
-        # Raw action layer output; Expected shape=(2,5): 2=batch, 5=action categories
-        expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
+        # Raw action layers' output.
+        expected_action_layer_outputs = dict(
+            a=np.matmul(expected_nn_output, policy_params["policy/action-adapter-0/action-layer/dense/kernel"]),
+            b=np.matmul(expected_nn_output, policy_params["policy/action-adapter-1/action-layer/dense/kernel"])
         )
-        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 5))
-        test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
+        test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_outputs),
                   decimals=5)
 
-        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
-
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
-        expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        test.test(("get_logits_probabilities_log_probs", states, [0, 1]), expected_outputs=dict(
-            logits=expected_action_layer_output, probabilities=np.array(expected_probabilities_output, dtype=np.float32)
+        expected_probabilities_output = dict(
+            a=np.array(softmax(expected_action_layer_outputs["a"], axis=-1), dtype=np.float32),
+            b=np.array(softmax(expected_action_layer_outputs["b"], axis=-1), dtype=np.float32)
+        )
+        test.test(("get_logits_probabilities_log_probs", states, ["logits", "probabilities"]), expected_outputs=dict(
+            logits=expected_action_layer_outputs, probabilities=expected_probabilities_output
         ), decimals=5)
+
+        expected_actions = np.argmax(expected_action_layer_outputs, axis=-1)
+        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([

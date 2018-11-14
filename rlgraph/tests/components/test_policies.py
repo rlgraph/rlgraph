@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 import unittest
 
-from rlgraph.components.neural_networks import Policy
+from rlgraph.components.policies.policy import Policy
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
@@ -55,14 +55,10 @@ class TestPolicies(unittest.TestCase):
 
         # Raw action layer output; Expected shape=(2,5): 2=batch, 5=action categories
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
+            expected_nn_output, policy_params["policy/action-adapter-0/action-layer/dense/kernel"]
         )
-        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 5))
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
-
-        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
@@ -70,27 +66,33 @@ class TestPolicies(unittest.TestCase):
             logits=expected_action_layer_output, probabilities=np.array(expected_probabilities_output, dtype=np.float32)
         ), decimals=5)
 
-        # Action log-probs.
-        expected_action_log_prob_output = np.log(np.array([
-            expected_probabilities_output[0][expected_actions[0]],
-            expected_probabilities_output[1][expected_actions[1]],
-        ]))
-        test.test(("get_action_log_probs", [states, expected_actions]),
-                  expected_outputs=expected_action_log_prob_output, decimals=5)
-
         print("Probs: {}".format(expected_probabilities_output))
+
+        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
+        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)  # dict(action=expected_actions))
         self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].shape == (2,))
 
         # Deterministic sample.
         test.test(("get_deterministic_action", states), expected_outputs=None)  # dict(action=expected_actions))
         self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].shape == (2,))
 
         # Distribution's entropy.
         out = test.test(("get_entropy", states), expected_outputs=None)  # dict(entropy=expected_h), decimals=3)
         self.assertTrue(out["entropy"].dtype == np.float32)
+        self.assertTrue(out["entropy"].shape == (2,))
+
+        # Action log-probs.
+        expected_action_log_prob_output = dict(action_log_probs=np.log(np.array([
+            expected_probabilities_output[0][expected_actions[0]],
+            expected_probabilities_output[1][expected_actions[1]],
+        ])))
+        test.test(("get_action_log_probs", [states, expected_actions]),
+                  expected_outputs=expected_action_log_prob_output, decimals=5)
 
     def test_policy_for_discrete_action_space_with_dueling_layer(self):
         np.random.seed(10)
@@ -129,11 +131,11 @@ class TestPolicies(unittest.TestCase):
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_state_value = np.matmul(relu(np.matmul(
             expected_nn_output,
-            policy_params["policy/dueling-action-adapter/dense-layer-state-value-stream/dense/kernel"]
-        )), policy_params["policy/dueling-action-adapter/state-value-node/dense/kernel"])
+            policy_params["policy/dueling-action-adapter-0/dense-layer-state-value-stream/dense/kernel"]
+        )), policy_params["policy/dueling-action-adapter-0/state-value-node/dense/kernel"])
         expected_raw_advantages = np.matmul(relu(np.matmul(
-            expected_nn_output, policy_params["policy/dueling-action-adapter/dense-layer-advantage-stream/dense/kernel"]
-        )), policy_params["policy/dueling-action-adapter/action-layer/dense/kernel"])
+            expected_nn_output, policy_params["policy/dueling-action-adapter-0/dense-layer-advantage-stream/dense/kernel"]
+        )), policy_params["policy/dueling-action-adapter-0/action-layer/dense/kernel"])
         test.test(("get_action_layer_output", nn_input), expected_outputs=dict(
             state_value_node=expected_state_value, output=expected_raw_advantages
         ), decimals=5)
@@ -213,7 +215,7 @@ class TestPolicies(unittest.TestCase):
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["policy/baseline-action-adapter/action-layer/dense/kernel"]
+            expected_nn_output, policy_params["policy/baseline-action-adapter-0/action-layer/dense/kernel"]
         )
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(3, 4))
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
@@ -281,7 +283,7 @@ class TestPolicies(unittest.TestCase):
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["policy/baseline-action-adapter/action-layer/dense/kernel"]
+            expected_nn_output, policy_params["policy/baseline-action-adapter-0/action-layer/dense/kernel"]
         )
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(6, 4+1))
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
