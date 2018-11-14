@@ -41,7 +41,7 @@ class PPOAgent(Agent):
     """
     def __init__(self, value_function_spec, value_function_optimizer_spec=None,
                  clip_ratio=0.2, gae_lambda=1.0, standardize_advantages=False,
-                 sample_episodes=True, memory_spec=None, **kwargs):
+                 sample_episodes=True, weight_entropy=None, memory_spec=None, **kwargs):
         """
         Args:
             value_function_spec (list): Neural network specification for baseline.
@@ -54,6 +54,7 @@ class PPOAgent(Agent):
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
                 example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
+            weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
@@ -91,7 +92,8 @@ class PPOAgent(Agent):
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
         self.loss_function = PPOLossFunction(discount=self.discount, gae_lambda=gae_lambda, clip_ratio=clip_ratio,
-                                             standardize_advantages=standardize_advantages)
+                                             standardize_advantages=standardize_advantages,
+                                             weight_entropy=weight_entropy)
 
         # TODO make network sharing optional.
         # Create non-shared baseline network.
@@ -201,11 +203,12 @@ class PPOAgent(Agent):
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
 
-                    action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
+                    policy_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = self.value_function.value_output(sample_states)
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                        action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
+                        policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
+                        sample_terminals, policy_probs["logits"]
                     )
 
                     policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
@@ -283,7 +286,6 @@ class PPOAgent(Agent):
 
     # TODO make next states optional in observe API.
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
-        print("Inserting {} {} {} {}".format(preprocessed_states, actions, rewards, terminals))
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None):

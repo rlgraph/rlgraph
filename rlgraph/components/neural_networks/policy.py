@@ -234,7 +234,7 @@ class Policy(Component):
         # Probabilities under current action.
         action_log_probs = self.distribution.log_prob(out["probabilities"], actions)
 
-        return action_log_probs
+        return dict(action_log_probs=action_log_probs, logits=out["logits"])
 
     @rlgraph_api
     def get_deterministic_action(self, nn_input, internal_states=None):

@@ -32,14 +32,15 @@ class ActorCriticAgent(Agent):
     Basic actor-critic policy gradient architecture with generalized advantage estimation,
     and entropy regularization. Suitable for execution with A2C, A3C.
     """
-    def __init__(self, gae_lambda=1.0, sample_episodes=True, memory_spec=None, **kwargs):
+    def __init__(self, gae_lambda=1.0, sample_episodes=False, weight_entropy=None, memory_spec=None, **kwargs):
         """
         Args:
+            gae_lambda (float): Lambda for generalized advantage estimation.
             sample_episodes (bool): If true, the update method interprets the batch_size as the number of
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
                 example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
-            gae_lambda (float): Lambda for generalized advantage estimation.
+            weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
@@ -75,7 +76,8 @@ class ActorCriticAgent(Agent):
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
-        self.loss_function = ActorCriticLossFunction(discount=self.discount, gae_lambda=gae_lambda)
+        self.loss_function = ActorCriticLossFunction(discount=self.discount, gae_lambda=gae_lambda,
+                                                     weight_entropy=weight_entropy)
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
