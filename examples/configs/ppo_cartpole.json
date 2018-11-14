@@ -55,6 +55,7 @@
 
 
   "update_spec": {
+    "update_mode": "time_steps",
     "do_updates": true,
     "update_interval": 1000,
     "batch_size": 1000,

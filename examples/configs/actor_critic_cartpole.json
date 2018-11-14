@@ -37,6 +37,7 @@
   ],
 
   "update_spec": {
+    "update_mode": "episodes",
     "do_updates": true,
     "update_interval": 400,
     "batch_size": 10
