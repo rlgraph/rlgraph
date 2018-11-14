@@ -186,7 +186,6 @@ class Worker(Specifiable):
                 if self.update_mode == "time_steps" and self.agent.timesteps % self.update_interval == 0:
                     return self.execute_update()
                 elif self.update_mode == "episodes" and self.episodes_since_update == self.update_interval:
-                    print("Updating at episode {} with interval {}".format(self.episodes_since_update, self.update_interval))
                     # Do not do modulo here - this would be called every step in one episode otherwise.
                     loss = self.execute_update()
                     self.episodes_since_update = 0
