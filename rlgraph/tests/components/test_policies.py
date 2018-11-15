@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 import unittest
 
-from rlgraph.components.policies.policy import Policy
+from rlgraph.components.policies import Policy, SharedValueFunctionPolicy
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
@@ -183,7 +183,7 @@ class TestPolicies(unittest.TestCase):
         self.assertTrue(out["entropy"].dtype == np.float32)
 
     def test_policy_for_discrete_action_space_with_baseline_layer(self):
-        np.random.seed(11)
+        #np.random.seed(11)
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
         state_space = FloatBox(shape=(4,), add_batch_rank=True)
 
@@ -191,67 +191,76 @@ class TestPolicies(unittest.TestCase):
         action_space = IntBox(3, add_batch_rank=True)
 
         # Policy with baseline action adapter.
-        policy = Policy(
+        baseline_policy = SharedValueFunctionPolicy(
             network_spec=config_from_path("configs/test_lrelu_nn.json"),
-            action_adapter_spec=dict(type="baseline_action_adapter", action_space=action_space)
+            action_space=action_space
         )
         test = ComponentTest(
-            component=policy,
+            component=baseline_policy,
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space
             ),
             action_space=action_space,
-            seed=11
+            #seed=11
         )
-        policy_params = test.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(baseline_policy.variables)
 
         # Some NN inputs (4 input nodes, batch size=3).
         states = state_space.sample(size=3)
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
-        expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
-        expected_nn_output = relu(expected_nn_output, 0.1)
+        expected_nn_output = relu(np.matmul(
+            states, policy_params["shared-value-function-policy/test-network/hidden-layer/dense/kernel"]
+        ), 0.1)
         test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=5)
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["policy/baseline-action-adapter-0/action-layer/dense/kernel"]
+            expected_nn_output,
+            policy_params["shared-value-function-policy/action-adapter-0/action-layer/dense/kernel"]
         )
-        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(3, 4))
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
 
         # State-values: One for each item in the batch (simply take first out-node of action_layer).
-        expected_state_value_output = expected_action_layer_output[:, :1]
-        # logits-values: One for each action-choice per item in the batch (simply take the remaining out nodes).
-        expected_logits_output = expected_action_layer_output[:, 1:]
-        test.test(("get_state_values_logits_probabilities_log_probs", states, ["state_values", "logits"]),
-                  expected_outputs=dict(state_values=expected_state_value_output, logits=expected_logits_output),
+        expected_state_value_output = np.matmul(
+            expected_nn_output,
+            policy_params["shared-value-function-policy/value-function-node/dense/kernel"]
+        )
+        test.test(("get_state_values", states), expected_outputs=dict(state_values=expected_state_value_output),
                   decimals=5)
 
-        expected_actions = np.argmax(expected_logits_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        # logits-values: One for each action-choice per item in the batch (simply take the remaining out nodes).
+        test.test(("get_state_values_logits_probabilities_log_probs", states, ["state_values", "logits"]),
+                  expected_outputs=dict(state_values=expected_state_value_output, logits=expected_action_layer_output),
+                  decimals=5)
 
         # Parameter (probabilities). Softmaxed logits.
-        expected_probabilities_output = softmax(expected_logits_output, axis=-1)
+        expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
         test.test(("get_logits_probabilities_log_probs", states, ["logits", "probabilities"]), expected_outputs=dict(
-            logits=expected_logits_output,
+            logits=expected_action_layer_output,
             probabilities=expected_probabilities_output
         ), decimals=5)
 
         print("Probs: {}".format(expected_probabilities_output))
 
+        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
+        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+
         # Stochastic sample.
-        out = test.test(("get_stochastic_action", states), expected_outputs=None)  # dict(action=expected_actions))
+        out = test.test(("get_stochastic_action", states), expected_outputs=None)
         self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].shape == (3,))
 
         # Deterministic sample.
-        out = test.test(("get_deterministic_action", states), expected_outputs=None)  # dict(action=expected_actions))
+        out = test.test(("get_deterministic_action", states), expected_outputs=None)
         self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].shape == (3,))
 
         # Distribution's entropy.
-        out = test.test(("get_entropy", states), expected_outputs=None)  # dict(entropy=expected_h), decimals=2)
+        out = test.test(("get_entropy", states), expected_outputs=None)
         self.assertTrue(out["entropy"].dtype == np.float32)
+        self.assertTrue(out["entropy"].shape == (3,))
 
     def test_policy_for_discrete_action_space_with_baseline_layer_with_time_rank_folding(self):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
