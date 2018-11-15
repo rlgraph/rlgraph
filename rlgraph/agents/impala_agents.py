@@ -161,7 +161,9 @@ class IMPALAAgent(Agent):
             action_adapter_spec=action_adapter_spec,
             # TODO: Create some auto-setting based on LSTM inside the NN.
             policy_spec=dict(
-                batch_apply=batch_apply, batch_apply_action_adapters=batch_apply_action_adapters, deterministic=False,
+                batch_apply=batch_apply,
+                action_adapter_spec=dict(batch_apply=batch_apply_action_adapters),
+                deterministic=False,
                 reuse_variable_scope="shared-policy",
             ),
             exploration_spec=self.exploration_spec,

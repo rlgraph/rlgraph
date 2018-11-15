@@ -40,8 +40,7 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 deterministic=True, batch_apply=False, batch_apply_action_adapters=False,
-                 scope="policy", **kwargs):
+                 deterministic=True, batch_apply=False, scope="policy", **kwargs):
         """
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
@@ -57,20 +56,10 @@ class Policy(Component):
 
             batch_apply (bool): Whether to wrap both the NN and the ActionAdapter with a BatchApply Component in order
                 to fold time rank into batch rank before a forward pass.
-                Note that only one of `batch_apply` or `batch_apply_action_adapters` may be True.
-                Default: False.
-
-            batch_apply_action_adapters (bool): Whether to wrap only the ActionAdapter with a BatchApply Component in
-                order to fold time rank into batch rank before a forward pass.
-                Note that only one of `batch_apply` or `batch_apply_action_adapters` may be True.
-                Default: False.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
 
         self.batch_apply = batch_apply
-        self.batch_apply_action_adapters = batch_apply_action_adapters
-        assert self.batch_apply is False or self.batch_apply_action_adapters is False,\
-            "ERROR: Either one of `batch_apply` or `batch_apply_action_adapters` must be False!"
 
         # Do manual folding and unfolding as not to have to wrap too many components into a BatchApply.
         self.folder = None
@@ -84,9 +73,7 @@ class Policy(Component):
         # Create the necessary action adapters for this Policy. One for each action space component.
         self.action_adapters = dict()
         if action_space is None:
-            self.action_adapters[""] = ActionAdapter.from_spec(
-                action_adapter_spec, batch_apply=self.batch_apply_action_adapters
-            )
+            self.action_adapters[""] = ActionAdapter.from_spec(action_adapter_spec)
             self.action_space = self.action_adapters[""].action_space
             # Assert single component action space.
             assert len(self.action_space.flatten()) == 1,\
@@ -98,10 +85,7 @@ class Policy(Component):
                     aa_spec = action_adapter_spec.get(flat_key, action_adapter_spec)
                 else:
                     aa_spec = dict(action_space=action_component)
-                self.action_adapters[flat_key] = ActionAdapter.from_spec(
-                    aa_spec, batch_apply=self.batch_apply_action_adapters,
-                    scope="action-adapter-{}".format(i)
-                )
+                self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
 
         self.deterministic = deterministic
 
@@ -239,11 +223,6 @@ class Policy(Component):
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
         action = self._graph_fn_get_action_components(out["logits"], out["probabilities"], True)
 
-        #if isinstance(self.action_space, IntBox):
-        #    action = self._graph_fn_get_deterministic_action_wo_distribution(out["logits"])
-        #else:
-        #    action = self.distribution.sample_deterministic(out["probabilities"])
-
         return dict(action=action, last_internal_states=out["last_internal_states"])
 
     @rlgraph_api
@@ -258,7 +237,6 @@ class Policy(Component):
         """
         out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
         action = self._graph_fn_get_action_components(out["logits"], out["probabilities"], False)
-        #action = self.distribution.sample_stochastic(out["probabilities"])
 
         return dict(action=action, last_internal_states=out["last_internal_states"])
 
@@ -292,7 +270,7 @@ class Policy(Component):
         """
         ret = FlattenedDataOp()
         for flat_key, action_adapter in self.action_adapters.items():
-            ret[flat_key] = action_adapter.get_action_layer_output(nn_output)["output"]
+            ret[flat_key] = action_adapter.get_raw_output(nn_output)["output"]
 
         return ret
 
@@ -336,10 +314,6 @@ class Policy(Component):
             FlattenedDataOp: A DataOpDict with the different distributions' `draw` outputs. Keys always correspond to
                 structure of `self.action_space`.
         """
-        #ret = FlattenedDataOp()
-        #for flat_key, distribution in self.distributions.items():
-        #    ret[flat_key] = distribution.draw(probabilities, deterministic)
-
         return self.distributions[key].draw(probabilities, deterministic)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
@@ -355,10 +329,6 @@ class Policy(Component):
             FlattenedDataOp: A DataOpDict with the different distributions' `entropy` outputs. Keys always correspond to
                 structure of `self.action_space`.
         """
-        #ret = FlattenedDataOp()
-        #for flat_key, distribution in self.distributions.items():
-        #    ret[flat_key] = distribution.entropy(probabilities)
-
         return self.distributions[key].entropy(probabilities)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
@@ -375,21 +345,17 @@ class Policy(Component):
             FlattenedDataOp: A DataOpDict with the different distributions' `log_prob` outputs. Keys always correspond
                 to structure of `self.action_space`.
         """
-        #ret = FlattenedDataOp()
-        #for flat_key, distribution in self.distributions.items():
-        #    ret[flat_key] = distribution.log_prob(probabilities, actions)
-
         return self.distributions[key].log_prob(probabilities, actions)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_get_action_components(self, key, logits, probabilities, deterministic):
         flat_action_space = self.action_space.flatten()
-        action_space = flat_action_space[key]
+        action_space_component = flat_action_space[key]
 
         # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
         # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
         # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
-        if deterministic and isinstance(action_space, IntBox):
+        if deterministic and isinstance(action_space_component, IntBox):
             action = self._graph_fn_get_deterministic_action_wo_distribution(logits)
         else:
             action = self.distributions[key].draw(probabilities, deterministic)
