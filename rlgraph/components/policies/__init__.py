@@ -18,13 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.policies.policy import Policy
-from rlgraph.components.policies.baseline_policy import BaselinePolicy
+from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
 from rlgraph.components.policies.dueling_policy import DuelingPolicy
 
 # The Stacks.
 Policy.__lookup_classes__ = dict(
     policy=Policy,
-    baselinepolicy=BaselinePolicy,
+    sharedvaluefunctionpolicy=SharedValueFunctionPolicy,
     duelingpolicy=DuelingPolicy
 )
 
