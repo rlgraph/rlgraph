@@ -38,7 +38,7 @@ class ValueFunction(Component):
             "type": "dense",
             "units": 1,
             "activation": "linear",
-            "scope": "value_function_output"
+            "scope": "value-function-output"
         }
         network_spec.append(value_layer)
         self.neural_network = NeuralNetwork.from_spec(network_spec)
