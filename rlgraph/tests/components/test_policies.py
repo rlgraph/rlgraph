@@ -182,8 +182,7 @@ class TestPolicies(unittest.TestCase):
         out = test.test(("get_entropy", nn_input), expected_outputs=None)  # dict(entropy=expected_h), decimals=3)
         self.assertTrue(out["entropy"].dtype == np.float32)
 
-    def test_policy_for_discrete_action_space_with_baseline_layer(self):
-        #np.random.seed(11)
+    def test_shared_value_function_policy_for_discrete_action_space(self):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
         state_space = FloatBox(shape=(4,), add_batch_rank=True)
 
@@ -191,20 +190,19 @@ class TestPolicies(unittest.TestCase):
         action_space = IntBox(3, add_batch_rank=True)
 
         # Policy with baseline action adapter.
-        baseline_policy = SharedValueFunctionPolicy(
+        shared_value_function_policy = SharedValueFunctionPolicy(
             network_spec=config_from_path("configs/test_lrelu_nn.json"),
             action_space=action_space
         )
         test = ComponentTest(
-            component=baseline_policy,
+            component=shared_value_function_policy,
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space
             ),
             action_space=action_space,
-            #seed=11
         )
-        policy_params = test.read_variable_values(baseline_policy.variables)
+        policy_params = test.read_variable_values(shared_value_function_policy.variables)
 
         # Some NN inputs (4 input nodes, batch size=3).
         states = state_space.sample(size=3)
@@ -222,7 +220,7 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
 
-        # State-values: One for each item in the batch (simply take first out-node of action_layer).
+        # State-values: One for each item in the batch.
         expected_state_value_output = np.matmul(
             expected_nn_output,
             policy_params["shared-value-function-policy/value-function-node/dense/kernel"]
@@ -230,7 +228,7 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_state_values", states), expected_outputs=dict(state_values=expected_state_value_output),
                   decimals=5)
 
-        # logits-values: One for each action-choice per item in the batch (simply take the remaining out nodes).
+        # Logits-values.
         test.test(("get_state_values_logits_probabilities_log_probs", states, ["state_values", "logits"]),
                   expected_outputs=dict(state_values=expected_state_value_output, logits=expected_action_layer_output),
                   decimals=5)
