@@ -55,17 +55,10 @@ class NeuralNetwork(Stack):
         kwargs["scope"] = kwargs.get("scope", "neural-network")
 
         # Force the only API-method to be `apply`. No matter whether custom-API or auto-generated (via Stack).
+        self.custom_api_given = True
         if "api_methods" not in kwargs:
-            @rlgraph_api
-            def apply(self, *inputs):
-                out = self.apply_shadowed_(*inputs)
-                if isinstance(out, dict):
-                    assert "output" in out
-                    return out
-                else:
-                    return dict(output=out)
-
             kwargs["api_methods"] = {("apply_shadowed_", "apply")}
+            self.custom_api_given = False
         else:
             assert len(kwargs["api_methods"]) == 1, \
                 "ERROR: Only 0 or 1 given API-methods are allowed in NeuralNetwork ctor! You provided " \
@@ -81,14 +74,43 @@ class NeuralNetwork(Stack):
 
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
-    def build_auto_api_method(self, stack_api_method_name, component_api_method_name):
+    def build_auto_api_method(self, stack_api_method_name, component_api_method_name, ok_to_overwrite=False):
         if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
-            @rlgraph_api(name=stack_api_method_name, component=self)
+            @rlgraph_api(name=stack_api_method_name, component=self, ok_to_overwrite=ok_to_overwrite)
             def method(self, *inputs, **kwargs):
                 # Avoid jumping back between layers and calls at runtime.
                 return self._pytorch_fast_path_exec(inputs, **kwargs)
         else:
-            super(NeuralNetwork, self).build_auto_api_method(stack_api_method_name, component_api_method_name)
+            super(NeuralNetwork, self).build_auto_api_method(
+                stack_api_method_name, component_api_method_name, ok_to_overwrite
+            )
+            if self.custom_api_given is False:
+                @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
+                def apply(self, *inputs):
+                    out = self.apply_shadowed_(*inputs)
+                    if isinstance(out, dict):
+                        assert "output" in out
+                        return out
+                    else:
+                        return dict(output=out)
+
+    def add_layer(self, layer_component):
+        """
+        Adds an additional Layer Component (even after c'tor execution) to this NN.
+        TODO: Currently, layers are always added to the end.
+
+        Args:
+            layer_component (Layer): The Layer object to be added to this NN.
+        """
+        assert self.custom_api_given is False,\
+            "ERROR: Cannot add layer to neural network if `apply` API-method is a custom one!"
+        assert hasattr(layer_component, self.map_api_to_sub_components_api["apply_shadowed_"]), \
+            "ERROR: Layer to be added ({}) does not have an API-method called '{}'!".format(
+                layer_component.scope, self.map_api_to_sub_components_api["apply_shadowed_"]
+            )
+        self.add_components(layer_component)
+        self.build_auto_api_method("apply_shadowed_", self.map_api_to_sub_components_api["apply_shadowed_"],
+                                   ok_to_overwrite=True)
 
     def _pytorch_fast_path_exec(self, *inputs, **kwargs):
         """

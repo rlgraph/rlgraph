@@ -56,6 +56,36 @@ class TestNeuralNetworks(unittest.TestCase):
 
         test.terminate()
 
+    def test_add_layer_to_simple_nn(self):
+        # Space must contain batch dimension (otherwise, NNlayer will complain).
+        space = FloatBox(shape=(3,), add_batch_rank=True)
+
+        # Create a simple neural net from json.
+        neural_net = NeuralNetwork.from_spec(config_from_path("configs/test_simple_nn.json"))  # type: NeuralNetwork
+        # Add another layer to it.
+        neural_net.add_layer(DenseLayer(units=10, scope="last-layer"))
+
+        # Do not seed, we calculate expectations manually.
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space))
+
+        # Batch of size=3.
+        input_ = space.sample(3)
+        # Calculate output manually.
+        var_dict = test.read_variable_values(neural_net.variables)
+        #var_dict = neural_net.get_variables("hidden-layer/dense/kernel", "hidden-layer/dense/bias", global_scope=False)
+        #w1_value = test.read_variable_values(var_dict["hidden-layer/dense/kernel"])
+        #b1_value = test.read_variable_values(var_dict["hidden-layer/dense/bias"])
+
+        expected = dense_layer(
+            dense_layer(input_, var_dict["test-network/hidden-layer/dense/kernel"],
+                        var_dict["test-network/hidden-layer/dense/bias"]),
+            var_dict["test-network/last-layer/dense/kernel"], var_dict["test-network/last-layer/dense/bias"]
+        )
+
+        test.test(("apply", input_), expected_outputs=dict(output=expected), decimals=5)
+
+        test.terminate()
+
     def test_lstm_nn(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         units = 3
