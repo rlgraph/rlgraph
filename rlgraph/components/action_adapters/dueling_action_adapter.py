@@ -107,7 +107,7 @@ class DuelingActionAdapter(ActionAdapter):
             )
 
     @rlgraph_api
-    def get_action_layer_output(self, nn_output):
+    def get_raw_output(self, nn_output):
         """
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
@@ -153,7 +153,7 @@ class DuelingActionAdapter(ActionAdapter):
                 - The probabilities obtained by softmaxing the q-values.
                 - The log-probs.
         """
-        out = self.get_action_layer_output(nn_output)
+        out = self.get_raw_output(nn_output)
         advantage_values_reshaped = self.reshape.apply(out["output"])
         q_values = self._graph_fn_calculate_q_values(out["state_value_node"], advantage_values_reshaped)
         probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(q_values)

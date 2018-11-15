@@ -53,7 +53,7 @@ class BaselineActionAdapter(ActionAdapter):
         Returns:
             SingleDataOp: The logits (raw nn_output, BUT reshaped).
         """
-        aa_output = self.get_action_layer_output(nn_output)
+        aa_output = self.get_raw_output(nn_output)
         _, logits = self._graph_fn_get_state_values_and_logits(aa_output["output"])
         return logits
 
@@ -80,7 +80,7 @@ class BaselineActionAdapter(ActionAdapter):
     @rlgraph_api
     def get_state_values_and_logits(self, nn_output):
         # Run through the action layer.
-        aa_output = self.get_action_layer_output(nn_output)
+        aa_output = self.get_raw_output(nn_output)
         state_values, logits = self._graph_fn_get_state_values_and_logits(aa_output["output"])
         return state_values, logits
 

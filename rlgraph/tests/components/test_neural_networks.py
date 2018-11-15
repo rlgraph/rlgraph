@@ -72,9 +72,6 @@ class TestNeuralNetworks(unittest.TestCase):
         input_ = space.sample(3)
         # Calculate output manually.
         var_dict = test.read_variable_values(neural_net.variables)
-        #var_dict = neural_net.get_variables("hidden-layer/dense/kernel", "hidden-layer/dense/bias", global_scope=False)
-        #w1_value = test.read_variable_values(var_dict["hidden-layer/dense/kernel"])
-        #b1_value = test.read_variable_values(var_dict["hidden-layer/dense/bias"])
 
         expected = dense_layer(
             dense_layer(input_, var_dict["test-network/hidden-layer/dense/kernel"],
