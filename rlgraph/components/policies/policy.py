@@ -83,6 +83,7 @@ class Policy(Component):
             for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
                 if action_adapter_spec is not None:
                     aa_spec = action_adapter_spec.get(flat_key, action_adapter_spec)
+                    aa_spec["action_space"] = action_component
                 else:
                     aa_spec = dict(action_space=action_component)
                 self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
@@ -152,7 +153,6 @@ class Policy(Component):
                 probabilities: The probabilities gained from the softmaxed logits.
                 log_probs: The log(probabilities) values.
         """
-
         nn_output = self.get_nn_output(nn_input, internal_states)
         logits, probabilities, log_probs = self._graph_fn_get_action_adapter_logits_probabilities_log_probs(
             nn_output["output"]
