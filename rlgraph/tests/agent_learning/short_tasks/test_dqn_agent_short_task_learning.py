@@ -35,10 +35,6 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
     Tests whether the DQNAgent can learn in simple environments.
     """
     root_logger.setLevel(level=logging.INFO)
-    grid_world_preprocessing_spec = [dict(
-        type="reshape",
-        flatten=True
-    )]
     # Preprocessed state spaces.
     grid_world_2x2_flattened_state_space = FloatBox(shape=(4,), add_batch_rank=True)
     grid_world_4x4_flattened_state_space = FloatBox(shape=(16,), add_batch_rank=True)
@@ -49,8 +45,10 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         Creates a DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
         dummy_env = GridWorld("2x2")
+        agent_config = config_from_path("configs/dqn_agent_for_2x2_gridworld.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
         agent = DQNAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_2x2_gridworld.json"),
+            agent_config,
             double_q=False,
             dueling_q=False,
             state_space=self.grid_world_2x2_flattened_state_space,
@@ -66,7 +64,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld("2x2"),
             agent=agent,
-            preprocessing_spec=self.grid_world_preprocessing_spec,
+            preprocessing_spec=preprocessing_spec,
             worker_executes_preprocessing=True
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
@@ -96,8 +94,10 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
         dummy_env = GridWorld("2x2")
+        agent_config = config_from_path("configs/dqn_agent_for_2x2_gridworld.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
         agent = DQNAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_2x2_gridworld.json"),
+            agent_config,
             dueling_q=False,
             state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,
@@ -112,7 +112,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld("2x2"),
             agent=agent,
-            preprocessing_spec=self.grid_world_preprocessing_spec,
+            preprocessing_spec=preprocessing_spec,
             worker_executes_preprocessing=True
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
@@ -142,8 +142,10 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
         dummy_env = GridWorld("4x4")
+        agent_config = config_from_path("configs/dqn_agent_for_4x4_gridworld.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
         agent = DQNAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_4x4_gridworld.json"),
+            agent_config,
             dueling_q=False,
             state_space=self.grid_world_4x4_flattened_state_space,
             action_space=dummy_env.action_space,
@@ -158,7 +160,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld("4x4"),
             agent=agent,
-            preprocessing_spec=self.grid_world_preprocessing_spec,
+            preprocessing_spec=preprocessing_spec,
             worker_executes_preprocessing=True
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)

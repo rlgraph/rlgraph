@@ -11,6 +11,32 @@
 
   "preprocessing_spec":
   [
+    {
+      "type": "image_crop",
+      "x": 0,
+      "y": 25,
+      "width": 160,
+      "height": 160
+    },
+    {
+      "type": "image_resize",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "type": "grayscale",
+      "keep_rank": true
+    },
+    {
+      "type": "divide",
+      "divisor": 255
+    },
+    {
+      "type": "sequence",
+      "sequence_length": 4,
+      "batch_size": 1,
+      "add_rank": false
+    }
   ],
 
   "network_spec":
@@ -45,11 +71,19 @@
     }
   ],
 
-  "action_adapter_spec":
+  "policy_spec":
   {
-    "type": "dueling-action-adapter",
+    "type": "dueling-policy",
     "units_state_value_stream": 512,
-    "units_advantage_stream": 512
+    "action_adapter_spec":
+    {
+      "pre_network_spec": [
+        {
+          "type": "dense",
+          "units": 512
+        }
+      ]
+    }
   },
 
   "exploration_spec":

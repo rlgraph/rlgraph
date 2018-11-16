@@ -7,6 +7,15 @@
     "capacity": 64
   },
 
+  "preprocessing_spec":
+  [
+    {
+      "type": "reshape",
+      "flatten": true,
+      "flatten_categories": 4
+    }
+  ],
+
   "network_spec":
   [
     {

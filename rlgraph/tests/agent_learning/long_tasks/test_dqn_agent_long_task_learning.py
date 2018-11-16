@@ -35,13 +35,6 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
     root_logger.setLevel(level=logging.INFO)
 
     pong_preprocessed_state_space = FloatBox(shape=(80, 80, 4), add_batch_rank=True)
-    pong_preprocessing_spec = [
-        dict(type="image_crop", x=0, y=25, width=160, height=160),
-        dict(type="image_resize", width=80, height=80),
-        dict(type="grayscale", keep_rank=True),
-        dict(type="divide", divisor=255,),
-        dict(type="sequence", sequence_length=4, batch_size=1, add_rank=False)
-    ]
 
     def test_dqn_on_pong(self):
         """
@@ -49,6 +42,7 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
         """
         env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True, visualize=False)
         agent_config = config_from_path("configs/dqn_agent_for_pong.json")
+        preprocessing_spec = agent_config.pop("preprocessor_spec")
         agent = Agent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
             agent_config,
@@ -60,7 +54,7 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
         time_steps = 4000000
         worker = SingleThreadedWorker(
             env_spec=lambda: env, agent=agent, render=True,
-            preprocessing_spec=self.pong_preprocessing_spec,
+            preprocessing_spec=preprocessing_spec,
             worker_executes_preprocessing=True
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)

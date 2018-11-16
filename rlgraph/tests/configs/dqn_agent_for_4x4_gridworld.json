@@ -11,7 +11,8 @@
   [
     {
       "type": "reshape",
-      "flatten": true
+      "flatten": true,
+      "flatten_categories": 16
     }
   ],
 
