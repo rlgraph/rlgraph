@@ -18,7 +18,7 @@ multiple distributed backends and device execution strategies can be accessed wi
 agent definitions. This means it is especially suited for a smooth transition from applied use case prototypes
 to large scale distributed training.
 
-The current state of RLgraph in version 0.1.3 is alpha. The core engine is substantially complete
+The current state of RLgraph in version 0.1.4 is alpha. The core engine is substantially complete
 and works for TensorFlow and PyTorch. Distributed execution on Ray is exemplified via Distributed
 Prioritized Experience Replay (Ape-X), which also supports multi-gpu mode. Ape-X can be used both with PyTorch and
 TensorFlow. Distributed TensorFlow can be tested via the IMPALA agent. We will add a number of key

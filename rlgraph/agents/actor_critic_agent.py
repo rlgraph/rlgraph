@@ -110,7 +110,7 @@ class ActorCriticAgent(Agent):
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(self, preprocessed_states, deterministic=False):
-            out = policy.get_action(preprocessed_states, deterministic)
+            out = policy.get_action(preprocessed_states, deterministic=deterministic)
             return preprocessed_states, out["action"]
 
         # State (from environment) to action with preprocessing.
