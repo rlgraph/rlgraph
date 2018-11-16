@@ -90,9 +90,6 @@ class ActionAdapter(Component):
 
         assert not isinstance(self.action_space, ContainerSpace), "ERROR: ActionAdapter cannot handle ContainerSpaces!"
 
-        # Our (dense) action layer representing the flattened action space.
-        self.action_layer = None
-
         # Calculate the number of nodes in the action layer (DenseLayer object) depending on our action Space
         # or using a given fixed number (`units`).
         # Also generate the ReShape sub-Component and give it the new_shape.
@@ -121,7 +118,7 @@ class ActionAdapter(Component):
 
         # Do we have a pre-NN?
         if pre_network_spec is not None:
-            self.network = NeuralNetwork.from_spec(pre_network_spec, scope="pre-network")  # type: NeuralNetwork
+            self.network = NeuralNetwork.from_spec(pre_network_spec, scope="action-network")  # type: NeuralNetwork
             self.network.add_layer(action_layer)
         else:
             self.network = action_layer
@@ -158,7 +155,11 @@ class ActionAdapter(Component):
             DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
         """
         out = self.network.apply(nn_output)
-        return dict(output=out)
+
+        if type(out) == dict:
+            return out
+        else:
+            return dict(output=out)
 
     @rlgraph_api
     def get_logits(self, nn_output):
