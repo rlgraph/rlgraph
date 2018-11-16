@@ -39,6 +39,8 @@ class DuelingPolicy(Policy):
                  activation_state_value_stream="relu", scope="dueling-policy", **kwargs):
         super(DuelingPolicy, self).__init__(network_spec, scope=scope, **kwargs)
 
+        self.action_space_flattened = self.action_space.flatten()
+
         # The state-value stream.
         self.units_state_value_stream = units_state_value_stream
         self.weights_spec_state_value_stream = weights_spec_state_value_stream
@@ -144,7 +146,7 @@ class DuelingPolicy(Policy):
         return dict(logits=out["logits"], probabilities=out["probabilities"], log_probs=out["log_probs"],
                     last_internal_states=out.get("last_internal_states"))
 
-    @graph_fn
+    @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_calculate_q_values(self, state_value, advantage_values):
         """
         Args:
@@ -198,13 +200,14 @@ class DuelingPolicy(Policy):
 
                 log_probs (DataOp): Simply the log(parameters).
         """
+
         if get_backend() == "tf":
-            if isinstance(self.action_space, IntBox):
+            if isinstance(self.action_space_flattened[key], IntBox):
                 # Discrete actions.
                 parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
                 # Log probs.
                 log_probs = tf.log(x=parameters)
-            elif isinstance(self.action_space, FloatBox):
+            elif isinstance(self.action_space_flattened[key], FloatBox):
                 # Continuous actions.
                 mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
                 # Remove moments rank.

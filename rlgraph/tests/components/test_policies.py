@@ -274,7 +274,7 @@ class TestPolicies(unittest.TestCase):
         # action_space (2 possible actions).
         action_space = IntBox(2, add_batch_rank=True)
 
-        # Policy with additional dueling layer.
+        # Policy with dueling logic.
         policy = DuelingPolicy(
             network_spec=config_from_path("configs/test_lrelu_nn.json"),
             action_adapter_spec=dict(
@@ -295,9 +295,9 @@ class TestPolicies(unittest.TestCase):
         )
         policy_params = test.read_variable_values(policy.variables)
 
-        # Some NN inputs (3 input nodes, batch size=3).
+        # Some NN inputs.
         nn_input = nn_input_space.sample(size=3)
-        # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
+        # Raw NN-output.
         expected_nn_output = relu(np.matmul(
             nn_input, policy_params["dueling-policy/test-network/hidden-layer/dense/kernel"]), 0.1
         )
