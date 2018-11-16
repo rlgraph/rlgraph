@@ -17,9 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
+import copy
 import json
 import numpy as np
+import os
 
 
 def config_from_path(path, root=None):
@@ -94,11 +95,12 @@ def recursive_assert_almost_equal(x, y, decimals=7):
     # A dict type.
     if isinstance(x, dict):
         assert isinstance(y, dict), "ERROR: If x is dict, y needs to be a dict as well!"
+        y_copy = copy.deepcopy(y)
         for key, value in x.items():
             assert key in y, "ERROR: y does not have x's key='{}'!".format(key)
             recursive_assert_almost_equal(value, y[key], decimals=decimals)
-            del y[key]
-        assert not y, "ERROR: y contains keys ({}) that are not in x!".format(list(y.keys()))
+            del y_copy[key]
+        assert not y_copy, "ERROR: y contains keys ({}) that are not in x!".format(list(y_copy.keys()))
     # A tuple type.
     elif isinstance(x, (tuple, list)):
         assert isinstance(y, (tuple, list)), "ERROR: If x is tuple, y needs to be a tuple as well!"
