@@ -702,10 +702,18 @@ class GraphBuilder(Specifiable):
             if len(self.api[api_method_call][1]) > 0 and self.api[api_method_call][1][0].kwarg is not None:
                 fetch_dict[api_method_call] = {op_rec.kwarg: op_rec.op for op_rec in self.api[api_method_call][1] if
                                                return_ops is None or op_rec.kwarg in return_ops}
+                if return_ops is not None:
+                    assert all(op in fetch_dict[api_method_call] for op in return_ops),\
+                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
+                        return_ops)
             # API returns a tuple.
             else:
                 fetch_dict[api_method_call] = [op_rec.op for i, op_rec in enumerate(self.api[api_method_call][1]) if
                                                return_ops is None or i in return_ops]
+                if return_ops is not None:
+                    assert len(fetch_dict[api_method_call]) == len(return_ops),\
+                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
+                        return_ops)
 
             for i, param in enumerate(params):
                 # TODO: What if len(params) < len(self.api[api_method][0])? Need to handle default API-method params also for the root-component (this one).
