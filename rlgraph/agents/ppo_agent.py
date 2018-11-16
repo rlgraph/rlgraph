@@ -132,7 +132,7 @@ class PPOAgent(Agent):
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(self, preprocessed_states, use_exploration=True):
-            out = policy.get_action(preprocessed_states, use_exploration)
+            out = policy.get_action(preprocessed_states, deterministic=not use_exploration)
             return preprocessed_states, out["action"]
 
         # State (from environment) to action with preprocessing.
