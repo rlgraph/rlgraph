@@ -56,7 +56,9 @@ class NeuralNetwork(Stack):
 
         # Force the only API-method to be `apply`. No matter whether custom-API or auto-generated (via Stack).
         self.custom_api_given = True
-        if "api_methods" not in kwargs:
+        if hasattr(self, "apply"):
+            pass
+        elif "api_methods" not in kwargs:
             kwargs["api_methods"] = {("apply_shadowed_", "apply")}
             self.custom_api_given = False
         else:
