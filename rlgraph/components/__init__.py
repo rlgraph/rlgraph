@@ -27,6 +27,7 @@ from rlgraph.components.loss_functions import *
 from rlgraph.components.memories import *
 from rlgraph.components.neural_networks import *
 from rlgraph.components.optimizers import *
+from rlgraph.components.policies import *
 from rlgraph.components.common import *
 
 from rlgraph.utils.util import default_dict
@@ -40,6 +41,7 @@ default_dict(Component.__lookup_classes__, LossFunction.__lookup_classes__)
 default_dict(Component.__lookup_classes__, Memory.__lookup_classes__)
 default_dict(Component.__lookup_classes__, NeuralNetwork.__lookup_classes__)
 default_dict(Component.__lookup_classes__, Optimizer.__lookup_classes__)
+default_dict(Component.__lookup_classes__, Policy.__lookup_classes__)
 
 
 __all__ = ["Component"] + \
