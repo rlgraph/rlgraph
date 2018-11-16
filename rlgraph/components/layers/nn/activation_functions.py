@@ -77,7 +77,7 @@ def get_activation_function(activation_function=None, *other_parameters):
         elif activation_function == "softmax":
             return tf.nn.softmax
         # Softplus function:
-        elif activation_function == 'softplus':
+        elif activation_function == "softplus":
             return tf.nn.softplus
         # Softsign function:
         elif activation_function == "softsign":
@@ -116,7 +116,7 @@ def get_activation_function(activation_function=None, *other_parameters):
         elif activation_function == "softmax":
             return nn.Softmax()
         # Softplus function:
-        elif activation_function == 'softplus':
+        elif activation_function == "softplus":
             return nn.Softplus()
         # Softsign function:
         elif activation_function == "softsign":

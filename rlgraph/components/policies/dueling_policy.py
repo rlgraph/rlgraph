@@ -49,6 +49,7 @@ class DuelingPolicy(Policy):
         self.softmax = Softmax()
 
         # Create all state value extra Layers.
+        # TODO: Make this a NN-spec as well (right now it's one layer fixed plus the final value node).
         self.dense_layer_state_value_stream = DenseLayer(
             units=self.units_state_value_stream, weights_spec=self.weights_spec_state_value_stream,
             biases_spec=self.biases_spec_state_value_stream,
@@ -124,6 +125,24 @@ class DuelingPolicy(Policy):
         return dict(state_values=state_values, logits=q_values, probabilities=probabilities, log_probs=log_probs,
                     last_internal_states=nn_output.get("last_internal_states"),
                     advantages=advantages, q_values=q_values)
+
+    @rlgraph_api
+    def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
+        """
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            Dict:
+                logits: The q-values after adding advantages to state values (and subtracting the mean advantage).
+                probabilities: The probabilities gained from the softmaxed logits.
+                log_probs: The log(probabilities) values.
+                last_internal_states: The final internal states after passing through a possible RNN.
+        """
+        out = self.get_state_values_logits_probabilities_log_probs(nn_input, internal_states)
+        return dict(logits=out["logits"], probabilities=out["probabilities"], log_probs=out["log_probs"],
+                    last_internal_states=out.get("last_internal_states"))
 
     @graph_fn
     def _graph_fn_calculate_q_values(self, state_value, advantage_values):
