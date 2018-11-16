@@ -40,13 +40,21 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             b=IntBox(3),
             add_batch_rank=True
         )
+        flat_float_action_space = dict(
+            type="dict",
+            a=FloatBox(shape=(2,)),
+            b=FloatBox(shape=(3,)),
+            add_batch_rank=True
+        )
 
         policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
             component=policy,
             input_spaces=dict(
                 nn_input=state_space,
-                actions=action_space
+                actions=action_space,
+                probabilities=flat_float_action_space,
+                logits=flat_float_action_space
             ),
             action_space=action_space
         )
@@ -125,6 +133,12 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             b=Dict(b1=IntBox(3), b2=IntBox(4)),
             add_batch_rank=True
         )
+        flat_float_action_space = dict(
+            type="dict",
+            a=FloatBox(shape=(2,)),
+            b=Dict(b1=FloatBox(shape=(3,)), b2=FloatBox(shape=(4,))),
+            add_batch_rank=True
+        )
 
         # Policy with baseline action adapter.
         shared_value_function_policy = SharedValueFunctionPolicy(
@@ -135,7 +149,9 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             component=shared_value_function_policy,
             input_spaces=dict(
                 nn_input=state_space,
-                actions=action_space
+                actions=action_space,
+                probabilities=flat_float_action_space,
+                logits=flat_float_action_space
             ),
             action_space=action_space,
         )
@@ -238,6 +254,15 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             add_batch_rank=True,
             add_time_rank=True
         )
+        flat_float_action_space = Tuple(
+            FloatBox(shape=(2,)),
+            FloatBox(shape=(3,)),
+            Dict(
+                a=FloatBox(shape=(4,)),
+            ),
+            add_batch_rank=True,
+            add_time_rank=True
+        )
 
         # Policy with baseline action adapter AND batch-apply over the entire policy (NN + ActionAdapter + distr.).
         shared_value_function_policy = SharedValueFunctionPolicy(
@@ -247,7 +272,12 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
         )
         test = ComponentTest(
             component=shared_value_function_policy,
-            input_spaces=dict(nn_input=state_space, actions=action_space),
+            input_spaces=dict(
+                nn_input=state_space,
+                actions=action_space,
+                probabilities=flat_float_action_space,
+                logits=flat_float_action_space
+            ),
             action_space=action_space,
         )
         policy_params = test.read_variable_values(shared_value_function_policy.variables)
@@ -390,6 +420,10 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             a=Tuple(IntBox(2), IntBox(3)),
             b=Dict(dict(ba=IntBox(4)))
         ), add_batch_rank=True)
+        flat_float_action_space = Dict(dict(
+            a=Tuple(FloatBox(shape=(2,)), FloatBox(shape=(3,))),
+            b=Dict(dict(ba=FloatBox(shape=(4,))))
+        ), add_batch_rank=True)
 
         # Policy with dueling logic.
         policy = DuelingPolicy(
@@ -407,7 +441,9 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             component=policy,
             input_spaces=dict(
                 nn_input=nn_input_space,
-                actions=action_space
+                actions=action_space,
+                logits=flat_float_action_space,
+                probabilities=flat_float_action_space
             ),
             action_space=action_space
         )
