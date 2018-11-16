@@ -169,18 +169,20 @@ class Policy(Component):
         )
 
     @rlgraph_api
-    def get_action(self, nn_input, deterministic=None, internal_states=None):
+    def get_action(self, nn_input, internal_states=None, deterministic=None):
         """
         Returns an action based on NN output, action adapter output and distribution sampling.
 
         Args:
             nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
             deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
                 from the distribution in max-likelihood (deterministic) or stochastic fashion.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
-            any: The drawn action.
+            dict:
+                `action`: The drawn action.
+                `last_internal_states`: The last internal states (if NN is RNN based, otherwise: None).
         """
         deterministic = self.deterministic if deterministic is None else deterministic
 
@@ -188,6 +190,27 @@ class Policy(Component):
         action = self._graph_fn_get_action_components(out["logits"], out["probabilities"], deterministic)
 
         return dict(action=action, last_internal_states=out["last_internal_states"])
+
+    @rlgraph_api
+    def get_action_from_logits_and_probabilities(self, logits, probabilities, deterministic=None):
+        """
+        Returns an action based on NN output, action adapter output and distribution sampling.
+
+        Args:
+            logits (any): The `logits` output from `self.get_logits_probabilities_log_probs`.
+            probabilities (any): The `probabilities` output from `self.get_logits_probabilities_log_probs`. Not
+                really needed if action_space is all discrete.
+            deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
+                from the distribution in max-likelihood (deterministic) or stochastic fashion.
+
+        Returns:
+            any: The drawn action.
+        """
+        deterministic = self.deterministic if deterministic is None else deterministic
+
+        action = self._graph_fn_get_action_components(logits, probabilities, deterministic)
+
+        return dict(action=action)
 
     @rlgraph_api
     def get_action_log_probs(self, nn_input, actions, internal_states=None):
