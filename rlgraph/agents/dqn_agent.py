@@ -31,6 +31,7 @@ from rlgraph.utils.util import strip_list
 class DQNAgent(Agent):
     """
     A collection of DQN algorithms published in the following papers:
+
     [1] Human-level control through deep reinforcement learning. Mnih, Kavukcuoglu, Silver et al. - 2015
     [2] Deep Reinforcement Learning with Double Q-learning. v. Hasselt, Guez, Silver - 2015
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
@@ -53,14 +54,13 @@ class DQNAgent(Agent):
                 Default: False.
         """
         # Fix action-adapter before passing it to the super constructor.
-        action_adapter_spec = kwargs.pop("action_adapter_spec", dict())
-        # Use a DuelingActionAdapter (instead of a basic ActionAdapter) if option is set.
+        policy_spec = kwargs.pop("policy_spec", dict())
+        # Use a DuelingPolicy (instead of a basic Policy) if option is set.
         if dueling_q is True:
-            action_adapter_spec["type"] = "dueling-action-adapter"
-            assert "units_state_value_stream" in action_adapter_spec
-            assert "units_advantage_stream" in action_adapter_spec
+            policy_spec["type"] = "dueling-policy"
+            assert "units_state_value_stream" in policy_spec
         super(DQNAgent, self).__init__(
-            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
+            policy_spec=policy_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
         # Assert that the synch interval is a multiple of the update_interval.
         if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
