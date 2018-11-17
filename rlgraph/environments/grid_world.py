@@ -204,6 +204,7 @@ class GridWorld(Environment):
 
         self.reward = 0.0
         self.is_terminal = False
+        self.orientation = 0
         self.refresh_state()
         return self.state
 
@@ -245,14 +246,16 @@ class GridWorld(Environment):
             # Move (0=move back, 1=don't move, 2=move forward).
             if "move" in actions:
                 # Translate into classic grid world action (0=up, 1=right, 2=down, 3=left).
-                move = actions["move"]
                 # We are actually moving in some direction.
-                if move != 1:
-                    if self.orientation == 0 and move == 2 or self.orientation == 180 and move == 0:
+                if actions["move"] != 1:
+                    if self.orientation == 0 and actions["move"] == 2 or \
+                            self.orientation == 180 and actions["move"] == 0:
                         move = 0  # up
-                    elif self.orientation == 90 and move == 2 or self.orientation == 270 and move == 0:
+                    elif self.orientation == 90 and actions["move"] == 2 or \
+                            self.orientation == 270 and actions["move"] == 0:
                         move = 1  # right
-                    elif self.orientation == 180 and move == 2 or self.orientation == 0 and move == 0:
+                    elif self.orientation == 180 and actions["move"] == 2 or \
+                            self.orientation == 0 and actions["move"] == 0:
                         move = 2  # down
                     else:
                         move = 3  # left
@@ -274,7 +277,7 @@ class GridWorld(Environment):
                 action = int(self.orientation / 90)
                 for i in range(2):
                     # determine the next state based on the transition function
-                    next_positions = self.get_possible_next_positions(self.discrete_pos, action)
+                    next_positions = self.get_possible_next_positions(self.discrete_pos, action, in_air=(i==1))
                     next_state_idx = np.random.choice(len(next_positions), p=[x[1] for x in next_positions])
                     # Update our pos.
                     self.discrete_pos = next_positions[next_state_idx][0]
@@ -312,11 +315,16 @@ class GridWorld(Environment):
         return state, reward, terminal
 
     def render(self):
+        actor = "X"
+        if self.action_type == "ftj":
+            actor = "^" if self.orientation == 0 else ">" if self.orientation == 90 else "v" if \
+                self.orientation == 180 else "v"
+
         # paints itself
         for row in range_(len(self.world)):
             for col, val in enumerate(self.world[row]):
                 if self.x == col and self.y == row:
-                    print("X", end="")
+                    print(actor, end="")
                 else:
                     print(val, end="")
             print()
@@ -340,7 +348,7 @@ class GridWorld(Environment):
             self.update_cam_pixels()
             self.state = self.camera_pixels
 
-    def get_possible_next_positions(self, discrete_pos, action):
+    def get_possible_next_positions(self, discrete_pos, action, in_air=False):
         """
         Given a discrete position value and an action, returns a list of possible next states and
         their probabilities. Only next states with non-zero probabilities will be returned.
@@ -349,6 +357,7 @@ class GridWorld(Environment):
         Args:
             discrete_pos (int): The discrete position to return possible next states for.
             action (int): The action choice.
+            in_air (bool): Whether we are actually in the air right now (ignore if we come from "H" or "W").
 
         Returns:
             List[Tuple[int,float]]: A list of tuples (s', p(s'\|s,a)). Where s' is the next discrete position and
@@ -369,7 +378,7 @@ class GridWorld(Environment):
         next_pos_type = self.world[next_coords[1], next_coords[0]]
         # TODO: Allow stochasticity in this env. Right now, all probs are 1.0.
         # Next field is a wall or we are already terminal. Stay where we are.
-        if next_pos_type == "W" or pos_type in ["H", "G"]:
+        if next_pos_type == "W" or (in_air is False and pos_type in ["H", "G"]):
             return [(discrete_pos, 1.)]
         # Move to next field.
         else:
