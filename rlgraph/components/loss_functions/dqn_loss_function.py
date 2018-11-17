@@ -23,7 +23,7 @@ from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import pytorch_one_hot
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.pytorch_util import pytorch_reduce_mean
 from rlgraph.utils.util import get_rank
 
@@ -35,13 +35,16 @@ elif get_backend() == "pytorch":
 
 class DQNLossFunction(LossFunction):
     """
-    The classic 2015 DQN Loss Function:
+    The classic 2015 DQN Loss Function [1] with options for "double" Q-losses [2], Huber loss [3], and container
+    actions [4]:
+
     L = Expectation-over-uniform-batch(r + gamma x max_a'Qt(s',a') - Qn(s,a))^2
     Where Qn is the "normal" Q-network and Qt is the "target" net (which is a little behind Qn for stability purposes).
 
-    API:
-        loss_per_item(q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None): The DQN loss per batch
-            item.
+    [1] Human-level control through deep reinforcement learning. Mnih, Kavukcuoglu, Silver et al. - 2015
+    [2] Deep Reinforcement Learning with Double Q-learning. v. Hasselt, Guez, Silver - 2015
+    [3] https://en.wikipedia.org/wiki/Huber_loss
+    [4] Action Branching Architectures for Deep Reinforcement Learning. Tavakoli, Pardo, and Kormushev - 2017
     """
     def __init__(self, double_q=False, huber_loss=False, importance_weights=False, n_step=1,
                  scope="dqn-loss-function", **kwargs):
@@ -89,6 +92,17 @@ class DQNLossFunction(LossFunction):
         return total_loss, loss_per_item
 
     @rlgraph_api
+    def loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None,
+                      importance_weights=None):
+        # Out may be a ContainerDataOp.
+        container_loss_per_item = self._graph_fn_loss_per_item(
+            q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
+        )
+        # Average over all flat keys in container.
+        loss_per_item = self._graph_fn_average_over_container_keys(container_loss_per_item)
+        return loss_per_item
+
+    @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
                                 qt_values_sp, q_values_sp=None, importance_weights=None):
         """
@@ -141,6 +155,7 @@ class DQNLossFunction(LossFunction):
                     td_delta = np.mean(td_delta, axis=list(range(1, self.ranks_to_reduce + 1)))
 
             return self._apply_huber_loss_if_necessary(td_delta)
+
         elif get_backend() == "tf":
             # Make sure the target policy's outputs are treated as constant when calculating gradients.
             qt_values_sp = tf.stop_gradient(qt_values_sp)
@@ -184,6 +199,7 @@ class DQNLossFunction(LossFunction):
                 return importance_weights * self._apply_huber_loss_if_necessary(td_delta)
             else:
                 return self._apply_huber_loss_if_necessary(td_delta)
+
         elif get_backend() == "pytorch":
             if not isinstance(terminals, torch.ByteTensor):
                 terminals = terminals.byte()
@@ -269,3 +285,10 @@ class DQNLossFunction(LossFunction):
                 )
             else:
                 return td_delta * td_delta
+
+    @graph_fn(flatten_ops=True)
+    def _graph_fn_average_over_container_keys(self, loss_per_item):
+        if get_backend() == "tf":
+            all_loss_per_items = tf.stack(loss_per_item.values())
+            all_loss_per_items = tf.reduce_sum(all_loss_per_items, axis=0)
+            return all_loss_per_items
