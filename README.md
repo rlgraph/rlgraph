@@ -20,10 +20,25 @@ to large scale distributed training.
 
 The current state of RLgraph in version 0.1.4 is alpha. The core engine is substantially complete
 and works for TensorFlow and PyTorch. Distributed execution on Ray is exemplified via Distributed
-Prioritized Experience Replay (Ape-X), which also supports multi-gpu mode. Ape-X can be used both with PyTorch and
-TensorFlow. Distributed TensorFlow can be tested via the IMPALA agent. We will add a number of key
-algorithms and other distributed coordination mechanisms in the  coming weeks. Please create an issue
-to discuss improvements or contributions.
+Prioritized Experience Replay (Ape-X), which also supports multi-gpu mode and solves e.g. Atari-Pong in ~1 hour
+on a single-node. Ape-X can be used both with PyTorch and TensorFlow. Distributed TensorFlow can be tested via the IMPALA agent. Please create an issue
+to discuss improvements or contributions. RLgraph currently implements the following algorithms:
+
+- DQN - ```dqn_agent``` -  [paper](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf)
+- Double-DQN - ```dqn_agent``` - via ```double_dqn``` flag -  [paper](https://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12389/11847)
+- Dueling-DQN - ```dqn_agent``` - via ```dueling_dqn``` flag -  [paper](https://arxiv.org/abs/1509.06461)
+- Prioritized experience replay - via ```memory_spec``` option ```prioritized_replay``` - [paper](https://arxiv.org/abs/1511.05952)
+- Deep-Q learning from demonstration ```dqfd_agent``` - [paper](https://arxiv.org/abs/1704.03732)
+- Distributed prioritized experience replay (Ape-X) on Ray - via `apex_executor` - [paper](https://arxiv.org/abs/1803.00933)
+- Importance-weighted actor-learner architecture (IMPALA) on distributed TF/Multi-threaded single-node - ```impala_agents``` - [paper](https://arxiv.org/abs/1802.01561)
+- Proximal policy optimization with generalized advantage estimation - ```ppo_agent``` - [paper](https://arxiv.org/abs/1707.06347)
+- Simple actor-critic for REINFORCE/A2C/A3C ```actor_critic_agent``` - [paper](https://arxiv.org/abs/1602.01783)
+
+The ```SingleThreadedWorker``` implements high-performance environment vectorisation, and a ```RayWorker``` can execute
+ray actor tasks in conjunction with a ```RayExecutor```. The ```examples``` folder contains simple scripts to 
+test these agents. There is also a very extensive test package including tests for virtually every component. Note
+that we run tests on TensorFlow and have not reached full coverage/test compatibility with PyTorch (mostly due
+to different shape handling in PyTorch versions before 1.0). 
 
 For more detailed documentation on RLgraph and its API-reference, please visit
 [our readthedocs page here](https://rlgraph.readthedocs.io).
