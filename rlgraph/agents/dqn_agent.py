@@ -58,7 +58,9 @@ class DQNAgent(Agent):
         # Use a DuelingPolicy (instead of a basic Policy) if option is set.
         if dueling_q is True:
             policy_spec["type"] = "dueling-policy"
-            assert "units_state_value_stream" in policy_spec
+            # Give us some default state-value nodes.
+            if "units_state_value_stream" not in policy_spec:
+                policy_spec["units_state_value_stream"] = 128
         super(DQNAgent, self).__init__(
             policy_spec=policy_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
@@ -88,7 +90,8 @@ class DQNAgent(Agent):
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
-            weights="variables:policy",
+            # weights will have a Space derived from the vars of policy.
+            weights="variables:{}".format(self.policy.scope),
             time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
@@ -112,7 +115,6 @@ class DQNAgent(Agent):
 
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
-        self.target_policy.add_components(Synchronizable(), expose_apis="sync")
         # Number of steps since the last target-net synching from the main policy.
         self.steps_since_target_net_sync = 0
 
@@ -128,7 +130,7 @@ class DQNAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
+        self.define_graph_api(self.policy.scope, self.preprocessor.scope, self.optimizer.scope, *sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
