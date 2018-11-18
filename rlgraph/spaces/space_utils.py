@@ -23,7 +23,7 @@ import numpy as np
 
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
-from rlgraph.spaces.containers import Dict, Tuple
+from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
@@ -197,7 +197,7 @@ def get_space_from_op(op):
 
 
 def sanity_check_space(
-        space, allowed_types=None, non_allowed_types=None,
+        space, allowed_types=None, allowed_sub_types=None, non_allowed_types=None, non_allowed_sub_types=None,
         must_have_batch_rank=None, must_have_time_rank=None, must_have_batch_or_time_rank=False,
         must_have_categories=None, num_categories=None,
         rank=None
@@ -208,7 +208,14 @@ def sanity_check_space(
     Args:
         space (Space): The Space object to check.
         allowed_types (Optional[List[type]]): A list of types that this Space must be an instance of.
+
+        allowed_sub_types (Optional[List[type]]): For container spaces, a list of sub-types that all
+            flattened sub-Spaces must be an instance of.
+
         non_allowed_types (Optional[List[type]]): A list of type that this Space must not be an instance of.
+
+        non_allowed_sub_types (Optional[List[type]]): For container spaces, a list of sub-types that all
+            flattened sub-Spaces must not be an instance of.
 
         must_have_batch_rank (Optional[bool]): Whether the Space must (True) or must not (False) have the
             `has_batch_rank` property set to True. None, if it doesn't matter.
@@ -237,9 +244,27 @@ def sanity_check_space(
         if not isinstance(space, tuple(allowed_types)):
             raise RLGraphError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
 
+    if allowed_sub_types is not None:
+        assert isinstance(space, ContainerSpace),\
+            "ERROR: Can only check sub-types of a Space if that Space is a ContainerSpace!"
+        flattened_space = space.flatten()
+        for flat_key, sub_space in flattened_space.items():
+            if not isinstance(sub_space, tuple(allowed_sub_types)):
+                raise RLGraphError("ERROR: sub-Space '{}' ({}) is not an instance of "
+                                   "{}!".format(flat_key, sub_space, allowed_sub_types))
+
     if non_allowed_types is not None:
         if isinstance(space, tuple(non_allowed_types)):
             raise RLGraphError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
+
+    if non_allowed_sub_types is not None:
+        assert isinstance(space, ContainerSpace),\
+            "ERROR: Can only check sub-types of a Space if that Space is a ContainerSpace!"
+        flattened_space = space.flatten()
+        for flat_key, sub_space in flattened_space.items():
+            if isinstance(sub_space, tuple(non_allowed_sub_types)):
+                raise RLGraphError("ERROR: sub-Space '{}' ({}) must not be an instance of "
+                                   "{}!".format(flat_key, sub_space, non_allowed_sub_types))
 
     if must_have_batch_or_time_rank is True:
         if space.has_batch_rank is False and space.has_time_rank is False:
