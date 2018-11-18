@@ -114,60 +114,60 @@ class TestGridWorld(unittest.TestCase):
         # Fall into hole.
         s = env.reset()  # [0, 0, 0] (x, y, orientation)
         recursive_assert_almost_equal(s, [0, 0, 0])
-        s, r, t, _ = env.step(dict(turn=2, move=2))  # turn=2 (right), move=2 (forward), jump=0
+        s, r, t, _ = env.step(dict(turn=2, forward=2))  # turn=2 (right), move=2 (forward), jump=0
         recursive_assert_almost_equal(s, [1, 0, 90])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
-        s, r, t, _ = env.step(dict(turn=2, move=1))  # turn=2 (right), move=1 (stay), jump=0
+        s, r, t, _ = env.step(dict(turn=2, forward=1))  # turn=2 (right), move=1 (stay), jump=0
         recursive_assert_almost_equal(s, [1, 0, 180])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
-        s, r, t, _ = env.step(dict(turn=1, move=2))  # turn=1 (no turn), move=2 (forward), jump=0
+        s, r, t, _ = env.step(dict(turn=1, forward=2))  # turn=1 (no turn), move=2 (forward), jump=0
         recursive_assert_almost_equal(s, [1, 1, 180])
         self.assertTrue(r == -5.0)
         self.assertTrue(t)
 
         # Jump quite a lot and reach goal.
         env.reset()  # [0, 0, 0] (x, y, orientation)
-        s, r, t, _ = env.step(dict(turn=2, move=1))
+        s, r, t, _ = env.step(dict(turn=2, forward=1))
         recursive_assert_almost_equal(s, [0, 0, 90])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
-        s, r, t, _ = env.step(dict(turn=1, move=1, jump=1))
+        s, r, t, _ = env.step(dict(turn=1, forward=1, jump=1))
         recursive_assert_almost_equal(s, [2, 0, 90])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
-        s, r, t, _ = env.step(dict(turn=2, move=2))
+        s, r, t, _ = env.step(dict(turn=2, forward=2))
         recursive_assert_almost_equal(s, [2, 1, 180])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
-        s, r, t, _ = env.step(dict(turn=1, move=2, jump=1))
+        s, r, t, _ = env.step(dict(turn=1, forward=2, jump=1))
         recursive_assert_almost_equal(s, [2, 3, 180])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
-        s, r, t, _ = env.step(dict(turn=2, move=0))
+        s, r, t, _ = env.step(dict(turn=2, forward=0))
         recursive_assert_almost_equal(s, [3, 3, 270])
         self.assertTrue(r == 1.0)
         self.assertTrue(t)
 
         # Run against a wall.
         env.reset()  # [0, 0, 0] (x, y, orientation)
-        s, r, t, _ = env.step(dict(turn=1, move=0))
+        s, r, t, _ = env.step(dict(turn=1, forward=0))
         recursive_assert_almost_equal(s, [0, 1, 0])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
-        s, r, t, _ = env.step(dict(turn=0, move=2))
+        s, r, t, _ = env.step(dict(turn=0, forward=2))
         recursive_assert_almost_equal(s, [0, 1, 270])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
 
         # Jump over a hole (no reset).
-        s, r, t, _ = env.step(dict(turn=2, move=1))  # turn around
-        s, r, t, _ = env.step(dict(turn=2, move=1))
+        s, r, t, _ = env.step(dict(turn=2, forward=1))  # turn around
+        s, r, t, _ = env.step(dict(turn=2, forward=1))
         recursive_assert_almost_equal(s, [0, 1, 90])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)
-        s, r, t, _ = env.step(dict(turn=1, move=1, jump=1))
+        s, r, t, _ = env.step(dict(turn=1, forward=1, jump=1))
         recursive_assert_almost_equal(s, [2, 1, 90])
         self.assertTrue(r == -1.0)
         self.assertTrue(not t)

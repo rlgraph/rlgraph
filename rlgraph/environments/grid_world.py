@@ -243,19 +243,17 @@ class GridWorld(Environment):
                 self.orientation += (actions["turn"] - 1) * 90
                 self.orientation %= 360  # re-normalize orientation
 
-            # Move (0=move back, 1=don't move, 2=move forward).
-            if "move" in actions:
+            # Forward (0=move back, 1=don't move, 2=move forward).
+            if "forward" in actions:
+                forward = actions["forward"]
                 # Translate into classic grid world action (0=up, 1=right, 2=down, 3=left).
                 # We are actually moving in some direction.
-                if actions["move"] != 1:
-                    if self.orientation == 0 and actions["move"] == 2 or \
-                            self.orientation == 180 and actions["move"] == 0:
+                if actions["forward"] != 1:
+                    if self.orientation == 0 and forward == 2 or self.orientation == 180 and forward == 0:
                         move = 0  # up
-                    elif self.orientation == 90 and actions["move"] == 2 or \
-                            self.orientation == 270 and actions["move"] == 0:
+                    elif self.orientation == 90 and forward == 2 or self.orientation == 270 and forward == 0:
                         move = 1  # right
-                    elif self.orientation == 180 and actions["move"] == 2 or \
-                            self.orientation == 0 and actions["move"] == 0:
+                    elif self.orientation == 180 and forward == 2 or self.orientation == 0 and forward == 0:
                         move = 2  # down
                     else:
                         move = 3  # left
