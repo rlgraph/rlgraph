@@ -152,11 +152,11 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             observe_spec=dict(buffer_size=100),
             execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=32, sync_interval=32),
-            optimizer_spec=dict(type="adam", learning_rate=0.005),
+            optimizer_spec=dict(type="adam", learning_rate=0.02),
             store_last_q_table=True
         )
 
-        time_steps = 3000
+        time_steps = 6000
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld("4x4"),
             agent=agent,
@@ -226,9 +226,6 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        #print("STATES:\n{}".format(agent.last_q_table["states"]))
-        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
-
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], 25)
@@ -241,14 +238,19 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         gym_env = "CartPole-v0"
         dummy_env = OpenAIGymEnv(gym_env)
+        config_ = config_from_path("configs/dqn_agent_for_cartpole.json")
+        # Add dueling config to agent.
+        config_["policy_spec"] = {"units_state_value_stream": 3, "action_adapter_spec": {"pre_network_spec": [
+            {"type": "dense", "units": 3}
+        ]}}
         agent = DQNAgent.from_spec(
-            config_from_path("configs/dqn_agent_for_cartpole.json"),
+            config_,
             double_q=True,
             dueling_q=True,
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             observe_spec=dict(buffer_size=200),
-            execution_spec=dict(seed=156),
+            execution_spec=dict(seed=10),
             update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
             optimizer_spec=dict(type="adam", learning_rate=0.05),
             store_last_q_table=True
@@ -262,9 +264,6 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=False
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
-
-        #print("STATES:\n{}".format(agent.last_q_table["states"]))
-        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
