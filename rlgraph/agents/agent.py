@@ -37,7 +37,7 @@ class Agent(Specifiable):
     Generic agent defining RLGraph-API operations and parses and sanitizes configuration specs.
     """
     def __init__(self, state_space, action_space, discount=0.98,
-                 preprocessing_spec=None, network_spec=None, internal_states_space=None, action_adapter_spec=None,
+                 preprocessing_spec=None, network_spec=None, internal_states_space=None,
                  policy_spec=None,
                  exploration_spec=None, execution_spec=None, optimizer_spec=None, observe_spec=None, update_spec=None,
                  summary_spec=None, saver_spec=None, auto_build=True, name="agent"):
@@ -52,8 +52,6 @@ class Agent(Specifiable):
                 object itself.
             internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
                 Space object for the Space(s) of the internal (RNN) states.
-            action_adapter_spec (Optional[dict,ActionAdapter]): The spec-dict for the ActionAdapter Component or the
-                ActionAdapter object itself.
             policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
@@ -102,10 +100,16 @@ class Agent(Specifiable):
             self.logger.info("No preprocessing required.")
 
         # Construct the Policy network.
-        self.neural_network = None
+        policy_spec = policy_spec or dict()
         if network_spec is not None:
-            self.neural_network = NeuralNetwork.from_spec(network_spec)
-        self.action_adapter_spec = action_adapter_spec
+            policy_spec["network_spec"] = network_spec
+        if "action_space" not in policy_spec:
+            policy_spec["action_space"] = self.action_space
+        self.policy_spec = policy_spec
+        # The behavioral policy of the algorithm. Also the one that gets updated.
+        self.policy = Policy.from_spec(self.policy_spec)
+        # Done by default.
+        self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         self.internal_states_space = internal_states_space
 
@@ -114,20 +118,6 @@ class Agent(Specifiable):
         # the device strategy needs to know the name of the loss function to infer the appropriate
         # operations.
         self.loss_function = None
-
-        # The action adapter mapping raw NN output to (shaped) actions.
-        action_adapter_dict = dict(action_space=self.action_space)
-        if self.action_adapter_spec is None:
-            self.action_adapter_spec = action_adapter_dict
-        else:
-            self.action_adapter_spec.update(action_adapter_dict)
-
-        # The behavioral policy of the algorithm. Also the one that gets updated.
-        self.policy = Policy(
-            network_spec=self.neural_network,
-            action_adapter_spec=self.action_adapter_spec,
-            **(policy_spec or dict())
-        )
 
         self.exploration = Exploration.from_spec(exploration_spec)
         self.execution_spec = parse_execution_spec(execution_spec)
@@ -195,10 +185,6 @@ class Agent(Specifiable):
             pre_processor_scope (str): The global scope of the PreprocessorStack within the Agent.
             params (any): Params to be used freely by child Agent implementations.
         """
-        # Done by default.
-        # TODO: Move this to ctor as this belongs to the init phase and doesn't really have to do with API-methods.
-        self.policy.add_components(Synchronizable(), expose_apis="sync")
-
         # Add api methods for syncing.
         @rlgraph_api(component=self.root_component)
         def get_policy_weights(self):
