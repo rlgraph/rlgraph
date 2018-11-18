@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 from rlgraph import get_backend
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import IntBox
+from rlgraph.spaces import IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -95,11 +95,12 @@ class DQNLossFunction(LossFunction):
     def loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None,
                       importance_weights=None):
         # Out may be a ContainerDataOp.
-        container_loss_per_item = self._graph_fn_loss_per_item(
+        loss_per_item = self._graph_fn_loss_per_item(
             q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
         )
         # Average over all flat keys in container.
-        loss_per_item = self._graph_fn_average_over_container_keys(container_loss_per_item)
+        if isinstance(self.action_space, ContainerSpace):
+            loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
         return loss_per_item
 
     @graph_fn(flatten_ops=True, split_ops=True)
@@ -289,6 +290,6 @@ class DQNLossFunction(LossFunction):
     @graph_fn(flatten_ops=True)
     def _graph_fn_average_over_container_keys(self, loss_per_item):
         if get_backend() == "tf":
-            all_loss_per_items = tf.stack(loss_per_item.values())
-            all_loss_per_items = tf.reduce_sum(all_loss_per_items, axis=0)
+            all_loss_per_items = tf.stack(list(loss_per_item.values()))
+            all_loss_per_items = tf.reduce_mean(all_loss_per_items, axis=0)
             return all_loss_per_items
