@@ -20,8 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, \
-    ContainerSplitter
+from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, DictMerger, ContainerSplitter
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
@@ -318,7 +317,7 @@ class DQNAgent(Agent):
             [batched_states, self.timesteps, use_exploration],
             # 0=preprocessed_states, 1=action
             return_ops
-        ))
+        ))  #, flip_batch_with_dict_keys=isinstance(self.action_space, ContainerSpace))
         if remove_batch_rank:
             return strip_list(ret)
         else:

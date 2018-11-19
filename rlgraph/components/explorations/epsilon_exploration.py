@@ -57,6 +57,7 @@ class EpsilonExploration(Component):
 
         # The space of the samples that we have to produce epsilon decisions for.
         self.sample_space = None
+        self.flat_sample_space = None
 
         # Our (epsilon) Decay-Component.
         self.decay_component = DecayComponent.from_spec(decay_spec)
@@ -67,6 +68,7 @@ class EpsilonExploration(Component):
     def check_input_spaces(self, input_spaces, action_space=None):
         # Require at least a batch-rank in the incoming samples.
         self.sample_space = input_spaces["sample"]
+        self.flat_sample_space = self.sample_space.flatten()
         if get_backend() == "tf":
             sanity_check_space(self.sample_space, must_have_batch_rank=True)
 
@@ -85,16 +87,16 @@ class EpsilonExploration(Component):
         decayed_value = self.decay_component.decayed_value(time_step)
         return self._graph_fn_get_random_actions(decayed_value, sample)
 
-    @graph_fn
-    def _graph_fn_get_random_actions(self, decayed_value, sample):
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    def _graph_fn_get_random_actions(self, key, decayed_value, sample):
         if get_backend() == "tf":
             shape = tf.shape(sample)
-            batch_time_shape = (shape[0],) + ((shape[1],) if self.sample_space.has_time_rank is True else ())
+            batch_time_shape = (shape[0],) + ((shape[1],) if self.flat_sample_space[key].has_time_rank is True else ())
             return tf.random_uniform(shape=batch_time_shape) < decayed_value
         elif get_backend() == "pytorch":
             if sample.dim() == 0:
                 sample = sample.unsqueeze(-1)
             shape = sample.shape
-            batch_time_shape = (shape[0],) + ((shape[1],) if self.sample_space.has_time_rank is True else ())
+            batch_time_shape = (shape[0],) + ((shape[1],) if self.flat_sample_space[key].has_time_rank is True else ())
             x = torch.rand(batch_time_shape) < decayed_value
             return x

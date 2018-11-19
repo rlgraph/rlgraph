@@ -138,9 +138,8 @@ class ActionAdapter(Component):
         sanity_check_space(self.action_space, must_have_batch_rank=True)
         if isinstance(self.action_space, IntBox):
             sanity_check_space(self.action_space, must_have_categories=True)
-        else:
-            # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
-            pass
+        # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
+        #else:
 
     @rlgraph_api
     def get_raw_output(self, nn_output):
