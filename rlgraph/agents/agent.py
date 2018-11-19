@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import defaultdict
+from functools import partial
 import logging
 import numpy as np
 
@@ -26,7 +27,7 @@ from rlgraph.components import Component, Exploration, PreprocessorStack, Neural
     Optimizer
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
-from rlgraph.spaces.space import Space
+from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.utils.specifiable import Specifiable
@@ -73,8 +74,10 @@ class Agent(Specifiable):
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
+        self.flat_state_space = self.state_space.flatten() if isinstance(self.state_space, ContainerSpace) else None
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
+        self.flat_action_space = self.action_space.flatten() if isinstance(self.action_space, ContainerSpace) else None
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
         self.discount = discount
@@ -124,16 +127,22 @@ class Agent(Specifiable):
 
         # Python-side experience buffer for better performance (may be disabled).
         self.default_env = "env_0"
-        self.states_buffer = defaultdict(list)
-        self.actions_buffer = defaultdict(list)
+
+        def factory_(i):
+            if i == 1:
+                return list
+            return tuple([[] for _ in range(i)])
+
+        self.states_buffer = defaultdict(list)  #partial(fact_, len(self.flat_state_space)))
+        self.actions_buffer = defaultdict(partial(factory_, len(self.flat_action_space)))
         self.internals_buffer = defaultdict(list)
         self.rewards_buffer = defaultdict(list)
-        self.next_states_buffer = defaultdict(list)
+        self.next_states_buffer = defaultdict(list)  #partial(fact_, len(self.flat_state_space)))
         self.terminals_buffer = defaultdict(list)
 
         self.observe_spec = parse_observe_spec(observe_spec)
-        if self.observe_spec["buffer_enabled"]:
-            self.reset_env_buffers()
+        #if self.observe_spec["buffer_enabled"]:
+        #    self.reset_env_buffers()
 
         # Global time step counter.
         self.timesteps = 0
@@ -167,12 +176,12 @@ class Agent(Specifiable):
         """
         if env_id is None:
             env_id = self.default_env
-        self.states_buffer[env_id] = []
-        self.actions_buffer[env_id] = []
-        self.internals_buffer[env_id] = []
-        self.rewards_buffer[env_id] = []
-        self.next_states_buffer[env_id] = []
-        self.terminals_buffer[env_id] = []
+        del self.states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
+        del self.actions_buffer[env_id]   # = ([] for _ in range(len(self.flat_action_space)))
+        del self.internals_buffer[env_id]  # = []
+        del self.rewards_buffer[env_id]  # = []
+        del self.next_states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
+        del self.terminals_buffer[env_id]  # = []
 
     # TODO optimizer scope missing?
     def define_graph_api(self, policy_scope, pre_processor_scope, *params):
@@ -268,7 +277,8 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def observe(self, preprocessed_states, actions, internals, rewards, next_states, terminals, env_id=None):
+    def observe(self, preprocessed_states, actions, internals, rewards, next_states, terminals, env_id=None,
+                batched=False):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
@@ -276,46 +286,77 @@ class Agent(Specifiable):
         child Agent.
 
         Args:
-            preprocessed_states (Union[dict, ndarray]): Preprocessed states dict or array.
-            actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
+            preprocessed_states (Union[dict,ndarray]): Preprocessed states dict or array.
+            actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
 
-            internals (Union[list]): Internal state(s) returned by agent for the given states.Must be
+            internals (Optional[list]): Internal state(s) returned by agent for the given states.Must be
                 empty list if no internals available.
 
-            rewards (float): Scalar reward(s) observed.
-            terminals (bool): Boolean indicating terminal.
-            next_states (Union[dict, ndarray]): Preprocessed next states dict or array.
+            rewards (Union[float,List[float]]): Scalar reward(s) observed.
+            terminals (Union[bool,List[bool]]): Boolean indicating terminal.
+            next_states (Union[dict,ndarray]): Preprocessed next states dict or array.
 
             env_id (Optional[str]): Environment id to observe for. When using vectorized execution and
                 buffering, using environment ids is necessary to ensure correct trajectories are inserted.
                 See `SingleThreadedWorker` for example usage.
+
+            batched (bool): Whether given data (states, actions, etc..) is already batched or not.
         """
-        batched_states = self.preprocessed_state_space.force_batch(preprocessed_states)
+        ## TODO: What if state space is a container space?
+        #batched_states = self.preprocessed_state_space.force_batch(preprocessed_states)
         # Check for illegal internals.
         if internals is None:
             internals = []
 
         # Add batch rank?
-        if batched_states.ndim == np.asarray(preprocessed_states).ndim + 1:
-            preprocessed_states = np.asarray([preprocessed_states])
-            actions = np.asarray([actions])
-            internals = np.asarray([internals])
-            rewards = np.asarray([rewards])
-            terminals = np.asarray([terminals])
-            # Also batch next_states (or already done?).
-            if next_states.ndim == preprocessed_states.ndim - 1:
-                next_states = np.asarray([next_states])
+        #if batched_states.ndim == np.asarray(preprocessed_states).ndim + 1:
+        #    preprocessed_states = np.asarray([preprocessed_states])
+        #    actions = np.asarray([actions])
+        #    internals = np.asarray([internals])
+        #    rewards = np.asarray([rewards])
+        #    terminals = np.asarray([terminals])
+        #    # Also batch next_states (or already done?).
+        #    if next_states.ndim == preprocessed_states.ndim - 1:
+        #        next_states = np.asarray([next_states])
 
         if self.observe_spec["buffer_enabled"] is True:
             if env_id is None:
                 env_id = self.default_env
 
-            self.states_buffer[env_id].extend(preprocessed_states)
-            self.actions_buffer[env_id].extend(actions)
-            self.internals_buffer[env_id].extend(internals)
-            self.rewards_buffer[env_id].extend(rewards)
-            self.next_states_buffer[env_id].extend(next_states)
-            self.terminals_buffer[env_id].extend(terminals)
+            # If data is already batched, just have to extend our buffer lists.
+            if batched:
+                if self.flat_state_space is not None:
+                    for i, flat_key in enumerate(self.flat_state_space.keys()):
+                        self.states_buffer[env_id][i].extend(preprocessed_states[flat_key])
+                        self.next_states_buffer[env_id][i].extend(next_states[flat_key])
+                else:
+                    self.states_buffer[env_id].extend(preprocessed_states)
+                    self.next_states_buffer[env_id].extend(next_states)
+                if self.flat_action_space is not None:
+                    for i, flat_key in enumerate(self.flat_action_space.keys()):
+                        self.actions_buffer[env_id][i].extend(actions[flat_key])
+                else:
+                    self.actions_buffer[env_id].extend(actions)
+                self.internals_buffer[env_id].extend(internals)
+                self.rewards_buffer[env_id].extend(rewards)
+                self.terminals_buffer[env_id].extend(terminals)
+            # Data is not batched, append single items (without creating new lists first!) to buffer lists.
+            else:
+                if self.flat_state_space is not None:
+                    for i, flat_key in enumerate(self.flat_state_space.keys()):
+                        self.states_buffer[env_id][i].append(preprocessed_states[flat_key])
+                        self.next_states_buffer[env_id][i].append(next_states[flat_key])
+                else:
+                    self.states_buffer[env_id].append(preprocessed_states)
+                    self.next_states_buffer[env_id].append(next_states)
+                if self.flat_action_space is not None:
+                    for i, flat_key in enumerate(self.flat_action_space.keys()):
+                        self.actions_buffer[env_id][i].append(actions[flat_key])
+                else:
+                    self.actions_buffer[env_id].append(actions)
+                self.internals_buffer[env_id].append(internals)
+                self.rewards_buffer[env_id].append(rewards)
+                self.terminals_buffer[env_id].append(terminals)
 
             buffer_is_full = len(self.rewards_buffer[env_id]) >= self.observe_spec["buffer_size"]
 
@@ -328,9 +369,13 @@ class Agent(Specifiable):
                 # if self.observe_spec["n_step"] > 1:
                 #    pass
 
+                if self.flat_action_space is not None:
+                    actions_ = {key: np.asarray(self.actions_buffer[env_id][i]) for i, key in enumerate(self.flat_action_space.keys())}
+                else:
+                    actions_ = np.asarray(self.actions_buffer[env_id])
                 self._observe_graph(
                     preprocessed_states=np.asarray(self.states_buffer[env_id]),
-                    actions=np.asarray(self.actions_buffer[env_id]),
+                    actions=actions_,
                     internals=np.asarray(self.internals_buffer[env_id]),
                     rewards=np.asarray(self.rewards_buffer[env_id]),
                     next_states=np.asarray(self.next_states_buffer[env_id]),

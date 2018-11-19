@@ -31,10 +31,9 @@ from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
-from rlgraph.utils.ops import DataOpTuple, is_constant
+from rlgraph.utils.ops import is_constant, ContainerDataOp, flatten_op
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, get_call_param_name
-from rlgraph.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -722,9 +721,10 @@ class GraphBuilder(Specifiable):
                                        "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params)))
 
                 placeholder = self.api[api_method_call][0][i].op  # 0=input op-recs; i=ith input op-rec
-                if isinstance(placeholder, DataOpTuple):
-                    for ph, p in zip(placeholder, param):
-                        feed_dict[ph] = p
+                if isinstance(placeholder, ContainerDataOp):
+                    flat_placeholders = flatten_op(placeholder)
+                    for flat_key, value in flatten_op(param).items():
+                        feed_dict[flat_placeholders[flat_key]] = value
                 # Special case: Get the default argument for this arg.
                 # TODO: Support API-method's kwargs here as well (mostly useful for test.test).
                 #elif param is None:
