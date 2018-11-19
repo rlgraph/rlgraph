@@ -93,7 +93,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld.
         """
-        dummy_env = GridWorld("2x2")
+        env_spec = dict(world="2x2")
+        dummy_env = GridWorld.from_spec(env_spec)
         agent_config = config_from_path("configs/dqn_agent_for_2x2_gridworld.json")
         preprocessing_spec = agent_config.pop("preprocessing_spec")
         agent = DQNAgent.from_spec(
@@ -110,7 +111,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         time_steps = 1000
         worker = SingleThreadedWorker(
-            env_spec=lambda: GridWorld("2x2"),
+            env_spec=lambda: GridWorld.from_spec(env_spec),
             agent=agent,
             preprocessing_spec=preprocessing_spec,
             worker_executes_preprocessing=True
@@ -133,6 +134,65 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         }
         for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
             state, q_values = tuple(state), tuple(q_values)
+            assert state in expected_q_values_per_state, \
+                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
+            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
+
+    def test_double_dqn_on_2x2_grid_world_with_container_actions(self):
+        """
+        Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld using container actions.
+        """
+        env_spec = dict(world="2x2", action_type="ftj", state_representation="xy+orientation")  # forward+turn+jump
+        dummy_env = GridWorld.from_spec(env_spec)
+        agent_config = config_from_path("configs/dqn_agent_for_2x2_gridworld_with_container_actions.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
+        agent = DQNAgent.from_spec(
+            agent_config,
+            double_q=True,
+            dueling_q=True,
+            state_space=FloatBox(shape=(3,)),
+            action_space=dummy_env.action_space,
+            observe_spec=dict(buffer_size=100),
+            execution_spec=dict(seed=10),
+            update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            store_last_q_table=True
+        )
+
+        time_steps = 3000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: GridWorld.from_spec(env_spec),
+            agent=agent,
+            preprocessing_spec=preprocessing_spec,
+            worker_executes_preprocessing=True
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        print("STATES:\n{}".format(agent.last_q_table["states"]))
+        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertGreaterEqual(results["mean_episode_reward"], -12)
+        self.assertGreaterEqual(results["max_episode_reward"], -2.0)
+        self.assertLessEqual(results["episodes_executed"], 650)
+
+        # Check q-table for correct values.
+        expected_q_values_per_state = {
+            (0., 0.,   0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 0.,  90.): {"forward": (-1.0, -1.0, -5.0), "jump": (-1.0, -5.0)},
+            (0., 0., 180.): {"forward": (-1.0, -1.0, 0.0), "jump": (0.0, -1.0)},
+            (0., 0., 270.): {"forward": (-5.0, -1.0, -1.0), "jump": (-1.0, -1.0)},
+            (0., 1.,   0.): {"forward": (-1.0, -1.0, -2.0), "jump": (-1.0, -2.0)},
+            (0., 1.,  90.): {"forward": (-1.0, -1.0, 1.0), "jump": (1.0, 1.0)},
+            (0., 1., 180.): {"forward": (), "jump": ()},
+            (0., 1., 270.): {"forward": (), "jump": ()},
+        }
+        for state, q_values_forward, q_values_jump in zip(
+                agent.last_q_table["states"], agent.last_q_table["q_values"]["forward"],
+                agent.last_q_table["q_values"]["jump"]
+        ):
+            state, q_values_forward, q_values_jump = tuple(state), tuple(q_values_forward), tuple(q_values_jump)
             assert state in expected_q_values_per_state, \
                 "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
             recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)

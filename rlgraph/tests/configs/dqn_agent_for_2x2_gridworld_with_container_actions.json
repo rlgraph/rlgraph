@@ -1,0 +1,71 @@
+{
+  "type": "dqn",
+
+  "memory_spec": {
+    "type": "replay",
+    "capacity": 64
+  },
+  "preprocessing_spec": [
+    {
+      "type": "convert-type",
+      "to_dtype": "float32"
+    }
+  ],
+  "policy_spec": {
+    "type": "dueling-policy",
+    "network_spec":
+    [
+      {
+        "type": "dense",
+        "units": 10
+      }
+    ],
+    "units_state_value_stream": 2,
+    "action_adapter_spec":
+    {
+      "turn": {
+        "pre_network_spec": [
+          {
+            "type": "dense",
+            "units": 10
+          }
+        ]
+      },
+      "forward": {
+        "pre_network_spec": [
+          {
+            "type": "dense",
+            "units": 10
+          }
+        ]
+      },
+      "jump": {
+        "pre_network_spec": [
+          {
+            "type": "dense",
+            "units": 5
+          }
+        ]
+      }
+    }
+  },
+
+  "exploration_spec":
+  {
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.1,
+        "start_timestep": 0,
+        "num_timesteps": 3000
+      }
+    }
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "batch_size": 16
+  }
+}

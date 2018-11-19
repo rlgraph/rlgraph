@@ -151,6 +151,9 @@ class GridWorld(Environment):
         # x/y position (2 ints).
         elif self.state_representation == "xy":
             state_space = spaces.IntBox(low=(0, 0), high=(self.n_col, self.n_row), shape=(2,))
+        # x/y position + orientation (3 ints).
+        elif self.state_representation == "xy+orientation":
+            state_space = spaces.IntBox(low=(0, 0, 0), high=(self.n_col, self.n_row, 270), shape=(3,))
         # Camera outputting a 2D color image of the world.
         else:
             state_space = spaces.IntBox(0, 255, shape=(self.n_row, self.n_col, 3))
@@ -334,13 +337,14 @@ class GridWorld(Environment):
     def refresh_state(self):
         # Discrete state.
         if self.state_representation == "discrete":
-            self.state = np.array(self.discrete_pos, dtype=np.uint8)
+            # TODO: If ftj-actions, maybe multiply discrete states with orientation (will lead to x4 state space size).
+            self.state = np.array(self.discrete_pos)
         # xy position.
         elif self.state_representation == "xy":
-            self.state = np.array([self.x, self.y], dtype=np.uint8)
+            self.state = np.array([self.x, self.y])
         # xy + orientation (only if `self.action_type` supports turns).
         elif self.state_representation == "xy+orientation":
-            self.state = np.array([self.x, self.y, self.orientation], dtype=np.uint16)
+            self.state = np.array([self.x, self.y, self.orientation])
         # Camera.
         else:
             self.update_cam_pixels()
