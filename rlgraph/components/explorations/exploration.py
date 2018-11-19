@@ -48,6 +48,7 @@ class Exploration(Component):
         super(Exploration, self).__init__(scope=scope, **kwargs)
 
         self.action_space = None  # The actual action space (may not have batch-rank, just the plain space)
+        self.flat_action_space = None
 
         self.epsilon_exploration = None
         self.noise_component = None
@@ -103,19 +104,20 @@ class Exploration(Component):
 
         assert action_space is not None
         self.action_space = action_space
+        self.flat_action_space = action_space.flatten()
 
         if self.epsilon_exploration and self.noise_component:
             # Check again at graph creation? This is currently redundant to the check in __init__
             raise RLGraphError("Cannot use both epsilon exploration and a noise component at the same time.")
 
         if self.epsilon_exploration:
-            sanity_check_space(self.action_space, allowed_types=[IntBox], must_have_categories=True,
+            sanity_check_space(self.action_space, allowed_sub_types=[IntBox], must_have_categories=True,
                                num_categories=(1, None))
         elif self.noise_component:
-            sanity_check_space(self.action_space, allowed_types=[FloatBox])
+            sanity_check_space(self.action_space, allowed_sub_types=[FloatBox])
 
-    @graph_fn
-    def _graph_fn_pick(self, use_exploration, epsilon_decisions, sample):
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    def _graph_fn_pick(self, key, use_exploration, epsilon_decisions, sample):
         """
         Exploration for discrete action spaces.
         Either pick a random action (if `use_exploration` and `epsilon_decision` are True),
@@ -133,7 +135,7 @@ class Exploration(Component):
         if get_backend() == "tf":
             random_actions = tf.random_uniform(
                 shape=tf.shape(sample),
-                maxval=self.action_space.num_categories,
+                maxval=self.flat_action_space[key].num_categories,
                 dtype=dtype("int")
             )
 
@@ -155,7 +157,7 @@ class Exploration(Component):
 
             if self.sample_obj is None:
                 # Don't create new sample objects very time.
-                self.sample_obj = torch.distributions.Uniform(0, self.action_space.num_categories)
+                self.sample_obj = torch.distributions.Uniform(0, self.flat_action_space[key].num_categories)
 
             random_actions = self.sample_obj.sample(sample.shape).int()
             if use_exploration is True:
