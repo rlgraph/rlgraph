@@ -26,9 +26,10 @@ from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
 class TestSequenceHelper(unittest.TestCase):
+
     input_spaces = dict(
-        sequence_indices=IntBox(add_batch_rank=True),
-        terminals=IntBox(add_batch_rank=True),
+        sequence_indices=BoolBox(add_batch_rank=True),
+        terminals=BoolBox(add_batch_rank=True),
         values=FloatBox(add_batch_rank=True),
         rewards=FloatBox(add_batch_rank=True),
         decay=float
@@ -90,18 +91,13 @@ class TestSequenceHelper(unittest.TestCase):
         return np.array(deltas)
 
     def test_bootstrapping(self):
-        input_spaces = dict(
-            sequence_indices=BoolBox(add_batch_rank=True),
-            terminals=BoolBox(add_batch_rank=True),
-            values=FloatBox(add_batch_rank=True),
-            rewards=FloatBox(add_batch_rank=True),
-            decay=float
-        )
+        """
+        Tests boot-strapping for GAE purposes.
+        """
         sequence_helper = SequenceHelper()
-
         discount = 0.99
 
-        test = ComponentTest(component=sequence_helper, input_spaces=input_spaces)
+        test = ComponentTest(component=sequence_helper, input_spaces=self.input_spaces)
 
         # No terminals - just boot-strap with final sequence index.
         values = np.asarray([1.0, 2.0, 3.0, 4.0])
@@ -110,11 +106,27 @@ class TestSequenceHelper(unittest.TestCase):
         terminals = np.asarray([0, 0, 0, 0])
 
         expected_deltas = self.deltas(values, rewards, discount, terminals, sequence_indices)
-        print("Expected deltas = ", expected_deltas)
-
-        # rewards, values, terminals, sequence_indices, discount=0.99
         deltas = test.test(("bootstrap_values", [rewards, values, terminals, sequence_indices]))
-        print("Got deltas = ", deltas)
+        recursive_assert_almost_equal(expected_deltas, deltas, decimals=5)
+
+        # Final index is also terminal.
+        values = np.asarray([1.0, 2.0, 3.0, 4.0])
+        rewards = np.asarray([0, 0, 0, 0])
+        sequence_indices = np.asarray([0, 0, 0, 1])
+        terminals = np.asarray([0, 0, 0, 1])
+
+        expected_deltas = self.deltas(values, rewards, discount, terminals, sequence_indices)
+        deltas = test.test(("bootstrap_values", [rewards, values, terminals, sequence_indices]))
+        recursive_assert_almost_equal(expected_deltas, deltas, decimals=5)
+
+        # Mixed: i = 1 is also terminal, i = 3 is only sequence.
+        values = np.asarray([1.0, 2.0, 3.0, 4.0])
+        rewards = np.asarray([0, 0, 0, 0])
+        sequence_indices = np.asarray([0, 1, 0, 1])
+        terminals = np.asarray([0, 1, 0, 0])
+
+        expected_deltas = self.deltas(values, rewards, discount, terminals, sequence_indices)
+        deltas = test.test(("bootstrap_values", [rewards, values, terminals, sequence_indices]))
         recursive_assert_almost_equal(expected_deltas, deltas, decimals=5)
 
     def test_calc_decays(self):
