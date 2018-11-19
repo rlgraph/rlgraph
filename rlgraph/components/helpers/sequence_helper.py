@@ -314,7 +314,8 @@ class SequenceHelper(Component):
             deltas = tf.TensorArray(dtype=tf.float32, infer_shape=False,
                                     size=num_values, dynamic_size=False, clear_after_read=False, name="bootstrap-deltas")
             # values = tf.Print(values, [tf.shape(values)], summarize=1000, message="value shape=")
-            # sequence_indices = tf.Print(sequence_indices, [tf.shape(sequence_indices)], summarize=1000, message="indices shape=")
+            # sequence_indices = tf.Print(sequence_indices, [tf.shape(sequence_indices)],
+            # summarize=1000, message="indices shape=")
 
             # Boot-strap with 0 only if terminals[i] and sequence_indices[i] are both true.
             boot_strap_zeros = tf.where(
@@ -322,9 +323,6 @@ class SequenceHelper(Component):
                 x=tf.ones_like(sequence_indices),
                 y=tf.zeros_like(sequence_indices),
             )
-
-            # tf.bool issue
-            boot_strap_zeros = tf.cast(boot_strap_zeros, dtype=tf.int32)
 
             def write(index, deltas, start_index):
                 # First: Concat the slice of values representing the current sequence with bootstrap value.

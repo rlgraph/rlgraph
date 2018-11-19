@@ -21,13 +21,14 @@ import numpy as np
 import unittest
 
 from rlgraph.components.helpers.sequence_helper import SequenceHelper
-from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.spaces import IntBox, FloatBox, BoolBox
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
 class TestSequenceHelper(unittest.TestCase):
     input_spaces = dict(
         sequence_indices=IntBox(add_batch_rank=True),
+        terminals=IntBox(add_batch_rank=True),
         values=FloatBox(add_batch_rank=True),
         rewards=FloatBox(add_batch_rank=True),
         decay=float
@@ -50,6 +51,71 @@ class TestSequenceHelper(unittest.TestCase):
 
         input_ = np.asarray([1, 0, 0, 1])
         test.test(("calc_sequence_lengths", input_), expected_outputs=[1, 3])
+
+    def deltas(self,  baseline, reward, discount, terminals, sequence_values):
+        """
+        Computes expected deltas:
+
+        delta = reward + discount * bootstrapped_values[1:] - bootstrapped_values[:-1]
+        """
+        deltas = []
+        start_index = 0
+        i = 0
+        for _ in range(len(baseline)):
+            if np.all(sequence_values[i]):
+                # Compute deltas for this subsequence.
+                # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
+                baseline_slice = list(baseline[start_index:i + 1])
+
+                # Boot-strap: If also terminal, with 0, else with last value.
+                if np.all(terminals[i]):
+                    print("Appending boot-strap val 0 at index.", i)
+                    baseline_slice.append(0)
+                else:
+                    print("Appending boot-strap val {} at index {}.".format(baseline[i], i))
+                    baseline_slice.append(baseline[i])
+
+                adjusted_v = np.asarray(baseline_slice)
+
+                print("adjusted_v", adjusted_v)
+                print("adjusted_v[1:]", adjusted_v[1:])
+                print("adjusted_v[:-1]",  adjusted_v[:-1])
+
+                # +1 because we want to include i-th value.
+                delta = reward[start_index:i + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
+                deltas.extend(delta)
+                start_index = i + 1
+            i += 1
+
+        return np.array(deltas)
+
+    def test_bootstrapping(self):
+        input_spaces = dict(
+            sequence_indices=BoolBox(add_batch_rank=True),
+            terminals=BoolBox(add_batch_rank=True),
+            values=FloatBox(add_batch_rank=True),
+            rewards=FloatBox(add_batch_rank=True),
+            decay=float
+        )
+        sequence_helper = SequenceHelper()
+
+        discount = 0.99
+
+        test = ComponentTest(component=sequence_helper, input_spaces=input_spaces)
+
+        # No terminals - just boot-strap with final sequence index.
+        values = np.asarray([1.0, 2.0, 3.0, 4.0])
+        rewards = np.asarray([0, 0, 0, 0])
+        sequence_indices = np.asarray([0, 0, 0, 1])
+        terminals = np.asarray([0, 0, 0, 0])
+
+        expected_deltas = self.deltas(values, rewards, discount, terminals, sequence_indices)
+        print("Expected deltas = ", expected_deltas)
+
+        # rewards, values, terminals, sequence_indices, discount=0.99
+        deltas = test.test(("bootstrap_values", [rewards, values, terminals, sequence_indices]))
+        print("Got deltas = ", deltas)
+        recursive_assert_almost_equal(expected_deltas, deltas, decimals=5)
 
     def test_calc_decays(self):
         """
