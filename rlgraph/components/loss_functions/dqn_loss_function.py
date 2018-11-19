@@ -69,6 +69,7 @@ class DQNLossFunction(LossFunction):
         super(DQNLossFunction, self).__init__(scope=scope, **kwargs)
 
         self.action_space = None
+        self.flat_action_space = None
         self.ranks_to_reduce = 0  # How many ranks do we have to reduce to get down to the final loss per batch item?
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -77,10 +78,9 @@ class DQNLossFunction(LossFunction):
         """
         assert action_space is not None
         self.action_space = action_space
+        self.flat_action_space = action_space.flatten()
         # Check for IntBox and num_categories.
-        sanity_check_space(
-            self.action_space, allowed_sub_types=[IntBox], must_have_categories=True
-        )
+        sanity_check_space(self.action_space, allowed_sub_types=[IntBox], must_have_categories=True)
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     @rlgraph_api
@@ -99,12 +99,11 @@ class DQNLossFunction(LossFunction):
             q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
         )
         # Average over all flat keys in container.
-        if isinstance(self.action_space, ContainerSpace):
-            loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
+        loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
         return loss_per_item
 
-    @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_loss_per_item(self, q_values_s, actions, rewards, terminals,
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    def _graph_fn_loss_per_item(self, key, q_values_s, actions, rewards, terminals,
                                 qt_values_sp, q_values_sp=None, importance_weights=None):
         """
         Args:
@@ -130,7 +129,7 @@ class DQNLossFunction(LossFunction):
             from rlgraph.utils.numpy import one_hot
             if self.double_q:
                 a_primes = np.argmax(q_values_sp, axis=-1)
-                a_primes_one_hot = one_hot(a_primes, depth=self.action_space.num_categories)
+                a_primes_one_hot = one_hot(a_primes, depth=self.flat_action_space[key].num_categories)
                 qt_sp_ap_values = np.sum(qt_values_sp * a_primes_one_hot, axis=-1)
             else:
                 qt_sp_ap_values = np.max(qt_values_sp, axis=-1)
@@ -140,7 +139,7 @@ class DQNLossFunction(LossFunction):
 
             qt_sp_ap_values = np.where(terminals, np.zeros_like(qt_sp_ap_values), qt_sp_ap_values)
 
-            actions_one_hot = one_hot(actions, depth=self.action_space.num_categories)
+            actions_one_hot = one_hot(actions, depth=self.flat_action_space[key].num_categories)
             q_s_a_values = np.sum(q_values_s * actions_one_hot, axis=-1)
 
             td_delta = (rewards + (self.discount ** self.n_step) * qt_sp_ap_values) - q_s_a_values
@@ -167,7 +166,7 @@ class DQNLossFunction(LossFunction):
                 a_primes = tf.argmax(input=q_values_sp, axis=-1)
 
                 # Now lookup Q(s'a') with the calculated a'.
-                one_hot = tf.one_hot(indices=a_primes, depth=self.action_space.num_categories)
+                one_hot = tf.one_hot(indices=a_primes, depth=self.flat_action_space[key].num_categories)
                 qt_sp_ap_values = tf.reduce_sum(input_tensor=(qt_values_sp * one_hot), axis=-1)
             else:
                 # Qt(s',a') -> Use the max(a') value (from the target network).
@@ -185,7 +184,7 @@ class DQNLossFunction(LossFunction):
             )
 
             # Q(s,a) -> Use the Q-value of the action actually taken before.
-            one_hot = tf.one_hot(indices=actions, depth=self.action_space.num_categories)
+            one_hot = tf.one_hot(indices=actions, depth=self.flat_action_space[key].num_categories)
             q_s_a_values = tf.reduce_sum(input_tensor=(q_values_s * one_hot), axis=-1)
 
             # Calculate the TD-delta (target - current estimate).
@@ -223,7 +222,7 @@ class DQNLossFunction(LossFunction):
                 a_primes = torch.argmax(q_values_sp, dim=-1, keepdim=True)
 
                 # Now lookup Q(s'a') with the calculated a'.
-                one_hot = pytorch_one_hot(a_primes, depth=self.action_space.num_categories)
+                one_hot = pytorch_one_hot(a_primes, depth=self.flat_action_space[key].num_categories)
                 qt_sp_ap_values = torch.sum(qt_values_sp * one_hot, dim=-1)
             else:
                 # Qt(s',a') -> Use the max(a') value (from the target network).
@@ -240,7 +239,7 @@ class DQNLossFunction(LossFunction):
                 terminals, torch.zeros_like(qt_sp_ap_values), qt_sp_ap_values
             )
             # Q(s,a) -> Use the Q-value of the action actually taken before.
-            one_hot = pytorch_one_hot(actions, depth=self.action_space.num_categories)
+            one_hot = pytorch_one_hot(actions, depth=self.flat_action_space[key].num_categories)
             q_s_a_values = torch.sum((q_values_s * one_hot), -1)
 
             # Calculate the TD-delta (target - current estimate).
@@ -290,6 +289,7 @@ class DQNLossFunction(LossFunction):
     @graph_fn(flatten_ops=True)
     def _graph_fn_average_over_container_keys(self, loss_per_item):
         if get_backend() == "tf":
-            all_loss_per_items = tf.stack(list(loss_per_item.values()))
-            all_loss_per_items = tf.reduce_mean(all_loss_per_items, axis=0)
-            return all_loss_per_items
+            if isinstance(self.action_space, ContainerSpace):
+                loss_per_item = tf.stack(list(loss_per_item.values()))
+                loss_per_item = tf.reduce_mean(loss_per_item, axis=0)
+            return loss_per_item
