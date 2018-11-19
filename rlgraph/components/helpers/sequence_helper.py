@@ -66,7 +66,7 @@ class SequenceHelper(Component):
 
                 # Update tensor array, reset length to 0.
                 sequence_lengths, write_index, length = tf.cond(
-                    pred=tf.equal(sequence_indices[index], 1),
+                    pred=tf.equal(sequence_indices[index], tf.ones_like(sequence_indices[index])),
                     true_fn=lambda: update(write_index, sequence_lengths, length),
                     false_fn=lambda: (sequence_lengths, write_index, length)
                 )
@@ -124,6 +124,8 @@ class SequenceHelper(Component):
         """
         if get_backend() == "tf":
             elems = tf.shape(input=sequence_indices)[0]
+            sequence_indices = tf.cast(sequence_indices, dtype=tf.int32)
+
             # TensorArray:
             sequence_lengths = tf.TensorArray(
                 dtype=tf.int32,
