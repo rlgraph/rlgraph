@@ -302,7 +302,7 @@ class PPOAgent(Agent):
                 was reached, or a partial episode fragment of an environment ended.
 
                 Example: If env_1 has terminals [0 0 0] for an episode fragment and env_2 terminals = [0 0 1],
-                    we may pass them in as one array [0 0 0 0 0 1] with sequence indices showing where each
+                    we may pass them in as one combined array [0 0 0 0 0 1] with sequence indices showing where each
                     episode ends: [0 0 1 0 0 1].
         """
 
