@@ -307,14 +307,19 @@ class SequenceHelper(Component):
         """
         if get_backend() == "tf":
             num_values = tf.shape(input=values)[0]
-            # TODO last sequence index should always be 1! -> Ensure in update?
+
+            # Again ensure last index is 1 for any sub-sample arriving here.
+            last_sequence = tf.expand_dims(sequence_indices[-1], -1)
+            sequence_indices = tf.concat([sequence_indices[:-1], tf.ones_like(last_sequence, dtype=tf.bool)], axis=0)
 
             # Cannot use 0.0 because unknown shape.
             deltas = tf.TensorArray(dtype=tf.float32, infer_shape=False,
                                     size=num_values, dynamic_size=False, clear_after_read=False, name="bootstrap-deltas")
             # values = tf.Print(values, [tf.shape(values)], summarize=1000, message="value shape=")
             # terminals = tf.Print(terminals, [tf.shape(terminals)],  summarize=1000, message="terminals shape=")
-            # sequence_indices = tf.Print(sequence_indices, [tf.shape(sequence_indices)],  summarize=1000, message="indices shape=")
+            # sequence_indices = tf.Print(sequence_indices, [sequence_indices],
+            # summarize=1000, message="sequence indices=")
+            # terminals = tf.Print(terminals, [terminals],  summarize=1000, message="terminals=")
 
             # Boot-strap with 0 only if terminals[i] and sequence_indices[i] are both true.
             boot_strap_zeros = tf.where(

@@ -85,6 +85,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         deltas = []
         start_index = 0
         i = 0
+        sequence_indices[-1] = True
         for _ in range(len(baseline)):
             if np.all(sequence_indices[i]):
                 # Compute deltas for this subsequence.
@@ -121,7 +122,6 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
         # Final sequence index must always be true.
         sequence_indices = [False] * 10
-        sequence_indices[9] = True
         # Assume sequence indices = terminals here.
         input_ = [baseline_values_, rewards_, terminals_, sequence_indices]
 
@@ -150,7 +150,6 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         terminals_[5] = True
         sequence_indices = [False] * 10
         sequence_indices[5] = True
-        sequence_indices[9] = True
         terminals_ = np.asarray(terminals_)
 
         input_ = [baseline_values_, rewards_, terminals_, sequence_indices]
