@@ -75,7 +75,8 @@ class PPOAgent(Agent):
             deterministic=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
-            terminals=terminal_space
+            terminals=terminal_space,
+            sequence_indices=BoolBox(add_batch_rank=True)
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
@@ -173,27 +174,29 @@ class PPOAgent(Agent):
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             # Route to external update method.
-            return self_.update_from_external_batch(preprocessed_s, actions, rewards, terminals)
+            # Use terminals as sequence indices.
+            sequence_indices = terminals
+            return self_.update_from_external_batch(preprocessed_s, actions, rewards, terminals, sequence_indices)
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
-        def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals):
-            return self_._graph_fn_iterative_opt(preprocessed_states, actions, rewards, terminals)
+        def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
+            return self_._graph_fn_iterative_opt(preprocessed_states, actions, rewards, terminals, sequence_indices)
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
         @graph_fn(component=self.root_component)
-        def _graph_fn_iterative_opt(self_, preprocessed_states, actions, rewards, terminals):
+        def _graph_fn_iterative_opt(self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
             """
             Calls iterative optimization by repeatedly sub-sampling.
             """
             if get_backend() == "tf":
                 batch_size = tf.shape(preprocessed_states)[0]
-                last_terminal = tf.expand_dims(terminals[-1], -1)
+                last_sequence = tf.expand_dims(sequence_indices[-1], -1)
 
-                # Ensure the very last entry is terminal so we don't connect different episodes when sampling
-                # sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
-                terminals = tf.concat([terminals[:-1], tf.ones_like(last_terminal)], axis=0)
+                # Ensure the very last entry is 1 for sequence indices so we don't connect different episodes fragments
+                # when sampling sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
+                sequence_indices = tf.concat([sequence_indices[:-1], tf.ones_like(last_sequence)], axis=0)
 
                 def opt_body(index, loss, loss_per_item, vf_loss, vf_loss_per_item):
                     start = tf.random_uniform(shape=(1,), minval=0, maxval=batch_size - 1, dtype=tf.int32)[0]
@@ -202,13 +205,14 @@ class PPOAgent(Agent):
                     sample_actions = tf.gather(params=actions, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
+                    sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
 
                     policy_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = self.value_function.value_output(sample_states)
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
                         policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                        sample_terminals, policy_probs["logits"]
+                        sample_terminals, sample_sequence_indices, policy_probs["logits"]
                     )
 
                     policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
@@ -288,7 +292,19 @@ class PPOAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
-    def update(self, batch=None):
+    def update(self, batch=None, sequence_indices=None):
+        """
+            sequence_indices (Optional[np.ndarray, list]): Sequence indices are used in multi-env batches where
+                partial episode fragments may be concatenated within the trajectory. For a single env, these are equal
+                to terminals. If None are given, terminals will be used as sequence indices. A sequence index is True
+                where an episode fragment ends and False otherwise. The reason separate indices are necessary is so that
+                e.g. in GAE discounting, correct boot-strapping is applied depending on whether a true terminal state
+                was reached, or a partial episode fragment of an environment ended.
+
+                Example: If env_1 has terminals [0 0 0] for an episode fragment and env_2 terminals = [0 0 1],
+                    we may pass them in as one array [0 0 0 0 0 1] with sequence indices showing where each
+                    episode ends: [0 0 1 0 0 1].
+        """
 
         # [0]=the loss; [1]=loss-per-item, [2]=vf-loss, [3] - vf-loss- per item
         return_ops = [0, 1, 2, 3]
@@ -299,7 +315,11 @@ class PPOAgent(Agent):
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
         else:
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"]]
+            # No sequence indices means terminals are used in place.
+            if sequence_indices is None:
+                sequence_indices = batch["terminals"]
+
+            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).

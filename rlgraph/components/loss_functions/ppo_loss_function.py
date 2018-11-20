@@ -52,7 +52,7 @@ class PPOLossFunction(LossFunction):
         self.add_components(self.gae_function)
 
     @rlgraph_api
-    def loss(self, log_probs, baseline_values, actions, rewards, terminals, logits):
+    def loss(self, log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -63,7 +63,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, baseline_values, actions, rewards, terminals, logits
+            log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits
         )
         total_loss = self.loss_average(loss_per_item)
         total_baseline_loss = self.loss_average(baseline_loss_per_item)
@@ -71,7 +71,7 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals, logits):
+    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
@@ -79,6 +79,8 @@ class PPOLossFunction(LossFunction):
             rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
                 (from a memory).
+            sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
+                from multiple environments.
             logits (SingleDataOp): State logits.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
@@ -91,7 +93,7 @@ class PPOLossFunction(LossFunction):
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
 
             # Compute advantages.
-            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
+            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
 
             if self.standardize_advantages:
                 mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
