@@ -955,7 +955,7 @@ class GraphBuilder(Specifiable):
                         )}
                         var_space = Dict(var_spaces)
                         op_rec.space = var_space
-                        op_rec.op = self.get_placeholder("api-", space=var_space, component=self.root_component)
+                        op_rec.op = self.get_placeholder("api-var-input", space=var_space, component=self.root_component)
 
             loop_counter += 1
         return loop_counter
