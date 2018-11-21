@@ -119,8 +119,11 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             b=np.log(np.array([expected_probabilities_output["b"][0][expected_actions["b"][0]],
                                expected_probabilities_output["b"][1][expected_actions["b"][1]]])),
         )
-        test.test(("get_action_log_probs", [states, expected_actions]),
-                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output), decimals=5)
+        test.test(
+            ("get_action_log_probs", [states, expected_actions]), expected_outputs=dict(
+                action_log_probs=expected_action_log_prob_output, logits=expected_action_layer_outputs
+            ), decimals=5
+        )
 
     def test_shared_value_function_policy_for_discrete_container_action_space(self):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
@@ -381,8 +384,9 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
                 expected_probabilities_output[2]["a"][1][2][expected_actions[2]["a"][1][2]],
             ]])))
         ])
-        test.test(("get_action_log_probs", [states, expected_actions]),
-                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output), decimals=5)
+        test.test(("get_action_log_probs", [states, expected_actions]), expected_outputs=dict(
+            action_log_probs=expected_action_log_prob_output, logits=expected_action_layer_output_unfolded
+        ), decimals=5)
 
         # Deterministic sample.
         out = test.test(("get_deterministic_action", states), expected_outputs=None)
@@ -548,7 +552,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             ]))
         )
         test.test(("get_action_log_probs", [nn_input, expected_actions]),
-                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output), decimals=5)
+                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output, logits=expected_q_values_output), decimals=5)
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", nn_input), expected_outputs=None)
