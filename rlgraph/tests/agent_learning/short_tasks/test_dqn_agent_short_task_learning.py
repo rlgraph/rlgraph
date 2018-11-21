@@ -142,7 +142,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         """
         Creates a double DQNAgent and runs it via a Runner on a simple 2x2 GridWorld using container actions.
         """
-        env_spec = dict(world="2x2", action_type="ftj", state_representation="xy+orientation")  # forward+turn+jump
+        # ftj = forward + turn + jump
+        env_spec = dict(world="2x2", action_type="ftj", state_representation="xy+orientation")
         dummy_env = GridWorld.from_spec(env_spec)
         agent_config = config_from_path("configs/dqn_agent_for_2x2_gridworld_with_container_actions.json")
         preprocessing_spec = agent_config.pop("preprocessing_spec")
@@ -150,43 +151,40 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             agent_config,
             double_q=True,
             dueling_q=True,
-            state_space=FloatBox(shape=(3,)),
+            state_space=FloatBox(shape=(4,)),
             action_space=dummy_env.action_space,
-            observe_spec=dict(buffer_size=100),
-            execution_spec=dict(seed=10),
-            update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
-            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            execution_spec=dict(seed=15),
             store_last_q_table=True
         )
 
-        time_steps = 3000
+        time_steps = 40000
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld.from_spec(env_spec),
             agent=agent,
             preprocessing_spec=preprocessing_spec,
-            worker_executes_preprocessing=True
+            worker_executes_preprocessing=True,
+            render=False
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        print("STATES:\n{}".format(agent.last_q_table["states"]))
-        #print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
+        print("LAST q-table:\n{}".format(agent.last_q_table))
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], -12)
-        self.assertGreaterEqual(results["max_episode_reward"], -2.0)
-        self.assertLessEqual(results["episodes_executed"], 650)
+        self.assertGreaterEqual(results["mean_episode_reward"], -7)
+        self.assertGreaterEqual(results["max_episode_reward"], -1.0)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 3)
 
         # Check q-table for correct values.
         expected_q_values_per_state = {
-            (0., 0.,   0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-            (0., 0.,  90.): {"forward": (-1.0, -1.0, -5.0), "jump": (-1.0, -5.0)},
-            (0., 0., 180.): {"forward": (-1.0, -1.0, 0.0), "jump": (0.0, -1.0)},
-            (0., 0., 270.): {"forward": (-5.0, -1.0, -1.0), "jump": (-1.0, -1.0)},
-            (0., 1.,   0.): {"forward": (-1.0, -1.0, -2.0), "jump": (-1.0, -2.0)},
-            (0., 1.,  90.): {"forward": (-1.0, -1.0, 1.0), "jump": (1.0, 1.0)},
-            (0., 1., 180.): {"forward": (), "jump": ()},
-            (0., 1., 270.): {"forward": (), "jump": ()},
+            (0., 0., -1., 0.): {"forward": (-5.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 0., 1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 0., 0., -1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 0., 0., 1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 1., -1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 1., 1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 1., 0., -1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 1., 0., 1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
         }
         for state, q_values_forward, q_values_jump in zip(
                 agent.last_q_table["states"], agent.last_q_table["q_values"]["forward"],
@@ -310,8 +308,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             observe_spec=dict(buffer_size=200),
-            execution_spec=dict(seed=10),
-            update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
+            execution_spec=dict(seed=15),
+            update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
             optimizer_spec=dict(type="adam", learning_rate=0.05),
             store_last_q_table=True
         )
@@ -327,7 +325,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], 15)
+        self.assertGreaterEqual(results["mean_episode_reward"], 25)
         self.assertGreaterEqual(results["max_episode_reward"], 160.0)
         self.assertLessEqual(results["episodes_executed"], 100)
 

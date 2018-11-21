@@ -2,7 +2,7 @@
   "type": "dqn",
 
   "memory_spec": {
-    "type": "replay",
+    "type": "prioritized-replay",
     "capacity": 64
   },
   "preprocessing_spec": [
@@ -17,17 +17,19 @@
     [
       {
         "type": "dense",
-        "units": 10
+        "units": 16,
+        "activation": "lrelu"
       }
     ],
-    "units_state_value_stream": 2,
+    "units_state_value_stream": 16,
     "action_adapter_spec":
     {
       "turn": {
         "pre_network_spec": [
           {
             "type": "dense",
-            "units": 10
+            "units": 16,
+            "activation": "lrelu"
           }
         ]
       },
@@ -35,7 +37,8 @@
         "pre_network_spec": [
           {
             "type": "dense",
-            "units": 10
+            "units": 16,
+            "activation": "lrelu"
           }
         ]
       },
@@ -43,7 +46,8 @@
         "pre_network_spec": [
           {
             "type": "dense",
-            "units": 5
+            "units": 16,
+            "activation": "lrelu"
           }
         ]
       }
@@ -56,16 +60,28 @@
       "decay_spec": {
         "type": "linear_decay",
         "from": 1.0,
-        "to": 0.1,
+        "to": 0.2,
         "start_timestep": 0,
-        "num_timesteps": 3000
+        "num_timesteps": 40000
       }
     }
+  },
+
+  "observe_spec":
+  {
+    "buffer_size": 100
   },
 
   "update_spec": {
     "do_updates": true,
     "update_interval": 4,
-    "batch_size": 16
+    "batch_size": 24,
+    "sync_interval": 128
+  },
+
+  "optimizer_spec":
+  {
+    "type": "adam",
+    "learning_rate": 0.001
   }
 }
