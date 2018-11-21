@@ -123,8 +123,10 @@ class GridWorld(Environment):
                 - "discrete": An int representing the field on the grid, 0 meaning the upper left field, 1 the one
                     below, etc..
                 - "xy": The x and y grid position tuple.
-                - "xy+orientation": The x and y grid position tuple plus the orientation (if any) of the actor.
-                - "camera":
+                - "xy+orientation": The x and y grid position tuple plus the orientation (if any) as tuple of 2 values
+                    of the actor.
+                - "camera": A 3-channel image where each field in the grid-world is one pixel and the 3 channels are
+                    used to indicate different items in the scene (walls, holes, the actor, etc..).
         """
         # Build our map.
         if isinstance(world, str):
@@ -153,7 +155,7 @@ class GridWorld(Environment):
             state_space = spaces.IntBox(low=(0, 0), high=(self.n_col, self.n_row), shape=(2,))
         # x/y position + orientation (3 ints).
         elif self.state_representation == "xy+orientation":
-            state_space = spaces.IntBox(low=(0, 0, 0), high=(self.n_col, self.n_row, 270), shape=(3,))
+            state_space = spaces.IntBox(low=(0, 0, 0, 0), high=(self.n_col, self.n_row, 1, 1))
         # Camera outputting a 2D color image of the world.
         else:
             state_space = spaces.IntBox(0, 255, shape=(self.n_row, self.n_col, 3))
@@ -271,9 +273,10 @@ class GridWorld(Environment):
             # Update our pos.
             self.discrete_pos = next_positions[next_state_idx][0]
 
-        if self.action_type == "ftj":
-            # Jump? -> Move two fields forward (over walls/fires/holes w/o any damage).
-            if "jump" in actions and actions["jump"] == 1:
+        # Jump? -> Move two fields forward (over walls/fires/holes w/o any damage).
+        if self.action_type == "ftj" and "jump" in actions:
+            assert actions["jump"] == 0 or actions["jump"] == 1
+            if actions["jump"] == 1:
                 # Translate into "classic" grid world action (0=up, ..., 3=left) and execute that action twice.
                 action = int(self.orientation / 90)
                 for i in range(2):
@@ -319,7 +322,7 @@ class GridWorld(Environment):
         actor = "X"
         if self.action_type == "ftj":
             actor = "^" if self.orientation == 0 else ">" if self.orientation == 90 else "v" if \
-                self.orientation == 180 else "v"
+                self.orientation == 180 else "<"
 
         # paints itself
         for row in range_(len(self.world)):
@@ -344,7 +347,9 @@ class GridWorld(Environment):
             self.state = np.array([self.x, self.y])
         # xy + orientation (only if `self.action_type` supports turns).
         elif self.state_representation == "xy+orientation":
-            self.state = np.array([self.x, self.y, self.orientation])
+            orient = [0, 1] if self.orientation == 0 else [1, 0] if self.orientation == 90 else [0, -1] \
+                if self.orientation == 180 else [-1, 0]
+            self.state = np.array([self.x, self.y] + orient)
         # Camera.
         else:
             self.update_cam_pixels()
