@@ -44,12 +44,12 @@ class ActorCriticAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
-        # Use baseline adapter to have critic.
-        action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
+        # Use baseline to have critic.
+        policy_spec = kwargs.pop("policy_spec", dict(type="shared-value-function-policy"))
+        # Use a stochastic policy.
+        policy_spec["deterministic"] = False
         super(ActorCriticAgent, self).__init__(
-            action_adapter_spec=action_adapter_spec,
-            # Use a stochastic policy.
-            policy_spec=dict(deterministic=False),
+            policy_spec=policy_spec,
             name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
         self.sample_episodes = sample_episodes
@@ -86,7 +86,7 @@ class ActorCriticAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
+        self.define_graph_api(self.policy.scope, self.preprocessor.scope, self.optimizer.scope, *sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
