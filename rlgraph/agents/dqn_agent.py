@@ -345,9 +345,13 @@ class DQNAgent(Agent):
                 return_ops += [3, 4]  # 3=batch, 4=q-values
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+            ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
 
-            # print("Loss: {}".format(ret["update_from_memory"][1]))
+            # Do the target net synching after the update.
+            if sync_call:
+                self.graph_executor.execute(sync_call)
+
+            print("Loss: {}".format(ret[1]))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
