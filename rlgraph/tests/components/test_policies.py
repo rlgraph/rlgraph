@@ -69,6 +69,11 @@ class TestPolicies(unittest.TestCase):
             logits=expected_action_layer_output, probabilities=np.array(expected_probabilities_output, dtype=np.float32)
         ), decimals=5)
 
+        print("Probs: {}".format(expected_probabilities_output))
+
+        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
+        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([
             expected_probabilities_output[0][expected_actions[0]],
@@ -77,11 +82,6 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_action_log_probs", [states, expected_actions]),
                   expected_outputs=dict(action_log_probs=expected_action_log_prob_output,
                                         logits=expected_action_layer_output), decimals=5)
-
-        print("Probs: {}".format(expected_probabilities_output))
-
-        expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)  # dict(action=expected_actions))
@@ -101,11 +101,10 @@ class TestPolicies(unittest.TestCase):
         # Action log-probs.
         expected_action_log_prob_output = dict(action_log_probs=np.log(np.array([
             expected_probabilities_output[0][expected_actions[0]],
-            expected_probabilities_output[1][expected_actions[1]],
-            expected_probabilities_output[2][expected_actions[2]],
-        ])))
+            expected_probabilities_output[1][expected_actions[1]]
+        ])), logits=expected_action_layer_output)
         test.test(("get_action_log_probs", [states, expected_actions]),
-                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output, logits=expected_q_values_output), decimals=5)
+                  expected_outputs=expected_action_log_prob_output, decimals=5)
 
     def test_shared_value_function_policy_for_discrete_action_space(self):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
@@ -270,8 +269,9 @@ class TestPolicies(unittest.TestCase):
             expected_probabilities_output[1][1][expected_actions[1][1]],
             expected_probabilities_output[1][2][expected_actions[1][2]],
         ]]))
-        test.test(("get_action_log_probs", [states, expected_actions]),
-                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output, logits=expected_logits_output), decimals=5)
+        test.test(("get_action_log_probs", [states, expected_actions]), expected_outputs=dict(
+            action_log_probs=expected_action_log_prob_output, logits=expected_action_layer_output_unfolded
+        ), decimals=5)
 
         # Deterministic sample.
         out = test.test(("get_deterministic_action", states), expected_outputs=None)
@@ -368,7 +368,7 @@ class TestPolicies(unittest.TestCase):
             expected_probabilities_output[2][expected_actions[2]],
         ]))
         test.test(("get_action_log_probs", [nn_input, expected_actions]),
-                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output), decimals=5)
+                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output, logits=expected_q_values_output), decimals=5)
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", nn_input), expected_outputs=None)

@@ -341,15 +341,15 @@ class GridWorld(Environment):
         # Discrete state.
         if self.state_representation == "discrete":
             # TODO: If ftj-actions, maybe multiply discrete states with orientation (will lead to x4 state space size).
-            self.state = np.array(self.discrete_pos)
+            self.state = np.array(self.discrete_pos, dtype=np.int32)
         # xy position.
         elif self.state_representation == "xy":
-            self.state = np.array([self.x, self.y])
+            self.state = np.array([self.x, self.y], dtype=np.int32)
         # xy + orientation (only if `self.action_type` supports turns).
         elif self.state_representation == "xy+orientation":
             orient = [0, 1] if self.orientation == 0 else [1, 0] if self.orientation == 90 else [0, -1] \
                 if self.orientation == 180 else [-1, 0]
-            self.state = np.array([self.x, self.y] + orient)
+            self.state = np.array([self.x, self.y] + orient, dtype=np.int32)
         # Camera.
         else:
             self.update_cam_pixels()
@@ -394,7 +394,7 @@ class GridWorld(Environment):
     def update_cam_pixels(self):
         # Init camera?
         if self.camera_pixels is None:
-            self.camera_pixels = np.zeros(shape=(self.n_row, self.n_col, 3), dtype=float)
+            self.camera_pixels = np.zeros(shape=(self.n_row, self.n_col, 3), dtype=np.int32)
         self.camera_pixels[:, :, :] = 0  # reset everything
 
         # 1st channel -> Walls (127) and goal (255).
