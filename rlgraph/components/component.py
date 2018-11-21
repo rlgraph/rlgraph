@@ -1086,10 +1086,11 @@ class Component(Specifiable):
             value (any): The value to use for the assignment.
 
         Returns:
-            Optional[op]: None or the graph operation representing the assginment.
+            Optional[op]: None or the graph operation representing the assignment.
         """
         if get_backend() == "tf":
-            if type(value).__name__ == "Variable":
+            tensor_type = type(value).__name__
+            if tensor_type == "Variable" or tensor_type == "RefVariable":
                 return tf.assign(ref=ref, value=value.read_value())
             else:
                 return tf.assign(ref=ref, value=value)
