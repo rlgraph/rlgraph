@@ -25,7 +25,7 @@ from rlgraph.utils.decorators import rlgraph_api
 class SharedValueFunctionPolicy(Policy):
     def __init__(self, network_spec, value_weights_spec=None, value_biases_spec=None, value_activation=None,
                  scope="shared-value-function-policy", **kwargs):
-        super(SharedValueFunctionPolicy , self).__init__(network_spec, scope=scope, **kwargs)
+        super(SharedValueFunctionPolicy, self).__init__(network_spec, scope=scope, **kwargs)
 
         # Create the extra value dense layer with 1 node.
         self.value_layer = DenseLayer(

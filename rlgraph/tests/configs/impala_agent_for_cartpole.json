@@ -33,6 +33,10 @@
     "scope": "impala-net"
   },
 
+  "policy_spec": {
+    "type": "shared-value-function-policy"
+  },
+
   "exploration_spec":
   {
   },

@@ -48,8 +48,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             action_space=env.action_space,
             execution_spec=dict(seed=12),
             update_spec=dict(batch_size=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.05),
-            batch_apply=True
+            optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
         learn_updates = 50
