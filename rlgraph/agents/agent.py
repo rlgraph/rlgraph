@@ -129,12 +129,12 @@ class Agent(Specifiable):
         self.default_env = "env_0"
 
         def factory_(i):
-            if i == 1:
-                return list
+            if i < 2:
+                return []
             return tuple([[] for _ in range(i)])
 
         self.states_buffer = defaultdict(list)  #partial(fact_, len(self.flat_state_space)))
-        self.actions_buffer = defaultdict(partial(factory_, len(self.flat_action_space)))
+        self.actions_buffer = defaultdict(partial(factory_, len(self.flat_action_space or [])))
         self.internals_buffer = defaultdict(list)
         self.rewards_buffer = defaultdict(list)
         self.next_states_buffer = defaultdict(list)  #partial(fact_, len(self.flat_state_space)))
