@@ -250,8 +250,8 @@ class SingleThreadedWorker(Worker):
                     break
 
             # Only render once per action.
-            if self.render:
-                self.vector_env.environments[0].render()
+            #if self.render:
+            #    self.vector_env.environments[0].render()
 
             for i, env_id in enumerate(self.env_ids):
                 self.episode_returns[i] += env_rewards[i]
