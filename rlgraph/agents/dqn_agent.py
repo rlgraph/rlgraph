@@ -60,9 +60,11 @@ class DQNAgent(Agent):
             # Give us some default state-value nodes.
             if "units_state_value_stream" not in policy_spec:
                 policy_spec["units_state_value_stream"] = 128
+
         super(DQNAgent, self).__init__(
             policy_spec=policy_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
+
         # Assert that the synch interval is a multiple of the update_interval.
         if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
                 self.update_spec["sync_interval"] // self.update_spec["update_interval"]:

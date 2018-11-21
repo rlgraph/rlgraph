@@ -141,8 +141,6 @@ class Agent(Specifiable):
         self.terminals_buffer = defaultdict(list)
 
         self.observe_spec = parse_observe_spec(observe_spec)
-        #if self.observe_spec["buffer_enabled"]:
-        #    self.reset_env_buffers()
 
         # Global time step counter.
         self.timesteps = 0
@@ -302,22 +300,9 @@ class Agent(Specifiable):
 
             batched (bool): Whether given data (states, actions, etc..) is already batched or not.
         """
-        ## TODO: What if state space is a container space?
-        #batched_states = self.preprocessed_state_space.force_batch(preprocessed_states)
         # Check for illegal internals.
         if internals is None:
             internals = []
-
-        # Add batch rank?
-        #if batched_states.ndim == np.asarray(preprocessed_states).ndim + 1:
-        #    preprocessed_states = np.asarray([preprocessed_states])
-        #    actions = np.asarray([actions])
-        #    internals = np.asarray([internals])
-        #    rewards = np.asarray([rewards])
-        #    terminals = np.asarray([terminals])
-        #    # Also batch next_states (or already done?).
-        #    if next_states.ndim == preprocessed_states.ndim - 1:
-        #        next_states = np.asarray([next_states])
 
         if self.observe_spec["buffer_enabled"] is True:
             if env_id is None:
@@ -474,7 +459,7 @@ class Agent(Specifiable):
         Args:
             path (str): Path to model directory.
 
-            add_timestep (bool): Indiciates if current training step should be appended to exported model.
+            add_timestep (bool): Indicates if current training step should be appended to exported model.
                 If false, may override previous checkpoints.
         """
         self.graph_executor.store_model(path=path, add_timestep=add_timestep)
@@ -499,7 +484,7 @@ class Agent(Specifiable):
 
     def set_policy_weights(self, weights):
         """
-        Sets policy weights of this agent, e.g. for external syncing purporses.
+        Sets policy weights of this agent, e.g. for external syncing purposes.
 
         Args:
             weights (any): Weights and optionally meta data to update depending on the backend.

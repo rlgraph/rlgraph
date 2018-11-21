@@ -53,7 +53,6 @@ class IMPALAAgent(Agent):
 
     def __init__(self, discount=0.99, fifo_queue_spec=None, architecture="large", environment_spec=None,
                  feed_previous_action_through_nn=True, feed_previous_reward_through_nn=True,
-                 batch_apply=False, batch_apply_action_adapters=True,
                  weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
                  **kwargs):
         """
@@ -94,7 +93,6 @@ class IMPALAAgent(Agent):
                 self.network_spec,
                 dict(worker_sample_size=1 if self.type == "actor" else self.worker_sample_size + 1)
             )
-        action_adapter_spec = kwargs.pop("action_adapter_spec", dict(type="baseline-action-adapter"))
 
         # Depending on the job-type, remove the pieces from the Agent-spec/graph we won't need.
         self.exploration_spec = kwargs.pop("exploration_spec", None)
@@ -153,19 +151,21 @@ class IMPALAAgent(Agent):
                 execution_spec["device_strategy"] = "custom"
                 execution_spec["default_device"] = "/job:{}/task:{}/cpu".format(self.type, execution_spec["distributed_spec"]["task_index"])
 
+        self.policy_spec = kwargs.pop("policy_spec", dict())
+        # TODO: Create some auto-setting based on LSTM inside the NN.
+        default_dict(self.policy_spec, dict(
+            type="shared-value-function-policy",
+            deterministic=False,
+            reuse_variable_scope="shared-policy",
+            action_space=kwargs.get("action_space")
+        ))
+
         # Now that we fixed the Agent's spec, call the super constructor.
         super(IMPALAAgent, self).__init__(
             discount=discount,
             preprocessing_spec=self.preprocessing_spec,
             network_spec=self.network_spec,
-            action_adapter_spec=action_adapter_spec,
-            # TODO: Create some auto-setting based on LSTM inside the NN.
-            policy_spec=dict(
-                batch_apply=batch_apply,
-                action_adapter_spec=dict(batch_apply=batch_apply_action_adapters),
-                deterministic=False,
-                reuse_variable_scope="shared-policy",
-            ),
+            policy_spec=self.policy_spec,
             exploration_spec=self.exploration_spec,
             optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
@@ -179,7 +179,7 @@ class IMPALAAgent(Agent):
             self.policy.propagate_sub_component_properties(dict(device=dict(variables="/job:learner/task:0/cpu")))
 
         # Check whether we have an RNN.
-        self.has_rnn = self.neural_network.has_rnn()
+        self.has_rnn = self.policy.neural_network.has_rnn()
         # Check, whether we are running with GPU.
         self.has_gpu = self.execution_spec["gpu_spec"]["gpus_enabled"] is True and \
             self.execution_spec["gpu_spec"]["num_gpus"] > 0
@@ -592,19 +592,11 @@ class SingleIMPALAAgent(IMPALAAgent):
 
         self.environment_steppers = list()
         for i in range(self.num_workers):
-            policy_spec = dict(
-                network_spec=self.network_spec,
-                action_adapter_spec=dict(type="baseline-action-adapter"),
-                action_space=self.action_space,
-                reuse_variable_scope="shared-policy",
-                deterministic=False
-            )
-
             env_stepper = EnvironmentStepper(
                 environment_spec=environment_spec,
                 actor_component_spec=ActorComponent(
                     preprocessor_spec=self.preprocessing_spec,
-                    policy_spec=policy_spec,
+                    policy_spec=self.policy_spec,
                     exploration_spec=self.exploration_spec
                 ),
                 state_space=self.state_space.with_batch_rank(),
