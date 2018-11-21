@@ -247,8 +247,6 @@ def sanity_check_space(
             raise RLGraphError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
 
     if allowed_sub_types is not None:
-        assert isinstance(space, ContainerSpace),\
-            "ERROR: Can only check sub-types of a Space if that Space is a ContainerSpace!"
         for flat_key, sub_space in flattened_space.items():
             if not isinstance(sub_space, tuple(allowed_sub_types)):
                 raise RLGraphError("ERROR: sub-Space '{}' ({}) is not an instance of "
@@ -259,8 +257,6 @@ def sanity_check_space(
             raise RLGraphError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
 
     if non_allowed_sub_types is not None:
-        assert isinstance(space, ContainerSpace),\
-            "ERROR: Can only check sub-types of a Space if that Space is a ContainerSpace!"
         for flat_key, sub_space in flattened_space.items():
             if isinstance(sub_space, tuple(non_allowed_sub_types)):
                 raise RLGraphError("ERROR: sub-Space '{}' ({}) must not be an instance of "

@@ -111,8 +111,8 @@ class Exploration(Component):
             raise RLGraphError("Cannot use both epsilon exploration and a noise component at the same time.")
 
         if self.epsilon_exploration:
-            sanity_check_space(self.action_space, allowed_sub_types=[IntBox], must_have_categories=True,
-                               num_categories=(1, None))
+            sanity_check_space(self.action_space, must_have_categories=True, num_categories=(1, None),
+                               allowed_sub_types=[IntBox])
         elif self.noise_component:
             sanity_check_space(self.action_space, allowed_sub_types=[FloatBox])
 
