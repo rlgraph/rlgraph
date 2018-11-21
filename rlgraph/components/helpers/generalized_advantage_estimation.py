@@ -44,7 +44,7 @@ class GeneralizedAdvantageEstimation(Component):
         self.add_components(self.sequence_helper)
 
     @rlgraph_api(must_be_complete=False)
-    def _graph_fn_calc_gae_values(self, baseline_values, rewards, terminals):
+    def _graph_fn_calc_gae_values(self, baseline_values, rewards, terminals, sequence_indices):
         """
         Returns advantage values based on GAE.
 
@@ -52,7 +52,8 @@ class GeneralizedAdvantageEstimation(Component):
             baseline_values (DataOp): Baseline predictions V(s).
             rewards (DataOp): Rewards in sample trajectory.
             terminals (DataOp): Terminals in sample trajectory.
-
+            sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
+                from multiple environments.
         Returns:
             PG-advantage values used for training via policy gradient with baseline.
         """
@@ -60,7 +61,11 @@ class GeneralizedAdvantageEstimation(Component):
 
         # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
         # depending on terminal, then compute deltas = r + y * v[1:] - v[:-1]
-        deltas = self.sequence_helper.bootstrap_values(rewards, baseline_values, terminals, self.discount)
+        # Terminals indicate boot-strapping,
+        # Sequence indices indicate episode fragments in case of multi-environment.
+        deltas = self.sequence_helper.bootstrap_values(rewards, baseline_values,
+                                                       terminals, sequence_indices, self.discount)
 
         # Apply gae discount to each sub-sequence.
-        return self.sequence_helper.reverse_apply_decays_to_sequence(deltas, terminals, gae_discount)
+        # Note: sequences are indicateed by sequence indices, which may not be terminal.
+        return self.sequence_helper.reverse_apply_decays_to_sequence(deltas, sequence_indices, gae_discount)

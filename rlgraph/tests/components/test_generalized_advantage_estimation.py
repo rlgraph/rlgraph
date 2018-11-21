@@ -30,6 +30,18 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
     gamma = 0.99
     gae_lambda = 1.0
 
+    rewards = FloatBox(add_batch_rank=True)
+    baseline_values = FloatBox(add_batch_rank=True)
+    terminals = BoolBox(add_batch_rank=True)
+    sequence_indices = BoolBox(add_batch_rank=True)
+
+    input_spaces = dict(
+        rewards=rewards,
+        baseline_values=baseline_values,
+        terminals=terminals,
+        sequence_indices=sequence_indices
+    )
+
     @staticmethod
     def discount(x, gamma):
         # Discounts a single sequence.
@@ -68,17 +80,24 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             i += 1
         return list(reversed(discounted))
 
-    def gae_helper(self, baseline, reward, gamma, gae_lambda, terminals):
+    def gae_helper(self, baseline, reward, gamma, gae_lambda, terminals, sequence_indices):
         # Bootstrap adjust.
         deltas = []
         start_index = 0
         i = 0
+        sequence_indices[-1] = True
         for _ in range(len(baseline)):
-            if np.all(terminals[i]):
+            if np.all(sequence_indices[i]):
                 # Compute deltas for this subsequence.
                 # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
                 baseline_slice = list(baseline[start_index:i + 1])
-                baseline_slice.append(0)
+
+                if np.all(terminals[i]):
+                    print("Appending boot-strap val 0 at index.", i)
+                    baseline_slice.append(0)
+                else:
+                    print("Appending boot-strap val {} at index {}.".format(baseline[i], i))
+                    baseline_slice.append(baseline[i])
                 adjusted_v = np.asarray(baseline_slice)
 
                 # +1 because we want to include i-th value.
@@ -88,17 +107,6 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
                 start_index = i + 1
             i += 1
 
-        # If terminal, we already appended.
-        if not np.all(terminals[-1]):
-            # Append last value.
-            baseline_slice = list(baseline[start_index:i])
-            baseline_slice.append(baseline[-1])
-
-            adjusted_v = np.asarray(baseline_slice)
-            delta = reward[start_index:i + 1] + gamma * adjusted_v[1:] - adjusted_v[:-1]
-            print("Length for sequence deltas: ", len(delta))
-            deltas.extend(delta)
-
         deltas = np.asarray(deltas)
         print("len deltas = ", len(deltas))
         return np.asarray(self.discount_all(deltas, gamma * gae_lambda, terminals))
@@ -106,63 +114,52 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
     def test_single_non_terminal_sequence(self):
         gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
 
-        rewards = FloatBox(add_batch_rank=True)
-        baseline_values = FloatBox(add_batch_rank=True)
-        terminals = BoolBox(add_batch_rank=True)
+        test = ComponentTest(component=gae, input_spaces=self.input_spaces)
 
-        input_spaces = dict(
-            rewards=rewards,
-            baseline_values=baseline_values,
-            terminals=terminals
-        )
-        test = ComponentTest(component=gae, input_spaces=input_spaces)
+        rewards_ = self.rewards.sample(10, fill_value=0.5)
+        baseline_values_ = self.baseline_values.sample(10, fill_value=1.0)
+        terminals_ = self.terminals.sample(size=10, fill_value=False)
 
-        rewards_ = rewards.sample(10, fill_value=0.5)
-        baseline_values_ = baseline_values.sample(10, fill_value=1.0)
-        terminals_ = terminals.sample(size=10, fill_value=False)
-        input_ = [baseline_values_, rewards_, terminals_]
+        # Final sequence index must always be true.
+        sequence_indices = [False] * 10
+        # Assume sequence indices = terminals here.
+        input_ = [baseline_values_, rewards_, terminals_, sequence_indices]
 
         advantage_expected = self.gae_helper(
             baseline=baseline_values_,
             reward=rewards_,
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
-            terminals=terminals_
+            terminals=terminals_,
+            sequence_indices=sequence_indices
         )
 
         advantage = test.test(("calc_gae_values", input_))
         recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)
-        print("Expected advantge:", advantage_expected)
+        print("Expected advantage:", advantage_expected)
         print("Got advantage:", advantage)
 
     def test_multiple_sequences(self):
         gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
 
-        rewards = FloatBox(add_batch_rank=True)
-        baseline_values = FloatBox(add_batch_rank=True)
-        terminals = BoolBox(add_batch_rank=True)
+        test = ComponentTest(component=gae, input_spaces=self.input_spaces)
 
-        input_spaces = dict(
-            rewards=rewards,
-            baseline_values=baseline_values,
-            terminals=terminals
-        )
-        test = ComponentTest(component=gae, input_spaces=input_spaces)
-
-        rewards_ = rewards.sample(10, fill_value=0.5)
-        baseline_values_ = baseline_values.sample(10, fill_value=1.0)
+        rewards_ = self.rewards.sample(10, fill_value=0.5)
+        baseline_values_ = self.baseline_values.sample(10, fill_value=1.0)
         terminals_ = [False] * 10
         terminals_[5] = True
-
+        sequence_indices = [False] * 10
+        sequence_indices[5] = True
         terminals_ = np.asarray(terminals_)
 
-        input_ = [baseline_values_, rewards_, terminals_]
+        input_ = [baseline_values_, rewards_, terminals_, sequence_indices]
         advantage_expected = self.gae_helper(
             baseline=baseline_values_,
             reward=rewards_,
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
-            terminals=terminals_
+            terminals=terminals_,
+            sequence_indices=sequence_indices
         )
 
         print("Advantage expected:", advantage_expected)

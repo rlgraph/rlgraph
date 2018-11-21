@@ -5,6 +5,7 @@
   "clip_ratio": 0.2,
   "discount": 0.99,
   "gae_lambda": 1.0,
+  "weight_entropy": 0.01,
 
   "memory_spec":
   {
@@ -55,15 +56,20 @@
 
 
   "update_spec": {
+    "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 1000,
-    "batch_size": 1000,
+    "update_interval": 200,
+    "batch_size": 200,
     "num_iterations": 10,
-    "sample_size": 100
+    "sample_size": 50
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001
+    "learning_rate": 0.0025
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0025
   }
 }

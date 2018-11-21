@@ -32,14 +32,15 @@ class ActorCriticAgent(Agent):
     Basic actor-critic policy gradient architecture with generalized advantage estimation,
     and entropy regularization. Suitable for execution with A2C, A3C.
     """
-    def __init__(self, gae_lambda=1.0, sample_episodes=True, memory_spec=None, **kwargs):
+    def __init__(self, gae_lambda=1.0, sample_episodes=False, weight_entropy=None, memory_spec=None, **kwargs):
         """
         Args:
+            gae_lambda (float): Lambda for generalized advantage estimation.
             sample_episodes (bool): If true, the update method interprets the batch_size as the number of
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
                 example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
-            gae_lambda (float): Lambda for generalized advantage estimation.
+            weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
@@ -61,10 +62,11 @@ class ActorCriticAgent(Agent):
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             weights="variables:policy",
-            use_exploration=bool,
+            deterministic=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
-            terminals=terminal_space
+            terminals=terminal_space,
+            sequence_indices = BoolBox(add_batch_rank=True)
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
@@ -75,7 +77,8 @@ class ActorCriticAgent(Agent):
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
-        self.loss_function = ActorCriticLossFunction(discount=self.discount, gae_lambda=gae_lambda)
+        self.loss_function = ActorCriticLossFunction(discount=self.discount, gae_lambda=gae_lambda,
+                                                     weight_entropy=weight_entropy)
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
@@ -107,15 +110,15 @@ class ActorCriticAgent(Agent):
 
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(self, preprocessed_states, use_exploration=True):
-            out = policy.get_action(preprocessed_states, deterministic=not use_exploration)
+        def action_from_preprocessed_state(self, preprocessed_states, deterministic=False):
+            out = policy.get_action(preprocessed_states, deterministic=deterministic)
             return preprocessed_states, out["action"]
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(self, states, use_exploration=True):
+        def get_preprocessed_state_and_action(self, states, deterministic=False):
             preprocessed_states = preprocessor.preprocess(states)
-            return self.action_from_preprocessed_state(preprocessed_states, use_exploration)
+            return self.action_from_preprocessed_state(preprocessed_states, deterministic)
 
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
@@ -132,8 +135,9 @@ class ActorCriticAgent(Agent):
                 records = memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
+            sequence_indices = terminals
             step_op, loss, loss_per_item = self_.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals
+                preprocessed_s, actions, rewards, terminals, sequence_indices
             )
 
             return step_op, loss, loss_per_item, records
@@ -141,8 +145,7 @@ class ActorCriticAgent(Agent):
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
-                self_, preprocessed_states, actions, rewards, terminals
-        ):
+                self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
             if "multi-gpu-sync-optimizer" in self_.sub_components:
@@ -158,7 +161,7 @@ class ActorCriticAgent(Agent):
                 return step_and_sync_op, loss, loss_per_item
             out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states)
             loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                out["logits"], out["probabilities"], out["state_values"], actions, rewards, terminals
+                out["logits"], out["probabilities"], out["state_values"], actions, rewards, terminals, sequence_indices
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -204,7 +207,7 @@ class ActorCriticAgent(Agent):
         return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, use_exploration],
+            [batched_states, not use_exploration],  # deterministic = not use_exploration
             # 0=preprocessed_states, 1=action
             return_ops
         ))
@@ -217,8 +220,19 @@ class ActorCriticAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
-    def update(self, batch=None):
+    def update(self, batch=None, sequence_indices=None):
+        """
+            sequence_indices (Optional[np.ndarray, list]): Sequence indices are used in multi-env batches where
+                partial episode fragments may be concatenated within the trajectory. For a single env, these are equal
+                to terminals. If None are given, terminals will be used as sequence indices. A sequence index is True
+                where an episode fragment ends and False otherwise. The reason separate indices are necessary is so that
+                e.g. in GAE discounting, correct boot-strapping is applied depending on whether a true terminal state
+                was reached, or a partial episode fragment of an environment ended.
 
+                Example: If env_1 has terminals [0 0 0] for an episode fragment and env_2 terminals = [0 0 1],
+                    we may pass them in as one combined array [0 0 0 0 0 1] with sequence indices showing where each
+                    episode ends: [0 0 1 0 0 1].
+        """
         # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled)
         return_ops = [0, 1, 2]
         if batch is None:
@@ -228,7 +242,10 @@ class ActorCriticAgent(Agent):
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
         else:
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"]]
+            # No sequence indices means terminals are used in place.
+            if sequence_indices is None:
+                sequence_indices = batch["terminals"]
+            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).

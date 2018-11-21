@@ -177,6 +177,7 @@ class SingleThreadedWorker(Worker):
         episode_terminals = self.episode_terminals
         if reset is True:
             self.env_frames = 0
+            self.episodes_since_update = 0
             self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
             self.finished_episode_durations = [[] for _ in range_(self.num_environments)]
             self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
@@ -264,6 +265,7 @@ class SingleThreadedWorker(Worker):
                 # Do accounting for finished episodes.
                 if episode_terminals[i]:
                     episodes_executed += 1
+                    self.episodes_since_update += 1
                     episode_duration = time.perf_counter() - self.episode_starts[i]
                     self.finished_episode_rewards[i].append(self.episode_returns[i])
                     self.finished_episode_durations[i].append(episode_duration)

@@ -268,7 +268,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             dueling_q=False,
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
-            observe_spec=dict(buffer_size=200),
+            observe_spec=dict(buffer_size=128),
             execution_spec=dict(seed=15),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
             optimizer_spec=dict(type="adam", learning_rate=0.05),

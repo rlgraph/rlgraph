@@ -63,6 +63,10 @@ class Worker(Specifiable):
         self.update_interval = None
         self.update_steps = None
         self.sync_interval = None
+        self.episodes_since_update = 0
+
+        # Default val or None?
+        self.update_mode = "time_steps"
 
         self.worker_executes_exploration = worker_executes_exploration
         self.exploration_epsilon = exploration_epsilon
@@ -176,19 +180,27 @@ class Worker(Specifiable):
         if self.updating:
             # Are we allowed to update?
             if self.agent.timesteps > self.steps_before_update and \
-                    (self.agent.observe_spec["buffer_enabled"] is False or  # no update before some data in buffer
-                     self.agent.timesteps >= self.agent.observe_spec["buffer_size"]) and \
-                    self.agent.timesteps % self.update_interval == 0:  # update frequency check
-                loss = 0
-                for _ in range_(self.update_steps):
-                    ret = self.agent.update()
-                    if isinstance(ret, tuple):
-                        loss += ret[0]
-                    else:
-                        loss += ret
-                return loss
-
+                    (self.agent.observe_spec["buffer_enabled"] is False or  # No update before some data in buffer
+                     self.agent.timesteps >= self.agent.observe_spec["buffer_size"]):
+                # Updating according to one update mode:
+                if self.update_mode == "time_steps" and self.agent.timesteps % self.update_interval == 0:
+                    return self.execute_update()
+                elif self.update_mode == "episodes" and self.episodes_since_update == self.update_interval:
+                    # Do not do modulo here - this would be called every step in one episode otherwise.
+                    loss = self.execute_update()
+                    self.episodes_since_update = 0
+                    return loss
         return None
+
+    def execute_update(self):
+        loss = 0
+        for _ in range_(self.update_steps):
+            ret = self.agent.update()
+            if isinstance(ret, tuple):
+                loss += ret[0]
+            else:
+                loss += ret
+        return loss
 
     def set_update_schedule(self, update_schedule=None):
         """
@@ -207,6 +219,9 @@ class Worker(Specifiable):
             self.update_interval = update_schedule['update_interval']
             self.update_steps = update_schedule['update_steps']
             self.sync_interval = update_schedule['sync_interval']
+
+            # Interpret update interval as n time-steps or n episodes.
+            self.update_mode = update_schedule.get("update_mode", "time_steps")
 
     def get_action(self, states, use_exploration, apply_preprocessing, extra_returns):
         if self.worker_executes_exploration:

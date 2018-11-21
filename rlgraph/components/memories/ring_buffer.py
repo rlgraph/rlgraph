@@ -151,7 +151,7 @@ class RingBuffer(Memory):
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         index = self.read_variable(self.index)
-        indices = tf.range(start=index - 1 - num_records, limit=index - 1) % self.capacity
+        indices = tf.range(start=index - num_records, limit=index) % self.capacity
         return self._read_records(indices=indices)
 
     @rlgraph_api(ok_to_overwrite=True)
@@ -172,7 +172,6 @@ class RingBuffer(Memory):
             true_fn=lambda: 0,
             false_fn=lambda: self.episode_indices[stored_episodes - available_episodes - 1] + 1
         )
-
         # End index is just the pointer to the most recent episode.
         limit = self.episode_indices[stored_episodes - 1]
         limit += tf.where(condition=(start < limit), x=0, y=self.capacity)

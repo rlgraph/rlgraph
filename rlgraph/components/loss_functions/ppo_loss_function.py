@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.utils.decorators import graph_fn, rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -32,7 +32,7 @@ class PPOLossFunction(LossFunction):
 
     https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, discount=0.99, gae_lambda=1.0, clip_ratio=0.2, standardize_advantages=False,
+    def __init__(self, discount=0.99, gae_lambda=1.0, clip_ratio=0.2, standardize_advantages=False, weight_entropy=None,
                  scope="ppo-loss-function", **kwargs):
         """
         Args:
@@ -44,13 +44,15 @@ class PPOLossFunction(LossFunction):
         """
         self.clip_ratio = clip_ratio
         self.standardize_advantages = standardize_advantages
+        self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
+
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
         self.add_components(self.gae_function)
 
     @rlgraph_api
-    def loss(self, log_probs, baseline_values, actions, rewards, terminals):
+    def loss(self, log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -61,7 +63,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, baseline_values, actions, rewards, terminals
+            log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits
         )
         total_loss = self.loss_average(loss_per_item)
         total_baseline_loss = self.loss_average(baseline_loss_per_item)
@@ -69,13 +71,17 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals):
+    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits):
         """
         Args:
+            log_probs (SingleDataOp): Log-likelihoods of actions under policy.
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
                 (from a memory).
+            sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
+                from multiple environments.
+            logits (SingleDataOp): State logits.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
@@ -87,7 +93,7 @@ class PPOLossFunction(LossFunction):
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
 
             # Compute advantages.
-            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals)
+            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
 
             if self.standardize_advantages:
                 mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
@@ -105,6 +111,12 @@ class PPOLossFunction(LossFunction):
             )
 
             loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
+            # The entropy regularizer term.
+            policy = tf.nn.softmax(logits=logits)
+            log_policy = tf.nn.log_softmax(logits=logits)
+            loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1)
+            loss += self.weight_entropy * loss_entropy
+
             baseline_loss = (v_targets - baseline_values) ** 2
 
             return loss, baseline_loss

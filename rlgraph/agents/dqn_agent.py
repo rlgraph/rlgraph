@@ -112,6 +112,11 @@ class DQNAgent(Agent):
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals", "next_states")
 
+        # Make sure the python buffer is not larger than our memory capacity.
+        assert self.observe_spec["buffer_size"] <= self.memory.capacity,\
+            "ERROR: Buffer's size ({}) in `observe_spec` must be smaller or equal to the memory's capacity ({})!".\
+            format(self.observe_spec["buffer_size"], self.memory.capacity)
+
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
         # Number of steps since the last target-net synching from the main policy.
