@@ -63,6 +63,8 @@ class GraphBuilder(Specifiable):
         self.action_space = action_space
         self.summary_spec = parse_summary_spec(summary_spec)
         self.max_build_iterations = max_build_iterations
+        # Set of components that have been analyzed on why they remain input-incomplete.
+        self.investigated_input_incomplete_components = set()
 
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
@@ -710,6 +712,7 @@ class GraphBuilder(Specifiable):
         Raises:
             RLGraphError: After the problem has been identified.
         """
+        self.investigated_input_incomplete_components.append(component)
         # Find any input-param that has no Space defined.
         incomplete_input_args = list(name for name, space in component.api_method_inputs.items() if space is None)
         assert len(incomplete_input_args) > 0, "ERROR: Expected at least one input-arg to be without Space-definition!"
@@ -731,22 +734,34 @@ class GraphBuilder(Specifiable):
                         assert op_rec.previous is not None
                         components_making_calls_with_incomplete_arg.add(op_rec.previous.column.component)
 
+        must_be_complete_suggestion = \
+            "If the space for this arg is not important in creating variables for this component, try flagging the " \
+            "API-methods that use this arg via the `must_be_complete=False` flag."
+
         # What if incomplete_arg was never used in any calls?
         # Then that's the reason, why this component is input-incomplete.
         if calls_using_incomplete_arg == 0:
             raise RLGraphBuildError(
-                "The call argument `{}` in Component '{}' was never used in any calls to any API-method of this "
-                "component! Thus, the component remains input-incomplete.".format(incomplete_arg,
-                                                                                  component.global_scope)
+                "The call argument '{}' in Component '{}' was never used in any calls to any API-method of this "
+                "component! Thus, the component remains input-incomplete. "
+                "{}".format(incomplete_arg, component.global_scope, must_be_complete_suggestion)
             )
+        # Only this very component uses this call arg -> "Inner deadlock".
         elif len(components_making_calls_with_incomplete_arg) == 1 and \
                 component in components_making_calls_with_incomplete_arg:
             raise RLGraphBuildError(
                 "Component '{}' has a circular dependency via API call arg '{}'! Only this component ever makes "
-                "calls using this arg, so it can never become input-complete. If the space for this arg is not "
-                "important in creating variables for this component, try flagging the API-methods that use this arg "
-                "via the `must_be_complete=False` flag.".format(component.global_scope, incomplete_arg)
+                "calls using this arg, so it can never become input-complete. "
+                "{}".format(component.global_scope, incomplete_arg, must_be_complete_suggestion)
             )
+        # Some other component(s) use this call arg, but they might be input-incomplete themselves.
+        else:
+            for calling_component in components_making_calls_with_incomplete_arg:
+                if calling_component is component:
+                    continue
+                # Assume that the caller is input-incomplete itself.
+                assert calling_component.input_complete is False
+                # Continue investigating why this one is input incomplete.
 
     def get_execution_inputs(self, *api_method_calls):
         """
