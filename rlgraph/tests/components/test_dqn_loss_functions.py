@@ -327,3 +327,72 @@ class TestDQNLossFunctions(unittest.TestCase):
         # Both.
         test.test(("loss", input_), expected_outputs=[expected_loss, expected_loss_per_item], decimals=2)
 
+    def test_double_dqn_loss_function_in_container_action_space(self):
+        action_space = Dict({"a": IntBox(2), "b": {"ba": IntBox(3), "bb": IntBox(2)}}, add_batch_rank=True)
+        q_values_space = Dict({"a": FloatBox(shape=(2,)), "b": {"ba": FloatBox(shape=(3,)),
+                                                                "bb": FloatBox(shape=(2, ))}}, add_batch_rank=True)
+        dqn_loss_function = DQNLossFunction(discount=0.99, double_q=True)
+
+        test = ComponentTest(
+            component=dqn_loss_function,
+            input_spaces=dict(
+                q_values_s=q_values_space,
+                actions=action_space,
+                rewards=self.reward_space,
+                terminals=self.terminal_space,
+                qt_values_sp=q_values_space,
+                q_values_sp=q_values_space,
+                loss_per_item=self.loss_per_item_space
+            ),
+            action_space=action_space
+        )
+
+        # Batch of size=2.
+        input_ = [
+            # q(s)-values
+            {"a": np.array([[1.0, 2.0], [3.0, 4.0]]), "b": {"ba": np.array([[0.0, -0.5, 1.2], [-0.1, -0.2, -0.3]]),
+                                                            "bb": np.array([[-1.0, -2.0], [0.5, 0.6]])}},
+            # actions
+            {"a": np.array([0, 1]), "b": {"ba": np.array([0, 2]), "bb": np.array([1, 0])}},
+            np.array([1.0, -1.0]),
+            np.array([False, True]),
+            # qt(s')-values
+            {"a": np.array([[-1.0, -2.0], [5.0, 6.0]]), "b": {"ba": np.array([[3.0, 3.1, 3.2], [4.1, 4.2, 4.3]]),
+                                                              "bb": np.array([[1.0, -5.2], [-0.5, -0.6]])}},
+            # q(s')-values
+            {"a": np.array([[-1.0, 100.0], [5.0, 60.0]]), "b": {"ba": np.array([[3.0, 3.1, 3.2], [4.5, 4.4, 4.3]]),
+                                                                "bb": np.array([[1.0, -5.2], [-0.5, 0.6]])}}
+        ]
+
+        """
+        Calculation:
+        batch of 2, gamma=0.99
+        argmaxa'Qd(s',a'): a=[1, 1] ba=[2, 0] bb=[0, 1]
+        TDtarget (global across all sub-actions) = 1/N SUMd ( r + gamma Qdt(s',argmaxa'Qd(s',a')) )
+          = [
+                1/3 [(1.0 + 0.99*-2.0) + (1.0 + 0.99*3.2) + (1.0 + 0.99*1.0)],
+                1/3 [(-1.0 + 0.99*0.0) + (-1.0 + 0.99*0.1) + (-1.0 + 0.99*0.0)]  # all 0 due to terminal=True
+            ]
+          = [1/3(-0.98 + 4.168 + 1.99), 1/3(-1.0 + -1.0 + -1.0)]
+          = [1.726, -1.0]
+        L = E(batch) | 1/N SUMd ( 0.5*(TDtarget - Qd(s,a))^2 ) |   # d=action components
+        L = 1/3 SUMd ( 0.5[a]^2 + 0.5[ba]^2 + 0.5[bb]^2 )
+            a=[1.726-1.0, -1.0-4.0]=[0.726, -5.0]
+            ba=[1.726-0.0, -1.0+0.3]=[1.726, -0.7]
+            bb=[1.726+2.0, -1.0-0.5]=[3.726, -1.5]
+            SUM=[
+                0.5(0.726)^2 + 0.5(1.726)^2 + 0.5(3.726)^2,
+                0.5(-5.0)^2 + 0.5(-0.7)^2 + 0.5(-1.5)^2
+                ] = [8.694614, 13.87]
+            /3 = [2.89820467, 4.62333]
+        """
+
+        # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
+        expected_loss_per_item = np.array([2.89820467, 4.62333], dtype=np.float32)
+        test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item, decimals=4, print=True)
+        # Just expect the mean over the batch.
+        expected_loss = expected_loss_per_item.mean()
+        test.test(("loss_average", expected_loss_per_item), expected_outputs=expected_loss, decimals=4)
+        # Both.
+        test.test(("loss", input_), expected_outputs=[expected_loss, expected_loss_per_item], decimals=2)
+
