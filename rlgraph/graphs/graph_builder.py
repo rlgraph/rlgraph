@@ -742,8 +742,10 @@ class GraphBuilder(Specifiable):
         elif len(components_making_calls_with_incomplete_arg) == 1 and \
                 component in components_making_calls_with_incomplete_arg:
             raise RLGraphBuildError(
-                "Component '{}' has a circular dependency via call arg ''.".format(incomplete_arg,
-                                                                                  component.global_scope)
+                "Component '{}' has a circular dependency via API call arg '{}'! Only this component ever makes "
+                "calls using this arg, so it can never become input-complete. If the space for this arg is not "
+                "important in creating variables for this component, try flagging the API-methods that use this arg "
+                "via the `must_be_complete=False` flag.".format(component.global_scope, incomplete_arg)
             )
 
     def get_execution_inputs(self, *api_method_calls):

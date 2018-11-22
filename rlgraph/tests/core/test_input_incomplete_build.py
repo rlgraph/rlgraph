@@ -32,7 +32,7 @@ class TestInputIncompleteTest(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
-    def test_single_component_with_single_api_method(self):
+    def test_inner_deadlock_of_component(self):
         """
         Component cannot be built due to its sub-component remaining input incomplete.
         """
@@ -40,6 +40,17 @@ class TestInputIncompleteTest(unittest.TestCase):
         try:
             test = ComponentTest(component=a, input_spaces=dict(input_=float))
         except RLGraphBuildError as e:
-            print("Seeing expected RLGraphBuildError. Test ok.")
+            print("Seeing expected RLGraphBuildError ({}). Test ok.".format(e))
         else:
             raise RLGraphError("Not seeing expected RLGraphBuildError with input-incomplete model!")
+
+    def test_solution_of_inner_deadlock_of_component_with_must_be_complete_false(self):
+        """
+        Component can be built due to its sub-component resolving a deadlock with `must_be_complete`.
+        """
+        a = DummyProducingInputIncompleteBuild(scope="A")
+        deadlock_component = a.sub_components["dummy-calling-one-api-from-within-other"]
+        # Manually set the must_be_complete flag to false.
+        deadlock_component.api_methods["run_inner"].must_be_complete = False
+        test = ComponentTest(component=a, input_spaces=dict(input_=float))
+        print("Not seeing RLGraphBuildError. Test ok.")
