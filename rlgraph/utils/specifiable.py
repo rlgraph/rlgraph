@@ -187,27 +187,6 @@ class Specifiable(object):
         return cls.from_spec(spec=spec, **kwargs)
 
     @classmethod
-    def from_mixed(cls, mixed):
-        """
-        Create object from mixed input. Input might be a) a dict object (pass to `from_spec`), or b) a filename
-        (pass to `from_file`)
-
-        Args:
-            mixed: dict or filename.
-
-        Returns: Object
-
-        """
-        # Copy so caller can reuse safely.
-        mixed = deepcopy(mixed)
-        if isinstance(mixed, dict):
-            return cls.from_spec(spec=mixed)
-        elif isinstance(mixed, str):
-            return cls.from_file(filename=mixed)
-        else:
-            raise RLGraphError('Invalid input to `from_mixed`: {}'.format(mixed))
-
-    @classmethod
     def lookup_class(cls, type_):
         if isinstance(cls.__lookup_classes__, dict) and \
             (type_ in cls.__lookup_classes__ or \
