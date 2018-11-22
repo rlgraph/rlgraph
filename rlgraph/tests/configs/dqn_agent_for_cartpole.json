@@ -40,6 +40,11 @@
     }
   },
 
+  "observe_spec":
+  {
+    "buffer_size": 128
+  },
+
   "update_spec": {
     "do_updates": true,
     "update_interval": 4,
