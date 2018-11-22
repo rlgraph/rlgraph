@@ -108,7 +108,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             print("i={}/{} Loss={:.4} Avg-reward={:.2}".format(i, learn_updates, float(ret[1]), mean_return))
 
         # Assume we have learned something.
-        self.assertGreater(np.nanmean(mean_returns), 40.0)
+        self.assertGreater(np.nanmean(mean_returns), 25.0)
 
         time.sleep(3)
         agent.terminate()

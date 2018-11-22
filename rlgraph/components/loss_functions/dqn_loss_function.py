@@ -210,7 +210,7 @@ class DQNLossFunction(LossFunction):
         """
         Args:
             td_targets (SingleDataOp): The already calculated TD-target terms (r + gamma maxa'Qt(s',a')
-                OR for double Q: r + gamma Qt(s',maxa'(Q(s',a'))))
+                OR for double Q: r + gamma Qt(s',argmaxa'(Q(s',a'))))
             q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
                 when in s and taking different actions a.
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
