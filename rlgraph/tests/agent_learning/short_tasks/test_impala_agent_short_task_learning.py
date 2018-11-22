@@ -87,7 +87,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
         """
         Creates a single IMPALAAgent and runs it via a simple loop on CartPole-v0.
         """
-        env_spec = dict(type="open-ai-gym", gym_env="CartPole-v0", visualize=self.is_windows)
+        env_spec = dict(type="open-ai-gym", gym_env="CartPole-v0", seed=10, visualize=self.is_windows)
         config_ = config_from_path("configs/impala_agent_for_cartpole.json")
         config_["environment_spec"] = env_spec
         dummy_env = OpenAIGymEnv.from_spec(env_spec)
@@ -95,7 +95,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             config_,
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
-            execution_spec=dict(seed=12),
+            execution_spec=dict(seed=10),
             update_spec=dict(batch_size=8),
             optimizer_spec=dict(type="adam", learning_rate=0.005),
             num_workers=4,
@@ -111,7 +111,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             print("i={}/{} Loss={:.4} Avg-reward={:.2}".format(i, learn_updates, float(ret[1]), mean_return))
 
         # Assume we have learned something.
-        self.assertGreater(np.nanmean(mean_returns), 25.0)
+        self.assertGreater(np.nanmean(mean_returns[:-100]), 25.0)
 
         time.sleep(3)
         agent.terminate()
