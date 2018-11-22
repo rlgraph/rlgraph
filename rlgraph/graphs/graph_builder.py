@@ -23,7 +23,7 @@ import time
 
 import inspect
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError, RLGraphAPICallParamError
 from rlgraph.utils.specifiable import Specifiable
 
 from rlgraph.components.component import Component
@@ -34,7 +34,6 @@ from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import DataOpTuple, is_constant
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, get_call_param_name
-from rlgraph.utils.component_printout import component_print_out
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -47,7 +46,7 @@ class GraphBuilder(Specifiable):
     components, sockets and connections and creating the underlying computation
     graph.
     """
-    def __init__(self, name="model", action_space=None, summary_spec=None):
+    def __init__(self, name="model", action_space=None, summary_spec=None, max_build_iterations=3000):
         """
         Args:
             name (str): The name of this GraphBuilder and of the meta-graph's root-component.
@@ -63,6 +62,7 @@ class GraphBuilder(Specifiable):
         self.name = name
         self.action_space = action_space
         self.summary_spec = parse_summary_spec(summary_spec)
+        self.max_build_iterations = max_build_iterations
 
         # All components assigned to each device, for debugging and analysis.
         self.device_component_assignments = dict()
@@ -647,7 +647,7 @@ class GraphBuilder(Specifiable):
             return len(tf.get_default_graph().as_graph_def().node)
         return 0
 
-    def sanity_check_build(self):
+    def sanity_check_build(self, still_building=False):
         """
         Checks whether some of the root component's API-method output columns contain ops that are still None.
         """
@@ -658,9 +658,14 @@ class GraphBuilder(Specifiable):
             for out_op_column in api_method_rec.out_op_columns:
                 for op_rec in out_op_column.op_records:
                     if op_rec.op is None:
-                        self.analyze_build_problem(op_rec)
+                        try:
+                            self._analyze_none_op(op_rec)
+                        except RLGraphBuildError as e:
+                            if still_building:
+                                print("Found problem in build process (causing a build-deadlock):")
+                            raise e  # TODO: do something else with this error?
 
-    def analyze_build_problem(self, op_rec):
+    def _analyze_none_op(self, op_rec):
         """
         Args:
             op_rec (DataOpRecord): The op-rec to analyze for errors (whose op property is None).
@@ -668,7 +673,78 @@ class GraphBuilder(Specifiable):
         Raises:
             RLGraphError: After the problem has been identified.
         """
-        pass
+        # Step via `previous` through the graph backwards.
+        while True:
+            previous_op_rec = op_rec.previous
+            # Hit a graph_fn. Jump to incomign column.
+            if previous_op_rec is None:
+                assert isinstance(op_rec.column, DataOpRecordColumnFromGraphFn),\
+                    "ERROR: If previous op-rec is None, column must be of type `DataOpRecordColumnFromGraphFn` " \
+                    "(but is type={})!".format(type(op_rec.column).__name__)
+                # All op-recs going into this graph_fn have actual ops.
+                # -> We know now that this graph_fn is only not called because the Component is either input-incomplete
+                # or variable-incomplete.
+                if op_rec.column.in_graph_fn_column.is_complete():
+                    if op_rec.column.component.input_complete is False:
+                        self._analyze_input_incomplete_component(op_rec.column.component)
+                    else:
+                        assert op_rec.column.component.variable_complete is False and \
+                               op_rec.column.graph_fn_name == "_graph_fn__variables", \
+                               "ERROR: Component '{}' was expected to be either input-incomplete or " \
+                               "variable-incomplete!".format(op_rec.column.component.global_scope)
+                else:
+                    # Take as an example None op the first incoming one that's None as well.
+                    empty_in_op_recs = list(or_ for or_ in op_rec.column.in_graph_fn_column.op_records if or_.op is None)
+                    previous_op_rec = empty_in_op_recs[0] if len(empty_in_op_recs) > 0 else None
+            # Continue with new op-record.
+            op_rec = previous_op_rec
+
+    def _analyze_input_incomplete_component(self, component):
+        """
+        Analyzes why a component is input-complete and what we can further track back from it
+        (e.g. maybe there is another one before that that is also input-incomplete).
+
+        Args:
+            component (Component): The defunct Component to analyze.
+
+        Raises:
+            RLGraphError: After the problem has been identified.
+        """
+        # Find any input-param that has no Space defined.
+        incomplete_input_args = list(name for name, space in component.api_method_inputs.items() if space is None)
+        assert len(incomplete_input_args) > 0, "ERROR: Expected at least one input-arg to be without Space-definition!"
+        incomplete_arg = incomplete_input_args[0]
+        ## Either we are blocked by ourselves (API-method calling another one of the same Component (internal deadlock)).
+        #internal_deadlock = False
+        # Now loop through all of the Component's API-methods and look for all calls using `incomplete_arg`.
+        # If they are all coming from the same Component -> internal deadlock.
+        # If at least one is coming from another component -> follow that one via this very method.
+        # TODO: What if there is external deadlock? Two components
+        calls_using_incomplete_arg = 0
+        components_making_calls_with_incomplete_arg = set()
+        for api_method_name, api_method_rec in component.api_methods.items():
+            # Found a call with `incomplete_arg`.
+            if incomplete_arg in api_method_rec.input_names and len(api_method_rec.in_op_columns) > 0:
+                calls_using_incomplete_arg += len(api_method_rec.in_op_columns)
+                for call_column in api_method_rec.in_op_columns:
+                    for op_rec in call_column.op_records:
+                        assert op_rec.previous is not None
+                        components_making_calls_with_incomplete_arg.add(op_rec.previous.column.component)
+
+        # What if incomplete_arg was never used in any calls?
+        # Then that's the reason, why this component is input-incomplete.
+        if calls_using_incomplete_arg == 0:
+            raise RLGraphBuildError(
+                "The call argument `{}` in Component '{}' was never used in any calls to any API-method of this "
+                "component! Thus, the component remains input-incomplete.".format(incomplete_arg,
+                                                                                  component.global_scope)
+            )
+        elif len(components_making_calls_with_incomplete_arg) == 1 and \
+                component in components_making_calls_with_incomplete_arg:
+            raise RLGraphBuildError(
+                "Component '{}' has a circular dependency via call arg ''.".format(incomplete_arg,
+                                                                                  component.global_scope)
+            )
 
     def get_execution_inputs(self, *api_method_calls):
         """
@@ -914,9 +990,10 @@ class GraphBuilder(Specifiable):
             # Sanity check, whether we are stuck.
             new_op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
             if op_records_list == new_op_records_list:
-                # Probably deadlocked. Do a premature return and let sanity check do the exact error analysis.
-                if loop_counter > 10000:
-                    return loop_counter
+                # Probably deadlocked. Do a premature sanity check to report possible problems.
+                if loop_counter > self.max_build_iterations:
+                    self.sanity_check_build(still_building=True)
+                    return
 
             op_records_list = new_op_records_list
 
