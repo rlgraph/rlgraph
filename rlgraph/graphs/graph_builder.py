@@ -712,7 +712,7 @@ class GraphBuilder(Specifiable):
         Raises:
             RLGraphError: After the problem has been identified.
         """
-        self.investigated_input_incomplete_components.append(component)
+        self.investigated_input_incomplete_components.add(component)
         # Find any input-param that has no Space defined.
         incomplete_input_args = list(name for name, space in component.api_method_inputs.items() if space is None)
         assert len(incomplete_input_args) > 0, "ERROR: Expected at least one input-arg to be without Space-definition!"
