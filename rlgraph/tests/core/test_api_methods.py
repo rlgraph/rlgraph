@@ -22,8 +22,8 @@ import unittest
 
 from rlgraph.tests import ComponentTest
 from rlgraph.utils import root_logger
-from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.tests.dummy_components import *
+from rlgraph.tests.dummy_components_with_sub_components import *
 
 
 class TestAPIMethods(unittest.TestCase):

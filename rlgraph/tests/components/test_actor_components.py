@@ -27,7 +27,7 @@ from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorSt
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
-from rlgraph.tests.dummy_components import DummyNNWithDictInput
+from rlgraph.tests.dummy_components_with_sub_components import DummyNNWithDictInput
 from rlgraph.utils.numpy import softmax
 
 

@@ -23,6 +23,7 @@ import unittest
 from rlgraph.tests import ComponentTest
 from rlgraph.utils import root_logger
 from rlgraph.tests.dummy_components import *
+from rlgraph.tests.dummy_components_with_sub_components import *
 
 
 class TestDevicePlacements(unittest.TestCase):
