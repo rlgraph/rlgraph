@@ -1,39 +1,31 @@
 {
   "type": "actor-critic",
 
-  "sample_episodes": true,
+  "sample_episodes": false,
   "discount": 0.99,
   "gae_lambda": 1.0,
 
   "memory_spec":
   {
-    "type": "ring_buffer",
+    "type": "ring-buffer",
     "capacity": 64
   },
 
   "preprocessing_spec":
-  [],
+  [
+  ],
 
   "observe_spec": {
-    "buffer_size": 64
-  },
-  "execution_spec": {
-    "seed": 15
+    "buffer_size": 16
   },
 
   "network_spec":
   [
     {
       "type": "dense",
-      "units": 32,
-      "activation": "tanh",
-      "scope": "hidden1"
-    },
-    {
-      "type": "dense",
-      "units": 32,
-      "activation": "tanh",
-      "scope": "hidden2"
+      "units": 10,
+      "activation": "linear",
+      "scope": "hidden"
     }
   ],
 
@@ -45,6 +37,6 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.005
+    "learning_rate": 0.05
   }
 }
