@@ -1,6 +1,6 @@
 {
   "type": "actor_critic",
-  "sample_episodes": false,
+  "sample_episodes": true,
   "discount": 0.99,
   "gae_lambda": 1.0,
   "weight_entropy": 0.01,
@@ -8,14 +8,14 @@
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 1000
+    "capacity": 10000
   },
 
   "preprocessing_spec":
   [],
 
   "observe_spec": {
-    "buffer_size":200
+    "buffer_size": 200
   },
 
   "network_spec":
@@ -35,10 +35,10 @@
   ],
 
   "update_spec": {
-    "update_mode": "time_steps",
+    "update_mode": "episodes",
     "do_updates": true,
-    "update_interval": 400,
-    "batch_size": 400
+    "update_interval": 20,
+    "batch_size": 20
   },
 
   "optimizer_spec": {

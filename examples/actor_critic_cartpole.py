@@ -80,7 +80,7 @@ def main(argv):
     print("Starting workload, this will take some time for the agents to build.")
 
     # Use exploration is true for training, false for evaluation.
-    worker.execute_timesteps(10000, use_exploration=True)
+    worker.execute_timesteps(20000, use_exploration=True)
 
     # Note: A basic actor critic is very sensitive to hyper-parameters and might collapse after reaching the maximum
     # reward. In practice, it would be recommended to stop training when a reward threshold is reached.
