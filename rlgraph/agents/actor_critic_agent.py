@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, DictMerger, ContainerSplitter
+from rlgraph.components import Memory, DictMerger, ContainerSplitter, RingBuffer
 from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.decorators import rlgraph_api
@@ -72,8 +72,9 @@ class ActorCriticAgent(Agent):
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "terminals")
         # The replay memory.
-        assert memory_spec["type"] == "ring_buffer", "Actor-critic memory must be ring-buffer for episode-handling."
         self.memory = Memory.from_spec(memory_spec)
+        assert isinstance(self.memory, RingBuffer),\
+            "ERROR: Actor-critic memory must be ring-buffer for episode-handling."
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
