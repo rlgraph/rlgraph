@@ -23,9 +23,8 @@ import unittest
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.agents import PPOAgent
 from rlgraph.execution import SingleThreadedWorker
-from rlgraph.spaces import FloatBox
 from rlgraph.utils import root_logger
-from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
+from rlgraph.tests.test_util import config_from_path
 
 
 class TestPPOShortTaskLearning(unittest.TestCase):
@@ -34,12 +33,6 @@ class TestPPOShortTaskLearning(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.INFO)
 
-    grid_world_2x2_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=4)]
-    grid_world_4x4_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=16)]
-    # Preprocessed state spaces.
-    grid_world_2x2_flattened_state_space = FloatBox(shape=(4,), add_batch_rank=True)
-    grid_world_4x4_flattened_state_space = FloatBox(shape=(16,), add_batch_rank=True)
-
     def test_ppo_on_2x2_grid_world(self):
         """
         Creates a PPO Agent and runs it via a Runner on the 2x2 Grid World Env.
@@ -47,7 +40,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         env = GridWorld(world="2x2")
         agent = PPOAgent.from_spec(
             config_from_path("configs/ppo_agent_for_2x2_gridworld.json"),
-            state_space=self.grid_world_2x2_flattened_state_space,
+            state_space=GridWorld.grid_world_2x2_flattened_state_space,
             action_space=env.action_space,
         )
 
@@ -56,7 +49,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=True,
-            preprocessing_spec=self.grid_world_2x2_preprocessing_spec
+            preprocessing_spec=GridWorld.grid_world_2x2_preprocessing_spec
         )
         results = worker.execute_timesteps(time_steps, max_timesteps_per_episode=100, use_exploration=True)
 

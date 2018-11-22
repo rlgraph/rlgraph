@@ -87,16 +87,17 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
         """
         Creates a single IMPALAAgent and runs it via a simple loop on CartPole-v0.
         """
-        env = OpenAIGymEnv("CartPole-v0", visualize=self.is_windows)
+        env_spec = dict(type="open-ai-gym", gym_env="CartPole-v0", visualize=self.is_windows)
         config_ = config_from_path("configs/impala_agent_for_cartpole.json")
-        #config_["environment_spec"]["visualize"] = self.is_windows
+        config_["environment_spec"] = env_spec
+        dummy_env = OpenAIGymEnv.from_spec(env_spec)
         agent = IMPALAAgent.from_spec(
             config_,
-            state_space=env.state_space,
-            action_space=env.action_space,
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
             execution_spec=dict(seed=12),
             update_spec=dict(batch_size=8),
-            optimizer_spec=dict(type="adam", learning_rate=0.01),
+            optimizer_spec=dict(type="adam", learning_rate=0.005),
             num_workers=4,
             worker_sample_size=20
         )

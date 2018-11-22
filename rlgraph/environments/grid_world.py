@@ -94,6 +94,13 @@ class GridWorld(Environment):
         ]
     }
 
+    # Some useful class vars.
+    grid_world_2x2_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=4)]
+    grid_world_4x4_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=16)]
+    # Preprocessed state spaces.
+    grid_world_2x2_flattened_state_space = spaces.FloatBox(shape=(4,), add_batch_rank=True)
+    grid_world_4x4_flattened_state_space = spaces.FloatBox(shape=(16,), add_batch_rank=True)
+
     def __init__(self, world="4x4", save_mode=False, reward_function="sparse", state_representation="discr"):
         """
         Args:
