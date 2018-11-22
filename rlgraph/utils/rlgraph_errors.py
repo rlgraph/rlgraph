@@ -31,3 +31,11 @@ class RLGraphAPICallParamError(RLGraphError):
     go well into sub-Component B's API input).
     """
     pass
+
+
+class RLGraphBuildError(RLGraphError):
+    """
+    Raised if the build of a model cannot be completed properly e.g. due to input/variable-incompleteness of some
+    components.
+    """
+    pass
