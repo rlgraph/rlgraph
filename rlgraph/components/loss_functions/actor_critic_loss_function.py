@@ -126,6 +126,12 @@ class ActorCriticLossFunction(LossFunction):
                 squeezed = tf.tanh(rewards / 5.0)
                 rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
 
+            last_sequence = tf.expand_dims(sequence_indices[-1], -1)
+
+            # Ensure the very last entry is 1 for sequence indices so we don't connect different episodes fragments
+            # when sampling sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
+            sequence_indices = tf.concat([sequence_indices[:-1], tf.ones_like(last_sequence)], axis=0)
+
             # # Let the gae-helper function calculate the pg-advantages.
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
             pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
