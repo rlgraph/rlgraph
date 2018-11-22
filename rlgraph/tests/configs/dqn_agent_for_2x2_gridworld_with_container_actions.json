@@ -75,7 +75,7 @@
   "update_spec": {
     "do_updates": true,
     "update_interval": 4,
-    "batch_size": 24,
+    "batch_size": 8,
     "sync_interval": 128
   },
 

@@ -196,6 +196,14 @@ class Worker(Specifiable):
         loss = 0
         for _ in range_(self.update_steps):
             ret = self.agent.update()
+            # TEST:
+            #print("current Q-table:\n{}".format(self.agent.last_q_table))
+            # Find q-values for state (0, 1, 0, 1)
+            #for i, state in enumerate(self.agent.last_q_table["states"]):
+            #    if tuple(state) == (0.0, 1.0, 0.0, 1.0):
+            #        print("Q-values for 2nd state: {}".format(self.agent.last_q_table["q_values"][i]))
+            #        break
+            # END: TEST
             if isinstance(ret, tuple):
                 loss += ret[0]
             else:
