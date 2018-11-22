@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import os
 import unittest
 
 from rlgraph.environments import OpenAIGymEnv, GridWorld
@@ -32,6 +33,8 @@ class TestPPOShortTaskLearning(unittest.TestCase):
     Tests whether the PPO agent can learn in simple environments.
     """
     root_logger.setLevel(level=logging.INFO)
+
+    is_windows = os.name == "nt"
 
     def test_ppo_on_2x2_grid_world(self):
         """
@@ -74,7 +77,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
-            render=True
+            render=self.is_windows
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
