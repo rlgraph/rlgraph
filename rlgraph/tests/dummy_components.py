@@ -337,3 +337,33 @@ class OnlyFlattenDummy(Component):
         return ret, ret2, input2
 
 
+class DummyCallingOneAPIFromWithinOther(Component):
+    """
+    A Component with 2 API-methods (A and B) that calls B from within A.
+    Hence, if a parent component does not call B directly, this component will never be input-complete.
+    """
+    def __init__(self, scope="dummy-calling-one-api-from-within-other", **kwargs):
+        super(DummyCallingOneAPIFromWithinOther, self).__init__(scope=scope, **kwargs)
+        self.my_var = None
+
+    def create_variables(self, input_spaces, action_space=None):
+        in_space = input_spaces["inner_input"]
+        self.my_var = self.get_variable(
+            name="memory", trainable=False, from_space=in_space, flatten=False, initializer=0
+        )
+
+    @rlgraph_api
+    def run(self, outer_input):
+        # Call another graph_fn here to force space coming out of it (space of tmp_out) to be unknown.
+        tmp_out = self._graph_fn_2(outer_input)
+        # At this point during the build, we have no idea what space tmp_out has and cannot complete this Component
+        # unless the parent itself calls `run_inner`.
+        return self.run_inner(tmp_out)
+
+    @rlgraph_api(name="run_inner")
+    def _graph_fn_1(self, inner_input):
+        return inner_input * self.my_var
+
+    @graph_fn
+    def _graph_fn_2(self, inner_input_2):
+        return inner_input_2 + 1.0

@@ -22,7 +22,7 @@ from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
-from rlgraph.tests.dummy_components import DummyWithVar, SimpleDummyWithVar
+from rlgraph.tests.dummy_components import DummyWithVar, SimpleDummyWithVar, DummyCallingOneAPIFromWithinOther
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 
@@ -100,42 +100,6 @@ class DummyNNWithDictInput(NeuralNetwork):
         return dict(output=concatenated_data)
 
 
-"""class DummyCallingSubCompAPIFromWithinGraphFn(Component):
-    ""
-    A dummy component with one sub-component that has variables and an API-method.
-    This dummy calls the sub-componet's API-method from within its graph_fn.
-
-    API:
-        run(input_): Result of input_ + sub_comp.run(input_) + `self.constant_value`
-    ""
-    def __init__(self, scope="dummy-calling-sub-components-api-from-within-graph-fn", constant_value=1.0, **kwargs):
-        ""
-        Args:
-            constant_value (float): A constant to add to input in our graph_fn.
-        ""
-        super(DummyCallingSubCompAPIFromWithinGraphFn, self).__init__(scope=scope, **kwargs)
-        self.constant_value = constant_value
-
-        # Create a sub-Component and add it.
-        self.sub_comp = SimpleDummyWithVar()
-        self.add_components(self.sub_comp)
-
-    @rlgraph_api
-    def run(self, input_):
-        # Returns 2*input_ + 10.0.
-        sub_comp_result = self.sub_comp.run(input_)  # input_ + 3.0
-        self_result = self._graph_fn_apply(sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
-        return self_result
-
-    @graph_fn
-    def _graph_fn_apply(self, input_):
-        # Returns: input_ + [(input_ + 1.0) + 3.0] = 2*input_ + 4.0
-        intermediate_result = input_ + self.constant_value
-        after_api_call = self.sub_comp.run(intermediate_result)
-        return input_ + after_api_call
-"""
-
-
 class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
     """
     A dummy component with one sub-component that has variables and an API-method.
@@ -170,4 +134,25 @@ class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
         intermediate_result = input_ + self.constant_value
         after_api_call = self.sub_comp.run(intermediate_result)
         return input_ + after_api_call
+
+
+class DummyProducingInputIncompleteBuild(Component):
+    """
+    A dummy component which produces an input-incomplete build.
+    """
+    def __init__(self, scope="dummy-calling-sub-components-api-from-within-graph-fn", **kwargs):
+        """
+        Args:
+            constant_value (float): A constant to add to input in our graph_fn.
+        """
+        super(DummyProducingInputIncompleteBuild, self).__init__(scope=scope, **kwargs)
+
+        # Create the "problematic" sub-Component and add it.
+        self.sub_comp = DummyCallingOneAPIFromWithinOther()
+        self.add_components(self.sub_comp)
+
+    @rlgraph_api
+    def run(self, input_):
+        return self.sub_comp.run(input_)
+
 
