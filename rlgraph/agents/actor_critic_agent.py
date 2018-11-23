@@ -61,7 +61,7 @@ class ActorCriticAgent(Agent):
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
-            weights="variables:policy",
+            weights="variables:{}".format(self.policy.scope),
             deterministic=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
@@ -238,10 +238,6 @@ class ActorCriticAgent(Agent):
         return_ops = [0, 1, 2]
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
-
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_memory"]
         else:
             # No sequence indices means terminals are used in place.
             if sequence_indices is None:
@@ -249,12 +245,10 @@ class ActorCriticAgent(Agent):
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_external_batch"]
+        print("Loss: {}".format(np.mean(ret[1])))
 
-        # [1]=the loss (0=update noop)
-        # [2]=loss per item for external update, records for update from memory
+        # 1=the loss
+        # 2=loss per item for external update, records for update from memory
         return ret[1], ret[2]
 
     def reset(self):
