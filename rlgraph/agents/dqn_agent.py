@@ -354,16 +354,6 @@ class DQNAgent(Agent):
                 return_ops += [3]  # 3=batch
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
 
-            # Do the target net synching after the update.
-            if sync_call:
-                self.graph_executor.execute(sync_call)
-
-            print("Loss: {}".format(ret[1]))
-
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_memory"]
-
             # Store the last Q-table?
             if self.store_last_q_table is True:
                 q_table = dict(
@@ -377,11 +367,7 @@ class DQNAgent(Agent):
 
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"]]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
-
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_external_batch"]
+            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Store the last Q-table?
             if self.store_last_q_table is True:
@@ -390,14 +376,21 @@ class DQNAgent(Agent):
                     q_values=ret[3]
                 )
 
+        print("Loss: {}".format(ret[1]))
+
+        # Do the target net synching after the update (for better clarity: after a sync, we would expect for both
+        # networks to be the exact same).
+        if sync_call:
+            self.graph_executor.execute(sync_call)
+
         # Store the latest pulled memory batch?
         if self.store_last_memory_batch is True and batch is None:
             self.last_memory_batch = ret[2]
         if self.store_last_q_table is True:
             self.last_q_table = q_table
 
-        # [1]=the loss (0=update noop)
-        # [2]=loss per item for external update, records for update from memory
+        # 1=the loss
+        # 2=loss per item for external update, records for update from memory
         return ret[1], ret[2]
 
     def reset(self):
