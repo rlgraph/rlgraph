@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
@@ -379,7 +381,8 @@ class Policy(Component):
         # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
         # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
         # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
-        if deterministic and isinstance(action_space_component, IntBox):
+        if isinstance(action_space_component, IntBox) and \
+                (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
             action = self._graph_fn_get_deterministic_action_wo_distribution(logits)
         else:
             action = self.distributions[key].draw(probabilities, deterministic)
