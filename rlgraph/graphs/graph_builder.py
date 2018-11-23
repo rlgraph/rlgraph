@@ -694,16 +694,21 @@ class GraphBuilder(Specifiable):
                                op_rec.column.graph_fn_name == "_graph_fn__variables", \
                                "ERROR: Component '{}' was expected to be either input-incomplete or " \
                                "variable-incomplete!".format(op_rec.column.component.global_scope)
+                        self._analyze_variable_incomplete_component(op_rec.column.component)
                 else:
                     # Take as an example None op the first incoming one that's None as well.
                     empty_in_op_recs = list(or_ for or_ in op_rec.column.in_graph_fn_column.op_records if or_.op is None)
-                    previous_op_rec = empty_in_op_recs[0] if len(empty_in_op_recs) > 0 else None
+                    if len(empty_in_op_recs) > 0:
+                        previous_op_rec = empty_in_op_recs[0]
+                    # All op-recs have actual ops -> .
+                    else:
+                        pass  # TODO: complete logic
             # Continue with new op-record.
             op_rec = previous_op_rec
 
     def _analyze_input_incomplete_component(self, component):
         """
-        Analyzes why a component is input-complete and what we can further track back from it
+        Analyzes why a component is input-incomplete and what we can further track back from it
         (e.g. maybe there is another one before that that is also input-incomplete).
 
         Args:
@@ -762,6 +767,22 @@ class GraphBuilder(Specifiable):
                 # Assume that the caller is input-incomplete itself.
                 assert calling_component.input_complete is False
                 # Continue investigating why this one is input incomplete.
+
+    def _analyze_variable_incomplete_component(self, component):
+        """
+        Analyzes why a component is variable-incomplete (one of its children is not input-complete) and keeps tracking
+        the root cause for this problem.
+
+        Args:
+            component (Component): The defunct Component to analyze.
+
+        Raises:
+            RLGraphError: After the problem has been identified.
+        """
+        # Find the sub-component that's input-incomplete and further track that one.
+        for sub_component in component.get_all_sub_components():
+            if sub_component.input_complete is False:
+                self._analyze_input_incomplete_component(sub_component)
 
     def get_execution_inputs(self, *api_method_calls):
         """
