@@ -166,35 +166,22 @@ class ActorCriticAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
                 self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
-            # If we are a multi-GPU root:
-            # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-sync-optimizer" in self_.sub_components:
-                main_policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-                grads_and_vars, loss, loss_per_item = \
-                    self_.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch(
-                        main_policy_vars, preprocessed_states, actions, rewards, terminals
-                    )
-                step_op = self_.get_sub_component_by_name(optimizer_scope).apply_gradients(grads_and_vars)
-                step_and_sync_op = self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
-                    step_op, main_policy_vars
-                )
-                return step_and_sync_op, loss, loss_per_item
 
             baseline_values = self.value_function.value_output(preprocessed_states)
             out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states)
-            loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
+            loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
                 out["logits"], out["probabilities"], baseline_values, actions, rewards, terminals, sequence_indices
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
+            vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-            if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
-                grads_and_vars = self_.get_sub_component_by_name(optimizer_scope).calculate_gradients(policy_vars, loss)
-                return grads_and_vars, loss, loss_per_item
-            else:
-                step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
-                return step_op, loss, loss_per_item
+            step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+            vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
+                vf_vars, vf_loss, vf_loss_per_item)
+
+            return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
@@ -255,8 +242,8 @@ class ActorCriticAgent(Agent):
                     we may pass them in as one combined array [0 0 0 0 0 1] with sequence indices showing where each
                     episode ends: [0 0 1 0 0 1].
         """
-        # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled)
-        return_ops = [0, 1, 2]
+        # step, loss, loss per item, vf step, vf loss, vf loss per item
+        return_ops = [0, 1, 2, 3, 4, 5]
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
         else:
@@ -266,10 +253,7 @@ class ActorCriticAgent(Agent):
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
-        print("Loss: {}".format(np.mean(ret[1])))
-
-        # 1=the loss
-        # 2=loss per item for external update, records for update from memory
+        # [0] no-op, [1] loss, [2] loss per item
         return ret[1], ret[2]
 
     def reset(self):
