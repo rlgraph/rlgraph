@@ -156,11 +156,11 @@ class ActorCriticAgent(Agent):
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
 
             sequence_indices = terminals
-            step_op, loss, loss_per_item = self_.update_from_external_batch(
+            step_op, loss, loss_per_item, vf_step, vf_loss, vf_loss_per_item = self_.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, sequence_indices
             )
 
-            return step_op, loss, loss_per_item, records
+            return step_op, loss, loss_per_item, records, vf_step, vf_loss, vf_loss_per_item
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
