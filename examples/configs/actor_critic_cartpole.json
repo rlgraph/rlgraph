@@ -33,6 +33,21 @@
       "scope": "hidden2"
     }
   ],
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "vf-hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "vf-hidden2"
+    }
+  ],
 
   "update_spec": {
     "update_mode": "episodes",
@@ -42,6 +57,10 @@
   },
 
   "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0025
+  },
+  "value_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0025
   }
