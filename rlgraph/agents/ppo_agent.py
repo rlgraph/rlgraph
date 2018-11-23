@@ -306,7 +306,7 @@ class PPOAgent(Agent):
                     episode ends: [0 0 1 0 0 1].
         """
 
-        # [0]=the loss; [1]=loss-per-item, [2]=vf-loss, [3] - vf-loss- per item
+        # [0] = the loss; [1] = loss-per-item, [2] = vf-loss, [3] = vf-loss- per item
         return_ops = [0, 1, 2, 3]
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
@@ -326,9 +326,8 @@ class PPOAgent(Agent):
             if isinstance(ret, dict):
                 ret = ret["update_from_external_batch"]
 
-        # [1]=the loss (0=update noop)
-        # [2]=loss per item for external update, records for update from memory
-        return ret[1], ret[2]
+        # [0] loss, [1] loss per item
+        return ret[0], ret[1]
 
     def reset(self):
         """
@@ -339,4 +338,4 @@ class PPOAgent(Agent):
             self.graph_executor.execute("reset_preprocessor")
 
     def __repr__(self):
-        return "PPOAgent()"
+        return "PPOAgent"
