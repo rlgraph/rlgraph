@@ -49,6 +49,10 @@ class Synchronizable(Component):
         # Overwrites this method as any Synchronizable should only be input-complete once the parent
         # component is variable-complete (not counting this component!).
 
+        # If this component is not used at all (no calls to API-method: `sync` are made), return True.
+        if len(self.api_methods["sync"].in_op_columns) == 0:
+            return super(Synchronizable, self).check_input_completeness()
+
         # Check input-completeness of parent.
         if self.parent_component.input_complete is False:
             self.parent_component.check_input_completeness()
