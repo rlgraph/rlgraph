@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, DictMerger, ContainerSplitter, RingBuffer
+from rlgraph.components import Memory, DictMerger, ContainerSplitter, RingBuffer, ValueFunction, Optimizer
 from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.decorators import rlgraph_api
@@ -32,9 +32,13 @@ class ActorCriticAgent(Agent):
     Basic actor-critic policy gradient architecture with generalized advantage estimation,
     and entropy regularization. Suitable for execution with A2C, A3C.
     """
-    def __init__(self, gae_lambda=1.0, sample_episodes=False, weight_entropy=None, memory_spec=None, **kwargs):
+    def __init__(self,  value_function_spec, value_function_optimizer_spec=None,
+                 gae_lambda=1.0, sample_episodes=False, weight_entropy=None, memory_spec=None, **kwargs):
         """
         Args:
+            value_function_spec (list): Neural network specification for baseline.
+            value_function_optimizer_spec (dict): Optimizer config for value function otpimizer. If None, the optimizer
+                spec for the policy is used (same learning rate and optimizer type).
             gae_lambda (float): Lambda for generalized advantage estimation.
             sample_episodes (bool): If true, the update method interprets the batch_size as the number of
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
@@ -58,6 +62,18 @@ class ActorCriticAgent(Agent):
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
+
+        # Create non-shared baseline network.
+        self.value_function = ValueFunction(network_spec=value_function_spec)
+
+        # Cannot use the default scope for another optimizer again.
+        if value_function_optimizer_spec is None:
+            vf_optimizer_spec = self.optimizer_spec
+        else:
+            vf_optimizer_spec = value_function_optimizer_spec
+
+        vf_optimizer_spec["scope"] = "value-function-optimizer"
+        self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
@@ -87,7 +103,8 @@ class ActorCriticAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api(self.policy.scope, self.preprocessor.scope, self.optimizer.scope, *sub_components)
+        self.define_graph_api( "value-function", "value-function-optimizer",
+                               self.policy.scope, self.preprocessor.scope, self.optimizer.scope, *sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
