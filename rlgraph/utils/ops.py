@@ -178,8 +178,8 @@ def unflatten_op(op):
                     base_structure = [None] if type_ == list else DataOpDict()
                 current_structure = base_structure
             elif parent_key is not None:
-                if isinstance(parent_structure, list) and parent_structure[parent_key] is None or \
-                        isinstance(parent_structure, DataOpDict) and parent_key not in parent_structure:
+                if (isinstance(parent_structure, list) and (parent_structure[parent_key] is None)) or \
+                        (isinstance(parent_structure, DataOpDict) and parent_key not in parent_structure):
                     current_structure = [None] if type_ == list else DataOpDict()
                     parent_structure[parent_key] = current_structure
                 else:
