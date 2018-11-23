@@ -48,12 +48,8 @@ class ActorCriticAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
-        # Use baseline to have critic.
-        policy_spec = kwargs.pop("policy_spec", dict(type="shared-value-function-policy"))
-        # Use a stochastic policy.
-        policy_spec["deterministic"] = False
         super(ActorCriticAgent, self).__init__(
-            policy_spec=policy_spec,
+            policy_spec=dict(deterministic=False),  # Set policy to stochastic.
             name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
         self.sample_episodes = sample_episodes
@@ -110,7 +106,9 @@ class ActorCriticAgent(Agent):
         # print(markup)
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
-                              batch_size=self.update_spec["batch_size"])
+                              batch_size=self.update_spec["batch_size"],
+                              build_options=dict(vf_optimizer=self.value_function_optimizer))
+
             self.graph_built = True
 
     def define_graph_api(self, value_function_scope, vf_optimizer_scope, policy_scope, pre_processor_scope,
@@ -154,13 +152,10 @@ class ActorCriticAgent(Agent):
             else:
                 records = memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = splitter.split(records)
-
             sequence_indices = terminals
-            step_op, loss, loss_per_item, vf_step, vf_loss, vf_loss_per_item = self_.update_from_external_batch(
+            return self_.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, sequence_indices
             )
-
-            return step_op, loss, loss_per_item, records, vf_step, vf_loss, vf_loss_per_item
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
@@ -178,8 +173,7 @@ class ActorCriticAgent(Agent):
             vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
             step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
-            vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
-                vf_vars, vf_loss, vf_loss_per_item)
+            vf_step_op, vf_loss, vf_loss_per_item = vf_optimizer.step(vf_vars, vf_loss, vf_loss_per_item)
 
             return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
