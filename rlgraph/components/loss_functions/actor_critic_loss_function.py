@@ -42,7 +42,7 @@ class ActorCriticLossFunction(LossFunction):
         L[E] = - SUM[all actions a] pi(a|s) * log pi(a|s)
 
     """
-    def __init__(self, discount=0.99, gae_lambda=1.0, reward_clipping=None,
+    def __init__(self, discount=0.99, gae_lambda=1.0,
                  weight_pg=None, weight_baseline=None, weight_entropy=None, **kwargs):
         """
         Args:
@@ -57,9 +57,6 @@ class ActorCriticLossFunction(LossFunction):
         super(ActorCriticLossFunction, self).__init__(scope=kwargs.pop("scope", "actor-critic-loss-func"), **kwargs)
 
         self.discount = discount
-
-        self.reward_clipping = reward_clipping
-
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
 
         self.weight_pg = weight_pg if weight_pg is not None else 1.0
@@ -88,12 +85,13 @@ class ActorCriticLossFunction(LossFunction):
         Returns:
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
-        loss_per_item = self.loss_per_item(
+        loss_per_item, vf_loss_per_item = self.loss_per_item(
             logits_actions_pi, action_probs_mu, values, actions, rewards, terminals, sequence_indices
         )
         total_loss = self.loss_average(loss_per_item)
+        vf_total_loss = self.loss_average(vf_loss_per_item)
 
-        return total_loss, loss_per_item
+        return total_loss, loss_per_item, vf_total_loss, vf_loss_per_item
 
     @rlgraph_api
     def _graph_fn_loss_per_item(self, logits_actions_pi, action_probs_mu, baseline_values, actions,
@@ -118,14 +116,6 @@ class ActorCriticLossFunction(LossFunction):
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
         if get_backend() == "tf":
-            # `clamp_one`: Clamp rewards between -1.0 and 1.0.
-            if self.reward_clipping == "clamp_one":
-                rewards = tf.clip_by_value(rewards, -1, 1, name="reward-clipping")
-            # `soft_asymmetric`: Negative rewards are less negative than positive rewards are positive.
-            elif self.reward_clipping == "soft_asymmetric":
-                squeezed = tf.tanh(rewards / 5.0)
-                rewards = tf.where(rewards < 0.0, 0.3 * squeezed, squeezed) * 5.0
-
             last_sequence = tf.expand_dims(sequence_indices[-1], -1)
 
             # Ensure the very last entry is 1 for sequence indices so we don't connect different episodes fragments
@@ -150,8 +140,7 @@ class ActorCriticLossFunction(LossFunction):
                 loss = self.weight_pg * loss
 
             # The value-function baseline loss.
-            loss_baseline = 0.5 * tf.square(x=baseline_values - v_targets)
-            loss += self.weight_baseline * loss_baseline
+            baseline_loss = (v_targets - baseline_values) ** 2
 
             # The entropy regularizer term.
             policy = tf.nn.softmax(logits=logits_actions_pi)
@@ -159,4 +148,4 @@ class ActorCriticLossFunction(LossFunction):
             loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1)
             loss += self.weight_entropy * loss_entropy
 
-            return loss
+            return loss, baseline_loss
