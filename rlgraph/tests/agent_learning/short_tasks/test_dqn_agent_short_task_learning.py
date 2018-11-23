@@ -303,9 +303,9 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             dueling_q=True,
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
-            execution_spec=dict(seed=156),
+            execution_spec=dict(seed=15),
             update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            optimizer_spec=dict(type="adam", learning_rate=0.01),
             store_last_q_table=True
         )
 
@@ -322,5 +322,5 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], 25)
         self.assertGreaterEqual(results["max_episode_reward"], 160.0)
-        self.assertLessEqual(results["episodes_executed"], 100)
+        self.assertLessEqual(results["episodes_executed"], 150)
 

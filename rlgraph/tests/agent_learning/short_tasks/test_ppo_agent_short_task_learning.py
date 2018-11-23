@@ -45,6 +45,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             config_from_path("configs/ppo_agent_for_2x2_gridworld.json"),
             state_space=GridWorld.grid_world_2x2_flattened_state_space,
             action_space=env.action_space,
+            execution_spec=dict(seed=15),
         )
 
         time_steps = 3000
@@ -54,12 +55,12 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=True,
             preprocessing_spec=GridWorld.grid_world_2x2_preprocessing_spec
         )
-        results = worker.execute_timesteps(time_steps, max_timesteps_per_episode=100, use_exploration=True)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print(results)
 
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], -0.1)
+        self.assertGreater(results["mean_episode_reward"], -0.2)
 
     def test_ppo_on_cart_pole(self):
         """
@@ -70,6 +71,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             config_from_path("configs/ppo_agent_for_cartpole.json"),
             state_space=env.state_space,
             action_space=env.action_space,
+            execution_spec=dict(seed=15),
         )
 
         time_steps = 1000

@@ -14,7 +14,6 @@
 
   "feed_previous_action_through_nn": false,
   "feed_previous_reward_through_nn": false,
-  "batch_apply": true,
 
   "preprocessing_spec":
   [
@@ -27,7 +26,7 @@
         "type": "dense",
         "units": 10,
         "activation": "linear",
-        "scope": "hidden-layer"
+        "scope": "hidden"
       }
     ],
     "scope": "impala-net"

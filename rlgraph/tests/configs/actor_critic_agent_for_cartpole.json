@@ -22,15 +22,9 @@
   [
     {
       "type": "dense",
-      "units": 32,
+      "units": 20,
       "activation": "tanh",
-      "scope": "hidden1"
-    },
-    {
-      "type": "dense",
-      "units": 32,
-      "activation": "tanh",
-      "scope": "hidden2"
+      "scope": "hidden"
     }
   ],
 
@@ -43,6 +37,7 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0025
+    "learning_rate": 0.001,
+    "clip_grad_norm": 10
   }
 }

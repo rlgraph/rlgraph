@@ -45,16 +45,17 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
             config_from_path("configs/actor_critic_agent_for_2x2_gridworld.json"),
             state_space=GridWorld.grid_world_2x2_flattened_state_space,
             action_space=env.action_space,
+            execution_spec=dict(seed=13),
         )
 
-        time_steps = 3000
+        time_steps = 30000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=True,
             preprocessing_spec=GridWorld.grid_world_2x2_preprocessing_spec
         )
-        results = worker.execute_timesteps(time_steps, max_timesteps_per_episode=100, use_exploration=True)
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print(results)
 
@@ -71,6 +72,7 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
             config_from_path("configs/actor_critic_agent_for_cartpole.json"),
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
+            execution_spec=dict(seed=13),
         )
 
         time_steps = 3000
@@ -87,6 +89,6 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], 25)
         self.assertGreaterEqual(results["max_episode_reward"], 100.0)
-        self.assertLessEqual(results["episodes_executed"], 100)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 30)
 
 

@@ -8,7 +8,7 @@
   "memory_spec":
   {
     "type": "ring-buffer",
-    "capacity": 64
+    "capacity": 16
   },
 
   "preprocessing_spec":
@@ -31,12 +31,14 @@
 
   "update_spec": {
     "do_updates": true,
+    "update_mode": "episodes",
     "update_interval": 4,
-    "batch_size": 16
+    "batch_size": 8
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.05
+    "learning_rate": 0.0005,
+    "clip_grad_norm": 10
   }
 }
