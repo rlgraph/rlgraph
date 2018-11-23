@@ -99,7 +99,7 @@ class ActorCriticAgent(Agent):
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.loss_function, self.optimizer]
+                          self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
