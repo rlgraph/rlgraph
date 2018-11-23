@@ -113,10 +113,12 @@ class ActorCriticAgent(Agent):
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
 
-    def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+    def define_graph_api(self, value_function_scope, vf_optimizer_scope, policy_scope, pre_processor_scope,
+                         optimizer_scope, *sub_components):
         super(ActorCriticAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, loss_function, optimizer = sub_components
+        preprocessor, merger, memory, splitter, policy, loss_function, optimizer, value_function, \
+            vf_optimizer = sub_components
         sample_episodes = self.sample_episodes
 
         # Reset operation (resets preprocessor).
@@ -177,9 +179,11 @@ class ActorCriticAgent(Agent):
                     step_op, main_policy_vars
                 )
                 return step_and_sync_op, loss, loss_per_item
+
+            baseline_values = self.value_function.value_output(preprocessed_states)
             out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states)
             loss, loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                out["logits"], out["probabilities"], out["state_values"], actions, rewards, terminals, sequence_indices
+                out["logits"], out["probabilities"], baseline_values, actions, rewards, terminals, sequence_indices
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
