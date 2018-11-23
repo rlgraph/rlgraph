@@ -163,7 +163,7 @@ class ActorCriticAgent(Agent):
                 self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
 
             baseline_values = self.value_function.value_output(preprocessed_states)
-            out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states)
+            out = policy.get_logits_probabilities_log_probs(preprocessed_states)
             loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
                 out["logits"], out["probabilities"], baseline_values, actions, rewards, terminals, sequence_indices
             )
