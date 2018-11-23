@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import defaultdict
+from functools import partial
 import logging
 import numpy as np
 
@@ -26,7 +27,7 @@ from rlgraph.components import Component, Exploration, PreprocessorStack, Neural
     Optimizer
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
-from rlgraph.spaces.space import Space
+from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.utils.specifiable import Specifiable
@@ -37,7 +38,7 @@ class Agent(Specifiable):
     Generic agent defining RLGraph-API operations and parses and sanitizes configuration specs.
     """
     def __init__(self, state_space, action_space, discount=0.98,
-                 preprocessing_spec=None, network_spec=None, internal_states_space=None, action_adapter_spec=None,
+                 preprocessing_spec=None, network_spec=None, internal_states_space=None,
                  policy_spec=None,
                  exploration_spec=None, execution_spec=None, optimizer_spec=None, observe_spec=None, update_spec=None,
                  summary_spec=None, saver_spec=None, auto_build=True, name="agent"):
@@ -52,8 +53,6 @@ class Agent(Specifiable):
                 object itself.
             internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
                 Space object for the Space(s) of the internal (RNN) states.
-            action_adapter_spec (Optional[dict,ActionAdapter]): The spec-dict for the ActionAdapter Component or the
-                ActionAdapter object itself.
             policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
@@ -75,8 +74,10 @@ class Agent(Specifiable):
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
+        self.flat_state_space = self.state_space.flatten() if isinstance(self.state_space, ContainerSpace) else None
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
+        self.flat_action_space = self.action_space.flatten() if isinstance(self.action_space, ContainerSpace) else None
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
         self.discount = discount
@@ -102,10 +103,16 @@ class Agent(Specifiable):
             self.logger.info("No preprocessing required.")
 
         # Construct the Policy network.
-        self.neural_network = None
+        policy_spec = policy_spec or dict()
         if network_spec is not None:
-            self.neural_network = NeuralNetwork.from_spec(network_spec)
-        self.action_adapter_spec = action_adapter_spec
+            policy_spec["network_spec"] = network_spec
+        if "action_space" not in policy_spec:
+            policy_spec["action_space"] = self.action_space
+        self.policy_spec = policy_spec
+        # The behavioral policy of the algorithm. Also the one that gets updated.
+        self.policy = Policy.from_spec(self.policy_spec)
+        # Done by default.
+        self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         self.internal_states_space = internal_states_space
 
@@ -115,35 +122,25 @@ class Agent(Specifiable):
         # operations.
         self.loss_function = None
 
-        # The action adapter mapping raw NN output to (shaped) actions.
-        action_adapter_dict = dict(action_space=self.action_space)
-        if self.action_adapter_spec is None:
-            self.action_adapter_spec = action_adapter_dict
-        else:
-            self.action_adapter_spec.update(action_adapter_dict)
-
-        # The behavioral policy of the algorithm. Also the one that gets updated.
-        self.policy = Policy(
-            network_spec=self.neural_network,
-            action_adapter_spec=self.action_adapter_spec,
-            **(policy_spec or dict())
-        )
-
         self.exploration = Exploration.from_spec(exploration_spec)
         self.execution_spec = parse_execution_spec(execution_spec)
 
         # Python-side experience buffer for better performance (may be disabled).
         self.default_env = "env_0"
-        self.states_buffer = defaultdict(list)
-        self.actions_buffer = defaultdict(list)
+
+        def factory_(i):
+            if i < 2:
+                return []
+            return tuple([[] for _ in range(i)])
+
+        self.states_buffer = defaultdict(list)  #partial(fact_, len(self.flat_state_space)))
+        self.actions_buffer = defaultdict(partial(factory_, len(self.flat_action_space or [])))
         self.internals_buffer = defaultdict(list)
         self.rewards_buffer = defaultdict(list)
-        self.next_states_buffer = defaultdict(list)
+        self.next_states_buffer = defaultdict(list)  #partial(fact_, len(self.flat_state_space)))
         self.terminals_buffer = defaultdict(list)
 
         self.observe_spec = parse_observe_spec(observe_spec)
-        if self.observe_spec["buffer_enabled"]:
-            self.reset_env_buffers()
 
         # Global time step counter.
         self.timesteps = 0
@@ -177,12 +174,12 @@ class Agent(Specifiable):
         """
         if env_id is None:
             env_id = self.default_env
-        self.states_buffer[env_id] = []
-        self.actions_buffer[env_id] = []
-        self.internals_buffer[env_id] = []
-        self.rewards_buffer[env_id] = []
-        self.next_states_buffer[env_id] = []
-        self.terminals_buffer[env_id] = []
+        del self.states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
+        del self.actions_buffer[env_id]   # = ([] for _ in range(len(self.flat_action_space)))
+        del self.internals_buffer[env_id]  # = []
+        del self.rewards_buffer[env_id]  # = []
+        del self.next_states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
+        del self.terminals_buffer[env_id]  # = []
 
     # TODO optimizer scope missing?
     def define_graph_api(self, policy_scope, pre_processor_scope, *params):
@@ -195,10 +192,6 @@ class Agent(Specifiable):
             pre_processor_scope (str): The global scope of the PreprocessorStack within the Agent.
             params (any): Params to be used freely by child Agent implementations.
         """
-        # Done by default.
-        # TODO: Move this to ctor as this belongs to the init phase and doesn't really have to do with API-methods.
-        self.policy.add_components(Synchronizable(), expose_apis="sync")
-
         # Add api methods for syncing.
         @rlgraph_api(component=self.root_component)
         def get_policy_weights(self):
@@ -282,7 +275,8 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def observe(self, preprocessed_states, actions, internals, rewards, next_states, terminals, env_id=None):
+    def observe(self, preprocessed_states, actions, internals, rewards, next_states, terminals, env_id=None,
+                batched=False):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
@@ -290,46 +284,64 @@ class Agent(Specifiable):
         child Agent.
 
         Args:
-            preprocessed_states (Union[dict, ndarray]): Preprocessed states dict or array.
-            actions (Union[dict, ndarray]): Actions dict or array containing actions performed for the given state(s).
+            preprocessed_states (Union[dict,ndarray]): Preprocessed states dict or array.
+            actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
 
-            internals (Union[list]): Internal state(s) returned by agent for the given states.Must be
+            internals (Optional[list]): Internal state(s) returned by agent for the given states.Must be
                 empty list if no internals available.
 
-            rewards (float): Scalar reward(s) observed.
-            terminals (bool): Boolean indicating terminal.
-            next_states (Union[dict, ndarray]): Preprocessed next states dict or array.
+            rewards (Union[float,List[float]]): Scalar reward(s) observed.
+            terminals (Union[bool,List[bool]]): Boolean indicating terminal.
+            next_states (Union[dict,ndarray]): Preprocessed next states dict or array.
 
             env_id (Optional[str]): Environment id to observe for. When using vectorized execution and
                 buffering, using environment ids is necessary to ensure correct trajectories are inserted.
                 See `SingleThreadedWorker` for example usage.
+
+            batched (bool): Whether given data (states, actions, etc..) is already batched or not.
         """
-        batched_states = self.preprocessed_state_space.force_batch(preprocessed_states)
         # Check for illegal internals.
         if internals is None:
             internals = []
-
-        # Add batch rank?
-        if batched_states.ndim == np.asarray(preprocessed_states).ndim + 1:
-            preprocessed_states = np.asarray([preprocessed_states])
-            actions = np.asarray([actions])
-            internals = np.asarray([internals])
-            rewards = np.asarray([rewards])
-            terminals = np.asarray([terminals])
-            # Also batch next_states (or already done?).
-            if next_states.ndim == preprocessed_states.ndim - 1:
-                next_states = np.asarray([next_states])
 
         if self.observe_spec["buffer_enabled"] is True:
             if env_id is None:
                 env_id = self.default_env
 
-            self.states_buffer[env_id].extend(preprocessed_states)
-            self.actions_buffer[env_id].extend(actions)
-            self.internals_buffer[env_id].extend(internals)
-            self.rewards_buffer[env_id].extend(rewards)
-            self.next_states_buffer[env_id].extend(next_states)
-            self.terminals_buffer[env_id].extend(terminals)
+            # If data is already batched, just have to extend our buffer lists.
+            if batched:
+                if self.flat_state_space is not None:
+                    for i, flat_key in enumerate(self.flat_state_space.keys()):
+                        self.states_buffer[env_id][i].extend(preprocessed_states[flat_key])
+                        self.next_states_buffer[env_id][i].extend(next_states[flat_key])
+                else:
+                    self.states_buffer[env_id].extend(preprocessed_states)
+                    self.next_states_buffer[env_id].extend(next_states)
+                if self.flat_action_space is not None:
+                    for i, flat_key in enumerate(self.flat_action_space.keys()):
+                        self.actions_buffer[env_id][i].extend(actions[flat_key])
+                else:
+                    self.actions_buffer[env_id].extend(actions)
+                self.internals_buffer[env_id].extend(internals)
+                self.rewards_buffer[env_id].extend(rewards)
+                self.terminals_buffer[env_id].extend(terminals)
+            # Data is not batched, append single items (without creating new lists first!) to buffer lists.
+            else:
+                if self.flat_state_space is not None:
+                    for i, flat_key in enumerate(self.flat_state_space.keys()):
+                        self.states_buffer[env_id][i].append(preprocessed_states[flat_key])
+                        self.next_states_buffer[env_id][i].append(next_states[flat_key])
+                else:
+                    self.states_buffer[env_id].append(preprocessed_states)
+                    self.next_states_buffer[env_id].append(next_states)
+                if self.flat_action_space is not None:
+                    for i, flat_key in enumerate(self.flat_action_space.keys()):
+                        self.actions_buffer[env_id][i].append(actions[flat_key])
+                else:
+                    self.actions_buffer[env_id].append(actions)
+                self.internals_buffer[env_id].append(internals)
+                self.rewards_buffer[env_id].append(rewards)
+                self.terminals_buffer[env_id].append(terminals)
 
             buffer_is_full = len(self.rewards_buffer[env_id]) >= self.observe_spec["buffer_size"]
 
@@ -342,9 +354,13 @@ class Agent(Specifiable):
                 # if self.observe_spec["n_step"] > 1:
                 #    pass
 
+                if self.flat_action_space is not None:
+                    actions_ = {key: np.asarray(self.actions_buffer[env_id][i]) for i, key in enumerate(self.flat_action_space.keys())}
+                else:
+                    actions_ = np.asarray(self.actions_buffer[env_id])
                 self._observe_graph(
                     preprocessed_states=np.asarray(self.states_buffer[env_id]),
-                    actions=np.asarray(self.actions_buffer[env_id]),
+                    actions=actions_,
                     internals=np.asarray(self.internals_buffer[env_id]),
                     rewards=np.asarray(self.rewards_buffer[env_id]),
                     next_states=np.asarray(self.next_states_buffer[env_id]),
@@ -443,7 +459,7 @@ class Agent(Specifiable):
         Args:
             path (str): Path to model directory.
 
-            add_timestep (bool): Indiciates if current training step should be appended to exported model.
+            add_timestep (bool): Indicates if current training step should be appended to exported model.
                 If false, may override previous checkpoints.
         """
         self.graph_executor.store_model(path=path, add_timestep=add_timestep)
@@ -468,7 +484,7 @@ class Agent(Specifiable):
 
     def set_policy_weights(self, weights):
         """
-        Sets policy weights of this agent, e.g. for external syncing purporses.
+        Sets policy weights of this agent, e.g. for external syncing purposes.
 
         Args:
             weights (any): Weights and optionally meta data to update depending on the backend.

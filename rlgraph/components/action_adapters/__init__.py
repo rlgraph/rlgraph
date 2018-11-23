@@ -18,14 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
-from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
-from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
+#from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
+#from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
 
 
 ActionAdapter.__lookup_classes__ = dict(
     actionadapter=ActionAdapter,
-    baselineactionadapter=BaselineActionAdapter,
-    duelingactionadapter=DuelingActionAdapter,
+#    baselineactionadapter=BaselineActionAdapter,
+#    duelingactionadapter=DuelingActionAdapter,
 
 )
 

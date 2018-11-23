@@ -76,6 +76,7 @@ class DQFDLossFunction(DQNLossFunction):
                 apply to the losses.
             apply_demo_loss (Optional[SingleDataOp]): If 'apply_demo_loss' is True: The large-margin loss is applied.
                 Should be set to True when updating from demo data, False when updating from online data.
+
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """

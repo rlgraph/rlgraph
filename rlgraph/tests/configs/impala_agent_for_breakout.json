@@ -1,13 +1,23 @@
 {
-  "type": "dqn",
+  "type": "single-impala",
 
-  "discount": 0.99,
+  "num_workers": 4,
+  "worker_sample_size": 100,
 
-  "memory_spec":
+  "fifo_queue_spec":
   {
-    "type": "replay",
-    "capacity": 10000
+    "capacity": 1
   },
+
+  "environment_spec":
+  {
+    "type": "open-ai-gym",
+    "gym_env": "Breakout-v0"
+  },
+
+  "feed_previous_action_through_nn": false,
+  "feed_previous_reward_through_nn": false,
+  "batch_apply": true,
 
   "preprocessing_spec":
   [
@@ -71,45 +81,13 @@
     }
   ],
 
-  "policy_spec":
-  {
-    "type": "dueling-policy",
-    "units_state_value_stream": 512,
-    "action_adapter_spec":
-    {
-      "pre_network_spec": [
-        {
-          "type": "dense",
-          "units": 512
-        }
-      ]
-    }
-  },
-
   "exploration_spec":
   {
-    "epsilon_spec": {
-      "decay_spec": {
-        "type": "linear_decay",
-        "from": 1.0,
-        "to": 0.1,
-        "start_timestep": 50000,
-        "num_timesteps": 1000000
-      }
-    }
-  },
-
-  "observe_spec":
-  {
-    "buffer_size": 3000
   },
 
   "update_spec": {
     "do_updates": true,
-    "update_interval": 4,
-    "steps_before_update": 50000,
-    "batch_size": 32,
-    "sync_interval": 10000
+    "batch_size": 32
   },
 
   "optimizer_spec": {
@@ -118,3 +96,4 @@
     "clip_grad_norm": 20
   }
 }
+

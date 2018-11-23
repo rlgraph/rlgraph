@@ -161,15 +161,15 @@ class TestSequencePreprocessor(unittest.TestCase):
         for i in range_(3):
             test.test("reset")
 
-            test.test(("apply", np.array([np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])])),
+            test.test(("apply", (tuple([np.array([0.5]), np.array([[0.6, 0.7], [0.8, 0.9]])]),)),
                       expected_outputs=(np.array([0.5, 0.5, 0.5, 0.5]), np.array([[0.6, 0.7] * 4,
                                                                                   [0.8, 0.9] * 4])))
-            test.test(("apply", np.array([np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])])),
+            test.test(("apply", (tuple([np.array([0.6]), np.array([[1.1, 1.1], [1.1, 1.1]])]),)),
                       expected_outputs=(np.array([0.5, 0.5, 0.5, 0.6]), np.array([[0.6, 0.7, 0.6, 0.7,
                                                                                    0.6, 0.7, 1.1, 1.1],
                                                                                   [0.8, 0.9, 0.8, 0.9,
                                                                                    0.8, 0.9, 1.1, 1.1]])))
-            test.test(("apply", np.array([np.array([0.7]), np.array([[2.0, 2.1], [2.2, 2.3]])])),
+            test.test(("apply", (tuple([np.array([0.7]), np.array([[2.0, 2.1], [2.2, 2.3]])]),)),
                       expected_outputs=(np.array([0.5, 0.5, 0.6, 0.7]), np.array([[0.6, 0.7, 0.6, 0.7,
                                                                                    1.1, 1.1, 2.0, 2.1],
                                                                                   [0.8, 0.9, 0.8, 0.9,

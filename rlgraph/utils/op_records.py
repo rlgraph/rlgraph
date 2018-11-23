@@ -109,7 +109,7 @@ class DataOpRecordColumn(object):
                     # Do constant value assignment here.
                     elif args[i] is not None:
                         op = args[i]
-                        if is_constant(op):
+                        if is_constant(op) and not isinstance(op, np.ndarray):
                             op = np.array(op, dtype=dtype(type(op), "np"))
                         op_rec.op = op
                         op_rec.space = get_space_from_op(op)

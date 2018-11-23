@@ -24,14 +24,12 @@ from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorSt
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.neural_networks.value_function import ValueFunction
 
-from rlgraph.components.neural_networks.policy import Policy
-
 # The Stacks.
 Stack.__lookup_classes__ = dict(
     dictpreprocessorstack=DictPreprocessorStack,
     preprocessorstack=PreprocessorStack
 )
 
-__all__ = ["NeuralNetwork", "Policy", "ValueFunction"] + \
+__all__ = ["NeuralNetwork", "ValueFunction"] + \
           ["Stack"] + \
           list(set(map(lambda x: x.__name__, Stack.__lookup_classes__.values())))

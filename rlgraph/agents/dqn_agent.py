@@ -20,8 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DQNLossFunction, DictMerger, \
-    ContainerSplitter
+from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, DictMerger, ContainerSplitter
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
@@ -31,6 +30,7 @@ from rlgraph.utils.util import strip_list
 class DQNAgent(Agent):
     """
     A collection of DQN algorithms published in the following papers:
+
     [1] Human-level control through deep reinforcement learning. Mnih, Kavukcuoglu, Silver et al. - 2015
     [2] Deep Reinforcement Learning with Double Q-learning. v. Hasselt, Guez, Silver - 2015
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
@@ -53,15 +53,18 @@ class DQNAgent(Agent):
                 Default: False.
         """
         # Fix action-adapter before passing it to the super constructor.
-        action_adapter_spec = kwargs.pop("action_adapter_spec", dict())
-        # Use a DuelingActionAdapter (instead of a basic ActionAdapter) if option is set.
+        policy_spec = kwargs.pop("policy_spec", dict())
+        # Use a DuelingPolicy (instead of a basic Policy) if option is set.
         if dueling_q is True:
-            action_adapter_spec["type"] = "dueling-action-adapter"
-            assert "units_state_value_stream" in action_adapter_spec
-            assert "units_advantage_stream" in action_adapter_spec
+            policy_spec["type"] = "dueling-policy"
+            # Give us some default state-value nodes.
+            if "units_state_value_stream" not in policy_spec:
+                policy_spec["units_state_value_stream"] = 128
+
         super(DQNAgent, self).__init__(
-            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
+            policy_spec=policy_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
+
         # Assert that the synch interval is a multiple of the update_interval.
         if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
                 self.update_spec["sync_interval"] // self.update_spec["update_interval"]:
@@ -88,7 +91,8 @@ class DQNAgent(Agent):
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
-            weights="variables:policy",
+            # weights will have a Space derived from the vars of policy.
+            weights="variables:{}".format(self.policy.scope),
             time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
@@ -117,7 +121,6 @@ class DQNAgent(Agent):
 
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
-        self.target_policy.add_components(Synchronizable(), expose_apis="sync")
         # Number of steps since the last target-net synching from the main policy.
         self.steps_since_target_net_sync = 0
 
@@ -133,7 +136,7 @@ class DQNAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
+        self.define_graph_api(self.policy.scope, self.preprocessor.scope, self.optimizer.scope, *sub_components)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
@@ -321,7 +324,7 @@ class DQNAgent(Agent):
             [batched_states, self.timesteps, use_exploration],
             # 0=preprocessed_states, 1=action
             return_ops
-        ))
+        ))  #, flip_batch_with_dict_keys=isinstance(self.action_space, ContainerSpace))
         if remove_batch_rank:
             return strip_list(ret)
         else:
@@ -349,9 +352,13 @@ class DQNAgent(Agent):
                 return_ops += [3, 4]  # 3=batch, 4=q-values
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+            ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
 
-            # print("Loss: {}".format(ret["update_from_memory"][1]))
+            # Do the target net synching after the update.
+            if sync_call:
+                self.graph_executor.execute(sync_call)
+
+            print("Loss: {}".format(ret[1]))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):

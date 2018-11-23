@@ -117,7 +117,7 @@ class Synchronizable(Component):
 
             # Bundle everything into one "sync"-op.
             with tf.control_dependencies(syncs):
-                return tf.no_op()
+                return tf.no_op(name="sync-to-{}".format(self.parent_component.name))
 
         elif get_backend() == "pytorch":
             # Get refs(!)

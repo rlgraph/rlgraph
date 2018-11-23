@@ -37,9 +37,13 @@ class SingleThreadedWorker(Worker):
         self.logger.info("Initialized single-threaded executor with {} environments '{}' and Agent '{}'".format(
             self.num_environments, self.vector_env.get_env(), self.agent
         ))
+
+        # Switch off worker preprocessing if nothing to do anyway.
+        if preprocessing_spec is None or preprocessing_spec == []:
+            worker_executes_preprocessing = False
+
         self.worker_executes_preprocessing = worker_executes_preprocessing
         if self.worker_executes_preprocessing:
-            assert preprocessing_spec is not None
             self.preprocessors = {}
             self.state_is_preprocessed = {}
             for env_id in self.env_ids:
@@ -222,8 +226,23 @@ class SingleThreadedWorker(Worker):
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
             env_rewards = [0 for _ in range_(self.num_environments)]
             next_states = None
+            # For container action spaces, we have to treat each key as an array with batch-rank at index 0.
+            # The action-dict is then translated into a list of dicts where each dict contains the original data
+            # but without the batch-rank.
+            # E.g. {'A': array([0, 1]), 'B': array([2, 3])} -> [{'A': 0, 'B': 2}, {'A': 1, 'B': 3}]
+            if self.agent.flat_action_space is not None:
+                some_key = next(iter(actions))
+                assert isinstance(actions, dict) and isinstance(actions[some_key], np.ndarray),\
+                    "ERROR: Cannot flip container-action batch with dict keys if returned value is not a dict OR " \
+                    "values of returned value are not np.ndarrays!"
+                # TODO: What if actions come as nested dicts (more than one level deep)?
+                env_actions = [{key: value[i] for key, value in actions.items()} for i in range(len(actions[some_key]))]
+            # No flipping necessary.
+            else:
+                env_actions = actions
+
             for _ in range_(frameskip):
-                next_states, step_rewards, episode_terminals, infos = self.vector_env.step(actions=actions)
+                next_states, step_rewards, episode_terminals, infos = self.vector_env.step(actions=env_actions)
 
                 self.env_frames += self.num_environments
                 for i, step_reward in enumerate(step_rewards):
@@ -232,8 +251,8 @@ class SingleThreadedWorker(Worker):
                     break
 
             # Only render once per action.
-            if self.render:
-                self.vector_env.environments[0].render()
+            #if self.render:
+            #    self.vector_env.environments[0].render()
 
             for i, env_id in enumerate(self.env_ids):
                 self.episode_returns[i] += env_rewards[i]
@@ -277,12 +296,12 @@ class SingleThreadedWorker(Worker):
                     env_states[i] = next_states[i]
 
                 if self.worker_executes_preprocessing and self.preprocessors[env_id] is not None:
-                    next_state = self.agent.state_space.force_batch(env_states[i])
-                    next_states[i] = np.array(self.preprocessors[env_id].preprocess(next_state))
+                    #next_state = self.agent.state_space.force_batch(env_states[i])
+                    next_states[i] = np.array(self.preprocessors[env_id].preprocess(env_states[i]))  # next_state
                 # TODO: If worker does not execute preprocessing, next state is not preprocessed here.
                 # Observe per environment.
                 self.agent.observe(
-                    preprocessed_states=preprocessed_states[i], actions=actions[i], internals=[],
+                    preprocessed_states=preprocessed_states[i], actions=env_actions[i], internals=[],
                     rewards=env_rewards[i], next_states=next_states[i],
                     terminals=episode_terminals[i], env_id=self.env_ids[i]
                 )

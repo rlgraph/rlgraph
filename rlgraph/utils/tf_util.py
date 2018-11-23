@@ -25,7 +25,6 @@ from rlgraph import get_backend
 if get_backend() == "tf":
     import tensorflow as tf
 
-
     @contextlib.contextmanager
     def pin_global_variables(device):
         """Pins global variables to the specified device."""

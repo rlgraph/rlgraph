@@ -22,7 +22,7 @@ import unittest
 
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.explorations.exploration import Exploration
-from rlgraph.components.neural_networks.policy import Policy
+from rlgraph.components.policies.policy import Policy
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -62,7 +62,7 @@ class TestActorComponents(unittest.TestCase):
         # Raw action layer output.
         expected_action_layer_output = np.matmul(
             expected_nn_output,
-            actor_component_params["actor-component/policy/action-adapter/action-layer/dense/kernel"]
+            actor_component_params["actor-component/policy/action-adapter-0/action-layer/dense/kernel"]
         )
         # Final actions (max-likelihood/greedy pick).
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
@@ -82,7 +82,7 @@ class TestActorComponents(unittest.TestCase):
         # Raw action layer output.
         expected_action_layer_output = np.matmul(
             expected_nn_output,
-            actor_component_params["actor-component/policy/action-adapter/action-layer/dense/kernel"]
+            actor_component_params["actor-component/policy/action-adapter-0/action-layer/dense/kernel"]
         )
         # No reshape necessary (simple action space), softmax to get probs.
         expected_action_probs = softmax(expected_action_layer_output)
@@ -194,7 +194,7 @@ class TestActorComponents(unittest.TestCase):
         # Raw action layer output.
         expected_action_layer_output = np.matmul(
             expected_nn_output,
-            actor_component_params["actor-component/policy/action-adapter/action-layer/dense/kernel"]
+            actor_component_params["actor-component/policy/action-adapter-0/action-layer/dense/kernel"]
         )
         # Final actions (max-likelihood/greedy pick).
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)

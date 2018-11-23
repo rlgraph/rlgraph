@@ -27,6 +27,7 @@ from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
 if get_backend() == "tf":
@@ -49,6 +50,8 @@ class DuelingActionAdapter(ActionAdapter):
                  weights_spec_advantage_stream=None, biases_spec_advantage_stream=None,
                  activation_advantage_stream="relu",
                  scope="dueling-action-adapter", **kwargs):
+        raise RLGraphError("DuelingActionAdapter is no longer supported! Use DuelingPolicy instead, which also "
+                           "supports container actions.")
         # TODO: change add_units=-1 once we have a true base class for action-adapters.
         super(DuelingActionAdapter, self).__init__(add_units=0, scope=scope, **kwargs)
 
@@ -104,7 +107,7 @@ class DuelingActionAdapter(ActionAdapter):
             )
 
     @rlgraph_api
-    def get_action_layer_output(self, nn_output):
+    def get_raw_output(self, nn_output):
         """
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
@@ -150,7 +153,7 @@ class DuelingActionAdapter(ActionAdapter):
                 - The probabilities obtained by softmaxing the q-values.
                 - The log-probs.
         """
-        out = self.get_action_layer_output(nn_output)
+        out = self.get_raw_output(nn_output)
         advantage_values_reshaped = self.reshape.apply(out["output"])
         q_values = self._graph_fn_calculate_q_values(out["state_value_node"], advantage_values_reshaped)
         probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(q_values)

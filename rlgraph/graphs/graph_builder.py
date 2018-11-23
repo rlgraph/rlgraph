@@ -31,7 +31,7 @@ from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
-from rlgraph.utils.ops import DataOpTuple, is_constant
+from rlgraph.utils.ops import is_constant, ContainerDataOp, flatten_op
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, get_call_param_name
 
@@ -795,10 +795,18 @@ class GraphBuilder(Specifiable):
             if len(self.api[api_method_call][1]) > 0 and self.api[api_method_call][1][0].kwarg is not None:
                 fetch_dict[api_method_call] = {op_rec.kwarg: op_rec.op for op_rec in self.api[api_method_call][1] if
                                                return_ops is None or op_rec.kwarg in return_ops}
+                if return_ops is not None:
+                    assert all(op in fetch_dict[api_method_call] for op in return_ops),\
+                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
+                        return_ops)
             # API returns a tuple.
             else:
                 fetch_dict[api_method_call] = [op_rec.op for i, op_rec in enumerate(self.api[api_method_call][1]) if
                                                return_ops is None or i in return_ops]
+                if return_ops is not None:
+                    assert len(fetch_dict[api_method_call]) == len(return_ops),\
+                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
+                        return_ops)
 
             for i, param in enumerate(params):
                 # TODO: What if len(params) < len(self.api[api_method][0])? Need to handle default API-method params also for the root-component (this one).
@@ -807,9 +815,10 @@ class GraphBuilder(Specifiable):
                                        "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params)))
 
                 placeholder = self.api[api_method_call][0][i].op  # 0=input op-recs; i=ith input op-rec
-                if isinstance(placeholder, DataOpTuple):
-                    for ph, p in zip(placeholder, param):
-                        feed_dict[ph] = p
+                if isinstance(placeholder, ContainerDataOp):
+                    flat_placeholders = flatten_op(placeholder)
+                    for flat_key, value in flatten_op(param).items():
+                        feed_dict[flat_placeholders[flat_key]] = value
                 # Special case: Get the default argument for this arg.
                 # TODO: Support API-method's kwargs here as well (mostly useful for test.test).
                 #elif param is None:
@@ -1041,7 +1050,7 @@ class GraphBuilder(Specifiable):
                         )}
                         var_space = Dict(var_spaces)
                         op_rec.space = var_space
-                        op_rec.op = self.get_placeholder("api-", space=var_space, component=self.root_component)
+                        op_rec.op = self.get_placeholder("api-var-input", space=var_space, component=self.root_component)
 
             loop_counter += 1
         return loop_counter

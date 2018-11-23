@@ -197,7 +197,15 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             # Do we need to return the raw ops or the op-recs?
             # Only need to check if False, otherwise, we return ops directly anyway.
             return_ops = False
-            for stack_item in inspect.stack()[1:]:  # skip current frame
+            stack = inspect.stack()
+            # Check whether the caller component is a parent of this one.
+            caller_component = stack[1][0].f_locals.get("self_", stack[1][0].f_locals.get("self"))
+            if caller_component is not None and type(caller_component).__name__ != "MetaGraphBuilder" and \
+                    caller_component not in [self] + self.get_parents():
+                raise RLGraphError("The component '{}' is not a child (or grand-child) of the caller ({})! Maybe "
+                                   "you forgot to add it as a sub-component via `add_components()`.".
+                                   format(self.global_scope, caller_component.global_scope))
+            for stack_item in stack[1:]:  # skip current frame
                 # If we hit an API-method call -> return op-recs.
                 if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):
                     break

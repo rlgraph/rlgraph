@@ -97,7 +97,7 @@ class ComponentTest(object):
         if auto_build:
             self.build()
         else:
-            print("Auto-build false, did not build. Waiting for manual build..")
+            print("Auto-build false, did not build. Waiting for manual build.")
 
     def build(self):
         return self.graph_executor.build([self.component], self.input_spaces)

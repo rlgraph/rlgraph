@@ -58,6 +58,8 @@ class Stack(Component):
         self.num_allowed_inputs = None
         self.num_allowed_returns = None
 
+        self.map_api_to_sub_components_api = dict()
+
         self._build_stack(api_methods)
 
     def _build_stack(self, api_methods):
@@ -85,6 +87,8 @@ class Stack(Component):
             else:
                 stack_api_method_name = component_api_method_name = api_method_spec
 
+            self.map_api_to_sub_components_api[stack_api_method_name] = component_api_method_name
+
             # API-method for this Stack does not exist yet -> Automatically create it.
             if not hasattr(self, stack_api_method_name):
 
@@ -96,17 +100,19 @@ class Stack(Component):
                 else:
                     self.build_auto_api_method(stack_api_method_name, component_api_method_name)
 
-    def build_auto_api_method(self, stack_api_method_name, component_api_method_name):
+    def build_auto_api_method(self, stack_api_method_name, sub_components_api_method_name, ok_to_overwrite=False):
         """
         Creates and registers an auto-API method for this stack.
 
         Args:
             stack_api_method_name (str): The name for the (exposed) API-method of the Stack.
 
-            component_api_method_name (str): The name of the single sub-components in the Stack to call one after
+            sub_components_api_method_name (str): The name of the single sub-components' API-methods to call one after
                 another.
+
+            ok_to_overwrite (Optional[bool]): Set to True if we know we are overwriting
         """
-        @rlgraph_api(name=stack_api_method_name, component=self)
+        @rlgraph_api(name=stack_api_method_name, component=self, ok_to_overwrite=ok_to_overwrite)
         def method(self_, *inputs, **kwargs):
             args_ = inputs
             kwargs_ = kwargs
@@ -114,16 +120,16 @@ class Stack(Component):
                 # TODO: python-Components: For now, we call each preprocessor's graph_fn
                 #  directly (assuming that inputs are not ContainerSpaces).
                 if self_.backend == "python" or get_backend() == "python":
-                    graph_fn = getattr(sub_component, "_graph_fn_" + component_api_method_name)
+                    graph_fn = getattr(sub_component, "_graph_fn_" + sub_components_api_method_name)
                     # if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
                     #    results = graph_fn("", *args_)  # TODO: kwargs??
                     # else:
                     results = graph_fn(*args_)
                 elif get_backend() == "pytorch":
                     # Do NOT convert to tuple, has to be in unpacked again immediately.n
-                    results = getattr(sub_component, component_api_method_name)(*force_list(args_))
+                    results = getattr(sub_component, sub_components_api_method_name)(*force_list(args_))
                 else:  # if get_backend() == "tf":
-                    results = getattr(sub_component, component_api_method_name)(*args_, **kwargs_)
+                    results = getattr(sub_component, sub_components_api_method_name)(*args_, **kwargs_)
 
                 # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
                 if isinstance(results, dict):

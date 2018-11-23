@@ -223,8 +223,8 @@ class TestEnvironmentStepper(unittest.TestCase):
         weights = test.read_variable_values(environment_stepper.actor_component.policy.variables)
         weights_hid = weights["environment-stepper/actor-component/policy/test-network/hidden-layer/dense/kernel"]
         biases_hid = weights["environment-stepper/actor-component/policy/test-network/hidden-layer/dense/bias"]
-        weights_action = weights["environment-stepper/actor-component/policy/action-adapter/action-layer/dense/kernel"]
-        biases_action = weights["environment-stepper/actor-component/policy/action-adapter/action-layer/dense/bias"]
+        weights_action = weights["environment-stepper/actor-component/policy/action-adapter-0/action-layer/dense/kernel"]
+        biases_action = weights["environment-stepper/actor-component/policy/action-adapter-0/action-layer/dense/bias"]
 
         # Step 3 times through the Env and collect results.
         expected = (
@@ -286,8 +286,8 @@ class TestEnvironmentStepper(unittest.TestCase):
         weights_lstm = weights["environment-stepper/actor-component/policy/test-lstm-network/"
                                "lstm-layer/lstm-cell/kernel"]
         biases_lstm = weights["environment-stepper/actor-component/policy/test-lstm-network/lstm-layer/lstm-cell/bias"]
-        weights_action = weights["environment-stepper/actor-component/policy/action-adapter/action-layer/dense/kernel"]
-        biases_action = weights["environment-stepper/actor-component/policy/action-adapter/action-layer/dense/bias"]
+        weights_action = weights["environment-stepper/actor-component/policy/action-adapter-0/action-layer/dense/kernel"]
+        biases_action = weights["environment-stepper/actor-component/policy/action-adapter-0/action-layer/dense/bias"]
 
         # Step 3 times through the Env and collect results.
         lstm_1 = lstm_layer(np.array([[[0.0]]]), weights_lstm, biases_lstm)
@@ -323,8 +323,8 @@ class TestEnvironmentStepper(unittest.TestCase):
         actor_component = ActorComponent(
             agent_config["preprocessing_spec"],
             dict(network_spec=agent_config["network_spec"],
-                 action_adapter_spec=agent_config["action_adapter_spec"],
-                 action_space=action_space),
+                 action_space=action_space,
+                 **agent_config["policy_spec"]),
             agent_config["exploration_spec"]
         )
         environment_stepper = EnvironmentStepper(
@@ -375,8 +375,8 @@ class TestEnvironmentStepper(unittest.TestCase):
         actor_component = ActorComponent(
             agent_config["preprocessing_spec"],
             dict(network_spec=agent_config["network_spec"],
-                 action_adapter_spec=agent_config["action_adapter_spec"],
-                 action_space=action_space),
+                 action_space=action_space,
+                 **agent_config["policy_spec"]),
             agent_config["exploration_spec"]
         )
         test = ComponentTest(
@@ -388,7 +388,6 @@ class TestEnvironmentStepper(unittest.TestCase):
         time_start = time.monotonic()
         for i in range(self.time_steps):
             out = test.test(("get_preprocessed_state_and_action", np.array([s])))
-            #preprocessed_s = out["preprocessed_state"]
             a = out["action"]
             # Act in env.
             s, r, t, _ = dummy_env.step(a[0])  # remove batch

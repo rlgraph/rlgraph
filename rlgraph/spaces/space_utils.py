@@ -23,7 +23,7 @@ import numpy as np
 
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
-from rlgraph.spaces.containers import Dict, Tuple
+from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
@@ -197,7 +197,7 @@ def get_space_from_op(op):
 
 
 def sanity_check_space(
-        space, allowed_types=None, non_allowed_types=None,
+        space, allowed_types=None, allowed_sub_types=None, non_allowed_types=None, non_allowed_sub_types=None,
         must_have_batch_rank=None, must_have_time_rank=None, must_have_batch_or_time_rank=False,
         must_have_categories=None, num_categories=None,
         rank=None
@@ -208,7 +208,14 @@ def sanity_check_space(
     Args:
         space (Space): The Space object to check.
         allowed_types (Optional[List[type]]): A list of types that this Space must be an instance of.
+
+        allowed_sub_types (Optional[List[type]]): For container spaces, a list of sub-types that all
+            flattened sub-Spaces must be an instance of.
+
         non_allowed_types (Optional[List[type]]): A list of type that this Space must not be an instance of.
+
+        non_allowed_sub_types (Optional[List[type]]): For container spaces, a list of sub-types that all
+            flattened sub-Spaces must not be an instance of.
 
         must_have_batch_rank (Optional[bool]): Whether the Space must (True) or must not (False) have the
             `has_batch_rank` property set to True. None, if it doesn't matter.
@@ -232,14 +239,28 @@ def sanity_check_space(
     Raises:
         RLGraphError: Various RLGraphErrors, if any of the conditions is not met.
     """
+    flattened_space = space.flatten()
+
     # Check the types.
     if allowed_types is not None:
         if not isinstance(space, tuple(allowed_types)):
             raise RLGraphError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
 
+    if allowed_sub_types is not None:
+        for flat_key, sub_space in flattened_space.items():
+            if not isinstance(sub_space, tuple(allowed_sub_types)):
+                raise RLGraphError("ERROR: sub-Space '{}' ({}) is not an instance of "
+                                   "{}!".format(flat_key, sub_space, allowed_sub_types))
+
     if non_allowed_types is not None:
         if isinstance(space, tuple(non_allowed_types)):
             raise RLGraphError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
+
+    if non_allowed_sub_types is not None:
+        for flat_key, sub_space in flattened_space.items():
+            if isinstance(sub_space, tuple(non_allowed_sub_types)):
+                raise RLGraphError("ERROR: sub-Space '{}' ({}) must not be an instance of "
+                                   "{}!".format(flat_key, sub_space, non_allowed_sub_types))
 
     if must_have_batch_or_time_rank is True:
         if space.has_batch_rank is False and space.has_time_rank is False:
@@ -273,39 +294,45 @@ def sanity_check_space(
                 raise RLGraphError("ERROR: Space ({}) does not have a time rank, but must have one!".format(space))
 
     if must_have_categories is not None:
-        if not isinstance(space, IntBox):
-            raise RLGraphError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have categories!".
-                               format(space))
-        elif space.global_bounds is False:
-            raise RLGraphError("ERROR: Space ({}) must have categories (globally valid value bounds)!".format(space))
+        for flat_key, sub_space in flattened_space.items():
+            if not isinstance(sub_space, IntBox):
+                raise RLGraphError("ERROR: Space {}({}) is not an IntBox. Only IntBox Spaces can have categories!".
+                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space))
+            elif sub_space.global_bounds is False:
+                raise RLGraphError("ERROR: Space {}({}) must have categories (globally valid value bounds)!".
+                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space))
 
     if rank is not None:
-        flattened = space.flatten()
         if isinstance(rank, int):
-            for key, sub_space in flattened.items():
+            for flat_key, sub_space in flattened_space.items():
                 if sub_space.rank != rank:
                     raise RLGraphError(
                         "ERROR: A Space (flat-key={}) of '{}' has rank {}, but must have rank "
-                        "{}!".format(key, space, sub_space.rank, rank)
+                        "{}!".format(flat_key, space, sub_space.rank, rank)
                     )
         else:
-            for key, sub_space in flattened.items():
+            for flat_key, sub_space in flattened_space.items():
                 if not ((rank[0] or 0) <= sub_space.rank <= (rank[1] or float("inf"))):
                     raise RLGraphError(
                         "ERROR: A Space (flat-key={}) of '{}' has rank {}, but its rank must be between {} and "
-                        "{}!".format(key, space, sub_space.rank, rank[0], rank[1]))
+                        "{}!".format(flat_key, space, sub_space.rank, rank[0], rank[1]))
 
     if num_categories is not None:
-        if not isinstance(space, IntBox):
-            raise RLGraphError("ERROR: Space ({}) is not an IntBox. Only IntBox Spaces can have "
-                               "categories!".format(space))
-        elif isinstance(num_categories, int):
-            if space.num_categories != num_categories:
-                raise RLGraphError("ERROR: Space ({}) has `num_categories` {}, but must have {}!".
-                                   format(space, space.num_categories, num_categories))
-        elif not ((num_categories[0] or 0) <= space.num_categories <= (num_categories[1] or float("inf"))):
-            raise RLGraphError("ERROR: Space ({}) has `num_categories` {}, but this value must be between {} and "
-                               "{}!".format(space, space.num_categories, num_categories[0], num_categories[1]))
+        for flat_key, sub_space in flattened_space.items():
+            if not isinstance(sub_space, IntBox):
+                raise RLGraphError("ERROR: A Space (flat-key={}) of '{}' is not an IntBox. Only IntBox Spaces can have "
+                                   "categories!".format(flat_key, space))
+            elif isinstance(num_categories, int):
+                if sub_space.num_categories != num_categories:
+                    raise RLGraphError(
+                        "ERROR: A Space (flat-key={}) of '{}' has `num_categories` {}, but must have {}!".
+                        format(flat_key, space, sub_space.num_categories, num_categories)
+                    )
+            elif not ((num_categories[0] or 0) <= sub_space.num_categories <= (num_categories[1] or float("inf"))):
+                raise RLGraphError(
+                    "ERROR: A Space (flat-key={}) of '{}' has `num_categories` {}, but this value must be between "
+                    "{} and {}!".format(flat_key, space, sub_space.num_categories, num_categories[0], num_categories[1])
+                )
 
 
 def check_space_equivalence(space1, space2):

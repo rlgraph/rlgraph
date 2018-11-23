@@ -14,7 +14,6 @@
   "feed_previous_action_through_nn": false,
   "feed_previous_reward_through_nn": false,
   "batch_apply": true,
-  "batch_apply_action_adapter": false,
 
   "preprocessing_spec":
   [
@@ -43,6 +42,6 @@
   "optimizer_spec":
   {
     "type": "adam",
-    "learning_rate": 0.01
+    "learning_rate": 0.05
   }
 }

@@ -11,23 +11,20 @@
   [
     {
       "type": "reshape",
-      "flatten": true
+      "flatten": true,
+      "flatten_categories": 16
     }
   ],
 
-  "network_spec":
-  [
-    {
-      "type": "dense",
-      "units": 16,
-      "activation": "linear",
-      "scope": "hidden-layer"
-    }
-  ],
-
-  "action_adapter_spec":
-  {
-    "type": "action-adapter"
+  "policy_spec": {
+    "network_spec": [
+      {
+        "type": "dense",
+        "units": 16,
+        "activation": "linear",
+        "scope": "hidden-layer"
+      }
+    ]
   },
 
   "exploration_spec":

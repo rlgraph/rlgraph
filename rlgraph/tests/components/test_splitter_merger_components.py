@@ -92,14 +92,14 @@ class TestSplitterMergerComponents(unittest.TestCase):
         test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Single sample (batch size=6).
-        input_ = np.array(space.sample(size=6))
+        input_ = space.sample(size=6)
         expected_outputs = [
             input_[0],
             input_[1],
             input_[2]
         ]
 
-        test.test(("split", input_), expected_outputs=expected_outputs)
+        test.test(("split", (input_,)), expected_outputs=expected_outputs)
 
     def test_merger_component(self):
         space = Tuple(

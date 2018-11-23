@@ -24,6 +24,7 @@ from rlgraph.components.component import Component
 from rlgraph.components.common import BatchApply
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
@@ -50,7 +51,7 @@ class ActionAdapter(Component):
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
     """
     def __init__(self, action_space, add_units=0, units=None, weights_spec=None, biases_spec=None, activation=None,
-                 batch_apply=False,
+                 batch_apply=False, pre_network_spec=None,
                  scope="action-adapter", **kwargs):
         """
         Args:
@@ -75,6 +76,9 @@ class ActionAdapter(Component):
 
             batch_apply (bool): Whether to fold the time rank into the batch rank before passing through the action
                 adapter (and then unfold again). Default: False.
+
+            pre_network_spec (Optional[dict,NeuralNetwork]): A spec dict for a neural network coming before the
+                last action layer. If None, only the action layer itself is applied.
         """
         super(ActionAdapter, self).__init__(scope=scope, **kwargs)
 
@@ -82,11 +86,9 @@ class ActionAdapter(Component):
         self.weights_spec = weights_spec
         self.biases_spec = biases_spec
         self.activation = activation
-
         self.batch_apply = batch_apply
 
-        # Our (dense) action layer representing the flattened action space.
-        self.action_layer = None
+        assert not isinstance(self.action_space, ContainerSpace), "ERROR: ActionAdapter cannot handle ContainerSpaces!"
 
         # Calculate the number of nodes in the action layer (DenseLayer object) depending on our action Space
         # or using a given fixed number (`units`).
@@ -94,21 +96,19 @@ class ActionAdapter(Component):
         if isinstance(self.action_space, IntBox):
             if units is None:
                 units = add_units + self.action_space.flat_dim_with_categories
-            self.reshape = ReShape(
-                new_shape=self.action_space.get_shape(with_category_rank=True),
-                flatten_categories=False
-            )
+            new_shape = self.action_space.get_shape(with_category_rank=True)
         else:
             if units is None:
                 units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
             # Manually add moments after batch/time ranks.
             new_shape = tuple([2] + list(self.action_space.shape))
-            self.reshape = ReShape(new_shape=new_shape)
+
+        self.reshape = ReShape(new_shape=new_shape)
 
         assert units > 0, "ERROR: Number of nodes for action-layer calculated as {}! Must be larger 0.".format(units)
 
         # Create the action-layer and add it to this component.
-        self.action_layer = DenseLayer(
+        action_layer = DenseLayer(
             units=units,
             activation=self.activation,
             weights_spec=self.weights_spec,
@@ -116,11 +116,18 @@ class ActionAdapter(Component):
             scope="action-layer"
         )
 
+        # Do we have a pre-NN?
+        if pre_network_spec is not None:
+            self.network = NeuralNetwork.from_spec(pre_network_spec, scope="action-network")  # type: NeuralNetwork
+            self.network.add_layer(action_layer)
+        else:
+            self.network = action_layer
+
         # Wrap the action layer with a batch apply?
         if self.batch_apply is True:
-            self.action_layer = BatchApply(self.action_layer, "apply")
+            self.network = BatchApply(self.network, "apply")
 
-        self.add_components(self.action_layer, self.reshape)
+        self.add_components(self.network, self.reshape)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # Check the input Space.
@@ -131,12 +138,11 @@ class ActionAdapter(Component):
         sanity_check_space(self.action_space, must_have_batch_rank=True)
         if isinstance(self.action_space, IntBox):
             sanity_check_space(self.action_space, must_have_categories=True)
-        else:
-            # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
-            pass
+        # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
+        #else:
 
     @rlgraph_api
-    def get_action_layer_output(self, nn_output):
+    def get_raw_output(self, nn_output):
         """
         Returns the raw, non-reshaped output of the action-layer (DenseLayer) after passing through it the raw
         nn_output (coming from the previous Component).
@@ -147,8 +153,12 @@ class ActionAdapter(Component):
         Returns:
             DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
         """
-        out = self.action_layer.apply(nn_output)
-        return dict(output=out)
+        out = self.network.apply(nn_output)
+
+        if type(out) == dict:
+            return out
+        else:
+            return dict(output=out)
 
     @rlgraph_api
     def get_logits(self, nn_output):
@@ -159,7 +169,7 @@ class ActionAdapter(Component):
         Returns:
             SingleDataOp: The logits (raw nn_output, BUT reshaped).
         """
-        aa_output = self.get_action_layer_output(nn_output)
+        aa_output = self.get_raw_output(nn_output)
         logits = self.reshape.apply(aa_output["output"])
         return logits
 

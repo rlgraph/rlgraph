@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors, All Rights Reserved.
+# Copyright 2018 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.papers.impala.impala_networks import LargeIMPALANetwork
-from rlgraph.components.papers.impala.impala_networks import SmallIMPALANetwork
+from rlgraph.components.policies.policy import Policy
+from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
+from rlgraph.components.policies.dueling_policy import DuelingPolicy
 
+# The Stacks.
+Policy.__lookup_classes__ = dict(
+    policy=Policy,
+    sharedvaluefunctionpolicy=SharedValueFunctionPolicy,
+    duelingpolicy=DuelingPolicy
+)
 
-__all__ = ["LargeIMPALANetwork", "SmallIMPALANetwork"]
+__all__ = ["Policy"] + \
+          list(set(map(lambda x: x.__name__, Policy.__lookup_classes__.values())))
