@@ -78,12 +78,11 @@ class ActorCriticAgent(Agent):
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
-            sequence_indices = BoolBox(add_batch_rank=True)
+            sequence_indices=BoolBox(add_batch_rank=True)
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "terminals")
-        # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
         assert isinstance(self.memory, RingBuffer),\
             "ERROR: Actor-critic memory must be ring-buffer for episode-handling."
@@ -99,11 +98,9 @@ class ActorCriticAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api( "value-function", "value-function-optimizer",
-                               self.policy.scope, self.preprocessor.scope, self.optimizer.scope, *sub_components)
+        self.define_graph_api("value-function", "value-function-optimizer", self.policy.scope,
+                              self.preprocessor.scope, self.optimizer.scope, *sub_components)
 
-        # markup = get_graph_markup(self.graph_builder.root_component)
-        # print(markup)
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
                               batch_size=self.update_spec["batch_size"],
@@ -159,10 +156,9 @@ class ActorCriticAgent(Agent):
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
-        def update_from_external_batch(
-                self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
+        def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
 
-            baseline_values = self.value_function.value_output(preprocessed_states)
+            baseline_values = value_function.value_output(preprocessed_states)
             out = policy.get_logits_probabilities_log_probs(preprocessed_states)
             loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
                 out["logits"], out["probabilities"], baseline_values, actions, rewards, terminals, sequence_indices
