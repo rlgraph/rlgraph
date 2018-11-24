@@ -313,13 +313,8 @@ class SequenceHelper(Component):
             sequence_indices = tf.concat([sequence_indices[:-1], tf.ones_like(last_sequence, dtype=tf.bool)], axis=0)
 
             # Cannot use 0.0 because unknown shape.
-            deltas = tf.TensorArray(dtype=tf.float32, infer_shape=False,
-                                    size=num_values, dynamic_size=False, clear_after_read=False, name="bootstrap-deltas")
-            # values = tf.Print(values, [tf.shape(values)], summarize=1000, message="value shape=")
-            # terminals = tf.Print(terminals, [tf.shape(terminals)],  summarize=1000, message="terminals shape=")
-            # sequence_indices = tf.Print(sequence_indices, [sequence_indices],
-            # summarize=1000, message="sequence indices=")
-            # terminals = tf.Print(terminals, [terminals],  summarize=1000, message="terminals=")
+            deltas = tf.TensorArray(dtype=tf.float32, infer_shape=False, size=num_values,
+                                    dynamic_size=False, clear_after_read=False, name="bootstrap-deltas")
 
             # Boot-strap with 0 only if terminals[i] and sequence_indices[i] are both true.
             boot_strap_zeros = tf.where(
@@ -348,11 +343,6 @@ class SequenceHelper(Component):
 
                 # Write delta to tensor-array.
                 write_indices = tf.range(start=start_index, limit=index + 1)
-                # write_indices = tf.Print(write_indices, [start_index, index + 1],
-                # summarize=1000, message="writing delta to indices")
-                # sequence_deltas = tf.Print(sequence_deltas, [tf.shape(sequence_deltas), index],
-                #                            summarize=1000, message="delta shape | current index =")
-
                 deltas = deltas.scatter(write_indices, sequence_deltas)
 
                 start_index = index + 1
@@ -386,12 +376,17 @@ class SequenceHelper(Component):
             deltas = []
             start_index = 0
             i = 0
+            sequence_indices = torch.cat((sequence_indices, torch.ones_like(sequence_indices[-1])), 0)
+
             for _ in range(len(values)):
                 if sequence_indices[i]:
-                    # Compute deltas for this subsequence.
+                    # Compute deltas for this sub-sequence.
                     # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
                     baseline_slice = list(values[start_index:i + 1])
-                    baseline_slice.append(0)
+                    if terminals[i]:
+                        baseline_slice.append(0)
+                    else:
+                        baseline_slice.append(values[-1])
                     adjusted_v = torch.tensor(baseline_slice)
 
                     # +1 because we want to include i-th value.
@@ -399,15 +394,6 @@ class SequenceHelper(Component):
                     deltas.extend(delta)
                     start_index = i + 1
                 i += 1
-
-            # If the final sequence was terminal, we already did this in the loop above.
-            if not sequence_indices[-1]:
-                # Append last value.
-                baseline_slice = list(values[start_index:i])
-                baseline_slice.append(values[-1])
-                adjusted_v = torch.tensor(baseline_slice)
-                delta = rewards[start_index:i + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
-                deltas.extend(delta)
 
             return torch.tensor(deltas)
 
