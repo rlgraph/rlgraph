@@ -245,8 +245,6 @@ class ActorCriticAgent(Agent):
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
-        print("Loss: {}".format(np.mean(ret[1])))
-
         # 1=the loss
         # 2=loss per item for external update, records for update from memory
         return ret[1], ret[2]
