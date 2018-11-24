@@ -24,6 +24,8 @@ from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class PPOLossFunction(LossFunction):
@@ -119,4 +121,35 @@ class PPOLossFunction(LossFunction):
 
             baseline_loss = (v_targets - baseline_values) ** 2
 
+            return loss, baseline_loss
+        elif get_backend() == "pytorch":
+            # Detach grads.
+            prev_log_probs = log_probs.detach()
+            baseline_values = torch.squeeze(baseline_values, axis=-1)
+
+            # Compute advantages.
+            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
+
+            if self.standardize_advantages:
+                pg_advantages = (pg_advantages - torch.mean(pg_advantages)) / torch.std(pg_advantages)
+
+            v_targets = pg_advantages + baseline_values
+            v_targets = v_targets.detach()
+
+            # Likelihood ratio and clipped objective.
+            ratio = torch.exp(x=log_probs - prev_log_probs)
+            clipped_advantages = torch.where(
+                condition=pg_advantages > 0,
+                x=(1 + self.clip_ratio) * pg_advantages,
+                y=(1 - self.clip_ratio) * pg_advantages
+            )
+
+            loss = -torch.min(x=ratio * pg_advantages, y=clipped_advantages)
+            # The entropy regularizer term.
+            policy = torch.softmax(logits)
+            log_policy = torch.log_softmax(logits)
+            loss_entropy = torch.sum(-policy * log_policy, axis=-1)
+            loss += self.weight_entropy * loss_entropy
+
+            baseline_loss = (v_targets - baseline_values) ** 2
             return loss, baseline_loss
