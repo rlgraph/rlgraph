@@ -295,7 +295,7 @@ class Component(Specifiable):
             return False
 
         # Simply check all sub-Components for input-completeness.
-        self.variable_complete = all(sc.input_complete for sc in self.sub_components.values())
+        self.variable_complete = all(sc.input_complete for sc in self.get_all_sub_components(exclude_self=True))
         return self.variable_complete
 
     def when_input_complete(self, input_spaces=None, action_space=None, device=None, summary_regexp=None):
@@ -825,19 +825,23 @@ class Component(Specifiable):
                 properties=dict(reuse_variable_scope=self.reuse_variable_scope)
             )
 
-    def get_all_sub_components(self, list_=None, level_=0):
+    def get_all_sub_components(self, list_=None, level_=0, exclude_self=False):
         """
-        Returns all sub-Components (including self) sorted by their nesting-level (... grand-children before children
-        before parents). If the nesting level is the same, sort alphabetically by the scope (name) of the Components.
+        Returns all sub-Components (including self, unless `exclude_self` is True) sorted by their nesting-level
+        (... grand-children before children before parents). If the nesting level is the same, sort alphabetically
+        by the scope (name) of the Components.
 
         Args:
             list\_ (Optional[List[Component]])): A list of already collected components to append to.
             level\_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
+            exclude_self (bool): Whether `self` should be returned as the last sub-Component in the list.
+                Default: True.
 
         Returns:
-            List[Component]: A list with all the sub-components in `self` and `self` itself.
+            List[Component]: A list with all the sub-components in `self` (and `self` itself if `exclude_self` is False).
         """
         return_ = False
+        # This is the final-return recursive call-level.
         if list_ is None:
             list_ = dict()
             return_ = True
@@ -851,6 +855,8 @@ class Component(Specifiable):
             ret = list()
             for l in sorted(list_.keys(), reverse=True):
                 ret.extend(sorted(list_[l], key=lambda c: c.scope))
+            if exclude_self:
+                return ret[:-1]
             return ret
 
     def get_sub_component_by_global_scope(self, scope):
