@@ -376,8 +376,6 @@ class DQNAgent(Agent):
                     q_values=ret[3]
                 )
 
-        print("Loss: {}".format(ret[1]))
-
         # Do the target net synching after the update (for better clarity: after a sync, we would expect for both
         # networks to be the exact same).
         if sync_call:
