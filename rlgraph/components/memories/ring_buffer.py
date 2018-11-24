@@ -185,6 +185,9 @@ class RingBuffer(Memory):
             index = self.read_variable(self.index)
             indices = tf.range(start=index - num_records, limit=index) % self.capacity
             return self._read_records(indices=indices)
+        elif get_backend() == "pytorch":
+            indices = torch.range(self.index - num_records, self.index) % self.capacity
+            return self._read_records(indices=indices)
 
     @rlgraph_api(ok_to_overwrite=True)
     def _graph_fn_get_episodes(self, num_episodes=1):
@@ -210,4 +213,19 @@ class RingBuffer(Memory):
             limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
 
             indices = tf.range(start=start, limit=limit) % self.capacity
+            return self._read_records(indices=indices)
+        elif get_backend() == "pytorch":
+            stored_episodes = self.num_episodes
+            available_episodes = torch.min(num_episodes, self.num_episodes)
+
+            if stored_episodes == available_episodes:
+                start = 0
+            else:
+                start = self.episode_indices[stored_episodes - available_episodes - 1] + 1
+
+            # End index is just the pointer to the most recent episode.
+            limit = self.episode_indices[stored_episodes - 1]
+            limit += torch.where(condition=(start < limit), x=0, y=self.capacity)
+
+            indices = torch.range(start, limit) % self.capacity
             return self._read_records(indices=indices)
