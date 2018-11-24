@@ -24,6 +24,8 @@ from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class RingBuffer(Memory):
@@ -50,16 +52,22 @@ class RingBuffer(Memory):
         assert 'terminals' in self.record_space
 
         # Main buffer index.
-        self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-        # Number of elements present.
-        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+        if get_backend() == "tf":
+            self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+            # Number of elements present.
+            self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
-        # Num episodes present.
-        self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
+            # Num episodes present.
+            self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
 
-        # Terminal indices contiguously arranged.
-        self.episode_indices = self.get_variable(name="episode-indices", shape=(self.capacity,),
-                                                 dtype=int, trainable=False)
+            # Terminal indices contiguously arranged.
+            self.episode_indices = self.get_variable(name="episode-indices", shape=(self.capacity,),
+                                                     dtype=int, trainable=False)
+        elif get_backend() == "pytorch":
+            self.index = 0
+            self.size = 0
+            self.num_episodes = 0
+            self.episode_indices = [0] * self.capacity
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -68,11 +76,6 @@ class RingBuffer(Memory):
             index = self.read_variable(self.index)
             update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
-            # update_indices = tf.Print(update_indices, [index, num_records, update_indices],
-            #  summarize=100, message='index|num|indices')
-            # update_indices = tf.Print(update_indices, [tf.shape(update_indices),
-            #                                            tf.shape(records["terminals"])],
-            #                           summarize=100, message='shape indices|shape recods')
             # Update indices and size.
             with tf.control_dependencies([update_indices]):
                 index_updates = []
@@ -89,12 +92,6 @@ class RingBuffer(Memory):
                     input_tensor=tf.cast(insert_terminal_slice, dtype=tf.int32), axis=0
                 )
 
-                # prev_num_episodes = tf.Print(prev_num_episodes, [
-                #     prev_num_episodes,
-                #     episodes_in_insert_range,
-                #     inserted_episodes],
-                #     summarize=100, message='previous num eps / prev episodes in insert range / inserted eps = '
-                # )
                 num_episode_update = prev_num_episodes - episodes_in_insert_range + inserted_episodes
 
                 # prev_num_episodes = tf.Print(prev_num_episodes, [prev_num_episodes, episodes_in_insert_range],
@@ -120,9 +117,6 @@ class RingBuffer(Memory):
                 with tf.control_dependencies(index_updates):
                     index_updates = []
                     mask = tf.boolean_mask(tensor=update_indices, mask=records['terminals'])
-                    # mask = tf.Print(mask, [mask, update_indices, records['/terminals']], summarize=100,
-                    #     message='\n mask /  update indices / records-terminal')
-
                     index_updates.append(self.assign_variable(
                         ref=self.episode_indices[slice_start:slice_end],
                         value=mask
@@ -150,6 +144,40 @@ class RingBuffer(Memory):
             # Nothing to return.
             with tf.control_dependencies(control_inputs=record_updates):
                 return tf.no_op()
+        elif get_backend() == "pytorch":
+            num_records = get_batch_size(records["terminals"])
+            update_indices = torch.range(self.index, self.index + num_records) % self.capacity
+
+            # Newly inserted episodes.
+            inserted_episodes = torch.sum(records['terminals'].int(), 0)
+
+            # Episodes previously existing in the range we inserted to as indicated
+            # by count of terminals in the that slice.
+            insert_terminal_slice = torch.gather(self.record_registry['terminals'], 0, update_indices)
+            episodes_in_insert_range = torch.sum(insert_terminal_slice.int(), 0)
+            num_episode_update = self.num_episodes - episodes_in_insert_range + inserted_episodes
+            self.episode_indices[:self.num_episodes + 1 - episodes_in_insert_range] = \
+                self.episode_indices[episodes_in_insert_range:self.num_episodes + 1]
+
+            # Insert new episodes starting at previous count minus the ones we removed,
+            # ending at previous count minus removed + inserted.
+            slice_start = self.num_episodes - episodes_in_insert_range
+            slice_end = num_episode_update
+
+            mask = torch.masked_select(update_indices, records["terminals"])
+            self.episode_indices[slice_start:slice_end] = mask
+
+            # Update indices.
+            self.num_episodes = num_episode_update
+            self.index = (self.index + num_records) % self.capacity
+            self.size = torch.min(self.size + num_records, self.capacity)
+
+            # Updates all the necessary sub-variables in the record.
+            for key in self.record_registry:
+                for i, val in zip(update_indices, records[key]):
+                    self.record_registry[key][i] = val
+            # The TF version returns no-op, return None so return-val inference system does not throw error.
+            return None
 
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
