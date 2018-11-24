@@ -249,7 +249,8 @@ class PPOAgent(Agent):
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
             if get_backend() == "pytorch":
                 batch_size = preprocessed_states.shape[0]
-                sequence_indices = torch.cat((sequence_indices, torch.ones_like(sequence_indices[-1])), 0)
+                if batch_size > 1:
+                    sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(sequence_indices[-1])), 0)
 
                 for _ in range(self.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
