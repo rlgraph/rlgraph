@@ -66,16 +66,15 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
         """
         Creates an Actor-critic and runs it via a Runner on the CartPole Env.
         """
-        env_spec = dict(type="open-ai-gym", gym_env="CartPole-v0", seed=15, visualize=False)  #self.is_windows)
+        env_spec = dict(type="open-ai-gym", gym_env="CartPole-v0", visualize=False)  #self.is_windows)
         dummy_env = OpenAIGymEnv.from_spec(env_spec)
         agent = ActorCriticAgent.from_spec(
             config_from_path("configs/actor_critic_agent_for_cartpole.json"),
             state_space=dummy_env.state_space,
-            action_space=dummy_env.action_space,
-            execution_spec=dict(seed=13),
+            action_space=dummy_env.action_space
         )
 
-        time_steps = 10000
+        time_steps = 20000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
