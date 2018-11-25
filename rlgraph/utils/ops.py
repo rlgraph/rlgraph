@@ -156,7 +156,9 @@ def unflatten_op(op):
     # Normal case: FlattenedDataOp that came from a ContainerItem.
     base_structure = None
 
-    for op_name, op_val in op.items():
+    op_names = sorted(op.keys())
+    for op_name in op_names:
+        op_val = op[op_name]
         parent_structure = None
         parent_key = None
         current_structure = None
@@ -179,9 +181,10 @@ def unflatten_op(op):
                 current_structure = base_structure
             elif parent_key is not None:
                 # DEBUG:
-                if isinstance(parent_structure, list) and len(parent_structure) <= parent_key:
-                    print("WARNING: parent_structure={} parent_key={} to-be-flattened-op={}".format(parent_structure, parent_key, op))
+                #if isinstance(parent_structure, list) and len(parent_structure) <= parent_key:
+                #    print("WARNING: parent_structure={} parent_key={} to-be-flattened-op={}".format(parent_structure, parent_key, op))
                 # END: DEBUG
+
                 if (isinstance(parent_structure, list) and (parent_structure[parent_key] is None)) or \
                         (isinstance(parent_structure, DataOpDict) and parent_key not in parent_structure):
                     current_structure = [None] if type_ == list else DataOpDict()
