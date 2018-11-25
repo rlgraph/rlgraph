@@ -73,7 +73,8 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits):
+    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals,
+                                sequence_indices, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
@@ -83,7 +84,7 @@ class PPOLossFunction(LossFunction):
                 (from a memory).
             sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
                 from multiple environments.
-            logits (SingleDataOp): State logits.
+            entropy (SingleDataOp): Policy entropy.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
@@ -113,11 +114,7 @@ class PPOLossFunction(LossFunction):
             )
 
             loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
-            # The entropy regularizer term.
-            policy = tf.nn.softmax(logits=logits)
-            log_policy = tf.nn.log_softmax(logits=logits)
-            loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1)
-            loss += self.weight_entropy * loss_entropy
+            loss += self.weight_entropy * entropy
 
             baseline_loss = (v_targets - baseline_values) ** 2
 
@@ -145,11 +142,7 @@ class PPOLossFunction(LossFunction):
             )
 
             loss = -torch.min(x=ratio * pg_advantages, y=clipped_advantages)
-            # The entropy regularizer term.
-            policy = torch.softmax(logits)
-            log_policy = torch.log_softmax(logits)
-            loss_entropy = torch.sum(-policy * log_policy, axis=-1)
-            loss += self.weight_entropy * loss_entropy
+            loss += self.weight_entropy * entropy
 
             baseline_loss = (v_targets - baseline_values) ** 2
             return loss, baseline_loss

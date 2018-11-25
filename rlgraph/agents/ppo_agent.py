@@ -211,10 +211,11 @@ class PPOAgent(Agent):
 
                     policy_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = self.value_function.value_output(sample_states)
+                    entropy = self.policy.get_entropy(sample_states)["entropy"]
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
                         policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                        sample_terminals, sample_sequence_indices, policy_probs["logits"]
+                        sample_terminals, sample_sequence_indices, entropy
                     )
 
                     policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
@@ -263,11 +264,11 @@ class PPOAgent(Agent):
 
                     policy_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = self.value_function.value_output(sample_states)
-
+                    entropy = self.policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(
                         loss_function.scope).loss(
                         policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                        sample_terminals, sample_sequence_indices, policy_probs["logits"]
+                        sample_terminals, sample_sequence_indices, entropy
                     )
 
                     policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
