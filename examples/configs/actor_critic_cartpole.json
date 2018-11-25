@@ -52,8 +52,8 @@
   "update_spec": {
     "update_mode": "episodes",
     "do_updates": true,
-    "update_interval": 20,
-    "batch_size": 20
+    "update_interval": 32,
+    "batch_size": 32
   },
 
   "optimizer_spec": {

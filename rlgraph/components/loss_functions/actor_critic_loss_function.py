@@ -131,7 +131,7 @@ class ActorCriticLossFunction(LossFunction):
             pg_advantages = tf.stop_gradient(pg_advantages)
 
             # The policy gradient loss.
-            loss = pg_advantages * log_probs
+            loss = pg_advantages * -log_probs
             if self.weight_pg != 1.0:
                 loss = self.weight_pg * loss
 
@@ -152,27 +152,20 @@ class ActorCriticLossFunction(LossFunction):
             # # Let the gae-helper function calculate the pg-advantages.
             baseline_values = torch.squeeze(baseline_values, -1)
             pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
-            # cross_entropy = torch.unsqueeze(tf.nn.sparse_softmax_cross_entropy_with_logits(
-            #     labels=actions, logits=logits_actions_pi
-            # ), -1)
-            #
-            # # Make sure vs and advantage values are treated as constants for the gradient calculation.
-            # v_targets = pg_advantages + baseline_values
-            # v_targets = tf.stop_gradient(v_targets)
-            # pg_advantages = tf.stop_gradient(pg_advantages)
-            #
-            # # The policy gradient loss.
-            # loss = pg_advantages * cross_entropy
-            # if self.weight_pg != 1.0:
-            #     loss = self.weight_pg * loss
-            #
-            # # The value-function baseline loss.
-            # baseline_loss = (v_targets - baseline_values) ** 2
-            #
-            # # The entropy regularizer term.
-            # policy = tf.nn.softmax(logits=logits_actions_pi)
-            # log_policy = tf.nn.log_softmax(logits=logits_actions_pi)
-            # loss_entropy = tf.reduce_sum(-policy * log_policy, axis=-1)
-            # loss += self.weight_entropy * loss_entropy
-            #
-            # return loss, baseline_loss
+
+            # Make sure vs and advantage values are treated as constants for the gradient calculation.
+            v_targets = pg_advantages + baseline_values
+            v_targets = v_targets.detach()
+            pg_advantages = pg_advantages.detach()
+
+            # The policy gradient loss.
+            loss = pg_advantages * log_probs
+            if self.weight_pg != 1.0:
+                loss = self.weight_pg * loss
+
+            # The value-function baseline loss.
+            baseline_loss = (v_targets - baseline_values) ** 2
+
+            # The entropy regularizer term.
+            loss += self.weight_entropy * entropy
+            return loss, baseline_loss
