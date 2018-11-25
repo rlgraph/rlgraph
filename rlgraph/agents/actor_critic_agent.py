@@ -159,9 +159,11 @@ class ActorCriticAgent(Agent):
         def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
 
             baseline_values = value_function.value_output(preprocessed_states)
-            out = policy.get_logits_probabilities_log_probs(preprocessed_states)
+            log_probs = policy.get_action_log_probs(preprocessed_states, actions)["action_log_probs"]
+            entropy = policy.get_entropy(preprocessed_states)["entropy"]
             loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                out["logits"], out["probabilities"], baseline_values, actions, rewards, terminals, sequence_indices
+                log_probs, entropy, baseline_values, actions, rewards,
+                terminals, sequence_indices
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
