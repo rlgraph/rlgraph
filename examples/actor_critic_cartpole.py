@@ -42,7 +42,8 @@ from rlgraph.execution import SingleThreadedWorker
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('config', './configs/actor_critic_cartpole.json', 'Agent config file.')
-flags.DEFINE_string('env', 'CartPole-v0', 'gym environment ID.')
+flags.DEFINE_string('env', 'CartPole-v0', 'openAI Gym environment ID.')
+flags.DEFINE_bool('visualize', False, 'Whether to display the env during learning.')
 
 
 def main(argv):
@@ -57,7 +58,8 @@ def main(argv):
 
     env = OpenAIGymEnv.from_spec({
         "type": "openai",
-        "gym_env": FLAGS.env
+        "gym_env": FLAGS.env,
+        "visualize": FLAGS.visualize
     })
 
     agent = Agent.from_spec(
