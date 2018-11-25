@@ -77,6 +77,37 @@
         "flatten": true
     }
   ],
+    "value_function_spec":
+  [
+{
+        "type": "conv2d",
+        "filters": 32,
+        "kernel_size": 8,
+        "strides": 4,
+        "activation": "relu",
+        "scope": "vf-conv1"
+    },
+    {
+        "type": "conv2d",
+        "filters": 64,
+        "kernel_size": 4,
+        "strides": 2,
+        "activation": "relu",
+        "scope": "vf-conv2"
+    },
+    {
+        "type": "conv2d",
+        "filters": 64,
+        "kernel_size": 3,
+        "strides": 1,
+        "activation": "relu",
+        "scope": "vf-conv3"
+    },
+    {
+        "type": "reshape",
+        "flatten": true
+    }
+  ],
 
   "observe_spec":
   {
