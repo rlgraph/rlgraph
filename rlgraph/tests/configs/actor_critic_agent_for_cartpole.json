@@ -22,12 +22,17 @@
   [
     {
       "type": "dense",
-      "units": 20,
+      "units": 32,
       "activation": "tanh",
-      "scope": "hidden"
+      "scope": "hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "hidden2"
     }
   ],
-
   "value_function_spec":
   [
     {
@@ -53,7 +58,10 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.001,
-    "clip_grad_norm": 10
+    "learning_rate": 0.0025
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0025
   }
 }
