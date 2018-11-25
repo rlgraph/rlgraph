@@ -294,8 +294,11 @@ class Component(Specifiable):
         elif self.input_complete is False:
             return False
 
-        # Simply check all sub-Components for input-completeness.
-        self.variable_complete = all(sc.input_complete for sc in self.get_all_sub_components(exclude_self=True))
+        # Simply check all direct sub-Components for variable-completeness.
+        for direct_child in self.sub_components.values():
+            if not direct_child.check_variable_completeness():
+                return False
+        self.variable_complete = True
         return self.variable_complete
 
     def when_input_complete(self, input_spaces=None, action_space=None, device=None, summary_regexp=None):
