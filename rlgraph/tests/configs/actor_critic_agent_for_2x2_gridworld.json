@@ -29,6 +29,16 @@
     }
   ],
 
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 4,
+      "activation": "linear",
+      "scope": "vf-hidden"
+    }
+  ],
+
   "update_spec": {
     "do_updates": true,
     "update_mode": "episodes",

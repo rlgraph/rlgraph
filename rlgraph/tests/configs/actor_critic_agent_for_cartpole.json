@@ -28,6 +28,22 @@
     }
   ],
 
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "vf-hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "vf-hidden2"
+    }
+  ],
+
   "update_spec": {
     "update_mode": "episodes",
     "do_updates": true,
