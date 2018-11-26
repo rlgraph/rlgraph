@@ -134,7 +134,9 @@ class IMPALANetwork(NeuralNetwork):
             # Return only the last output (sentence of words, where we are not interested in intermediate results
             # where the LSTM has not seen the entire sentence yet).
             # Last output is the final internal h-state (slot 1 in the returned LSTM tuple; slot 0 is final c-state).
-            _, lstm_final_internals = self.sub_components["lstm-64"].apply(embedding_output, sequence_length=lengths)
+            lstm_output = self.sub_components["lstm-64"].apply(embedding_output, sequence_length=lengths)
+
+            lstm_final_internals = lstm_output["last_internal_states"]
 
             # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
             _, lstm_final_h_state = self.sub_components["tuple-splitter"].split(lstm_final_internals)
