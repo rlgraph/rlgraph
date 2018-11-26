@@ -169,9 +169,9 @@ class IMPALANetwork(NeuralNetwork):
         unfolded_concatenated_data = self.time_rank_unfold_before_lstm.apply(concatenated_data, orig_previous_reward)
 
         # Feed concat'd input into main LSTM(256).
-        main_lstm_output, main_lstm_final_c_and_h = self.main_lstm.apply(unfolded_concatenated_data, internal_states)
+        lstm_output = self.main_lstm.apply(unfolded_concatenated_data, internal_states)
 
-        return main_lstm_output, main_lstm_final_c_and_h
+        return lstm_output
 
 
 class LargeIMPALANetwork(IMPALANetwork):
