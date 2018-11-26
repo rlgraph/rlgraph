@@ -14,7 +14,9 @@
 # ==============================================================================
 
 """
-Example script for training an APEX agent on the Arcade Learning Environment (ALE).
+Example script for training an APEX agent on the Arcade Learning Environment (ALE). This agent can be used both
+for local and distributed training. You'll need to start Ray yourself using `ray start --head --redis-port 6379`.
+If you want to use distributed training, just join the Ray cluster with `ray start --redis-address=master.host:6379`.
 
 Usage:
 

@@ -84,7 +84,7 @@ class IMPALAAgent(Agent):
         # Network-spec by default is a "large architecture" IMPALA network.
         self.network_spec = kwargs.pop(
             "network_spec",
-            dict(type="rlgraph.components.papers.impala.impala_networks.{}IMPALANetwork".
+            dict(type="rlgraph.components.neural_networks.impala.impala_networks.{}IMPALANetwork".
                  format("Large" if architecture == "large" else "Small"))
         )
         if isinstance(self.network_spec, dict) and "type" in self.network_spec and \

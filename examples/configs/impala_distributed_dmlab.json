@@ -1,0 +1,40 @@
+{
+  "type": "impala",
+
+  "exploration_spec":
+  {
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.1,
+        "start_timestep": 0,
+        "num_timesteps": 100
+      }
+    }
+  },
+
+  "update_spec": {
+    "batch_size": 32
+  },
+
+  "optimizer_spec": {
+    "type": "rms-prop",
+    "learning_rate": 0.00048,
+    "decay": 0.99,
+    "momentum": 0.0,
+    "epsilon": 0.1
+  },
+
+ "execution_spec": {
+ 	"gpu_spec": {
+ 		"gpus_enabled": true,
+ 		"max_usable_gpus": 1,
+ 		"num_gpus": 1
+ 	},
+ 	"session_config": {
+ 		"type": "monitored-training-session",
+ 		"allow_soft_placement": true
+ 	}
+ }
+}
