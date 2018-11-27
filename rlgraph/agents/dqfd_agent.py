@@ -96,7 +96,7 @@ class DQFDAgent(Agent):
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
-            weights="variables:policy",
+            weights="variables:{}".format(self.policy.scope),
             time_step=int,
             use_exploration=bool,
             demo_batch_size=int,
@@ -123,7 +123,6 @@ class DQFDAgent(Agent):
 
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
-        self.target_policy.add_components(Synchronizable(), expose_apis="sync")
         # Number of steps since the last target-net synching from the main policy.
         self.steps_since_target_net_sync = 0
 
@@ -141,7 +140,7 @@ class DQFDAgent(Agent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("policy", "preprocessor-stack", self.optimizer.scope, *sub_components)
+        self.define_graph_api(self.policy.scope,  self.preprocessor.scope, self.optimizer.scope, *sub_components)
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
