@@ -24,13 +24,6 @@
     }
   ],
 
-  "action_adapter_spec":
-  {
-    "type": "dueling-action-adapter",
-    "units_state_value_stream": 3,
-    "units_advantage_stream": 3
-  },
-
   "exploration_spec":
   {
     "epsilon_spec": {
@@ -50,6 +43,7 @@
   },
 
   "update_spec": {
+    "update_mode": "time_steps",
     "do_updates": true,
     "update_interval": 4,
     "steps_before_update": 50000,

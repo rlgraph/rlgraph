@@ -59,14 +59,15 @@ class DQFDAgent(Agent):
                 Default: False.
         """
         # Fix action-adapter before passing it to the super constructor.
-        action_adapter_spec = kwargs.pop("action_adapter_spec", dict())
-        # Use a DuelingActionAdapter (instead of a basic ActionAdapter) if option is set.
+        policy_spec = kwargs.pop("policy_spec", dict())
+        # Use a DuelingPolicy (instead of a basic Policy) if option is set.
         if dueling_q is True:
-            action_adapter_spec["type"] = "dueling-action-adapter"
-            assert "units_state_value_stream" in action_adapter_spec
-            assert "units_advantage_stream" in action_adapter_spec
+            policy_spec["type"] = "dueling-policy"
+            # Give us some default state-value nodes.
+            if "units_state_value_stream" not in policy_spec:
+                policy_spec["units_state_value_stream"] = 128
         super(DQFDAgent, self).__init__(
-            action_adapter_spec=action_adapter_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
+            policy_spec=policy_spec, name=kwargs.pop("name", "dqfd-agent"), **kwargs
         )
         # Assert that the synch interval is a multiple of the update_interval.
         if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \

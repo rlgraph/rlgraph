@@ -39,6 +39,7 @@
   },
 
   "update_spec": {
+    "update_mode": "time_steps",
     "do_updates": true,
     "update_interval": 4,
     "batch_size": 16,
