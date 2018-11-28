@@ -253,9 +253,13 @@ class PPOAgent(Agent):
                 if batch_size > 1:
                     sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(sequence_indices[-1])), 0)
 
+                sample_size = min(batch_size, self.sample_size)
                 for _ in range(self.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
-                    indices = torch.range(start=start, end=start + self.sample_size,dtype=torch.long) % batch_size
+                    print("start = {}, end = {}".format(start, start + sample_size))
+                    indices = torch.arange(start=start, end=start + sample_size,dtype=torch.long) % batch_size
+                    print(indices.shape)
+                    print(preprocessed_states.shape)
                     sample_states = torch.gather(preprocessed_states, 0, indices)
                     sample_actions = torch.gather(actions, 0, indices)
                     sample_rewards = torch.gather(rewards, 0, indices)

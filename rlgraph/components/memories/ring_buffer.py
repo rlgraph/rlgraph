@@ -146,7 +146,7 @@ class RingBuffer(Memory):
                 return tf.no_op()
         elif get_backend() == "pytorch":
             num_records = get_batch_size(records["terminals"])
-            update_indices = torch.range(self.index, self.index + num_records) % self.capacity
+            update_indices = torch.arange(self.index, self.index + num_records) % self.capacity
 
             # Newly inserted episodes.
             inserted_episodes = torch.sum(records['terminals'].int(), 0)
@@ -186,7 +186,7 @@ class RingBuffer(Memory):
             indices = tf.range(start=index - num_records, limit=index) % self.capacity
             return self._read_records(indices=indices)
         elif get_backend() == "pytorch":
-            indices = torch.range(self.index - num_records, self.index) % self.capacity
+            indices = torch.arange(self.index - num_records, self.index) % self.capacity
             return self._read_records(indices=indices)
 
     @rlgraph_api(ok_to_overwrite=True)
@@ -227,5 +227,5 @@ class RingBuffer(Memory):
             limit = self.episode_indices[stored_episodes - 1]
             limit += torch.where(condition=(start < limit), x=0, y=self.capacity)
 
-            indices = torch.range(start, limit) % self.capacity
+            indices = torch.arange(start, limit) % self.capacity
             return self._read_records(indices=indices)
