@@ -455,8 +455,10 @@ class IMPALAAgent(Agent):
             #     policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
 
             # Only retrieve logits and do faster sparse softmax in loss.
-            state_values_pi, logits, _, _, current_internal_states = \
-                policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
+            out = policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
+            state_values_pi = out["state_values"]
+            logits = out["logits"]
+            #current_internal_states = out["last_internal_states"]
 
             # Isolate actions and rewards from states.
             out = states_dict_splitter.split(states)
