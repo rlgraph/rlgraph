@@ -255,7 +255,7 @@ class PPOAgent(Agent):
 
                 for _ in range(self.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
-                    indices = torch.range(start=start, end=start + self.sample_size) % batch_size
+                    indices = torch.range(start=start, end=start + self.sample_size,dtype=torch.long) % batch_size
                     sample_states = torch.gather(preprocessed_states, 0, indices)
                     sample_actions = torch.gather(actions, 0, indices)
                     sample_rewards = torch.gather(rewards, 0, indices)
