@@ -112,15 +112,11 @@ def get_space_from_op(op):
         return Tuple(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # primitive Space -> infer from op dtype and shape
     else:
-        # Simple constant value DataOp (python type or an np.ndarray).
-        assert not hasattr(op, "constant_value")  # we should be done with this by now
-        #if isinstance(op, SingleDataOp) and op.constant_value is not None:
-        #    value = op.constant_value
-        #    if isinstance(value, np.ndarray):
-        #        return BoxSpace.from_spec(spec=dtype(str(value.dtype), "np"), shape=value.shape)
         # Op itself is a single value, simple python type.
         if isinstance(op, (bool, int, float)):
             return BoxSpace.from_spec(spec=type(op), shape=())
+        elif isinstance(op, str):
+            raise RLGraphError("Cannot derive Space from non-allowed op ({})!".format(op))
         # A single numpy array.
         elif isinstance(op, np.ndarray):
             return BoxSpace.from_spec(spec=dtype(str(op.dtype), "np"), shape=op.shape)
@@ -130,7 +126,7 @@ def get_space_from_op(op):
             return 0
         # Some tensor: can be converted into a BoxSpace.
         else:
-            shape = get_shape(op, )
+            shape = get_shape(op)
             # Unknown shape (e.g. a cond op).
             if shape is None:
                 return 0
