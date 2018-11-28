@@ -31,11 +31,19 @@ elif get_backend() == "pytorch":
 class Transpose(PreprocessLayer):
     """
     """
-    def __init__(self, scope="transpose", **kwargs):
+    def __init__(self, output_is_time_major=True, scope="transpose", **kwargs):
         """
+        Args:
+            output_is_time_major (Optional[bool]): Whether the output of this Component will always be time-major.
+                If None, get this information from input-spaces. If given, this Component will be space-agnostic.
+                Default: True (batch-major -> time-major transpose).
         """
-        super(Transpose, self).__init__(scope=scope, **kwargs)
+        super(Transpose, self).__init__(space_agnostic=(output_is_time_major is not None), scope=scope, **kwargs)
 
+        # Overrides everything in dict: `self.output_time_majors`.
+        self.output_is_time_major = output_is_time_major
+
+        # Only used if `self.output_is_time_major` is None.
         self.output_time_majors = dict()
 
     def create_variables(self, input_spaces, action_space=None):
@@ -62,24 +70,19 @@ class Transpose(PreprocessLayer):
         Transposes the input by flipping batch and time ranks.
         """
         if get_backend() == "tf":
-            #preprocessing_inputs = tf.Print(
-            #    preprocessing_inputs, [tf.shape(preprocessing_inputs)], summarize=1000,
-            #    message="input shape for {}: {}".format(preprocessing_inputs, self.scope)
-            #)
-
+            # Flip around ranks 0 and 1.
             transposed = tf.transpose(
                 preprocessing_inputs, perm=(1, 0) + tuple(i for i in range(2, len(preprocessing_inputs.shape.as_list()))), name="transpose"
             )
-
-            transposed._batch_rank = 0 if self.output_time_majors[key] is False else 1
-            transposed._time_rank = 0 if self.output_time_majors[key] is True else 1
-
-            #transposed = tf.Print(
-            #    transposed, [tf.shape(transposed)], summarize=1000,
-            #    message="output shape for {}: {}".format(transposed, self.scope)
-            #)
+            if self.output_is_time_major is None:
+                transposed._time_rank = 0 if self.output_time_majors[key] is True else 1
+                transposed._batch_rank = 0 if self.output_time_majors[key] is False else 1
+            else:
+                transposed._time_rank = 0 if self.output_is_time_major is True else 1
+                transposed._batch_rank = 0 if self.output_is_time_major is False else 1
 
             return transposed
+
         elif get_backend() == "pytorch":
             perm = (1, 0) + tuple(i for i in range(2, len(list(preprocessing_inputs.shape))))
             return torch.transpose(preprocessing_inputs, perm)
