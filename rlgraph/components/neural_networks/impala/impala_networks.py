@@ -24,17 +24,15 @@ from rlgraph.components.layers.nn.residual_layer import ResidualLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
-from rlgraph.components.common.slice import Slice
 from rlgraph.components.layers.preprocessing.multiply_divide import Divide
 from rlgraph.components.layers.preprocessing.reshape import ReShape
-from rlgraph.components.layers.preprocessing.image_crop import ImageCrop
 from rlgraph.components.layers.strings.string_to_hash_bucket import StringToHashBucket
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.container_splitter import ContainerSplitter
-from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class IMPALANetwork(NeuralNetwork):
@@ -135,7 +133,6 @@ class IMPALANetwork(NeuralNetwork):
             # where the LSTM has not seen the entire sentence yet).
             # Last output is the final internal h-state (slot 1 in the returned LSTM tuple; slot 0 is final c-state).
             lstm_output = self.sub_components["lstm-64"].apply(embedding_output, sequence_length=lengths)
-
             lstm_final_internals = lstm_output["last_internal_states"]
 
             # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
@@ -150,6 +147,7 @@ class IMPALANetwork(NeuralNetwork):
 
         return text_processing_stack
 
+    @rlgraph_api
     def apply(self, input_dict, internal_states=None):
         # Split the input dict coming directly from the Env.
         _, _, _, orig_previous_reward = self.splitter.split(input_dict)
