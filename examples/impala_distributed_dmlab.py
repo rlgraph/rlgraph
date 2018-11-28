@@ -27,7 +27,6 @@ python impala_distributed_dmlab.py [--config configs/impala_cartpole.json] [--en
 python impala_cartpole.py
 ```
 
-
 [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
     Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
 """
@@ -51,7 +50,7 @@ flags.DEFINE_string('level', 'seekavoid_arena_01', 'Deepmind lab level name.')
 
 flags.DEFINE_string('cluster_spec', './configs/impala_distributed_clusterspec.json', 'Cluster spec file.')
 
-flags.DEFINE_boolean('learner', False, 'Start learner.')
+flags.DEFINE_boolean('learner', True, 'Start learner.')
 flags.DEFINE_boolean('actor', False, 'Start actor.')
 flags.DEFINE_integer('task', 0, 'Task index.')
 
