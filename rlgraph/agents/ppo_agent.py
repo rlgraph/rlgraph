@@ -256,15 +256,12 @@ class PPOAgent(Agent):
                 sample_size = min(batch_size, self.sample_size)
                 for _ in range(self.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
-                    print("start = {}, end = {}".format(start, start + sample_size))
-                    indices = torch.arange(start=start, end=start + sample_size,dtype=torch.long) % batch_size
-                    print(indices.shape)
-                    print(preprocessed_states.shape)
-                    sample_states = torch.gather(preprocessed_states, 0, indices)
-                    sample_actions = torch.gather(actions, 0, indices)
-                    sample_rewards = torch.gather(rewards, 0, indices)
-                    sample_terminals = torch.gather(terminals, 0, indices)
-                    sample_sequence_indices = torch.gather(sequence_indices, 0, indices)
+                    indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
+                    sample_states = torch.index_select(preprocessed_states, 0, indices)
+                    sample_actions = torch.index_select(actions, 0, indices)
+                    sample_rewards = torch.index_select(rewards, 0, indices)
+                    sample_terminals = torch.index_select(terminals, 0, indices)
+                    sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
 
                     policy_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = self.value_function.value_output(sample_states)
