@@ -275,19 +275,10 @@ class IMPALAAgent(Agent):
             )
             self.internal_states_slicer = None
 
-            self.transpose_states = Transpose(
-                scope="transpose-states",
+            self.transposer = Transpose(
+                scope="transposer",
                 device=dict(ops="/job:learner/task:0/cpu")
             )
-            self.transpose_terminals = Transpose(
-                scope="transpose-terminals",
-                device=dict(ops="/job:learner/task:0/cpu")
-            )
-            self.transpose_action_probs = Transpose(
-                scope="transpose-a-probs-mu",
-                device=dict(ops="/job:learner/task:0/cpu")
-            )
-
             self.staging_area = StagingArea(num_data=len(self.fifo_queue_keys))
 
             # Create an IMPALALossFunction with some parameters.
@@ -309,7 +300,7 @@ class IMPALAAgent(Agent):
 
             sub_components = [
                 self.fifo_output_splitter, self.fifo_queue, self.states_dict_splitter,
-                self.transpose_states, self.transpose_terminals, self.transpose_action_probs,
+                self.transposer,
                 self.staging_area, self.preprocessor, self.policy,
                 self.loss_function, self.optimizer
             ]
@@ -398,8 +389,8 @@ class IMPALAAgent(Agent):
             return insert_op, terminals
 
     def define_graph_api_learner(
-            self, fifo_output_splitter, fifo_queue, states_dict_splitter, transpose_states, transpose_terminals,
-            transpose_action_probs, staging_area, preprocessor, policy, loss_function, optimizer
+            self, fifo_output_splitter, fifo_queue, states_dict_splitter,
+            transposer, staging_area, preprocessor, policy, loss_function, optimizer
     ):
         """
         Defines the API-methods used by an IMPALA learner. Its job is basically: Pull a batch from the
@@ -430,14 +421,24 @@ class IMPALAAgent(Agent):
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
             records = fifo_queue.get_records(self.update_spec["batch_size"])
 
-            terminals, states, action_probs_mu, initial_internal_states = fifo_output_splitter.split(records)
+            split_record = fifo_output_splitter.split(records)
+            actions = None
+            rewards = None
+            if self.feed_previous_action_through_nn and self.feed_previous_reward_through_nn:
+                terminals, states, action_probs_mu, initial_internal_states = split_record
+            else:
+                terminals, states, actions, rewards, action_probs_mu, initial_internal_states = split_record
 
             # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing)
-            states = transpose_states.apply(states)
-            terminals = transpose_terminals.apply(terminals)
-            action_probs_mu = transpose_action_probs.apply(action_probs_mu)
+            states = transposer.apply(states)
+            terminals = transposer.apply(terminals)
+            action_probs_mu = transposer.apply(action_probs_mu)
+            if self.feed_previous_action_through_nn is False:
+                actions = transposer.apply(actions)
+            if self.feed_previous_reward_through_nn is False:
+                rewards = transposer.apply(rewards)
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
@@ -450,26 +451,24 @@ class IMPALAAgent(Agent):
                 stage_op = None
 
             # Preprocess actions and rewards inside the state (actions: flatten one-hot, rewards: expand).
-            states = preprocessor.preprocess(states)
-
-            # state_values_pi, _, _, log_probabilities_pi, current_internal_states = \
-            #     policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
+            preprocessed_states = preprocessor.preprocess(states)
 
             # Only retrieve logits and do faster sparse softmax in loss.
-            out = policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
+            out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states, initial_internal_states)
             state_values_pi = out["state_values"]
             logits = out["logits"]
             #current_internal_states = out["last_internal_states"]
 
             # Isolate actions and rewards from states.
-            out = states_dict_splitter.split(states)
-            actions = out[-2]
-            rewards = out[-1]
+            if self.feed_previous_action_through_nn or self.feed_previous_reward_through_nn:
+                states_split = states_dict_splitter.split(states)
+                actions = states_split[-2]
+                rewards = states_split[-1]
 
             # Calculate the loss.
-            # step_op,\  <- DEBUG: fake step op
-            loss, loss_per_item = loss_function.loss(logits, action_probs_mu, state_values_pi, actions,
-                                                     rewards, terminals)
+            loss, loss_per_item = loss_function.loss(
+                logits, action_probs_mu, state_values_pi, actions, rewards, terminals
+            )
             policy_vars = policy._variables()
 
             # Pass vars and loss values into optimizer.
