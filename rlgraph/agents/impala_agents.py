@@ -374,25 +374,20 @@ class IMPALAAgent(Agent):
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
         @rlgraph_api(component=self.root_component)
-        def perform_n_steps_and_insert_into_fifo(self_):  #, internal_states, time_step=0):
+        def perform_n_steps_and_insert_into_fifo(self_):
             # Take n steps in the environment.
             step_results = env_stepper.step()
 
-            # Actions and rewards are part of the state.
-            if self.feed_previous_action_through_nn and self.feed_previous_reward_through_nn:
-                terminals, states, action_log_probs, internal_states = env_output_splitter.split(step_results)
-                initial_internal_states = internal_states_slicer.slice(internal_states, 0)
-                record = merger.merge(terminals, states, action_log_probs, initial_internal_states)
-            # Actions and rewards were recorded separately.
-            else:
-                terminals, states, actions, rewards, action_log_probs, internal_states = env_output_splitter.split(step_results)
-                initial_internal_states = internal_states_slicer.slice(internal_states, 0)
-                record = merger.merge(terminals, states, actions, rewards, action_log_probs, initial_internal_states)
+            split_output = env_output_splitter.split(step_results)
+            # Slice off the initial internal state (so the learner can re-feed-forward from that internal-state).
+            initial_internal_states = internal_states_slicer.slice(split_output[-1], 0)  # -1=internal states
+            to_merge = split_output[:-1] + (initial_internal_states,)
+            record = merger.merge(*to_merge)
 
             # Insert results into the FIFOQueue.
             insert_op = fifo_queue.insert_records(record)
 
-            return insert_op, terminals
+            return insert_op, split_output[0]  # 0=terminals
 
     def define_graph_api_learner(
             self, fifo_output_splitter, fifo_queue, states_dict_splitter,
