@@ -854,7 +854,7 @@ class GraphBuilder(Specifiable):
                 # Special case: Get the default argument for this arg.
                 # TODO: Support API-method's kwargs here as well (mostly useful for test.test).
                 #elif param is None:
-                #    feed_dict[placeholder] = self.root_component.api_methods[api_method].default_values[i]
+                #    feed_dict[placeholder] = self.root_component.api_methods[api_method_call].default_values[i]
                 else:
                     feed_dict[placeholder] = param
 
