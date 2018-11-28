@@ -202,11 +202,12 @@ class IMPALAAgent(Agent):
         self.fifo_record_space["states"] = self.state_space.with_time_rank(self.worker_sample_size + 1)
         # Add action and rewards to state or do they have an extra channel?
         if self.feed_previous_action_through_nn:
-            self.fifo_record_space["states"]["previous_action"] = self.action_space
+            self.fifo_record_space["states"]["previous_action"] = \
+                self.action_space.with_time_rank(self.worker_sample_size + 1)
         else:
             self.fifo_record_space["actions"] = self.action_space.with_time_rank(self.worker_sample_size)
         if self.feed_previous_action_through_nn:
-            self.fifo_record_space["states"]["previous_reward"] = FloatBox()
+            self.fifo_record_space["states"]["previous_reward"] = FloatBox(add_time_rank=self.worker_sample_size + 1)
         else:
             self.fifo_record_space["rewards"] = FloatBox(add_time_rank=self.worker_sample_size)
 
