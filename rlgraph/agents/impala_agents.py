@@ -378,10 +378,16 @@ class IMPALAAgent(Agent):
             # Take n steps in the environment.
             step_results = env_stepper.step()
 
-            terminals, states, action_log_probs, internal_states = env_output_splitter.split(step_results)
-            initial_internal_states = internal_states_slicer.slice(internal_states, 0)
-
-            record = merger.merge(terminals, states, action_log_probs, initial_internal_states)
+            # Actions and rewards are part of the state.
+            if self.feed_previous_action_through_nn and self.feed_previous_reward_through_nn:
+                terminals, states, action_log_probs, internal_states = env_output_splitter.split(step_results)
+                initial_internal_states = internal_states_slicer.slice(internal_states, 0)
+                record = merger.merge(terminals, states, action_log_probs, initial_internal_states)
+            # Actions and rewards were recorded separately.
+            else:
+                terminals, states, actions, rewards, action_log_probs, internal_states = env_output_splitter.split(step_results)
+                initial_internal_states = internal_states_slicer.slice(internal_states, 0)
+                record = merger.merge(terminals, states, actions, rewards, action_log_probs, initial_internal_states)
 
             # Insert results into the FIFOQueue.
             insert_op = fifo_queue.insert_records(record)
