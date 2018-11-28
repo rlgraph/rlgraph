@@ -74,7 +74,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             execution_spec=dict(seed=15),
         )
 
-        time_steps = 1000
+        time_steps = 2000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
