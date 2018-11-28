@@ -140,12 +140,15 @@ class TestGraphFns(unittest.TestCase):
         test.test(("run", 3.4567), expected_outputs=3.4567, decimals=3)
 
     def test_calling_graph_fn_with_default_args_in_middle(self):
-        a = Dummy3To1WithDefaultValue()
+        a = Dummy3To1WithDefaultValues()
         test = ComponentTest(component=a, input_spaces=dict(input1=float))
         # Will put default float into input2.
         test.test(("run", 1.0), expected_outputs=2.0, decimals=3)
 
-        b = Dummy3To1WithDefaultValue()
+        b = Dummy3To1WithDefaultValues()
         test = ComponentTest(component=b, input_spaces=dict(input1=int, input3=int))
         test.test(("run", [5, 6]), expected_outputs=6, decimals=0)
 
+        c = Dummy3To1WithDefaultValues()
+        test = ComponentTest(component=c, input_spaces=dict(input1=float, input4=float))  # TODO: if we leave out input4, should create a default-placeholder with default value = 1.0 (see api-method)
+        test.test(("run2", [1.0, 2.0]), expected_outputs=3.0, decimals=3)
