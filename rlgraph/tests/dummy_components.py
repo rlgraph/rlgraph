@@ -84,10 +84,6 @@ class Dummy2To2(Component):
 
 
 class Dummy2To2WithDefaultValue(Component):
-    """
-    API:
-        run(input1, input2=None): (input1 + `self.constant_value`, (input2 or 5.0) * `self.constant_value`).
-    """
     def __init__(self, scope="dummy-2-to-2-w-default-value", constant_value=1.0):
         super(Dummy2To2WithDefaultValue, self).__init__(scope=scope)
         self.constant_value = constant_value
@@ -95,6 +91,24 @@ class Dummy2To2WithDefaultValue(Component):
     @rlgraph_api(name="run", returns=2)
     def _graph_fn_2to2(self, input1, input2=None):
         return input1 + self.constant_value, (input2 or 5.0) * self.constant_value
+
+
+class Dummy3To1WithDefaultValue(Component):
+    """
+    Tests forwarding a `None` arg in the middle of the API-call signature correctly to a graph_fn.
+    """
+    def __init__(self, scope="dummy-3-to-1-w-default-value"):
+        super(Dummy3To1WithDefaultValue, self).__init__(scope=scope)
+
+    @rlgraph_api
+    def run(self, input1, input2=1.0, input3=None):
+        return self._graph_fn_run(input1, input2, input3)
+
+    @graph_fn
+    def _graph_fn_run(self, input1, input2, input3=None):
+        if input3 is None:
+            return input1 + input2
+        return input3
 
 
 class Dummy0To1(Component):
