@@ -165,18 +165,20 @@ class RingBuffer(Memory):
             slice_start = self.num_episodes - episodes_in_insert_range
             slice_end = num_episode_update
 
-            mask = torch.masked_select(update_indices, records["terminals"])
+            byte_terminals = records["terminals"].byte()
+            mask = torch.masked_select(update_indices, byte_terminals)
             self.episode_indices[slice_start:slice_end] = mask
 
             # Update indices.
             self.num_episodes = num_episode_update
             self.index = (self.index + num_records) % self.capacity
-            self.size = torch.min(self.size + num_records, self.capacity)
+            self.size = min(self.size + num_records, self.capacity)
 
             # Updates all the necessary sub-variables in the record.
             for key in self.record_registry:
                 for i, val in zip(update_indices, records[key]):
                     self.record_registry[key][i] = val
+
             # The TF version returns no-op, return None so return-val inference system does not throw error.
             return None
 
