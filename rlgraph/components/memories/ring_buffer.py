@@ -145,6 +145,7 @@ class RingBuffer(Memory):
             with tf.control_dependencies(control_inputs=record_updates):
                 return tf.no_op()
         elif get_backend() == "pytorch":
+            # TODO: Unclear if we should do this in numpy and then convert to torch once we sample.
             num_records = get_batch_size(records["terminals"])
             update_indices = torch.arange(self.index, self.index + num_records) % self.capacity
 
@@ -153,7 +154,7 @@ class RingBuffer(Memory):
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
-            insert_terminal_slice = torch.gather(self.record_registry['terminals'], 0, update_indices)
+            insert_terminal_slice = torch.index_select(records["terminals"], 0, update_indices)
             episodes_in_insert_range = torch.sum(insert_terminal_slice.int(), 0)
             num_episode_update = self.num_episodes - episodes_in_insert_range + inserted_episodes
             self.episode_indices[:self.num_episodes + 1 - episodes_in_insert_range] = \
