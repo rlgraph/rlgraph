@@ -29,7 +29,7 @@ script:
   # IMPALA: Cartpole.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_impala_agent_short_task_learning.py::TestIMPALAAgentShortTaskLearning::test_impala_on_cart_pole';
   # PPO: Cartpole.
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_ppo_agent_short_task_learning.py::TestPPOShortTaskLearning::test_ppo_on_cart_pole';
+  #- docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_ppo_agent_short_task_learning.py::TestPPOShortTaskLearning::test_ppo_on_cart_pole';
 
   # Test the core lib.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core/test_api_methods.py';

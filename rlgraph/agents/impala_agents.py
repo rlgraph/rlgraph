@@ -399,10 +399,19 @@ class IMPALAAgent(Agent):
         a learning update.
 
         Args:
+            fifo_output_splitter (ContainerSplitter): The ContainerSplitter Component to split up a batch from the queue
+                along its items.
+
             fifo_queue (FIFOQueue): The FIFOQueue Component used to enqueue env sample runs (n-step).
 
-            splitter (ContainerSplitter): The DictSplitter Component to split up a batch from the queue along its
-                items.
+            states_dict_splitter (ContainerSplitter): The ContainerSplitter Component to split the state components
+                into its single parts.
+
+            transposer (Transpose): A space-agnostic Transpose to flip batch- and time ranks of all state-components.
+            staging_area (StagingArea): A possible GPU stating area component.
+
+            preprocessor (PreprocessorStack): A preprocessing Component for the states (may be a DictPreprocessorStack
+                as well).
 
             policy (Policy): The Policy Component, which to update.
             loss_function (IMPALALossFunction): The IMPALALossFunction Component.
