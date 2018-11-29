@@ -165,8 +165,8 @@ class GraphBuilder(Specifiable):
         time_start = time.perf_counter()
         assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
         self.root_component = meta_graph.root_component
-        self.graph_call_times = list()
-        self.var_call_times = list()
+        self.graph_call_times = []
+        self.var_call_times = []
         self.api = meta_graph.api
         self.num_meta_ops = meta_graph.num_ops
 
@@ -177,7 +177,7 @@ class GraphBuilder(Specifiable):
         self.available_devices = available_devices
         self.device_strategy = device_strategy
         self.default_device = default_device
-        self.device_map = device_map or dict()
+        self.device_map = device_map or {}
 
         # Create the first actual ops based on the input-spaces.
         # Some ops can only be created later when variable-based-Spaces are known (op_records_to_process_later).
@@ -237,7 +237,7 @@ class GraphBuilder(Specifiable):
         """
         for api_method_name, (in_op_records, _) in sorted(self.api.items()):
             api_method_rec = self.root_component.api_methods[api_method_name]
-            spaces = list()
+            spaces = []
             for param_name in api_method_rec.input_names:
                 if self.root_component.api_method_inputs[param_name] == "flex":
                     if input_spaces is not None and param_name in input_spaces:
@@ -917,6 +917,7 @@ class GraphBuilder(Specifiable):
         self.device_strategy = device_strategy
         self.default_device = default_device
         self.device_map = device_map or {}
+        self.phase = "building"
 
         # TODO device strategy in pytorch?
         # Build full registry of callable methods on root component.
