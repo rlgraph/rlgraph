@@ -134,11 +134,11 @@ class PPOLossFunction(LossFunction):
             v_targets = v_targets.detach()
 
             # Likelihood ratio and clipped objective.
-            ratio = torch.exp(x=log_probs - prev_log_probs)
+            ratio = torch.exp(log_probs - prev_log_probs)
             clipped_advantages = torch.where(
-                condition=pg_advantages > 0,
-                x=(1 + self.clip_ratio) * pg_advantages,
-                y=(1 - self.clip_ratio) * pg_advantages
+                pg_advantages > 0,
+                (1 + self.clip_ratio) * pg_advantages,
+                (1 - self.clip_ratio) * pg_advantages
             )
 
             loss = -torch.min(x=ratio * pg_advantages, y=clipped_advantages)
