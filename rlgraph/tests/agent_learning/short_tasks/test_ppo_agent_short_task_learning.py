@@ -70,11 +70,10 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         agent = PPOAgent.from_spec(
             config_from_path("configs/ppo_agent_for_cartpole.json"),
             state_space=env.state_space,
-            action_space=env.action_space,
-            execution_spec=dict(seed=15),
+            action_space=env.action_space
         )
 
-        time_steps = 2000
+        time_steps = 3000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,

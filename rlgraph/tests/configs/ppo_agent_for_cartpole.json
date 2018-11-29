@@ -19,6 +19,7 @@
   "observe_spec": {
     "buffer_size": 200
   },
+  
   "execution_spec": {
     "seed": 15
   },
@@ -65,10 +66,11 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0025
+    "learning_rate": 0.001
   },
+  
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0025
+    "learning_rate": 0.001
   }
 }
