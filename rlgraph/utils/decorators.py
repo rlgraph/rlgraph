@@ -82,7 +82,6 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
         def api_method_wrapper(self, *args, **kwargs):
             name_ = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
-            print("Calling name = {}".format(name_))
             # Direct evaluation of function.
             if self.execution_mode == "define_by_run":
                 type(self).call_count += 1

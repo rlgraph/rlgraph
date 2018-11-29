@@ -376,7 +376,8 @@ class SequenceHelper(Component):
             deltas = []
             start_index = 0
             i = 0
-            sequence_indices = torch.cat((sequence_indices, torch.ones_like(sequence_indices[-1])), 0)
+            if len(values) > 1:
+                sequence_indices = torch.cat((sequence_indices, torch.ones_like(sequence_indices[-1])), 0)
 
             for _ in range(len(values)):
                 if sequence_indices[i]:
