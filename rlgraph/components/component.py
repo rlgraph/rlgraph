@@ -554,6 +554,7 @@ class Component(Specifiable):
         Private variable from space helper, see 'get_variable' for API.
         """
         # Variables should be returned in a flattened OrderedDict.
+        # TODO can we hide this tf.variable_scope somewhere?
         if get_backend() == "tf":
             if self.reuse_variable_scope is not None:
                 with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=True):
@@ -586,6 +587,20 @@ class Component(Specifiable):
                         is_python=(self.backend == "python" or get_backend() == "python"),
                         local=local, use_resource=use_resource
                     )
+
+        elif get_backend() == "pytorch":
+            if flatten:
+                return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
+                    name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                    time_major=time_major, trainable=trainable, initializer=initializer,
+                    is_python=True, local=local, use_resource=use_resource
+                ))
+            # Normal, nested Variables from a Space (container or primitive).
+            else:
+                return from_space.get_variable(
+                    name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
+                    is_python=True, local=local, use_resource=use_resource
+                )
 
     def get_variables(self, *names, **kwargs):
         """
