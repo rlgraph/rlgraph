@@ -141,7 +141,7 @@ class PPOLossFunction(LossFunction):
                 (1 - self.clip_ratio) * pg_advantages
             )
 
-            loss = -torch.min(x=ratio * pg_advantages, y=clipped_advantages)
+            loss = -torch.min(ratio * pg_advantages, clipped_advantages)
             loss += self.weight_entropy * entropy
 
             baseline_loss = (v_targets - baseline_values) ** 2
