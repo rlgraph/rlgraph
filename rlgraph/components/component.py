@@ -40,6 +40,7 @@ elif get_backend() == "tf-eager":
     import tensorflow.contrib.eager as eager
 elif get_backend() == "pytorch":
     from rlgraph.utils import PyTorchVariable
+    import torch
 
 
 class Component(Specifiable):
@@ -1141,12 +1142,20 @@ class Component(Specifiable):
             else:
                 return variable
         elif get_backend() == "pytorch":
-            if not isinstance(variable, PyTorchVariable):
-                raise RLGraphError("Variable must be of type PyTorchVariable but is {}.".format(
-                    type(variable)
-                ))
-            else:
+            # PyTorchVariable is used to store torch parameters (e.g. layers).
+            if isinstance(variable, PyTorchVariable):
                 return variable.get_value()
+            # Lists or numpy arrays may be used to store mutable state that does not need
+            # tensor operations.
+            elif isinstance(variable, list) or isinstance(variable, np.ndarray):
+                ret = []
+                for i in indices:
+                    val = variable[i]
+                    if isinstance(val, torch.Tensor):
+                        ret.append(val)
+
+                # Stack list into one Tensor with a btach dim.
+                return torch.stack(ret)
 
     def sub_component_by_name(self, scope_name):
         """
