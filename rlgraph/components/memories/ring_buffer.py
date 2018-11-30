@@ -25,6 +25,7 @@ from rlgraph.utils.decorators import rlgraph_api
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
+    import numpy as np
     import torch
 
 
@@ -189,7 +190,7 @@ class RingBuffer(Memory):
             indices = tf.range(start=index - num_records, limit=index) % self.capacity
             return self._read_records(indices=indices)
         elif get_backend() == "pytorch":
-            indices = torch.arange(self.index - num_records, self.index) % self.capacity
+            indices = np.arange(self.index - num_records, self.index) % self.capacity
             return self._read_records(indices=indices)
 
     @rlgraph_api(ok_to_overwrite=True)
