@@ -24,12 +24,6 @@ Usage:
 
 python impala_cartpole.py [--config configs/impala_cartpole.json] [--env CartPole-v0]?
 
-```
-# Run script
-python impala_cartpole.py
-```
-
-
 [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
     Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
 """
