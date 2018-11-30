@@ -7,7 +7,7 @@
   "environment_spec":
   {
     "type": "openai-gym",
-    "gym_env": "CartPole-v0",
+    "gym_env": "LunarLander-v2",
     "visualize": true
   },
 
@@ -26,12 +26,27 @@
   "network_spec":
   [
       {
-        "type": "dense",
+        "type": "lstm",
         "units": 128,
-        "activation": "linear",
-        "scope": "hidden-layer"
+        "activation": "relu",
+        "scope": "lstm-layer"
       }
   ],
+
+  "internal_states_space": {
+    "type": "tuple",
+    "_args": [
+      {
+        "type": "float",
+        "shape": [128]
+      },
+      {
+        "type": "float",
+        "shape": [128]
+      }
+    ],
+    "add_batch_rank": false
+  },
 
   "update_spec": {
     "do_updates": true,
@@ -41,6 +56,6 @@
   "optimizer_spec":
   {
     "type": "adam",
-    "learning_rate": 0.05
+    "learning_rate": 0.001
   }
 }

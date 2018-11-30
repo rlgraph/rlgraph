@@ -18,11 +18,9 @@ Example script for training a single-node IMPALA [1] agent on an OpenAI gym envi
 A single-node agent uses multi-threading (via tf's queue runners) to collect experiences (using
 the "mu"-policy) and a learner (main) thread to update the model (the "pi"-policy).
 
-TODO: More examples for non-single node setup.
-
 Usage:
 
-python impala_cartpole.py [--config configs/impala_cartpole.json] [--env CartPole-v0]?
+python impala_lunar_lander_with_lstm.py [--config configs/impala_lunar_lander_with_lstm.json] [--env LunarLander-v2]?
 
 ```
 # Run script
@@ -48,8 +46,9 @@ from rlgraph.environments import OpenAIGymEnv
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('config', './configs/impala_cartpole.json', 'Agent config file.')
-flags.DEFINE_string('env', None, 'gym environment ID.')
+flags.DEFINE_string('config', './configs/impala_lunar_lander_with_lstm.json', 'Agent config file.')
+flags.DEFINE_string('env', None, 'openAI gym environment ID.')
+flags.DEFINE_bool('visualize', False, 'Show worker episodes.')
 
 
 def main(argv):
@@ -62,7 +61,9 @@ def main(argv):
     with open(agent_config_path, 'rt') as fp:
         agent_config = json.load(fp)
 
-    env_spec = FLAGS.env or agent_config["environment_spec"]
+    env_spec = dict(gym_id=FLAGS.env) or agent_config["environment_spec"]
+    if FLAGS.visualize is not None:
+        env_spec["visualize"] = FLAGS.visualize
     dummy_env = OpenAIGymEnv.from_spec(env_spec)
     agent = Agent.from_spec(
         agent_config,
@@ -71,7 +72,7 @@ def main(argv):
     )
     dummy_env.terminate()
 
-    learn_updates = 100
+    learn_updates = 500
     mean_returns = []
     for i in range(learn_updates):
         ret = agent.update()
