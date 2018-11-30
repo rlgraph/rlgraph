@@ -101,7 +101,7 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
             )
 
         # Update.
-        agent.update_from_demos(num_updates=100, batch_size=8)
+        agent.update_from_demos(num_updates=1000, batch_size=8)
 
         # Test if fixed states and actions map.
         action = agent.get_action(states=state_1, apply_preprocessing=False, use_exploration=False)
