@@ -143,7 +143,7 @@ class Distribution(Component):
             if deterministic:
                 return self._graph_fn_sample_deterministic(distribution)
             else:
-                self._graph_fn_sample_stochastic(distribution)
+                return self._graph_fn_sample_stochastic(distribution)
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
