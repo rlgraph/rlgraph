@@ -171,7 +171,10 @@ class Distribution(Component):
         Returns:
             DataOp: The drawn sample.
         """
-        return distribution.sample(seed=self.seed)
+        if get_backend() == "tf":
+            return distribution.sample(seed=self.seed)
+        else:
+            return distribution.sample()
 
     @graph_fn
     def _graph_fn_log_prob(self, distribution, values):
