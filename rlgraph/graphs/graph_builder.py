@@ -888,7 +888,7 @@ class GraphBuilder(Specifiable):
             else:
                 return self.root_component.api_fn_by_name[api_method]()
 
-    def execute_define_by_run_graph_fn(self, graph_fn, options, *args, **kwargs):
+    def execute_define_by_run_graph_fn(self, component, graph_fn, options, *args, **kwargs):
         """
         Executes a graph_fn in define by run mode.
 
@@ -898,7 +898,9 @@ class GraphBuilder(Specifiable):
         Returns:
             any: Results of executing this graph-fn.
         """
-        return graph_fn(self, *args, **kwargs)
+        # TODO check options
+        # TODO if flatten/split/add key, loop, merge results, else direct execute.
+        return graph_fn(component, *args, **kwargs)
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):

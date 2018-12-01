@@ -299,7 +299,7 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
         def _graph_fn_wrapper(self, *args, **kwargs):
             if self.execution_mode == "define_by_run":
                 # Direct execution.
-                return self.graph_builder.execute_define_by_run_graph_fn(wrapped_func,  dict(
+                return self.graph_builder.execute_define_by_run_graph_fn(self, wrapped_func,  dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
                         add_auto_key_as_first_param=add_auto_key_as_first_param
                         ), *args, **kwargs)
