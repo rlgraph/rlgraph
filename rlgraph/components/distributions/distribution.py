@@ -173,7 +173,7 @@ class Distribution(Component):
         """
         if get_backend() == "tf":
             return distribution.sample(seed=self.seed)
-        else:
+        elif get_backend() == "pytorch":
             return distribution.sample()
 
     @graph_fn

@@ -539,7 +539,7 @@ class GraphBuilder(Specifiable):
                 split_args_and_kwargs = op_rec_column.split_flattened_input_ops(*flattened_args, **flattened_kwargs)
                 # There is some splitting to do. Call graph_fn many times (one for each split).
                 if isinstance(split_args_and_kwargs, FlattenedDataOp):
-                    ops = dict()
+                    ops = {}
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
                         params_args = [p for p in params if not isinstance(p, tuple)]
@@ -557,7 +557,7 @@ class GraphBuilder(Specifiable):
                             )
                         num_return_values = len(ops[key])
                     # Un-split the results dict into a tuple of `num_return_values` slots.
-                    un_split_ops = list()
+                    un_split_ops = []
                     for i in range(num_return_values):
                         dict_with_singles = FlattenedDataOp()
                         for key in split_args_and_kwargs.keys():
@@ -888,10 +888,22 @@ class GraphBuilder(Specifiable):
             else:
                 return self.root_component.api_fn_by_name[api_method]()
 
+    def execute_define_by_run_graph_fn(self, graph_fn, options, *args, **kwargs):
+        """
+        Executes a graph_fn in define by run mode.
+
+        Args:
+            graph_fn (callable): Graph function to execute.
+            options (dict): Execution options.
+        Returns:
+            any: Results of executing this graph-fn.
+        """
+        return graph_fn(self, *args, **kwargs)
+
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
         """
-        Builds a graph for eager execution. This primarily consists of creating variables through
+        Builds a graph for eager or define by run execution. This primarily consists of creating variables through
         the component hierarchy by pushing the input spaces  through the graph.
 
           Args:
