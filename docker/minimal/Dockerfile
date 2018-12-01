@@ -8,7 +8,7 @@ RUN python -m pip install -U numpy
 RUN python -m pip install opencv-python psutil pytest-xdist
 RUN python -m pip install pytest-xdist
 RUN python -m pip install pyyaml six requests lz4
-RUN python -m pip install gym atari_py
+RUN python -m pip install gym atari_py box2d-py
 RUN python -m pip install ray
 
 # In the future, add further extra packages here, like horovod, pytorch, or ray
