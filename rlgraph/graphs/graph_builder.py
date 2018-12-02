@@ -910,11 +910,17 @@ class GraphBuilder(Specifiable):
             return graph_fn(component, *args, **kwargs)
         else:
             # Flatten and identify containers for potential splits.
+            print("executing graph fn", graph_fn)
+            print("raw args = ", args)
+            print("raw kwargs = ", kwargs)
             flattened_args = []
+
+            # Was there actually any flattening
+            args_actually_flattened = False
             for arg in args:
                 if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
                     flattened_args.append(define_by_run_flatten(arg))
-                    # Save container index.
+                    args_actually_flattened = True
                 else:
                     flattened_args.append(arg)
 
@@ -923,11 +929,13 @@ class GraphBuilder(Specifiable):
                 for key, arg in kwargs.items():
                     if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
                         flattened_kwargs[key] = define_by_run_flatten(arg)
+                        args_actually_flattened = True
                     else:
                         flattened_kwargs[key] = arg
 
-            # If splitting args, split then iterate and merge.
-            if split_ops:
+            print("actually flattened = ", args_actually_flattened)
+            # If splitting args, split then iterate and merge. Only split if some args were actually flattened.
+            if split_ops and args_actually_flattened:
                 # Generate split args.
                 split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
                                                                  *flattened_args, **flattened_kwargs)
@@ -955,21 +963,26 @@ class GraphBuilder(Specifiable):
                 # Just pass in flattened args and kwargs.
                 flattened_ret = graph_fn(component, *flattened_args, **flattened_kwargs)
 
-            # Unflatten results.
-            unflattened_ret = []
+            # Unflatten results if args were flattened.
+            if args_actually_flattened:
+                unflattened_ret = []
 
-            # TODO We should not renest if we did not un-nest in the operation above.
-            # TODO generally try to cache info from build-process about this.
-            for i, op in enumerate(flattened_ret):
-                # Try to re-nest ordered-dict it.
-                if isinstance(op, OrderedDict):
-                    unflattened_ret.append(define_by_run_unflatten(op))
-                # All others are left as-is.
-                else:
-                    unflattened_ret.append(op)
+                # TODO We should not renest if we did not un-nest in the operation above.
+                # TODO generally try to cache info from build-process about this.
+                for i, op in enumerate(flattened_ret):
+                    # Try to re-nest ordered-dict it.
+                    if isinstance(op, OrderedDict):
+                        unflattened_ret.append(define_by_run_unflatten(op))
+                    # All others are left as-is.
+                    else:
+                        unflattened_ret.append(op)
 
-            # Return unflattened results.
-            return unflattened_ret
+                # Return unflattened results.
+                return unflattened_ret
+            else:
+                # Return raw flattened results.
+                return flattened_ret
+
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
