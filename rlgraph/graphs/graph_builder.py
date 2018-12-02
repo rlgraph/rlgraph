@@ -918,7 +918,7 @@ class GraphBuilder(Specifiable):
             # Was there actually any flattening
             args_actually_flattened = False
             for arg in args:
-                if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
+                if isinstance(arg, (Dict, dict, tuple)) or isinstance(arg, Dict) or isinstance(arg, tuple):
                     flattened_args.append(define_by_run_flatten(arg))
                     args_actually_flattened = True
                 else:
@@ -935,41 +935,39 @@ class GraphBuilder(Specifiable):
 
             # If splitting args, split then iterate and merge. Only split if some args were actually flattened.
             if args_actually_flattened:
-                flattened_ret = []
-                if split_ops:
-                    # Generate split args.
-                    split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
-                                                                     *flattened_args, **flattened_kwargs)
+                split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
+                                                                 *flattened_args, **flattened_kwargs)
+
+                # Idea: Unwrap light flattening by iterating over flattened args and reading out "" where possible
+                if split_ops and isinstance(split_args_and_kwargs, OrderedDict):
                     # Args were actually split.
-                    if isinstance(split_args_and_kwargs, OrderedDict):
-                        ops = {}
-                        num_return_values = -1
-                        for key, params in split_args_and_kwargs.items():
-                            params_args = [p for p in params if not isinstance(p, tuple)]
-                            params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
-                            ops[key] = force_tuple(graph_fn(component, *params_args, **params_kwargs))
-                            num_return_values = len(ops[key])
+                    ops = {}
+                    num_return_values = -1
+                    for key, params in split_args_and_kwargs.items():
+                        params_args = [p for p in params if not isinstance(p, tuple)]
+                        params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
+                        ops[key] = force_tuple(graph_fn(component, *params_args, **params_kwargs))
+                        num_return_values = len(ops[key])
 
-                        # Un-split the results dict into a tuple of `num_return_values` slots.
-                        un_split_ops = []
-                        for i in range(num_return_values):
-                            dict_with_singles = OrderedDict()
-                            for key in split_args_and_kwargs.keys():
-                                dict_with_singles[key] = ops[key][i]
-                            un_split_ops.append(dict_with_singles)
+                    # Un-split the results dict into a tuple of `num_return_values` slots.
+                    un_split_ops = []
+                    for i in range(num_return_values):
+                        dict_with_singles = OrderedDict()
+                        for key in split_args_and_kwargs.keys():
+                            dict_with_singles[key] = ops[key][i]
+                        un_split_ops.append(dict_with_singles)
 
-                        flattened_ret = tuple(un_split_ops)
+                    flattened_ret = tuple(un_split_ops)
                 else:
-                    # Pass "" as auto-key if required.
-                    if add_auto_key_as_first_param:
-                        flattened_ret = graph_fn(component, "", *flattened_args, **flattened_kwargs)
-                    else:
-                        flattened_ret = graph_fn(component, *flattened_args, **flattened_kwargs)
-
+                    split_args = split_args_and_kwargs[0]
+                    split_kwargs = split_args_and_kwargs[1]
+                    # Args did not contain deep nested structure so
+                    flattened_ret = graph_fn(component, *split_args, **split_kwargs)
                 unflattened_ret = []
 
                 # TODO We should not renest if we did not un-nest in the operation above.
                 # TODO generally try to cache info from build-process about this.
+
                 for i, op in enumerate(flattened_ret):
                     # Try to re-nest ordered-dict it.
                     if isinstance(op, OrderedDict):
