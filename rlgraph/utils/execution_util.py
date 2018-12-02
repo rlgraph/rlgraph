@@ -126,22 +126,22 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
     """
 
     # Collect Dicts for checking their keys (must match).
-    flattened = []
+    flattened_args = []
     lead_container_arg = None
     if get_backend() == "pytorch":
         for arg in args:
             # Convert raw torch tensors: during flattening, we do not flatten single tensors
             # to avoid flattening altogether if there are strictly raw tensors.
             if isinstance(arg, torch.Tensor):
-                flattened.append({"": arg})
+                flattened_args.append({"": arg})
             elif isinstance(arg, dict) and len(arg) > 1 or "" not in arg:
-                flattened.append(arg.items())
+                flattened_args.append(arg.items())
                 # Use first encountered container arg.
                 if lead_container_arg is None:
                     lead_container_arg = arg
 
     # One or more dicts: Split the calls.
-    if len(flattened) > 0 and lead_container_arg is not None:
+    if len(flattened_args) > 0 and lead_container_arg is not None:
         # Re-create our iterators.
         collected_call_params = OrderedDict()
 
@@ -163,7 +163,8 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
         return collected_call_params
     # We don't have any containers: No splitting possible. Return args and kwargs as is.
     else:
-        return tuple(([""] if add_auto_key_as_first_param is True else []) + [op[""] for op in args]), \
+        # Note that we use flattened args here, not original args, to ensure raw tensors are readable via op[""]
+        return tuple(([""] if add_auto_key_as_first_param is True else []) + [op[""] for op in flattened_args]), \
                {key: value[""] for key, value in kwargs.items()}
 
 
