@@ -25,7 +25,7 @@ import inspect
 from collections import OrderedDict
 
 from rlgraph import get_backend
-from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args
+from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
 from rlgraph.utils.specifiable import Specifiable
 
@@ -956,7 +956,17 @@ class GraphBuilder(Specifiable):
                 flattened_ret = graph_fn(component, *flattened_args, **flattened_kwargs)
 
             # Unflatten results.
-            unflattened_ret = None
+            unflattened_ret = []
+
+            # TODO We should not renest if we did not un-nest in the operation above.
+            # TODO generally try to cache info from build-process about this.
+            for i, op in enumerate(flattened_ret):
+                # Try to re-nest ordered-dict it.
+                if isinstance(op, OrderedDict):
+                    unflattened_ret.append(define_by_run_unflatten(op))
+                # All others are left as-is.
+                else:
+                    unflattened_ret.append(op)
 
             # Return unflattened results.
             return unflattened_ret

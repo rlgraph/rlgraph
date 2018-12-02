@@ -17,9 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import re
 from collections import OrderedDict
 
-from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
+from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, deep_tuple
 
 
 def print_call_chain(profile_data, sort=True, filter_threshold=None):
@@ -72,6 +73,8 @@ def define_by_run_flatten(container, scope_="", list_=None, scope_separator_at_s
     # Are we in the non-recursive (first) call?
     if list_ is None:
         list_ = []
+        if not isinstance(container, (dict, tuple)):
+            return OrderedDict([("", container)])
         ret = True
 
     if isinstance(container, dict):
@@ -149,3 +152,71 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
     else:
         return tuple(([""] if add_auto_key_as_first_param is True else []) + [op[""] for op in args]), \
                {key: value[""] for key, value in kwargs.items()}
+
+
+def define_by_run_unflatten(result_dict):
+    """
+    Takes a dict with auto-generated keys and returns the corresponding
+    unflattened dict.
+    If the only key in the input dict is "", it returns the value under
+    that key.
+
+    Args:
+        result_dict (dict): The item to be unflattened (re-nested).
+
+    Returns:
+        Dict: The unflattened (re-nested) item.
+    """
+    # Special case: Dict with only 1 value (key="")
+    if len(result_dict) == 1 and "" in result_dict:
+        return result_dict[""]
+
+    # Normal case: OrderedDict that came from a ContainerItem.
+    base_structure = None
+
+    op_names = sorted(result_dict.keys())
+    for op_name in op_names:
+        op_val = result_dict[op_name]
+        parent_structure = None
+        parent_key = None
+        current_structure = None
+        type_ = None
+
+        # N.b. removed this because we do not prepend / any more before first key.
+        op_key_list = op_name.split("/")  # skip 1st char (/)
+        for sub_key in op_key_list:
+            mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
+            if mo:
+                type_ = list
+                idx = int(mo.group(1))
+            else:
+                type_ = OrderedDict
+                idx = sub_key
+
+            if current_structure is None:
+                if base_structure is None:
+                    base_structure = [None] if type_ == list else OrderedDict()
+                current_structure = base_structure
+            elif parent_key is not None:
+                if (isinstance(parent_structure, list) and (parent_structure[parent_key] is None)) or \
+                        (isinstance(parent_structure, OrderedDict) and parent_key not in parent_structure):
+                    current_structure = [None] if type_ == list else OrderedDict()
+                    parent_structure[parent_key] = current_structure
+                else:
+                    current_structure = parent_structure[parent_key]
+                    if type_ == list and len(current_structure) == idx:
+                        current_structure.append(None)
+
+            parent_structure = current_structure
+            parent_key = idx
+            if isinstance(parent_structure, list) and len(parent_structure) == parent_key:
+                parent_structure.append(None)
+
+        if type_ == list and len(current_structure) == parent_key:
+            current_structure.append(None)
+        current_structure[parent_key] = op_val
+
+    # Deep conversion from list to tuple.
+    # TODO necessary in define by run?
+    return deep_tuple(base_structure)
+
