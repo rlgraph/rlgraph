@@ -910,9 +910,9 @@ class GraphBuilder(Specifiable):
             return graph_fn(component, *args, **kwargs)
         else:
             # Flatten and identify containers for potential splits.
-            # print("executing graph fn", graph_fn)
-            # print("raw args = ", args)
-            # print("raw kwargs = ", kwargs)
+            print("executing graph fn", graph_fn)
+            print("raw args = ", args)
+            print("raw kwargs = ", kwargs)
             flattened_args = []
 
             # Was there actually any flattening
@@ -938,6 +938,7 @@ class GraphBuilder(Specifiable):
                 # Generate split args.
                 split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
                                                                  *flattened_args, **flattened_kwargs)
+                # Args were actually split.
                 if isinstance(split_args_and_kwargs, OrderedDict):
                     ops = {}
                     num_return_values = -1
@@ -957,7 +958,11 @@ class GraphBuilder(Specifiable):
 
                     flattened_ret = tuple(un_split_ops)
                 else:
-                    flattened_ret = graph_fn(component, *flattened_args, **flattened_kwargs)
+                    # Pass "" as auto-key if required.
+                    if add_auto_key_as_first_param:
+                        flattened_ret = graph_fn(component, "", *flattened_args, **flattened_kwargs)
+                    else:
+                        flattened_ret = graph_fn(component, *flattened_args, **flattened_kwargs)
             else:
                 # Just pass in flattened args and kwargs.
                 flattened_ret = graph_fn(component, *flattened_args, **flattened_kwargs)
