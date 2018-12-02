@@ -41,6 +41,8 @@ from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecord
 if get_backend() == "tf":
     import tensorflow as tf
     from rlgraph.utils.tf_util import pin_global_variables
+elif get_backend() == "pytorch":
+    import torch
 
 
 class GraphBuilder(Specifiable):
@@ -963,11 +965,13 @@ class GraphBuilder(Specifiable):
                     split_kwargs = split_args_and_kwargs[1]
                     # Args did not contain deep nested structure so
                     flattened_ret = graph_fn(component, *split_args, **split_kwargs)
+
+                # If result is a raw tensor, return as is.
+                if get_backend() == "pytorch":
+                    if isinstance(flattened_ret, torch.Tensor):
+                        return flattened_ret
+
                 unflattened_ret = []
-
-                # TODO We should not renest if we did not un-nest in the operation above.
-                # TODO generally try to cache info from build-process about this.
-
                 for i, op in enumerate(flattened_ret):
                     # Try to re-nest ordered-dict it.
                     if isinstance(op, OrderedDict):
