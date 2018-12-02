@@ -22,8 +22,10 @@ import re
 import time
 
 import inspect
+from collections import OrderedDict
+
 from rlgraph import get_backend
-from rlgraph.utils.execution_util import define_by_run_flatten
+from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
 from rlgraph.utils.specifiable import Specifiable
 
@@ -909,14 +911,10 @@ class GraphBuilder(Specifiable):
         else:
             # Flatten and identify containers for potential splits.
             flattened_args = []
-            container_indices = []
-            i = 0
             for arg in args:
                 if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
                     flattened_args.append(define_by_run_flatten(arg))
                     # Save container index.
-                    container_indices.append(i)
-                    i += 1
                 else:
                     flattened_args.append(arg)
 
@@ -925,21 +923,43 @@ class GraphBuilder(Specifiable):
                 for key, arg in kwargs.items():
                     if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
                         flattened_kwargs[key] = define_by_run_flatten(arg)
-                        container_indices.append(i)
-                        i += 1
                     else:
                         flattened_kwargs[key] = arg
 
             # If splitting args, split then iterate and merge.
             if split_ops:
-                # TODO loop.
-                # Add key to each call.
-                if add_auto_key_as_first_param:
-                    pass
-                pass
+                # Generate split args.
+                split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
+                                                                 *flattened_args, **flattened_kwargs)
+                if isinstance(split_args_and_kwargs, OrderedDict):
+                    ops = {}
+                    num_return_values = -1
+                    for key, params in split_args_and_kwargs.items():
+                        params_args = [p for p in params if not isinstance(p, tuple)]
+                        params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
+                        ops[key] = force_tuple(graph_fn(component, *params_args, **params_kwargs))
+                        num_return_values = len(ops[key])
+
+                    # Un-split the results dict into a tuple of `num_return_values` slots.
+                    un_split_ops = []
+                    for i in range(num_return_values):
+                        dict_with_singles = OrderedDict()
+                        for key in split_args_and_kwargs.keys():
+                            dict_with_singles[key] = ops[key][i]
+                        un_split_ops.append(dict_with_singles)
+
+                    flattened_ret = tuple(un_split_ops)
+                else:
+                    flattened_ret = graph_fn(component, *flattened_args, **flattened_kwargs)
             else:
                 # Just pass in flattened args and kwargs.
-                return graph_fn(component, *flattened_args, **flattened_kwargs)
+                flattened_ret = graph_fn(component, *flattened_args, **flattened_kwargs)
+
+            # Unflatten results.
+            unflattened_ret = None
+
+            # Return unflattened results.
+            return unflattened_ret
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
