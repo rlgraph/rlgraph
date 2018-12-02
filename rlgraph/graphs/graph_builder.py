@@ -23,7 +23,8 @@ import time
 
 import inspect
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError, RLGraphAPICallParamError
+from rlgraph.utils.execution_util import define_by_run_flatten
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
 from rlgraph.utils.specifiable import Specifiable
 
 from rlgraph.components.component import Component
@@ -898,9 +899,47 @@ class GraphBuilder(Specifiable):
         Returns:
             any: Results of executing this graph-fn.
         """
-        # TODO check options
-        # TODO if flatten/split/add key, loop, merge results, else direct execute.
-        return graph_fn(component, *args, **kwargs)
+        flatten_ops = options.pop("flatten_ops", False)
+        split_ops = options.pop("split_ops", False)
+        add_auto_key_as_first_param = options.pop("add_auto_key_as_first_param", False)
+
+        # No container arg handling.
+        if not flatten_ops:
+            return graph_fn(component, *args, **kwargs)
+        else:
+            # Flatten and identify containers for potential splits.
+            flattened_args = []
+            container_indices = []
+            i = 0
+            for arg in args:
+                if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
+                    flattened_args.append(define_by_run_flatten(arg))
+                    # Save container index.
+                    container_indices.append(i)
+                    i += 1
+                else:
+                    flattened_args.append(arg)
+
+            flattened_kwargs = {}
+            if len(kwargs) > 0:
+                for key, arg in kwargs.items():
+                    if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
+                        flattened_kwargs[key] = define_by_run_flatten(arg)
+                        container_indices.append(i)
+                        i += 1
+                    else:
+                        flattened_kwargs[key] = arg
+
+            # If splitting args, split then iterate and merge.
+            if split_ops:
+                # TODO loop.
+                # Add key to each call.
+                if add_auto_key_as_first_param:
+                    pass
+                pass
+            else:
+                # Just pass in flattened args and kwargs.
+                return graph_fn(component, *flattened_args, **flattened_kwargs)
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
