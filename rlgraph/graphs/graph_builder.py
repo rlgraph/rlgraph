@@ -937,6 +937,8 @@ class GraphBuilder(Specifiable):
             # If splitting args, split then iterate and merge. Only split if some args were actually flattened.
             if split_ops and args_actually_flattened:
                 # Generate split args.
+                print("Flattened args = ", flattened_args)
+                print("Flattened kwargs = ", flattened_kwargs)
                 split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
                                                                  *flattened_args, **flattened_kwargs)
                 if isinstance(split_args_and_kwargs, OrderedDict):

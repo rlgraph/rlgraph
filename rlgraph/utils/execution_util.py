@@ -20,7 +20,11 @@ from __future__ import print_function
 import re
 from collections import OrderedDict
 
+from rlgraph import get_backend
 from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, deep_tuple
+
+if get_backend() == "pytorch":
+    import torch
 
 
 def print_call_chain(profile_data, sort=True, filter_threshold=None):
@@ -122,7 +126,15 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
     """
 
     # Collect Dicts for checking their keys (must match).
-    flattened = [arg.items() for arg in args if len(arg) > 1 or "" not in arg]
+    flattened = []
+    if get_backend() == "pytorch":
+        for arg in args:
+            # Convert raw torch tensors: during flattening, we do not flatten single tensors
+            # to avoid flattening altogether if there are strictly raw tensors.
+            if isinstance(arg, torch.Tensor):
+                flattened.append({"": arg})
+            elif isinstance(arg, dict) and len(arg) > 1 or "" not in arg:
+                flattened.append(arg.items())
 
     # One or more dicts: Split the calls.
     if len(flattened) > 0:
