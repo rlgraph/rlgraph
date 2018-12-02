@@ -98,3 +98,54 @@ def define_by_run_flatten(container, scope_="", list_=None, scope_separator_at_s
     # Non recursive (first) call -> Return the final dict.
     if ret:
         return OrderedDict(list_)
+
+
+def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
+    """
+    Splits any container in *args and **kwargs and collects them to be evaluated
+    one by one by a graph_fn. If more than one container inputs exists in *args and **kwargs,
+    these must have the exact same keys.
+
+    Note that this does not perform any checks on aligned keys, these were performed at build time.
+
+    Args:
+        add_auto_key_as_first_param (bool): Add auto-key as very first parameter in each
+        returned parameter tuple.
+        *args (op): args to split.
+        **kwargs (op): kwargs to split.
+
+    Returns:
+        Union[OrderedDict,Tuple]]: The sorted parameter tuples (by flat-key) to use as inputs.
+    """
+
+    # Collect Dicts for checking their keys (must match).
+    flattened = [arg.items() for arg in args if len(arg) > 1 or "" not in arg]
+
+    # One or more dicts: Split the calls.
+    if len(flattened) > 0:
+        # The first dict arg.
+        lead_container_arg = next(arg for arg in args if len(arg) > 1 or "" not in arg)
+
+        # Re-create our iterators.
+        collected_call_params = OrderedDict()
+
+        for key in lead_container_arg.keys():
+            # Prep input params for a single call.
+            params = [key] if add_auto_key_as_first_param is True else []
+
+            for arg in args:
+                params.append(arg[key] if key in arg else arg[""])
+
+            # Add kwarg_ops
+            for kwarg_key, kwarg_op in kwargs.items():
+                params.append(tuple([
+                    kwarg_key,
+                    kwargs[kwarg_key][key] if key in kwargs[kwarg_key] else kwargs[kwarg_key][""]
+                ]))
+
+            collected_call_params[key] = params
+        return collected_call_params
+    # We don't have any containers: No splitting possible. Return args and kwargs as is.
+    else:
+        return tuple(([""] if add_auto_key_as_first_param is True else []) + [op[""] for op in args]), \
+               {key: value[""] for key, value in kwargs.items()}
