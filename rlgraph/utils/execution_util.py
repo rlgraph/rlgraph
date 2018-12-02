@@ -126,7 +126,11 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
     """
 
     # Collect Dicts for checking their keys (must match).
+
     flattened_args = []
+    # Use the loop below to unwrap single-key dicts with default keys to be used if no
+    # true splitting is happening.
+    unwrapped_args = [""] if add_auto_key_as_first_param is True else []
     lead_container_arg = None
     if get_backend() == "pytorch":
         for arg in args:
@@ -134,11 +138,16 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
             # to avoid flattening altogether if there are strictly raw tensors.
             if isinstance(arg, torch.Tensor):
                 flattened_args.append({"": arg})
-            elif isinstance(arg, dict) and len(arg) > 1 or "" not in arg:
-                flattened_args.append(arg.items())
-                # Use first encountered container arg.
-                if lead_container_arg is None:
-                    lead_container_arg = arg
+                unwrapped_args.append(arg)
+                # Append raw tensor.
+            elif isinstance(arg, dict):
+                if len(arg) > 1 or "" not in arg:
+                    flattened_args.append(arg.items())
+                    # Use first encountered container arg.
+                    if lead_container_arg is None:
+                        lead_container_arg = arg
+                else:
+                    unwrapped_args.append(arg[""])
 
     # One or more dicts: Split the calls.
     if len(flattened_args) > 0 and lead_container_arg is not None:
@@ -163,9 +172,7 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
         return collected_call_params
     # We don't have any containers: No splitting possible. Return args and kwargs as is.
     else:
-        # Note that we use flattened args here, not original args, to ensure raw tensors are readable via op[""]
-        return tuple(([""] if add_auto_key_as_first_param is True else []) + [op[""] for op in flattened_args]), \
-               {key: value[""] for key, value in kwargs.items()}
+        return unwrapped_args, {key: value[""] for key, value in kwargs.items()}
 
 
 def define_by_run_unflatten(result_dict):
