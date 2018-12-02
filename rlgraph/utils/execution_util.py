@@ -17,6 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
+
+from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
+
 
 def print_call_chain(profile_data, sort=True, filter_threshold=None):
     """
@@ -46,3 +50,51 @@ def print_call_chain(profile_data, sort=True, filter_threshold=None):
             print("({}.{}: {} s) ->".format(v[0], v[1], v[2]))
         v = profile_data[-1]
         print("({}.{}: {} s)".format(v[0], v[1], v[2]))
+
+
+def define_by_run_flatten(container, scope_="", list_=None, scope_separator_at_start=False):
+    """
+    Flattens a native python dict/tuple into a flat dict with auto-key generation. Run-time equivalent
+    to build-time flatten operation.
+
+    Args:
+        container (Union[dict,tuple]): Container  to flatten.
+        scope_ (str): The recursive scope for auto-key generation.
+        list_ (list): The list of tuples (key, value) to be converted into the final results.
+        scope_separator_at_start (bool): If to prepend a scope separator before the first key in a
+            recursive structure. Default false.
+
+    Returns:
+        Dict: Flattened container.
+    """
+    ret = False
+
+    # Are we in the non-recursive (first) call?
+    if list_ is None:
+        list_ = []
+        ret = True
+
+    if isinstance(container, dict):
+        if scope_separator_at_start:
+            scope_ += "/"
+        else:
+            scope_ = ""
+        for key in sorted(container.keys()):
+            # Make sure we have no double slashes from flattening an already FlattenedDataOp.
+            scope = (scope_[:-1] if len(key) == 0 or key[0] == "/" else scope_) + key
+            define_by_run_flatten(container[key], scope_=scope, list_=list_, scope_separator_at_start=True)
+    elif isinstance(container, tuple):
+        if scope_separator_at_start:
+            scope_ += "/" + FLAT_TUPLE_OPEN
+        else:
+            scope_ += "" + FLAT_TUPLE_OPEN
+        for i, c in enumerate(container):
+            define_by_run_flatten(c, scope_=scope_ + str(i) + FLAT_TUPLE_CLOSE, list_=list_,
+                                  scope_separator_at_start=True)
+    else:
+        assert not isinstance(container, (dict, tuple))
+        list_.append((scope_, container))
+
+    # Non recursive (first) call -> Return the final dict.
+    if ret:
+        return OrderedDict(list_)
