@@ -127,6 +127,7 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
 
     # Collect Dicts for checking their keys (must match).
     flattened = []
+    lead_container_arg = None
     if get_backend() == "pytorch":
         for arg in args:
             # Convert raw torch tensors: during flattening, we do not flatten single tensors
@@ -135,12 +136,12 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
                 flattened.append({"": arg})
             elif isinstance(arg, dict) and len(arg) > 1 or "" not in arg:
                 flattened.append(arg.items())
+                # Use first encountered container arg.
+                if lead_container_arg is None:
+                    lead_container_arg = arg
 
     # One or more dicts: Split the calls.
-    if len(flattened) > 0:
-        # The first dict arg.
-        lead_container_arg = next(arg for arg in args if len(arg) > 1 or "" not in arg)
-
+    if len(flattened) > 0 and lead_container_arg is not None:
         # Re-create our iterators.
         collected_call_params = OrderedDict()
 
