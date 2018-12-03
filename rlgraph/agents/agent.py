@@ -114,7 +114,7 @@ class Agent(Specifiable):
         # Done by default.
         self.policy.add_components(Synchronizable(), expose_apis="sync")
 
-        self.internal_states_space = internal_states_space
+        self.internal_states_space = Space.from_spec(internal_states_space)
 
         # An object implementing the loss function interface is only strictly needed
         # if automatic device strategies like multi-gpu are enabled. This is because

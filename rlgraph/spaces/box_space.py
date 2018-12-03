@@ -67,8 +67,8 @@ class BoxSpace(Space):
             else:
                 self._shape = np.shape(low)
         else:
-            assert isinstance(shape, tuple), "ERROR: `shape` must be None or a tuple."
-            self._shape = shape
+            assert isinstance(shape, (tuple, list)), "ERROR: `shape` must be None or a tuple/list."
+            self._shape = tuple(shape)
 
         # False if bounds are individualized (each dimension has its own lower and upper bounds and we can get
         # the single values from self.low and self.high), or a tuple of the globally valid low/high values that apply
