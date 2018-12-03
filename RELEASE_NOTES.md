@@ -1,6 +1,10 @@
 ## Release notes
 Summarizes updates in release starting at 0.2.0
 
+## RLgraph 0.2.2 - 3.12.2018
+- Implemented support for advanced decorator options for PyTorch backend
+- Various bugfixes in PyTorch utilities needed for PPO/Actor critic
+
 ## RLgraph 0.2.1 - 25.11.2018
 - Updated actor-critic to support external value functions
 - Fixed bugs related to hardcoded entropy for categoricals in loss functions
