@@ -200,9 +200,7 @@ class DQNLossFunction(LossFunction):
             qt_sp_ap_values = torch.where(
                 terminals, torch.zeros_like(qt_sp_ap_values), qt_sp_ap_values
             )
-
         td_targets = (rewards + (self.discount ** self.n_step) * qt_sp_ap_values)
-
         return td_targets
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
@@ -313,4 +311,9 @@ class DQNLossFunction(LossFunction):
             if isinstance(self.action_space, ContainerSpace):
                 loss_per_item = tf.stack(list(loss_per_item.values()))
                 loss_per_item = tf.reduce_mean(loss_per_item, axis=0)
+            return loss_per_item
+        elif get_backend() == "pytorch":
+            if isinstance(self.action_space, ContainerSpace):
+                loss_per_item = torch.stack(list(loss_per_item.values()))
+                loss_per_item = torch.mean(loss_per_item, 0)
             return loss_per_item
