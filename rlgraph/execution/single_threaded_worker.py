@@ -240,6 +240,8 @@ class SingleThreadedWorker(Worker):
             # No flipping necessary.
             else:
                 env_actions = actions
+                if self.num_environments == 1 and not isinstance(env_actions, (np.ndarray, list)):
+                    env_actions = [env_actions]
 
             for _ in range_(frameskip):
                 next_states, step_rewards, episode_terminals, infos = self.vector_env.step(actions=env_actions)
