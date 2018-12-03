@@ -58,11 +58,18 @@
     }
   ],
 
-  "action_adapter_spec":
+  "policy_spec":
   {
-    "type": "dueling-action-adapter",
-    "units_state_value_stream": 5,
-    "units_advantage_stream": 5
+    "type": "dueling-policy",
+    "units_state_value_stream": 3,
+    "action_adapter_spec": {
+      "pre_network_spec": [
+        {
+          "type": "dense",
+          "units": 3
+        }
+      ]
+    }
   },
 
   "exploration_spec": {
