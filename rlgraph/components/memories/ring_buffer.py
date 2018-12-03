@@ -17,8 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
+
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
+from rlgraph.utils import util
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -69,7 +72,7 @@ class RingBuffer(Memory):
             self.size = 0
             self.num_episodes = 0
             self.episode_indices = [0] * self.capacity
-            self.record_registry["terminals"] = [0 for val in self.record_registry["terminals"]]
+            self.record_registry["terminals"] = [0 for _ in self.record_registry["terminals"]]
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -194,7 +197,11 @@ class RingBuffer(Memory):
             return self._read_records(indices=indices)
         elif get_backend() == "pytorch":
             indices = np.arange(self.index - num_records, self.index) % self.capacity
-            return self._read_records(indices=indices)
+            records = OrderedDict()
+            for name, variable in self.record_registry.items():
+                records[name] = self.read_variable(variable, indices,
+                                                   dtype=util.dtype(self.record_space[name].dtype, to="pytorch"))
+            return records
 
     @rlgraph_api(ok_to_overwrite=True)
     def _graph_fn_get_episodes(self, num_episodes=1):
@@ -235,4 +242,10 @@ class RingBuffer(Memory):
             limit += torch.where(condition=(start < limit), x=0, y=self.capacity)
 
             indices = torch.arange(start, limit) % self.capacity
-            return self._read_records(indices=indices)
+
+            records = OrderedDict()
+            for name, variable in self.record_registry.items():
+                records[name] = self.read_variable(variable, indices,
+                                                   dtype=util.dtype(self.record_space[name].dtype, to="pytorch"))
+            return records
+
