@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from copy import deepcopy
-
 import numpy as np
 from rlgraph.components import PreprocessorStack
 from six.moves import xrange as range_
@@ -240,7 +239,7 @@ class SingleThreadedWorker(Worker):
             # No flipping necessary.
             else:
                 env_actions = actions
-                if self.num_environments == 1 and not isinstance(env_actions, (np.ndarray, list)):
+                if self.num_environments == 1 and env_actions.shape == ():
                     env_actions = [env_actions]
 
             for _ in range_(frameskip):
