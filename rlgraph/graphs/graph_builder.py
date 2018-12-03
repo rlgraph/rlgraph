@@ -983,8 +983,11 @@ class GraphBuilder(Specifiable):
                 # Return unflattened results.
                 return unflattened_ret
             else:
-                # Just pass in args and kwargs because not actually flattened.
-                return graph_fn(component, *args, **kwargs)
+                # Just pass in args and kwargs because not actually flattened, with or without default key.
+                if add_auto_key_as_first_param:
+                    return graph_fn(component, "", *args, **kwargs)
+                else:
+                    return graph_fn(component, *args, **kwargs)
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
