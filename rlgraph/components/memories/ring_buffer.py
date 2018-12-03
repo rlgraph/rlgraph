@@ -69,6 +69,7 @@ class RingBuffer(Memory):
             self.size = 0
             self.num_episodes = 0
             self.episode_indices = [0] * self.capacity
+            self.record_registry["terminals"] = [0 for val in self.record_registry["terminals"]]
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -155,8 +156,10 @@ class RingBuffer(Memory):
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
-            insert_terminal_slice = torch.index_select(records["terminals"], 0, update_indices)
-            episodes_in_insert_range = torch.sum(insert_terminal_slice.int(), 0)
+            episodes_in_insert_range = 0
+            # Count terminals in inserted range.
+            for index in update_indices:
+                episodes_in_insert_range += self.record_registry["terminals"][index]
             num_episode_update = self.num_episodes - episodes_in_insert_range + inserted_episodes
             self.episode_indices[:self.num_episodes + 1 - episodes_in_insert_range] = \
                 self.episode_indices[episodes_in_insert_range:self.num_episodes + 1]
