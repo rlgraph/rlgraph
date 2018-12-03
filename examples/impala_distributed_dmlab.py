@@ -50,7 +50,7 @@ flags.DEFINE_string('level', 'seekavoid_arena_01', 'Deepmind lab level name.')
 
 flags.DEFINE_string('cluster_spec', './configs/impala_distributed_clusterspec.json', 'Cluster spec file.')
 
-flags.DEFINE_boolean('learner', True, 'Start learner.')
+flags.DEFINE_boolean('learner', False, 'Start learner.')
 flags.DEFINE_boolean('actor', False, 'Start actor.')
 flags.DEFINE_integer('task', 0, 'Task index.')
 

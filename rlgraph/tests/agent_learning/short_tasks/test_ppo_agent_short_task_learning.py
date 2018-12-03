@@ -70,11 +70,10 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         agent = PPOAgent.from_spec(
             config_from_path("configs/ppo_agent_for_cartpole.json"),
             state_space=env.state_space,
-            action_space=env.action_space,
-            execution_spec=dict(seed=15),
+            action_space=env.action_space
         )
 
-        time_steps = 2000
+        time_steps = 3000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
@@ -87,7 +86,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], 25)
+        self.assertGreaterEqual(results["mean_episode_reward"], 23)
         self.assertGreaterEqual(results["max_episode_reward"], 100.0)
         self.assertLessEqual(results["episodes_executed"], time_steps / 10)
 

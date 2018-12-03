@@ -265,7 +265,7 @@ class GraphBuilder(Specifiable):
                         spaces.append(input_spaces[param_name])
             assert len(spaces) == len(in_op_records)
 
-            # Create the placeholder and store it in the given DataOpRecords.
+            # Create the placeholders and store them in the given DataOpRecords.
             for i, space in enumerate(spaces):
                 # Space is dependent on the variables of some sub-component (wait with the construction of the
                 # placeholder until after the build).

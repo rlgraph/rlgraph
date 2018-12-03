@@ -192,7 +192,6 @@ class LSTMLayer(NNLayer):
                 inputs.set_shape([self.static_loop] + inputs.shape.as_list()[1:])
                 #for input_, terminal in zip(tf.unstack(inputs), tf.unstack(terminals)):
                 for input_ in tf.unstack(inputs):
-                    #input_ = inputs[i]
                     # If the episode ended, the core state should be reset before the next.
                     #core_state = nest.map_structure(functools.partial(tf.where, d),
                     #                                initial_core_state, core_state)
