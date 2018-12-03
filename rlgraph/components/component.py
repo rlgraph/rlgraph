@@ -1123,7 +1123,7 @@ class Component(Specifiable):
             ref.set_value(value)
 
     @staticmethod
-    def read_variable(variable, indices=None):
+    def read_variable(variable, indices=None, dtype=None):
         """
         Reads a variable.
 
@@ -1151,9 +1151,16 @@ class Component(Specifiable):
                 ret = []
                 for i in indices:
                     val = variable[i]
+                    # Type checking is necessary because torch.stack only works on same types.
                     if isinstance(val, torch.Tensor):
-                        ret.append(val)
-
+                        if dtype is None:
+                            ret.append(val)
+                        elif dtype == torch.float32:
+                            ret.append(val.float())
+                        elif dtype == torch.int32:
+                            ret.append(val.int())
+                        elif dtype == torch.uint8:
+                            ret.append(val.byte())
                 # Stack list into one Tensor with a btach dim.
                 return torch.stack(ret)
 
