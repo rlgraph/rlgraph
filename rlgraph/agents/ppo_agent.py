@@ -251,7 +251,8 @@ class PPOAgent(Agent):
             if get_backend() == "pytorch":
                 batch_size = preprocessed_states.shape[0]
                 if batch_size > 1:
-                    sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(sequence_indices[-1])), 0)
+                    last_sequence = torch.unsqueeze(sequence_indices[-1], -1)
+                    sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(last_sequence)), 0)
 
                 sample_size = min(batch_size, self.sample_size)
                 for _ in range(self.iterations):
