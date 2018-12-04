@@ -66,8 +66,8 @@ class LocalOptimizer(Optimizer):
                 self.optimizer_obj = self.optimizer(parameters)
             # Reset gradients.
             self.optimizer_obj.zero_grad()
-            loss.backward()
-
+            if not torch.isnan(loss):
+                loss.backward()
             return self.optimizer_obj.step(), loss, loss_per_item
 
     @rlgraph_api(must_be_complete=False)
@@ -98,9 +98,7 @@ class LocalOptimizer(Optimizer):
     def get_optimizer_variables(self):
         if get_backend() == "tf":
             return self.optimizer.variables()
-        elif get_backend() == "pytorch":
-            # TODO
-            pass
+        # Nothing to do for PyTorch -> no variable init issues.
 
 
 class GradientDescentOptimizer(LocalOptimizer):

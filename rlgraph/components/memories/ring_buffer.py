@@ -17,14 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
+
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
+from rlgraph.utils import util
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
+    import numpy as np
     import torch
 
 
@@ -68,6 +72,7 @@ class RingBuffer(Memory):
             self.size = 0
             self.num_episodes = 0
             self.episode_indices = [0] * self.capacity
+            self.record_registry["terminals"] = [0 for _ in self.record_registry["terminals"]]
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -145,16 +150,19 @@ class RingBuffer(Memory):
             with tf.control_dependencies(control_inputs=record_updates):
                 return tf.no_op()
         elif get_backend() == "pytorch":
+            # TODO: Unclear if we should do this in numpy and then convert to torch once we sample.
             num_records = get_batch_size(records["terminals"])
-            update_indices = torch.range(self.index, self.index + num_records) % self.capacity
+            update_indices = torch.arange(self.index, self.index + num_records) % self.capacity
 
             # Newly inserted episodes.
             inserted_episodes = torch.sum(records['terminals'].int(), 0)
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
-            insert_terminal_slice = torch.gather(self.record_registry['terminals'], 0, update_indices)
-            episodes_in_insert_range = torch.sum(insert_terminal_slice.int(), 0)
+            episodes_in_insert_range = 0
+            # Count terminals in inserted range.
+            for index in update_indices:
+                episodes_in_insert_range += int(self.record_registry["terminals"][index])
             num_episode_update = self.num_episodes - episodes_in_insert_range + inserted_episodes
             self.episode_indices[:self.num_episodes + 1 - episodes_in_insert_range] = \
                 self.episode_indices[episodes_in_insert_range:self.num_episodes + 1]
@@ -164,18 +172,20 @@ class RingBuffer(Memory):
             slice_start = self.num_episodes - episodes_in_insert_range
             slice_end = num_episode_update
 
-            mask = torch.masked_select(update_indices, records["terminals"])
+            byte_terminals = records["terminals"].byte()
+            mask = torch.masked_select(update_indices, byte_terminals)
             self.episode_indices[slice_start:slice_end] = mask
 
             # Update indices.
             self.num_episodes = num_episode_update
             self.index = (self.index + num_records) % self.capacity
-            self.size = torch.min(self.size + num_records, self.capacity)
+            self.size = min(self.size + num_records, self.capacity)
 
             # Updates all the necessary sub-variables in the record.
             for key in self.record_registry:
                 for i, val in zip(update_indices, records[key]):
                     self.record_registry[key][i] = val
+
             # The TF version returns no-op, return None so return-val inference system does not throw error.
             return None
 
@@ -186,8 +196,12 @@ class RingBuffer(Memory):
             indices = tf.range(start=index - num_records, limit=index) % self.capacity
             return self._read_records(indices=indices)
         elif get_backend() == "pytorch":
-            indices = torch.range(self.index - num_records, self.index) % self.capacity
-            return self._read_records(indices=indices)
+            indices = np.arange(self.index - num_records, self.index) % self.capacity
+            records = OrderedDict()
+            for name, variable in self.record_registry.items():
+                records[name] = self.read_variable(variable, indices,
+                                                   dtype=util.dtype(self.record_space[name].dtype, to="pytorch"))
+            return records
 
     @rlgraph_api(ok_to_overwrite=True)
     def _graph_fn_get_episodes(self, num_episodes=1):
@@ -227,5 +241,11 @@ class RingBuffer(Memory):
             limit = self.episode_indices[stored_episodes - 1]
             limit += torch.where(condition=(start < limit), x=0, y=self.capacity)
 
-            indices = torch.range(start, limit) % self.capacity
-            return self._read_records(indices=indices)
+            indices = torch.arange(start, limit) % self.capacity
+
+            records = OrderedDict()
+            for name, variable in self.record_registry.items():
+                records[name] = self.read_variable(variable, indices,
+                                                   dtype=util.dtype(self.record_space[name].dtype, to="pytorch"))
+            return records
+

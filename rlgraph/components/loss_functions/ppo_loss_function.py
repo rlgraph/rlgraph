@@ -122,7 +122,7 @@ class PPOLossFunction(LossFunction):
         elif get_backend() == "pytorch":
             # Detach grads.
             prev_log_probs = log_probs.detach()
-            baseline_values = torch.squeeze(baseline_values, axis=-1)
+            baseline_values = torch.squeeze(baseline_values, dim=-1)
 
             # Compute advantages.
             pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
@@ -134,14 +134,14 @@ class PPOLossFunction(LossFunction):
             v_targets = v_targets.detach()
 
             # Likelihood ratio and clipped objective.
-            ratio = torch.exp(x=log_probs - prev_log_probs)
+            ratio = torch.exp(log_probs - prev_log_probs)
             clipped_advantages = torch.where(
-                condition=pg_advantages > 0,
-                x=(1 + self.clip_ratio) * pg_advantages,
-                y=(1 - self.clip_ratio) * pg_advantages
+                pg_advantages > 0,
+                (1 + self.clip_ratio) * pg_advantages,
+                (1 - self.clip_ratio) * pg_advantages
             )
 
-            loss = -torch.min(x=ratio * pg_advantages, y=clipped_advantages)
+            loss = -torch.min(ratio * pg_advantages, clipped_advantages)
             loss += self.weight_entropy * entropy
 
             baseline_loss = (v_targets - baseline_values) ** 2

@@ -22,8 +22,11 @@ import re
 import time
 
 import inspect
+from collections import OrderedDict
+
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError, RLGraphAPICallParamError
+from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
 from rlgraph.utils.specifiable import Specifiable
 
 from rlgraph.components.component import Component
@@ -38,6 +41,8 @@ from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecord
 if get_backend() == "tf":
     import tensorflow as tf
     from rlgraph.utils.tf_util import pin_global_variables
+elif get_backend() == "pytorch":
+    import torch
 
 
 class GraphBuilder(Specifiable):
@@ -165,8 +170,8 @@ class GraphBuilder(Specifiable):
         time_start = time.perf_counter()
         assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
         self.root_component = meta_graph.root_component
-        self.graph_call_times = list()
-        self.var_call_times = list()
+        self.graph_call_times = []
+        self.var_call_times = []
         self.api = meta_graph.api
         self.num_meta_ops = meta_graph.num_ops
 
@@ -177,7 +182,7 @@ class GraphBuilder(Specifiable):
         self.available_devices = available_devices
         self.device_strategy = device_strategy
         self.default_device = default_device
-        self.device_map = device_map or dict()
+        self.device_map = device_map or {}
 
         # Create the first actual ops based on the input-spaces.
         # Some ops can only be created later when variable-based-Spaces are known (op_records_to_process_later).
@@ -237,7 +242,7 @@ class GraphBuilder(Specifiable):
         """
         for api_method_name, (in_op_records, _) in sorted(self.api.items()):
             api_method_rec = self.root_component.api_methods[api_method_name]
-            spaces = list()
+            spaces = []
             for param_name in api_method_rec.input_names:
                 if self.root_component.api_method_inputs[param_name] == "flex":
                     if input_spaces is not None and param_name in input_spaces:
@@ -539,7 +544,7 @@ class GraphBuilder(Specifiable):
                 split_args_and_kwargs = op_rec_column.split_flattened_input_ops(*flattened_args, **flattened_kwargs)
                 # There is some splitting to do. Call graph_fn many times (one for each split).
                 if isinstance(split_args_and_kwargs, FlattenedDataOp):
-                    ops = dict()
+                    ops = {}
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
                         params_args = [p for p in params if not isinstance(p, tuple)]
@@ -557,7 +562,7 @@ class GraphBuilder(Specifiable):
                             )
                         num_return_values = len(ops[key])
                     # Un-split the results dict into a tuple of `num_return_values` slots.
-                    un_split_ops = list()
+                    un_split_ops = []
                     for i in range(num_return_values):
                         dict_with_singles = FlattenedDataOp()
                         for key in split_args_and_kwargs.keys():
@@ -888,10 +893,106 @@ class GraphBuilder(Specifiable):
             else:
                 return self.root_component.api_fn_by_name[api_method]()
 
+    def execute_define_by_run_graph_fn(self, component, graph_fn, options, *args, **kwargs):
+        """
+        Executes a graph_fn in define by run mode.
+
+        Args:
+            graph_fn (callable): Graph function to execute.
+            options (dict): Execution options.
+        Returns:
+            any: Results of executing this graph-fn.
+        """
+        flatten_ops = options.pop("flatten_ops", False)
+        split_ops = options.pop("split_ops", False)
+        add_auto_key_as_first_param = options.pop("add_auto_key_as_first_param", False)
+        # print("executing graph fn", graph_fn)
+        # print("raw args = ", args)
+        # print("raw kwargs = ", kwargs)
+
+        # No container arg handling.
+        if not flatten_ops:
+            return graph_fn(component, *args, **kwargs)
+        else:
+            # Flatten and identify containers for potential splits.
+            flattened_args = []
+
+            # Was there actually any flattening
+            args_actually_flattened = False
+            for arg in args:
+                if isinstance(arg, (Dict, dict, tuple)) or isinstance(arg, Dict) or isinstance(arg, tuple):
+                    flattened_args.append(define_by_run_flatten(arg))
+                    args_actually_flattened = True
+                else:
+                    flattened_args.append(arg)
+
+            flattened_kwargs = {}
+            if len(kwargs) > 0:
+                for key, arg in kwargs.items():
+                    if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
+                        flattened_kwargs[key] = define_by_run_flatten(arg)
+                        args_actually_flattened = True
+                    else:
+                        flattened_kwargs[key] = arg
+
+            # If splitting args, split then iterate and merge. Only split if some args were actually flattened.
+            if args_actually_flattened:
+                split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
+                                                                 *flattened_args, **flattened_kwargs)
+
+                # Idea: Unwrap light flattening by iterating over flattened args and reading out "" where possible
+                if split_ops and isinstance(split_args_and_kwargs, OrderedDict):
+                    # Args were actually split.
+                    ops = {}
+                    num_return_values = -1
+                    for key, params in split_args_and_kwargs.items():
+                        params_args = [p for p in params if not isinstance(p, tuple)]
+                        params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
+                        ops[key] = force_tuple(graph_fn(component, *params_args, **params_kwargs))
+                        num_return_values = len(ops[key])
+
+                    # Un-split the results dict into a tuple of `num_return_values` slots.
+                    un_split_ops = []
+                    for i in range(num_return_values):
+                        dict_with_singles = OrderedDict()
+                        for key in split_args_and_kwargs.keys():
+                            dict_with_singles[key] = ops[key][i]
+                        un_split_ops.append(dict_with_singles)
+
+                    flattened_ret = tuple(un_split_ops)
+                else:
+                    split_args = split_args_and_kwargs[0]
+                    split_kwargs = split_args_and_kwargs[1]
+                    # Args did not contain deep nested structure so
+                    flattened_ret = graph_fn(component, *split_args, **split_kwargs)
+
+                # If result is a raw tensor, return as is.
+                if get_backend() == "pytorch":
+                    if isinstance(flattened_ret, torch.Tensor):
+                        return flattened_ret
+
+                unflattened_ret = []
+                for i, op in enumerate(flattened_ret):
+                    # Try to re-nest ordered-dict it.
+                    if isinstance(op, OrderedDict):
+                        unflattened_ret.append(define_by_run_unflatten(op))
+                    # All others are left as-is.
+                    else:
+                        unflattened_ret.append(op)
+
+                # Return unflattened results.
+                return unflattened_ret
+            else:
+                # Just pass in args and kwargs because not actually flattened, with or without default key.
+                if add_auto_key_as_first_param:
+                    return graph_fn(component, "", *args, **kwargs)
+                else:
+                    return graph_fn(component, *args, **kwargs)
+
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
         """
-        Builds a graph for eager execution. This primarily consists of creating variables through
+        Builds a graph for eager or define by run execution. This primarily consists of creating variables through
         the component hierarchy by pushing the input spaces  through the graph.
 
           Args:
@@ -917,6 +1018,7 @@ class GraphBuilder(Specifiable):
         self.device_strategy = device_strategy
         self.default_device = default_device
         self.device_map = device_map or {}
+        self.phase = "building"
 
         # TODO device strategy in pytorch?
         # Build full registry of callable methods on root component.

@@ -100,7 +100,8 @@ class PyTorchExecutor(GraphExecutor):
                 to_return = []
                 if op_indices_to_return is not None:
                     # Build return ops in correct order.
-                    for i in op_indices_to_return:
+                    # TODO clarify op indices order vs tensorflow.
+                    for i in sorted(op_indices_to_return):
                         op_result = api_ret[i]
                         if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
                             op_result = op_result.detach()

@@ -251,16 +251,18 @@ class PPOAgent(Agent):
             if get_backend() == "pytorch":
                 batch_size = preprocessed_states.shape[0]
                 if batch_size > 1:
-                    sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(sequence_indices[-1])), 0)
+                    last_sequence = torch.unsqueeze(sequence_indices[-1], -1)
+                    sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(last_sequence)), 0)
 
+                sample_size = min(batch_size, self.sample_size)
                 for _ in range(self.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
-                    indices = torch.range(start=start, end=start + self.sample_size) % batch_size
-                    sample_states = torch.gather(preprocessed_states, 0, indices)
-                    sample_actions = torch.gather(actions, 0, indices)
-                    sample_rewards = torch.gather(rewards, 0, indices)
-                    sample_terminals = torch.gather(terminals, 0, indices)
-                    sample_sequence_indices = torch.gather(sequence_indices, 0, indices)
+                    indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
+                    sample_states = torch.index_select(preprocessed_states, 0, indices)
+                    sample_actions = torch.index_select(actions, 0, indices)
+                    sample_rewards = torch.index_select(rewards, 0, indices)
+                    sample_terminals = torch.index_select(terminals, 0, indices)
+                    sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
 
                     policy_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = self.value_function.value_output(sample_states)
@@ -274,10 +276,11 @@ class PPOAgent(Agent):
                     policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
                     vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-                    loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
+                    # Do not need step op.
+                    _, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
                         policy_vars, loss, loss_per_item)
 
-                    vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
+                    _, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
                         vf_vars, vf_loss, vf_loss_per_item)
 
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
