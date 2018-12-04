@@ -43,7 +43,8 @@ from rlgraph.environments import OpenAIGymEnv
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('config', './configs/impala_cartpole.json', 'Agent config file.')
-flags.DEFINE_string('env', None, 'gym environment ID.')
+flags.DEFINE_string('env', None, 'openAI gym environment ID.')
+flags.DEFINE_bool('visualize', False, 'Show worker episodes.')
 
 
 def main(argv):
@@ -56,7 +57,12 @@ def main(argv):
     with open(agent_config_path, 'rt') as fp:
         agent_config = json.load(fp)
 
-    env_spec = FLAGS.env or agent_config["environment_spec"]
+    if FLAGS.env is None:
+        env_spec = agent_config["environment_spec"]
+    else:
+        env_spec = dict(gym_env=FLAGS.env)
+    if FLAGS.visualize is not None:
+        env_spec["visualize"] = FLAGS.visualize
     dummy_env = OpenAIGymEnv.from_spec(env_spec)
     agent = Agent.from_spec(
         agent_config,

@@ -55,7 +55,10 @@ def main(argv):
     with open(agent_config_path, 'rt') as fp:
         agent_config = json.load(fp)
 
-    env_spec = dict(gym_id=FLAGS.env) or agent_config["environment_spec"]
+    if FLAGS.env is None:
+        env_spec = agent_config["environment_spec"]
+    else:
+        env_spec = dict(gym_env=FLAGS.env)
     if FLAGS.visualize is not None:
         env_spec["visualize"] = FLAGS.visualize
     dummy_env = OpenAIGymEnv.from_spec(env_spec)
