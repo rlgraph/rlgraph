@@ -27,13 +27,14 @@ from rlgraph.components.explorations.exploration import Exploration, EpsilonExpl
 from rlgraph.components.distributions import Categorical, Normal
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.ops import DataOpDict
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 
 class TestExplorations(unittest.TestCase):
 
     def test_exploration_with_discrete_action_space(self):
-        nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)  # 13: Any flat nn-output should be ok.
+        nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)
         time_step_space = IntBox(10000)
         # 2x2 action-pick, each composite action with 5 categories.
         action_space = IntBox(5, shape=(2, 2), add_batch_rank=True)
@@ -104,6 +105,117 @@ class TestExplorations(unittest.TestCase):
         stddev_action_d = actions[:, 1, 1, 1].std()  # batch item 1, action-component (1,1)
         self.assertAlmostEqual(stddev_action_d, 0.0, places=1)
         self.assertAlmostEqual(actions.std(), 1.0, places=0)
+
+    def test_exploration_with_discrete_container_action_space(self):
+        nn_output_space = FloatBox(shape=(12,), add_batch_rank=True)
+        time_step_space = IntBox(10000)
+        # Some container action space.
+        action_space = Dict(dict(a=IntBox(3), b=IntBox(2), c=IntBox(4)), add_batch_rank=True)
+
+        # Our distribution to go into the Exploration object.
+        distribution_a = Categorical(scope="d_a")
+        distribution_b = Categorical(scope="d_b")
+        distribution_c = Categorical(scope="d_c")
+        action_adapter_a = ActionAdapter(action_space=action_space["a"], scope="aa_a")
+        action_adapter_b = ActionAdapter(action_space=action_space["b"], scope="aa_b")
+        action_adapter_c = ActionAdapter(action_space=action_space["c"], scope="aa_c")
+
+        exploration = Exploration.from_spec(dict(
+            epsilon_spec=dict(
+                decay_spec=dict(
+                    type="linear_decay",
+                    from_=1.0,
+                    to_=0.0,
+                    start_timestep=0,
+                    num_timesteps=10000
+                )
+            )
+        ))
+        # The Component to test.
+        exploration_pipeline = Component(
+            action_adapter_a, action_adapter_b, action_adapter_c, distribution_a, distribution_b, distribution_c,
+            exploration, scope="exploration-pipeline"
+        )
+
+        @rlgraph_api(component=exploration_pipeline)
+        def get_action(self_, nn_output, time_step):
+            out_a = action_adapter_a.get_logits_probabilities_log_probs(nn_output)
+            out_b = action_adapter_b.get_logits_probabilities_log_probs(nn_output)
+            out_c = action_adapter_c.get_logits_probabilities_log_probs(nn_output)
+            sample_a = distribution_a.sample_deterministic(out_a["probabilities"])
+            sample_b = distribution_b.sample_deterministic(out_b["probabilities"])
+            sample_c = distribution_c.sample_deterministic(out_c["probabilities"])
+            sample = self_._graph_fn_merge_actions(sample_a, sample_b, sample_c)
+            action = exploration.get_action(sample, time_step)
+            return action
+
+        @graph_fn(component=exploration_pipeline)
+        def _graph_fn_merge_actions(self, a, b, c):
+            return DataOpDict(a=a, b=b, c=c)
+
+        test = ComponentTest(
+            component=exploration_pipeline,
+            input_spaces=dict(nn_output=nn_output_space, time_step=int),
+            action_space=action_space
+        )
+
+        # With exploration: Check, whether actions are equally distributed.
+        batch_size = 2
+        nn_outputs = nn_output_space.sample(batch_size)
+        time_steps = time_step_space.sample(30)
+        # Collect action-batch-of-2 for each of our various random time steps.
+        actions_a = np.ndarray(shape=(30, batch_size), dtype=np.int)
+        actions_b = np.ndarray(shape=(30, batch_size), dtype=np.int)
+        actions_c = np.ndarray(shape=(30, batch_size), dtype=np.int)
+        for i, time_step in enumerate(time_steps):
+            a = test.test(("get_action", [nn_outputs, time_step]), expected_outputs=None)
+            actions_a[i] = a["a"]
+            actions_b[i] = a["b"]
+            actions_c[i] = a["c"]
+
+        # Assert some distribution of the actions.
+        mean_action_a = actions_a.mean()
+        stddev_action_a = actions_a.std()
+        self.assertAlmostEqual(mean_action_a, 1.0, places=0)
+        self.assertAlmostEqual(stddev_action_a, 1.0, places=0)
+        mean_action_b = actions_b.mean()
+        stddev_action_b = actions_b.std()
+        self.assertAlmostEqual(mean_action_b, 0.5, places=0)
+        self.assertAlmostEqual(stddev_action_b, 0.5, places=0)
+        mean_action_c = actions_c.mean()
+        stddev_action_c = actions_c.std()
+        self.assertAlmostEqual(mean_action_c, 2.0, places=0)
+        self.assertAlmostEqual(stddev_action_c, 1.0, places=0)
+
+        # Without exploration (epsilon is force-set to 0.0): Check, whether actions are always the same
+        # (given same nn_output all the time).
+        nn_outputs = nn_output_space.sample(batch_size)
+        time_steps = time_step_space.sample(30) + 10000
+        # Collect action-batch-of-2 for each of our various random time steps.
+        actions_a = np.ndarray(shape=(30, batch_size), dtype=np.int)
+        actions_b = np.ndarray(shape=(30, batch_size), dtype=np.int)
+        actions_c = np.ndarray(shape=(30, batch_size), dtype=np.int)
+        for i, time_step in enumerate(time_steps):
+            a = test.test(("get_action", [nn_outputs, time_step]), expected_outputs=None)
+            actions_a[i] = a["a"]
+            actions_b[i] = a["b"]
+            actions_c[i] = a["c"]
+
+        # Assert zero stddev of the single action components.
+        stddev_action = actions_a[:, 0].std()  # batch item 0, action-component a
+        self.assertAlmostEqual(stddev_action, 0.0, places=1)
+        stddev_action = actions_a[:, 1].std()  # batch item 1, action-component a
+        self.assertAlmostEqual(stddev_action, 0.0, places=1)
+
+        stddev_action = actions_b[:, 0].std()  # batch item 0, action-component b
+        self.assertAlmostEqual(stddev_action, 0.0, places=1)
+        stddev_action = actions_b[:, 1].std()  # batch item 1, action-component b
+        self.assertAlmostEqual(stddev_action, 0.0, places=1)
+
+        stddev_action = actions_c[:, 0].std()  # batch item 0, action-component c
+        self.assertAlmostEqual(stddev_action, 0.0, places=1)
+        stddev_action = actions_c[:, 1].std()  # batch item 1, action-component c
+        self.assertAlmostEqual(stddev_action, 0.0, places=1)
 
     def test_exploration_with_continuous_action_space(self):
         # TODO not portable, redo with more general mean/stddev checks over a sample of distributed outputs.
