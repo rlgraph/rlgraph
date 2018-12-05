@@ -32,32 +32,32 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
     env_spec = dict(type="openai", gym_env="CartPole-v0")
 
     def test_container_actions(self):
-        # Container actions with embedding.
-        states_spec = IntBox(
-            low=0,
-            high=100,
-            shape=(10,)
-        )
-        actions_spec = {}
+        # Test container actions with embedding.
 
+        vocab_size = 100
+        embed_dim = 128
+        # ID/state space.
+        state_space = IntBox(vocab_size)
+        # Container action space.
+        actions_space = {}
         num_outputs = 3
         for i in range(3):
-            actions_spec['index_field{}'.format(i)] = IntBox(
+            actions_space['index_field{}'.format(i)] = IntBox(
                 low=0,
                 high=num_outputs
             )
-        actions_spec = Dict(actions_spec, add_batch_rank=True)
+        actions_space = Dict(actions_space)
 
         agent_config = config_from_path("configs/dqfd_container.json")
         agent_config["network_spec"] = [
-                dict(type='embedding', embed_dim=128, vocab_size=100),
-                dict(type='reshape', flatten=True),
-                dict(type='dense', units=128, activation='relu', scope="dense_1")
+                dict(type="embedding", embed_dim=embed_dim, vocab_size=vocab_size),
+                #dict(type="reshape", flatten=True, flatten_categories=embed_dim),
+                dict(type="dense", units=embed_dim, activation="relu", scope="dense_1")
             ]
         agent = DQFDAgent.from_spec(
             agent_config,
-            state_space=states_spec,
-            action_space=actions_spec
+            state_space=state_space,
+            action_space=actions_space
         )
 
     def test_insert_demos(self):
