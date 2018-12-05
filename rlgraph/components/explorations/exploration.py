@@ -133,15 +133,15 @@ class Exploration(Component):
             DataOp: The DataOp representing the action. This will match the shape of self.action_space.
         """
         if get_backend() == "tf":
-            random_actions = tf.random_uniform(
-                shape=tf.shape(sample),
-                maxval=self.flat_action_space[key].num_categories,
-                dtype=dtype("int")
-            )
-
             if use_exploration is False:
                 return sample
             else:
+                random_actions = tf.random_uniform(
+                    shape=tf.shape(sample),
+                    maxval=self.flat_action_space[key].num_categories,
+                    dtype=dtype("int")
+                )
+
                 return tf.where(
                     # `use_exploration` given as actual bool or as tensor?
                     condition=epsilon_decisions if use_exploration is True else tf.logical_and(
