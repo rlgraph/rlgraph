@@ -68,8 +68,8 @@ class EmbeddingLookup(Layer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         ids_space = input_spaces["ids"]
-        # For now, require both batch- and time-ranks.
-        sanity_check_space(ids_space, must_have_batch_rank=True, must_have_time_rank=True)
+        # Require a batch-rank.
+        sanity_check_space(ids_space, must_have_batch_rank=True)
 
     def create_variables(self, input_spaces, action_space=None):
         # Create weights matrix and (maybe) biases vector.
@@ -95,6 +95,9 @@ class EmbeddingLookup(Layer):
                 padding = tf.to_int32(tf.equal(tf.shape(embedding_lookup_output)[1], 0))
                 embedding_lookup_output = tf.pad(embedding_lookup_output, [[0, 0], [0, padding], [0, 0]])
 
-            embedding_lookup_output._batch_rank = 0 if self.ids_space.time_major is False else 1
-            embedding_lookup_output._time_rank = 0 if self.ids_space.time_major is True else 1
+            if self.ids_space.has_time_rank is True:
+                embedding_lookup_output._batch_rank = 0 if self.ids_space.time_major is False else 1
+                embedding_lookup_output._time_rank = 0 if self.ids_space.time_major is True else 1
+            elif self.ids_space.has_batch_rank is True:
+                embedding_lookup_output._batch_rank = 0
             return embedding_lookup_output
