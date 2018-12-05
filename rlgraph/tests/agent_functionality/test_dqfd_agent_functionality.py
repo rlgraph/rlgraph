@@ -42,7 +42,7 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
         actions_space = {}
         num_outputs = 3
         for i in range(3):
-            actions_space['index_field{}'.format(i)] = IntBox(
+            actions_space['action_{}'.format(i)] = IntBox(
                 low=0,
                 high=num_outputs
             )
@@ -51,7 +51,6 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
         agent_config = config_from_path("configs/dqfd_container.json")
         agent_config["network_spec"] = [
                 dict(type="embedding", embed_dim=embed_dim, vocab_size=vocab_size),
-                #dict(type="reshape", flatten=True, flatten_categories=embed_dim),
                 dict(type="dense", units=embed_dim, activation="relu", scope="dense_1")
             ]
         agent = DQFDAgent.from_spec(
