@@ -76,7 +76,8 @@ class NeuralNetwork(Stack):
 
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
-    def build_auto_api_method(self, stack_api_method_name, component_api_method_name, ok_to_overwrite=False):
+    def build_auto_api_method(self, stack_api_method_name, component_api_method_name, fold_time_rank=False,
+                              unfold_time_rank=False, ok_to_overwrite=False):
         if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
             @rlgraph_api(name=stack_api_method_name, component=self, ok_to_overwrite=ok_to_overwrite)
             def method(self, *inputs, **kwargs):
@@ -84,7 +85,7 @@ class NeuralNetwork(Stack):
                 return self._pytorch_fast_path_exec(inputs, **kwargs)
         else:
             super(NeuralNetwork, self).build_auto_api_method(
-                stack_api_method_name, component_api_method_name, ok_to_overwrite
+                stack_api_method_name, component_api_method_name, fold_time_rank, unfold_time_rank, ok_to_overwrite
             )
             if self.custom_api_given is False:
                 @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
