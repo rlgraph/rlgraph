@@ -47,7 +47,7 @@ class PreprocessorStack(Stack):
         """
         # Link sub-Components' `apply` methods together to yield PreprocessorStack's `preprocess` method.
         # NOTE: Do not include `reset` here as it is defined explicitly below.
-        kwargs["api_methods"] = {("preprocess", "apply")}
+        kwargs["api_methods"] = [("preprocess", "apply")]
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack")))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
@@ -55,13 +55,17 @@ class PreprocessorStack(Stack):
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":
-            for preprocessor in self.sub_components.values():  # type: PreprocessLayer
-                preprocessor._graph_fn_reset()
+            for preprocess_layer in self.sub_components.values():  # type: PreprocessLayer
+                if preprocess_layer.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
+                    continue
+                preprocess_layer._graph_fn_reset()
 
         elif get_backend() == "tf":
             # Connect each pre-processor's "reset" output op via our graph_fn into one op.
             resets = list()
             for preprocess_layer in self.sub_components.values():  # type: PreprocessLayer
+                if preprocess_layer.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
+                    continue
                 resets.append(preprocess_layer.reset())
             reset_op = self._graph_fn_reset(*resets)
             return reset_op

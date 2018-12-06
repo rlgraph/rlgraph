@@ -68,8 +68,8 @@ class Stack(Component):
 
         self.map_api_to_sub_components_api = dict()
 
-        self.folder = ReShape(fold_time_rank=True, scope="time-rank-folder")
-        self.unfolder = ReShape(unfold_time_rank=True, scope="time-rank-unfolder")
+        self.folder = ReShape(fold_time_rank=True, scope="time-rank-folder_")
+        self.unfolder = ReShape(unfold_time_rank=True, scope="time-rank-unfolder_")
 
         self.add_components(self.folder, self.unfolder)
 
@@ -155,7 +155,7 @@ class Stack(Component):
             kwargs_ = kwargs
 
             for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
-                if sub_component.scope in ["time-rank-folder", "time-rank-unfolder"]:
+                if sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
                     continue
                 # TODO: python-Components: For now, we call each preprocessor's graph_fn
                 #  directly (assuming that inputs are not ContainerSpaces).
