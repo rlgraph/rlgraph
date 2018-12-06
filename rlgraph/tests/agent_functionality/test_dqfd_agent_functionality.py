@@ -37,7 +37,7 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
         vocab_size = 100
         embed_dim = 128
         # ID/state space.
-        state_space = IntBox(vocab_size)
+        state_space = IntBox(vocab_size, shape=(10,))
         # Container action space.
         actions_space = {}
         num_outputs = 3
@@ -51,12 +51,23 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
         agent_config = config_from_path("configs/dqfd_container.json")
         agent_config["network_spec"] = [
                 dict(type="embedding", embed_dim=embed_dim, vocab_size=vocab_size),
+                dict(type="reshape", flatten=True),
                 dict(type="dense", units=embed_dim, activation="relu", scope="dense_1")
             ]
         agent = DQFDAgent.from_spec(
             agent_config,
             state_space=state_space,
             action_space=actions_space
+        )
+        terminals = BoolBox(add_batch_rank=True)
+        rewards = FloatBox(add_batch_rank=True)
+
+        agent.observe_demos(
+            preprocessed_states=agent.preprocessed_state_space.with_batch_rank().sample(1),
+            actions=actions_space.with_batch_rank().sample(1),
+            rewards=rewards.sample(1),
+            next_states=agent.preprocessed_state_space.with_batch_rank().sample(1),
+            terminals=terminals.sample(1),
         )
 
     def test_insert_demos(self):
