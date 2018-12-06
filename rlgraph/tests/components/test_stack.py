@@ -46,6 +46,32 @@ class TestStack(unittest.TestCase):
 
         test.test(("run", 4.6), expected_outputs=np.array(8.6, dtype=np.float32))
 
+    def test_two_sub_components_and_time_rank_folding(self):
+        stack = Stack(Dummy1To1(scope="A", constant_value=3.0),
+                      Dummy1To1(scope="B", constant_value=1.0),
+                      api_methods=[dict(api="run", fold_time_rank=True)])
+        test = ComponentTest(
+            component=stack, input_spaces=dict(inputs=[FloatBox(add_time_rank=True, add_batch_rank=True)])
+        )
+
+        test.test(("run", np.array([[4.6, 5.2], [1.0, 2.0]])),
+                  expected_outputs=np.array([8.6, 9.2, 5.0, 6.0], dtype=np.float32))
+
+    def test_two_sub_components_and_time_rank_unfolding(self):
+        stack = Stack(Dummy1To1(scope="A", constant_value=3.0),
+                      Dummy1To1(scope="B", constant_value=1.0),
+                      api_methods=[dict(api="run", unfold_time_rank=True)])
+        input_space = FloatBox(add_batch_rank=True)
+        test = ComponentTest(
+            component=stack, input_spaces=dict(inputs=[input_space, input_space.with_time_rank()])
+        )
+
+        input_ = input_space.sample(size=4)
+        input_before_folding = input_.reshape((2, 2))
+
+        test.test(("run", [np.array([4.6, 5.2, 1.0, 2.0]), input_before_folding]),
+                  expected_outputs=np.array([[8.6, 9.2], [5.0, 6.0]], dtype=np.float32))
+
     def test_two_sub_components_1to2_2to1(self):
         stack = Stack(Dummy1To2(scope="A", constant_value=1.5),
                       Dummy2To1(scope="B"),
@@ -62,6 +88,17 @@ class TestStack(unittest.TestCase):
 
         # Expect: (in1 + in2) -> 0.1 -> (0.1 + 2.3, 0.1 * 2.3)
         test.test(("run", [0.0, 0.1]), expected_outputs=(2.4, 0.23))
+
+    def test_two_sub_components_1to2_2to1_time_rank_folding_and_unfolding(self):
+        stack = Stack([Dummy1To2(scope="A", constant_value=1.5), Dummy2To1(scope="B")],
+                      api_methods=[dict(api="run", fold_time_rank=True, unfold_time_rank=True)])
+        input_space = FloatBox(add_batch_rank=True, add_time_rank=True, time_major=True)
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=[input_space]))
+
+        input_ = input_space.sample(size=(2, 3))
+        expected_outputs = input_ + 1.5 + (input_ * 1.5)
+
+        test.test(("run", input_), expected_outputs=expected_outputs)
 
     def test_repeater_stack_with_n_sub_components(self):
         repeater_stack = RepeaterStack(sub_component=Dummy2To2(scope="2To2", constant_value=0.5), repeats=10,
