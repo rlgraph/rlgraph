@@ -42,12 +42,19 @@ class PreprocessorStack(Stack):
         Args:
             preprocessors (PreprocessorLayer): The PreprocessorLayers to add to the Stack and connect to each other.
 
+        Keyword Args:
+            fold_time_rank (bool): Whether to fold the time rank for the `preprocess` API-method stack.
+            unfold_time_rank (bool): Whether to unfold the time rank for the `preprocess` API-method stack.
+
         Raises:
             RLGraphError: If a sub-component is not a PreprocessLayer object.
         """
+        self.fold_time_rank = kwargs.get("fold_time_rank", False)
+        self.unfold_time_rank = kwargs.get("unfold_time_rank", False)
         # Link sub-Components' `apply` methods together to yield PreprocessorStack's `preprocess` method.
         # NOTE: Do not include `reset` here as it is defined explicitly below.
-        kwargs["api_methods"] = [("preprocess", "apply")]
+        kwargs["api_methods"] = [dict(api="preprocess", component_api="apply", fold_time_rank=self.fold_time_rank,
+                                      unfold_time_rank=self.unfold_time_rank)]
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack")))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)
 
@@ -87,5 +94,8 @@ class PreprocessorStack(Stack):
             Space: The Space after preprocessing.
         """
         for pp in self.sub_components.values():
-            space = pp.get_preprocessed_space(space)
+            if pp.scope not in ["time-rank-folder_", "time-rank-unfolder_"] or \
+                    (pp.scope == "time-rank-folder_" and self.fold_time_rank) or \
+                    (pp.scope == "time-rank-unfolder_" and self.unfold_time_rank):
+                space = pp.get_preprocessed_space(space)
         return space
