@@ -22,7 +22,7 @@ import unittest
 from rlgraph.agents import DQFDAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import BoolBox, FloatBox, IntBox, Dict
-from rlgraph.tests.test_util import config_from_path
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 
 
 class TestDQFDAgentFunctionality(unittest.TestCase):
@@ -148,6 +148,59 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
 
         action = agent.get_action(states=state_2, apply_preprocessing=False, use_exploration=False)
         self.assertEqual(action, action_2)
+
+    def test_demos_with_container_actions(self):
+        # Tests if dqfd can fit a set of states to a set of actions.
+        vocab_size = 100
+        embed_dim = 128
+        # ID/state space.
+        state_space = IntBox(vocab_size, shape=(10,))
+        # Container action space.
+        actions_space = {}
+        num_outputs = 3
+        for i in range(3):
+            actions_space['action_{}'.format(i)] = IntBox(
+                low=0,
+                high=num_outputs
+            )
+        actions_space = Dict(actions_space)
+
+        agent_config = config_from_path("configs/dqfd_container.json")
+        agent_config["network_spec"] = [
+                dict(type="embedding", embed_dim=embed_dim, vocab_size=vocab_size),
+                dict(type="reshape", flatten=True),
+                dict(type="dense", units=embed_dim, activation="relu", scope="dense_1")
+            ]
+        agent = DQFDAgent.from_spec(
+            agent_config,
+            state_space=state_space,
+            action_space=actions_space
+        )
+        terminals = BoolBox(add_batch_rank=True)
+        rewards = FloatBox(add_batch_rank=True)
+
+        # Create a set of demos.
+        demo_states = agent.preprocessed_state_space.with_batch_rank().sample(20)
+        demo_actions = actions_space.with_batch_rank().sample(20)
+        demo_rewards = rewards.sample(20, fill_value=1.0)
+        demo_next_states = agent.preprocessed_state_space.with_batch_rank().sample(20)
+        demo_terminals = terminals.sample(20, fill_value=False)
+
+        # Insert.
+        agent.observe_demos(
+            preprocessed_states=demo_states,
+            actions=demo_actions,
+            rewards=demo_rewards,
+            next_states=demo_next_states,
+            terminals=demo_terminals,
+        )
+
+        # Fit demos.
+        agent.update_from_demos(num_updates=1000, batch_size=20)
+
+        # Evaluate demos:
+        agent_actions = agent.get_action(demo_states, apply_preprocessing=False, use_exploration=False)
+        recursive_assert_almost_equal(agent_actions, demo_actions)
 
     def test_update_online(self):
         """
