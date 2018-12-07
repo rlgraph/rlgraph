@@ -444,9 +444,13 @@ class TensorFlowExecutor(GraphExecutor):
         """
         # Determine init_op and ready_op.
         var_list = list(self.graph_builder.root_component.variables.values())
+
+        self.global_training_timestep = tf.get_variable(
+            name="global-timestep", dtype=util.dtype("int"), trainable=False, initializer=0,
+            collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
+        var_list.append(self.global_training_timestep)
+
         # We can not fetch optimizer vars.
-        # self.logger.info("optimizer vars before init :")
-        # self.logger.info(self.optimizer.optimizer.variables())
         # TODO let graph builder do this
         if self.optimizer is not None:
             var_list.extend(self.optimizer.get_optimizer_variables())
@@ -562,10 +566,6 @@ class TensorFlowExecutor(GraphExecutor):
                     stop_grace_period_secs=120  # Default value.
                 )
         else:
-            self.global_training_timestep = tf.get_variable(
-                name="global-timestep", dtype=util.dtype("int"), trainable=False, initializer=0,
-                collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
-
             # If monitoring is disabled,
             if self.disable_monitoring:
                 self.logger.info("Setting up default session for non-distributed mode.")
@@ -611,8 +611,7 @@ class TensorFlowExecutor(GraphExecutor):
         self.saver.save(
             sess=self.session,
             save_path=(path or self.saver_directory),
-            # TODO: global_timestep
-            global_step=(self.global_training_timestep if add_timestep is False else None),
+            global_step=(self.global_training_timestep if add_timestep is True else None),
             latest_filename=None,
             meta_graph_suffix="meta",
             write_meta_graph=True,
