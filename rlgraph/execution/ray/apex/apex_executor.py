@@ -40,16 +40,19 @@ class ApexExecutor(RayExecutor):
 
     https://arxiv.org/abs/1803.00933
     """
-    def __init__(self, environment_spec, agent_config):
+    def __init__(self, environment_spec, agent_config, discard_queued_samples=False):
         """
         Args:
             environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
                 an environment using this spec.
             agent_config (dict): Config dict containing agent and execution specs.
+            discard_queued_samples (bool): If true, discard samples if the learner queue is full instead
+                of blocking until free.
         """
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         self.apex_replay_spec = ray_spec.pop("apex_replay_spec")
         self.worker_spec = ray_spec.pop("worker_spec")
+        self.discard_queued_samples = discard_queued_samples
         super(ApexExecutor, self).__init__(executor_spec=ray_spec.pop("executor_spec"),
                                            environment_spec=environment_spec,
                                            worker_spec=self.worker_spec)
@@ -212,15 +215,14 @@ class ApexExecutor(RayExecutor):
 
             # Retrieve results via id.
             # self.logger.info("replay task obj id {}".format(replay_remote_task))
-            sampled_batch = ray.get(object_ids=replay_remote_task)
-            # if sampled_batch is not None:
-            #     self.logger.info("Received result of replay task: {}".format(len(sampled_batch["terminals"])))
-            #     self.logger.info("Received result of replay task: {}".format(len(sampled_batch["indices"])))
-
-            # Pass to the agent doing the actual updates.
-            # The ray worker is passed along because we need to update its priorities later in the subsequent
-            # task (see loop below).
-            self.update_worker.input_queue.put((ray_memory, sampled_batch))
+            if self.discard_queued_samples and self.update_worker.input_queue.full():
+                continue
+            else:
+                sampled_batch = ray.get(object_ids=replay_remote_task)
+                # Pass to the agent doing the actual updates.
+                # The ray worker is passed along because we need to update its priorities later in the subsequent
+                # task (see loop below).
+                self.update_worker.input_queue.put((ray_memory, sampled_batch))
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_worker.output_queue.empty():
