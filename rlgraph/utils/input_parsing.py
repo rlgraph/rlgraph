@@ -225,7 +225,7 @@ def parse_observe_spec(observe_spec):
     # If no spec given.
     default_spec = dict(
         # Do we buffer observations in python before sending them through the graph?
-        buffer_enabled=True,
+        buffer_enabled=False,
         # Fill buffer with n records before sending them through the graph.
         buffer_size=100,  # only if buffer_enabled=True
         # Set to > 1 if we want to post-process buffered values for n-step learning.
