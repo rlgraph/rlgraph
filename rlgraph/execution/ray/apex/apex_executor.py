@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import time
+import numpy as np
 import random
 from six.moves import queue
 from threading import Thread
@@ -222,7 +222,8 @@ class ApexExecutor(RayExecutor):
                 # Pass to the agent doing the actual updates.
                 # The ray worker is passed along because we need to update its priorities later in the subsequent
                 # task (see loop below).
-                self.update_worker.input_queue.put((ray_memory, sampled_batch))
+                # Copy due to memory leaks in Ray, see https://github.com/ray-project/ray/pull/3484/
+                self.update_worker.input_queue.put((ray_memory, sampled_batch and copy_sample(sampled_batch)))
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_worker.output_queue.empty():
@@ -280,3 +281,17 @@ class UpdateWorker(Thread):
             # Just pass back indices for updating.
             self.output_queue.put((memory_actor, sample_batch["indices"], loss_per_item))
             self.update_done = True
+
+
+def copy_sample(sample):
+    """
+    Copies memory sample to guard against memory leak in object store.
+
+    Args:
+        sample (dict): Sample dict with string keys and numpy array values.
+
+    Returns:
+        dict: Copied Data copy.
+    """
+    return {k: np.array(v, copy=True)
+            for (k, v) in sample.items()}
