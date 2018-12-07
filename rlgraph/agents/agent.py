@@ -351,11 +351,9 @@ class Agent(Specifiable):
                 self.terminals_buffer[env_id][-1] = True
 
                 # TODO: Apply n-step post-processing if necessary.
-                # if self.observe_spec["n_step"] > 1:
-                #    pass
-
                 if self.flat_action_space is not None:
-                    actions_ = {key: np.asarray(self.actions_buffer[env_id][i]) for i, key in enumerate(self.flat_action_space.keys())}
+                    actions_ = {key: np.asarray(self.actions_buffer[env_id][i]) for i, key in
+                                enumerate(self.flat_action_space.keys())}
                 else:
                     actions_ = np.asarray(self.actions_buffer[env_id])
                 self._observe_graph(
@@ -368,6 +366,13 @@ class Agent(Specifiable):
                 )
                 self.reset_env_buffers(env_id)
         else:
+            if not batched:
+                preprocessed_states = self.preprocessed_state_space.force_batch(preprocessed_states)
+                next_states = self.preprocessed_state_space.force_batch(next_states)
+                actions = self.action_space.force_batch(actions)
+                rewards = [rewards]
+                terminals = [terminals]
+
             self._observe_graph(preprocessed_states, actions, internals, rewards, next_states, terminals)
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):

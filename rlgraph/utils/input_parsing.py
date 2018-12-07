@@ -222,6 +222,11 @@ def parse_observe_spec(observe_spec):
     Returns:
         dict: The sanitized observe_spec dict.
     """
+    if observe_spec and "buffer_enabled" not in observe_spec:
+        # Set to true if a buffer size is given and > 0, but flag is not given.
+        if "buffer_size" in observe_spec and observe_spec["buffer_size"] > 0:
+            observe_spec["buffer_enabled"] = True
+
     # If no spec given.
     default_spec = dict(
         # Do we buffer observations in python before sending them through the graph?
