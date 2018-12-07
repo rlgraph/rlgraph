@@ -227,7 +227,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -10)
         self.assertGreaterEqual(results["max_episode_reward"], -4)
-        self.assertLessEqual(results["episodes_executed"], 1000)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 5)
 
         # Check q-table for correct values.
         expected_q_values_per_state = {
