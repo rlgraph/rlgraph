@@ -139,15 +139,6 @@ class ReShape(PreprocessLayer):
             num_categories = self.flatten_categories
         return num_categories
 
-    def check_input_spaces(self, input_spaces, action_space=None):
-        super(ReShape, self).check_input_spaces(input_spaces, action_space)
-
-        # Check whether our input space has-batch or not and store this information here.
-        in_space = input_spaces["preprocessing_inputs"]  # type: Space
-
-        if self.flatten is True and isinstance(in_space, IntBox) and self.flatten_categories is True:
-            sanity_check_space(in_space, must_have_categories=True, num_categories=(2, 10000))
-
     @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_apply(self, key, preprocessing_inputs, input_before_time_rank_folding=None):
         """
