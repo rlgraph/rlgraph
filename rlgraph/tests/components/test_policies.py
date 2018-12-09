@@ -150,7 +150,7 @@ class TestPolicies(unittest.TestCase):
         # State-values: One for each item in the batch.
         expected_state_value_output = np.matmul(
             expected_nn_output,
-            policy_params["shared-value-function-policy/value-function-node/dense/kernel"]
+            policy_params["shared-value-function-policy/value-function-node/dense-layer/dense/kernel"]
         )
         test.test(("get_state_values", states), expected_outputs=dict(state_values=expected_state_value_output),
                   decimals=5)
