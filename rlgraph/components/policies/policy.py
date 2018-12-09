@@ -26,7 +26,6 @@ from rlgraph.components.component import Component
 from rlgraph.components.distributions import Normal, Categorical
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
-from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces.space import Space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import FlattenedDataOp
@@ -42,7 +41,7 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 deterministic=True, batch_apply=False, scope="policy", **kwargs):
+                 deterministic=True, scope="policy", **kwargs):
         """
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
@@ -60,15 +59,6 @@ class Policy(Component):
                 to fold time rank into batch rank before a forward pass.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
-
-        self.batch_apply = batch_apply
-
-        # Do manual folding and unfolding as not to have to wrap too many components into a BatchApply.
-        self.folder = None
-        self.unfolder = None
-        if self.batch_apply is True:
-            self.folder = ReShape(fold_time_rank=True, scope="time-rank-folder")
-            self.unfolder = ReShape(unfold_time_rank=True, scope="time-rank-unfolder")
 
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
 
@@ -105,8 +95,7 @@ class Policy(Component):
                                    format(type(action_space).__name__, self.name))
 
         self.add_components(
-            *[self.neural_network] + list(self.action_adapters.values()) + list(self.distributions.values()) +
-            [self.folder, self.unfolder]
+            *[self.neural_network] + list(self.action_adapters.values()) + list(self.distributions.values())
         )
 
     # Define our interface.
@@ -120,9 +109,6 @@ class Policy(Component):
         Returns:
             any: The raw output of the neural network (before it's cleaned-up and passed through the ActionAdapter).
         """
-        if self.batch_apply is True:
-            nn_input = self.folder.apply(nn_input)
-
         out = self.neural_network.apply(nn_input, internal_states)
         return dict(output=out["output"], last_internal_states=out.get("last_internal_states"))
 
@@ -159,11 +145,6 @@ class Policy(Component):
         logits, probabilities, log_probs = self._graph_fn_get_action_adapter_logits_probabilities_log_probs(
             nn_output["output"]
         )
-
-        if self.batch_apply is True:
-            logits = self.unfolder.apply(logits, nn_input)
-            probabilities = self.unfolder.apply(probabilities, nn_input)
-            log_probs = self.unfolder.apply(log_probs, nn_input)
 
         return dict(
             logits=logits, probabilities=probabilities, log_probs=log_probs,

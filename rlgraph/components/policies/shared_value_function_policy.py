@@ -54,9 +54,6 @@ class SharedValueFunctionPolicy(Policy):
         nn_output = self.get_nn_output(nn_input, internal_states)
         state_values = self.value_layer.apply(nn_output["output"])
 
-        if self.batch_apply is True:
-            state_values = self.unfolder.apply(state_values, nn_input)
-
         return dict(state_values=state_values, last_internal_states=nn_output.get("last_internal_states"))
 
 
@@ -83,12 +80,6 @@ class SharedValueFunctionPolicy(Policy):
             nn_output["output"]
         )
         state_values = self.value_layer.apply(nn_output["output"])
-
-        if self.batch_apply is True:
-            state_values = self.unfolder.apply(state_values, nn_input)
-            logits = self.unfolder.apply(logits, nn_input)
-            probabilities = self.unfolder.apply(probabilities, nn_input)
-            log_probs = self.unfolder.apply(log_probs, nn_input)
 
         return dict(state_values=state_values, logits=logits, probabilities=probabilities, log_probs=log_probs,
                     last_internal_states=nn_output.get("last_internal_states"))

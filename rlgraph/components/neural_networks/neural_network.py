@@ -30,10 +30,12 @@ if get_backend() == "pytorch":
 
 class NeuralNetwork(Stack):
     """
-    A NeuralNetwork is a Stack, in which the apply method is defined either by custom-API-method OR by connecting
+    A NeuralNetwork is a Stack, in which the `apply` method is defined either by custom-API-method OR by connecting
     through all sub-Components' `apply` methods.
     In both cases, a dict should be returned with at least the `output` key set. Possible further keys could
     be `last_internal_states` for RNN-based NNs and other keys.
+
+    No other API methods other than `apply` should be defined/used.
     """
 
     def __init__(self, *layers, **kwargs):
@@ -45,10 +47,13 @@ class NeuralNetwork(Stack):
         Keyword Args:
             layers (Optional[list]): An optional list of Layer objects or spec-dicts to overwrite(!)
                 *layers.
-        """
-        # Network object for fast-path execution where we do not repeatedely call `call` between layers.
-        # self.network_obj = None
 
+            fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the apply method.
+                Only for auto-generated `apply` method. Default: None.
+
+            unfold_time_rank (bool): Whether to overwrite the `unfold_time_rank` option for the apply method.
+                Only for auto-generated `apply` method. Default: None.
+        """
         # In case layers come in via a spec dict -> push it into *layers.
         layers_args = kwargs.pop("layers", layers)
         # Add a default scope (if not given) and pass on via kwargs.
@@ -58,17 +63,27 @@ class NeuralNetwork(Stack):
         self.custom_api_given = True
         if hasattr(self, "apply"):
             pass
-        elif "api_methods" not in kwargs:
-            kwargs["api_methods"] = {("apply_shadowed_", "apply")}
-            self.custom_api_given = False
         else:
-            assert len(kwargs["api_methods"]) == 1, \
-                "ERROR: Only 0 or 1 given API-methods are allowed in NeuralNetwork ctor! You provided " \
-                "'{}'.".format(kwargs["api_methods"])
-            # Make sure the only allowed api_method is `apply`.
-            assert next(iter(kwargs["api_methods"]))[0] == "apply", \
-                "ERROR: NeuralNetwork's custom API-method must be called `apply`! You named it '{}'.". \
-                format(next(iter(kwargs["api_methods"]))[0])
+            # Automatically create the `apply` stack.
+            if "api_methods" not in kwargs:
+                kwargs["api_methods"] = [dict(api="apply_shadowed_", component_api="apply")]
+                self.custom_api_given = False
+            # Sanity check `api_method` to contain only specifications on `apply`.
+            else:
+                assert len(kwargs["api_methods"]) == 1, \
+                    "ERROR: Only 0 or 1 given API-methods are allowed in NeuralNetwork ctor! You provided " \
+                    "'{}'.".format(kwargs["api_methods"])
+                # Make sure the only allowed api_method is `apply`.
+                assert next(iter(kwargs["api_methods"]))[0] == "apply", \
+                    "ERROR: NeuralNetwork's custom API-method must be called `apply`! You named it '{}'.". \
+                    format(next(iter(kwargs["api_methods"]))[0])
+
+            fold_time_rank = kwargs.pop("fold_time_rank", None)
+            if fold_time_rank is not None:
+                kwargs["api_methods"][0]["fold_time_rank"] = fold_time_rank
+            unfold_time_rank = kwargs.pop("unfold_time_rank", None)
+            if unfold_time_rank is not None:
+                kwargs["api_methods"][0]["unfold_time_rank"] = unfold_time_rank
 
         # Pytorch specific objects.
         self.network_obj = None
