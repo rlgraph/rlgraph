@@ -20,11 +20,9 @@ from __future__ import print_function
 from math import log
 
 from rlgraph import get_backend
-from rlgraph.components.component import Component
-from rlgraph.components.common import BatchApply
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
-from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
@@ -40,7 +38,7 @@ elif get_backend() == "pytorch":
 
 # TODO: Create a more primitive base class only defining the API-methods.
 # Then rename this into `SingleLayerActionAdapter`.
-class ActionAdapter(Component):
+class ActionAdapter(NeuralNetwork):
     """
     A Component that cleans up a neural network's flat output and gets it ready for parameterizing a
     Distribution Component.
@@ -51,8 +49,7 @@ class ActionAdapter(Component):
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
     """
     def __init__(self, action_space, add_units=0, units=None, weights_spec=None, biases_spec=None, activation=None,
-                 batch_apply=False, pre_network_spec=None,
-                 scope="action-adapter", **kwargs):
+                 pre_network_spec=None, scope="action-adapter", **kwargs):
         """
         Args:
             action_space (Space): The action Space within which this Component will create actions.
@@ -74,22 +71,12 @@ class ActionAdapter(Component):
             activation (Optional[str]): The activation function to use for `self.action_layer`.
                 Default: None (=linear).
 
-            batch_apply (bool): Whether to fold the time rank into the batch rank before passing through the action
-                adapter (and then unfold again). Default: False.
-
             pre_network_spec (Optional[dict,NeuralNetwork]): A spec dict for a neural network coming before the
                 last action layer. If None, only the action layer itself is applied.
         """
-        super(ActionAdapter, self).__init__(scope=scope, **kwargs)
-
+        # Build the action layer for this adapter based on the given action-space.
         self.action_space = action_space.with_batch_rank()
-        self.weights_spec = weights_spec
-        self.biases_spec = biases_spec
-        self.activation = activation
-        self.batch_apply = batch_apply
-
         assert not isinstance(self.action_space, ContainerSpace), "ERROR: ActionAdapter cannot handle ContainerSpaces!"
-
         # Calculate the number of nodes in the action layer (DenseLayer object) depending on our action Space
         # or using a given fixed number (`units`).
         # Also generate the ReShape sub-Component and give it the new_shape.
@@ -103,31 +90,24 @@ class ActionAdapter(Component):
             # Manually add moments after batch/time ranks.
             new_shape = tuple([2] + list(self.action_space.shape))
 
-        self.reshape = ReShape(new_shape=new_shape)
-
         assert units > 0, "ERROR: Number of nodes for action-layer calculated as {}! Must be larger 0.".format(units)
 
-        # Create the action-layer and add it to this component.
         action_layer = DenseLayer(
             units=units,
-            activation=self.activation,
-            weights_spec=self.weights_spec,
-            biases_spec=self.biases_spec,
+            activation=activation,
+            weights_spec=weights_spec,
+            biases_spec=biases_spec,
             scope="action-layer"
         )
 
         # Do we have a pre-NN?
-        if pre_network_spec is not None:
-            self.network = NeuralNetwork.from_spec(pre_network_spec, scope="action-network")  # type: NeuralNetwork
-            self.network.add_layer(action_layer)
-        else:
-            self.network = action_layer
+        self.network = NeuralNetwork.from_spec(pre_network_spec, scope="action-network")  # type: NeuralNetwork
+        self.network.add_layer(action_layer)
 
-        # Wrap the action layer with a batch apply?
-        if self.batch_apply is True:
-            self.network = BatchApply(self.network, "apply")
+        # Add the reshape layer to match the action space's shape.
+        self.network.add_layer(ReShape(new_shape=new_shape))
 
-        self.add_components(self.network, self.reshape)
+        super(ActionAdapter, self).__init__(self.network, scope=scope, **kwargs)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # Check the input Space.
@@ -141,24 +121,24 @@ class ActionAdapter(Component):
         # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
         #else:
 
-    @rlgraph_api
-    def get_raw_output(self, nn_output):
-        """
-        Returns the raw, non-reshaped output of the action-layer (DenseLayer) after passing through it the raw
-        nn_output (coming from the previous Component).
+#    @rlgraph_api
+#    def get_raw_output(self, nn_output):
+#        """
+#        Returns the raw, non-reshaped output of the action-layer (DenseLayer) after passing through it the raw
+#        nn_output (coming from the previous Component).
 
-        Args:
-            nn_output (DataOpRecord): The NN output of the preceding neural network.
+#        Args:
+#            nn_output (DataOpRecord): The NN output of the preceding neural network.
 
-        Returns:
-            DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
-        """
-        out = self.network.apply(nn_output)
+#        Returns:
+#            DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
+#        """
+#        out = self.network.apply(nn_output)
 
-        if type(out) == dict:
-            return out
-        else:
-            return dict(output=out)
+#        if type(out) == dict:
+#            return out
+#        else:
+#            return dict(output=out)
 
     @rlgraph_api
     def get_logits(self, nn_output):
@@ -169,9 +149,10 @@ class ActionAdapter(Component):
         Returns:
             SingleDataOp: The logits (raw nn_output, BUT reshaped).
         """
-        aa_output = self.get_raw_output(nn_output)
-        logits = self.reshape.apply(aa_output["output"])
-        return logits
+        logits_out = self.apply(nn_output)
+        return logits_out["output"]
+        #logits = self.reshape.apply(aa_output["output"])
+        #return logits
 
     @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_output):
