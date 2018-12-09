@@ -28,7 +28,7 @@ from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.preprocessing.transpose import Transpose
 from rlgraph.components.neural_networks.actor_component import ActorComponent
-from rlgraph.components.neural_networks.dynamic_batching_policy import DynamicBatchingPolicy
+from rlgraph.components.policies.dynamic_batching_policy import DynamicBatchingPolicy
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.memories.queue_runner import QueueRunner
