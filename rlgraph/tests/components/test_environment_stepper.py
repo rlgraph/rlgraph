@@ -221,10 +221,11 @@ class TestEnvironmentStepper(unittest.TestCase):
         )
 
         weights = test.read_variable_values(environment_stepper.actor_component.policy.variables)
-        weights_hid = weights["environment-stepper/actor-component/policy/test-network/hidden-layer/dense/kernel"]
-        biases_hid = weights["environment-stepper/actor-component/policy/test-network/hidden-layer/dense/bias"]
-        weights_action = weights["environment-stepper/actor-component/policy/action-adapter-0/action-layer/dense/kernel"]
-        biases_action = weights["environment-stepper/actor-component/policy/action-adapter-0/action-layer/dense/bias"]
+        policy_scope = "environment-stepper/actor-component/policy/"
+        weights_hid = weights[policy_scope+"test-network/hidden-layer/dense/kernel"]
+        biases_hid = weights[policy_scope+"test-network/hidden-layer/dense/bias"]
+        weights_action = weights[policy_scope+"action-adapter-0/action-network/action-layer/dense/kernel"]
+        biases_action = weights[policy_scope+"action-adapter-0/action-network/action-layer/dense/bias"]
 
         # Step 3 times through the Env and collect results.
         expected = (
@@ -283,11 +284,11 @@ class TestEnvironmentStepper(unittest.TestCase):
         )
 
         weights = test.read_variable_values(environment_stepper.actor_component.policy.variables)
-        weights_lstm = weights["environment-stepper/actor-component/policy/test-lstm-network/"
-                               "lstm-layer/lstm-cell/kernel"]
-        biases_lstm = weights["environment-stepper/actor-component/policy/test-lstm-network/lstm-layer/lstm-cell/bias"]
-        weights_action = weights["environment-stepper/actor-component/policy/action-adapter-0/action-layer/dense/kernel"]
-        biases_action = weights["environment-stepper/actor-component/policy/action-adapter-0/action-layer/dense/bias"]
+        policy_scope = "environment-stepper/actor-component/policy/"
+        weights_lstm = weights[policy_scope+"test-lstm-network/lstm-layer/lstm-cell/kernel"]
+        biases_lstm = weights[policy_scope+"test-lstm-network/lstm-layer/lstm-cell/bias"]
+        weights_action = weights[policy_scope+"action-adapter-0/action-network/action-layer/dense/kernel"]
+        biases_action = weights[policy_scope+"action-adapter-0/action-network/action-layer/dense/bias"]
 
         # Step 3 times through the Env and collect results.
         lstm_1 = lstm_layer(np.array([[[0.0]]]), weights_lstm, biases_lstm)

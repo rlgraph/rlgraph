@@ -58,7 +58,7 @@ class TestPolicies(unittest.TestCase):
 
         # Raw action layer output; Expected shape=(2,5): 2=batch, 5=action categories
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["policy/action-adapter-0/action-layer/dense/kernel"]
+            expected_nn_output, policy_params["policy/action-adapter-0/action-network/action-layer/dense/kernel"]
         )
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
@@ -142,7 +142,7 @@ class TestPolicies(unittest.TestCase):
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
             expected_nn_output,
-            policy_params["shared-value-function-policy/action-adapter-0/action-layer/dense/kernel"]
+            policy_params["shared-value-function-policy/action-adapter-0/action-network/action-layer/dense/kernel"]
         )
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
@@ -201,7 +201,9 @@ class TestPolicies(unittest.TestCase):
         network_spec["fold_time_rank"] = True
         shared_value_function_policy = SharedValueFunctionPolicy(
             network_spec=network_spec,
+            action_adapter_spec=dict(unfold_time_rank=True),
             action_space=action_space,
+            value_unfold_time_rank=True
         )
         test = ComponentTest(
             component=shared_value_function_policy,
@@ -226,16 +228,17 @@ class TestPolicies(unittest.TestCase):
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["shared-value-function-policy/action-adapter-0/action-layer/dense/kernel"]
+            expected_nn_output, policy_params["shared-value-function-policy/action-adapter-0/action-network/"
+                                              "action-layer/dense/kernel"]
         )
-        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(6, 4))
+        expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 3, 4))
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
 
         # State-values: One for each item in the batch.
         expected_state_value_output = np.matmul(
             expected_nn_output,
-            policy_params["shared-value-function-policy/value-function-node/dense/kernel"]
+            policy_params["shared-value-function-policy/value-function-node/dense-layer/dense/kernel"]
         )
         expected_state_value_output_unfolded = np.reshape(expected_state_value_output, newshape=(2, 3, 1))
         test.test(("get_state_values", states), expected_outputs=dict(state_values=expected_state_value_output_unfolded),
