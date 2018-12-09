@@ -60,7 +60,7 @@ class Stack(Component):
                 This is done for all API-methods in the given set, plus - optionally - time rank folding and unfolding
                 at the beginning and/or end.
         """
-        api_methods = kwargs.pop("api_methods", ["apply"])
+        self.api_methods_options = kwargs.pop("api_methods", ["apply"])
         super(Stack, self).__init__(*sub_components, scope=kwargs.pop("scope", "stack"), **kwargs)
 
         self.num_allowed_inputs = None
@@ -73,7 +73,7 @@ class Stack(Component):
 
         self.add_components(self.folder, self.unfolder)
 
-        self._build_stack(api_methods)
+        self._build_stack(self.api_methods_options)
 
     def _build_stack(self, api_methods):
         """
