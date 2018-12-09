@@ -84,9 +84,6 @@ class DuelingPolicy(Policy):
         state_values_tmp = self.dense_layer_state_value_stream.apply(nn_output["output"])
         state_values = self.state_value_node.apply(state_values_tmp)
 
-        if self.batch_apply is True:
-            state_values = self.unfolder.apply(state_values, nn_input)
-
         return dict(state_values=state_values, last_internal_states=nn_output.get("last_internal_states"))
 
     @rlgraph_api
@@ -109,7 +106,7 @@ class DuelingPolicy(Policy):
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
         advantages, _, _ = self._graph_fn_get_action_adapter_logits_probabilities_log_probs(
-            nn_output["output"]
+            nn_output["output"], nn_input
         )
         state_values_tmp = self.dense_layer_state_value_stream.apply(nn_output["output"])
         state_values = self.state_value_node.apply(state_values_tmp)
@@ -117,12 +114,6 @@ class DuelingPolicy(Policy):
         q_values = self._graph_fn_calculate_q_values(state_values, advantages)
 
         probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(q_values)
-
-        if self.batch_apply is True:
-            state_values = self.unfolder.apply(state_values, nn_input)
-            q_values = self.unfolder.apply(q_values, nn_input)
-            probabilities = self.unfolder.apply(probabilities, nn_input)
-            log_probs = self.unfolder.apply(log_probs, nn_input)
 
         return dict(state_values=state_values, logits=q_values, probabilities=probabilities, log_probs=log_probs,
                     last_internal_states=nn_output.get("last_internal_states"),

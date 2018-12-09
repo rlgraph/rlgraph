@@ -124,7 +124,7 @@ class Policy(Component):
                 of a RNN-based NN).
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
-        action_layer_outputs = self._graph_fn_get_action_layer_outputs(nn_output["output"])
+        action_layer_outputs = self._graph_fn_get_action_layer_outputs(nn_output["output"], nn_input)
         # Add last internal states to return value.
         return dict(output=action_layer_outputs, last_internal_states=nn_output["last_internal_states"])
 
@@ -143,7 +143,7 @@ class Policy(Component):
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
         logits, probabilities, log_probs = self._graph_fn_get_action_adapter_logits_probabilities_log_probs(
-            nn_output["output"]
+            nn_output["output"], nn_input
         )
 
         return dict(
@@ -263,7 +263,7 @@ class Policy(Component):
         return dict(entropy=entropy, last_internal_states=out["last_internal_states"])
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_get_action_layer_outputs(self, nn_output):
+    def _graph_fn_get_action_layer_outputs(self, nn_output, nn_input):
         """
         Pushes the given nn_output through all our action adapters and returns a DataOpDict with the keys corresponding
         to our `action_space`.
@@ -277,12 +277,12 @@ class Policy(Component):
         """
         ret = FlattenedDataOp()
         for flat_key, action_adapter in self.action_adapters.items():
-            ret[flat_key] = action_adapter.get_raw_output(nn_output)["output"]
+            ret[flat_key] = action_adapter.get_logits(nn_output, nn_input)
 
         return ret
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_get_action_adapter_logits_probabilities_log_probs(self, nn_output):
+    def _graph_fn_get_action_adapter_logits_probabilities_log_probs(self, nn_output, nn_input):
         """
         Pushes the given nn_output through all our action adapters' get_logits_probabilities_log_probs API's and
         returns a DataOpDict with the keys corresponding to our `action_space`.
@@ -301,7 +301,7 @@ class Policy(Component):
         probabilities = FlattenedDataOp()
         log_probs = FlattenedDataOp()
         for flat_key, action_adapter in self.action_adapters.items():
-            out = action_adapter.get_logits_probabilities_log_probs(nn_output)
+            out = action_adapter.get_logits_probabilities_log_probs(nn_output, nn_input)
             logits[flat_key], probabilities[flat_key], log_probs[flat_key] = \
                 out["logits"], out["probabilities"], out["log_probs"]
 

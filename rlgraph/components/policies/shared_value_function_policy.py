@@ -18,25 +18,28 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.policies.policy import Policy
 from rlgraph.utils.decorators import rlgraph_api
 
 
 class SharedValueFunctionPolicy(Policy):
     def __init__(self, network_spec, value_weights_spec=None, value_biases_spec=None, value_activation=None,
+                 value_fold_time_rank=False, value_unfold_time_rank=False,
                  scope="shared-value-function-policy", **kwargs):
         super(SharedValueFunctionPolicy, self).__init__(network_spec, scope=scope, **kwargs)
 
         # Create the extra value dense layer with 1 node.
-        self.value_layer = DenseLayer(
+        self.value_unfold_time_rank = value_unfold_time_rank
+        self.value_network = NeuralNetwork(DenseLayer(
             units=1,
             activation=value_activation,
             weights_spec=value_weights_spec,
             biases_spec=value_biases_spec,
-            scope="value-function-node"
-        )
+        ), fold_time_rank=value_fold_time_rank, unfold_time_rank=value_unfold_time_rank,
+            scope="value-function-node")
 
-        self.add_components(self.value_layer)
+        self.add_components(self.value_network)
 
     @rlgraph_api
     def get_state_values(self, nn_input, internal_states=None):
@@ -52,9 +55,12 @@ class SharedValueFunctionPolicy(Policy):
                 state_values: The single (but batched) value function node output.
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
-        state_values = self.value_layer.apply(nn_output["output"])
+        if self.value_unfold_time_rank is True:
+            state_values = self.value_network.apply(nn_output["output"], nn_input)
+        else:
+            state_values = self.value_network.apply(nn_output["output"])
 
-        return dict(state_values=state_values, last_internal_states=nn_output.get("last_internal_states"))
+        return dict(state_values=state_values["output"], last_internal_states=nn_output.get("last_internal_states"))
 
 
     @rlgraph_api
@@ -77,9 +83,12 @@ class SharedValueFunctionPolicy(Policy):
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
         logits, probabilities, log_probs = self._graph_fn_get_action_adapter_logits_probabilities_log_probs(
-            nn_output["output"]
+            nn_output["output"], nn_input
         )
-        state_values = self.value_layer.apply(nn_output["output"])
+        if self.value_unfold_time_rank is True:
+            state_values = self.value_network.apply(nn_output["output"], nn_input)
+        else:
+            state_values = self.value_network.apply(nn_output["output"])
 
-        return dict(state_values=state_values, logits=logits, probabilities=probabilities, log_probs=log_probs,
+        return dict(state_values=state_values["output"], logits=logits, probabilities=probabilities, log_probs=log_probs,
                     last_internal_states=nn_output.get("last_internal_states"))
