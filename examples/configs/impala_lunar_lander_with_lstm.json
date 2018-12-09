@@ -26,6 +26,12 @@
   "network_spec":
   [
       {
+        "type": "dense",
+        "units": 128,
+        "activation": "relu",
+        "scope": "dense-layer"
+      },
+      {
         "type": "lstm",
         "units": 128,
         "activation": "relu",
