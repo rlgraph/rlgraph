@@ -149,10 +149,13 @@ class ActionAdapter(NeuralNetwork):
         Returns:
             SingleDataOp: The logits (raw nn_output, BUT reshaped).
         """
-        logits_out = self.apply(nn_output, nn_input)
+        # If we are unfolding and NOT folding -> pass original input in as well.
+        if self.api_methods_options[0].get("unfold_time_rank") and \
+                not self.api_methods_options[0].get("fold_time_rank"):
+            logits_out = self.apply(nn_output, nn_input)
+        else:
+            logits_out = self.apply(nn_output)
         return logits_out["output"]
-        #logits = self.reshape.apply(aa_output["output"])
-        #return logits
 
     @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
