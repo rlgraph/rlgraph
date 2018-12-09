@@ -141,7 +141,7 @@ class ActionAdapter(NeuralNetwork):
 #            return dict(output=out)
 
     @rlgraph_api
-    def get_logits(self, nn_output):
+    def get_logits(self, nn_output, nn_input=None):
         """
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
@@ -149,13 +149,13 @@ class ActionAdapter(NeuralNetwork):
         Returns:
             SingleDataOp: The logits (raw nn_output, BUT reshaped).
         """
-        logits_out = self.apply(nn_output)
+        logits_out = self.apply(nn_output, nn_input)
         return logits_out["output"]
         #logits = self.reshape.apply(aa_output["output"])
         #return logits
 
     @rlgraph_api
-    def get_logits_probabilities_log_probs(self, nn_output):
+    def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
         """
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
@@ -166,7 +166,7 @@ class ActionAdapter(NeuralNetwork):
                 - probabilities (softmaxed(logits))
                 - log(probabilities)
         """
-        logits = self.get_logits(nn_output)
+        logits = self.get_logits(nn_output, nn_input)
         probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(logits)
         return dict(logits=logits, probabilities=probabilities, log_probs=log_probs)
 
