@@ -196,10 +196,12 @@ class TestPolicies(unittest.TestCase):
         flat_float_action_space = FloatBox(shape=(4,), add_batch_rank=True, add_time_rank=True)
 
         # Policy with baseline action adapter AND batch-apply over the entire policy (NN + ActionAdapter + distr.).
+        network_spec = config_from_path("configs/test_lrelu_nn.json")
+        # Add folding to network.
+        network_spec["fold_time_rank"] = True
         shared_value_function_policy = SharedValueFunctionPolicy(
-            network_spec=config_from_path("configs/test_lrelu_nn.json"),
+            network_spec=network_spec,
             action_space=action_space,
-            batch_apply=True
         )
         test = ComponentTest(
             component=shared_value_function_policy,
@@ -229,7 +231,6 @@ class TestPolicies(unittest.TestCase):
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(6, 4))
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
-        expected_action_layer_output_unfolded = np.reshape(expected_action_layer_output, newshape=(2, 3, 4))
 
         # State-values: One for each item in the batch.
         expected_state_value_output = np.matmul(
@@ -240,6 +241,7 @@ class TestPolicies(unittest.TestCase):
         test.test(("get_state_values", states), expected_outputs=dict(state_values=expected_state_value_output_unfolded),
                   decimals=5)
 
+        expected_action_layer_output_unfolded = np.reshape(expected_action_layer_output, newshape=(2, 3, 4))
         test.test(
             ("get_state_values_logits_probabilities_log_probs", states, ["state_values", "logits"]),
             expected_outputs=dict(
