@@ -180,17 +180,24 @@ class Stack(Component):
                     kwargs_ = {}
 
             if args_ == ():
+                # Unfold time rank? For now only support 1st arg folding/unfolding.
+                if unfold_time_rank is True:
+                    assert len(kwargs_) == 1,\
+                        "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
+                    key = next(iter(kwargs_))
+                    kwargs_ = {key: self.unfolder.apply(kwargs_[key], original_input)}
                 return kwargs_
-
-            # Unfold time rank? For now only support 1st arg folding/unfolding.
-            if unfold_time_rank is True:
-                args_ = tuple([self.unfolder.apply(args_[0], original_input)] +
-                              list(args_[1 if fold_time_rank is True else 2:]))
-
-            if len(args_) == 1:
-                return args_[0]
             else:
-                return args_
+                # Unfold time rank? For now only support 1st arg folding/unfolding.
+                if unfold_time_rank is True:
+                    assert len(args_) == 1,\
+                        "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
+                    args_ = tuple([self.unfolder.apply(args_[0], original_input)] +
+                                  list(args_[1 if fold_time_rank is True else 2:]))
+                if len(args_) == 1:
+                    return args_[0]
+                else:
+                    return args_
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
