@@ -1,0 +1,16 @@
+{
+  "scope": "test-lstm-network",
+  "layers": [
+    {
+      "type": "dense",
+      "units": 3,
+      "scope": "dense-layer"
+    },
+    {
+      "type": "lstm",
+      "units": 3,
+      "time_major": false,
+      "scope": "lstm-layer"
+    }
+  ]
+}
