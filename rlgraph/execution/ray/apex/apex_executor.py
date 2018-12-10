@@ -183,6 +183,7 @@ class ApexExecutor(RayExecutor):
         # Env steps done during this rollout.
         env_steps = 0
         update_steps = 0
+        discarded = 0
         weights = None
 
         # 1. Fetch results from RayWorkers.
@@ -216,7 +217,7 @@ class ApexExecutor(RayExecutor):
             # Retrieve results via id.
             # self.logger.info("replay task obj id {}".format(replay_remote_task))
             if self.discard_queued_samples and self.update_worker.input_queue.full():
-                continue
+                discarded += 1
             else:
                 sampled_batch = ray.get(object_ids=replay_remote_task)
                 # Pass to the agent doing the actual updates.
@@ -235,7 +236,7 @@ class ApexExecutor(RayExecutor):
             # len of loss per item is update count.
             update_steps += len(indices)
 
-        return env_steps, update_steps
+        return env_steps, update_steps, discarded
 
 
 class UpdateWorker(Thread):
