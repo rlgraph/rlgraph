@@ -40,7 +40,7 @@ class LSTMLayer(NNLayer):
     """
     def __init__(
             self, units, use_peepholes=False, cell_clip=None, static_loop=False,
-            forget_bias=1.0, parallel_iterations=32,
+            forget_bias=1.0, parallel_iterations=32, return_sequences=True,
             swap_memory=False, time_major=False, **kwargs):  # weights_spec=None, dtype="float"
         """
         Args:
@@ -58,6 +58,8 @@ class LSTMLayer(NNLayer):
             forget_bias (float): The forget gate bias to use. Default: 1.0.
             parallel_iterations (int): The number of iterations to run in parallel.
                 Default: 32.
+            return_sequences (bool): Whether to return one output for each input or only the last output.
+                Default: True.
             swap_memory (bool): Transparently swap the tensors produced in forward inference but needed for back
                 prop from GPU to CPU. This allows training RNNs which would typically not fit on a single GPU,
                 with very minimal (or no) performance penalty.
@@ -82,6 +84,7 @@ class LSTMLayer(NNLayer):
         self.forget_bias = forget_bias
 
         self.parallel_iterations = parallel_iterations
+        self.return_sequences = return_sequences
         self.swap_memory = swap_memory
         self.in_space = None
 
@@ -199,13 +202,20 @@ class LSTMLayer(NNLayer):
                     output_list.append(output)
                 lstm_out = tf.stack(output_list)
 
+            # Only return last value.
+            if self.return_sequences is False:
+                lstm_out = lstm_out[-1]
+            # Return entire sequence.
+            else:
+                lstm_out._batch_rank = 0 if self.in_space.time_major is False else 1
+                lstm_out._time_rank = 0 if self.in_space.time_major is True else 1
+
             # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
-            lstm_out._batch_rank = 0 if self.in_space.time_major is False else 1
-            lstm_out._time_rank = 0 if self.in_space.time_major is True else 1
             return lstm_out, DataOpTuple(lstm_state_tuple)
 
         elif get_backend() == "pytorch":
             # TODO init hidden state has to be available at create variable time to use.
             inputs = torch.cat(inputs).view(len(inputs), 1, -1)
+            # TODO: support `self.return_sequences` = False
             out, self.hidden_state = self.lstm(inputs, self.hidden_state)
             return out, DataOpTuple(self.hidden_state)
