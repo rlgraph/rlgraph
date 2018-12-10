@@ -1,14 +1,15 @@
 {
   "type": "single-impala",
 
-  "num_workers": 4,
-  "worker_sample_size": 20,
+  "num_workers": 8,
+  "worker_sample_size": 30,
+
+  "visualize": 1,
 
   "environment_spec":
   {
     "type": "openai-gym",
-    "gym_env": "LunarLander-v2",
-    "visualize": true
+    "gym_env": "MountainCar-v0"
   },
 
   "feed_previous_action_through_nn": false,
@@ -27,15 +28,15 @@
   [
       {
         "type": "dense",
-        "units": 128,
+        "units": 64,
         "activation": "relu",
-        "scope": "dense-layer"
+        "scope": "layer0"
       },
       {
-        "type": "lstm",
-        "units": 128,
+        "type": "dense",
+        "units": 64,
         "activation": "relu",
-        "scope": "lstm-layer"
+        "scope": "layer1"
       }
   ],
 
@@ -44,11 +45,11 @@
     "_args": [
       {
         "type": "float",
-        "shape": [128]
+        "shape": [64]
       },
       {
         "type": "float",
-        "shape": [128]
+        "shape": [64]
       }
     ],
     "add_batch_rank": false
@@ -62,6 +63,6 @@
   "optimizer_spec":
   {
     "type": "adam",
-    "learning_rate": 0.001
+    "learning_rate": 0.000005
   }
 }

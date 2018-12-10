@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
+
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
@@ -517,7 +519,7 @@ class SingleIMPALAAgent(IMPALAAgent):
                  feed_previous_action_through_nn=True, feed_previous_reward_through_nn=True,
                  weight_pg=None, weight_baseline=None, weight_entropy=None,
                  num_workers=1, worker_sample_size=100,
-                 dynamic_batching=False, **kwargs):
+                 dynamic_batching=False, visualize=False, **kwargs):
         """
         Args:
             discount (float): The discount factor gamma.
@@ -534,11 +536,13 @@ class SingleIMPALAAgent(IMPALAAgent):
             weight_pg (float): See IMPALALossFunction Component.
             weight_baseline (float): See IMPALALossFunction Component.
             weight_entropy (float): See IMPALALossFunction Component.
+            num_workers (int): How many actors (workers) should be run in separate threads.
             worker_sample_size (int): How many steps the actor will perform in the environment each sample-run.
             dynamic_batching (bool): Whether to use the deepmind's custom dynamic batching op for wrapping the
                 optimizer's step call. The batcher.so file must be compiled for this to work (see Docker file).
                 Default: False.
-            num_workers (int): How many actors (workers) should be run in separate threads.
+            visualize (Union[int,bool]): Whether and how many workers to visualize.
+                Default: False (no visualization).
         """
         # Now that we fixed the Agent's spec, call the super constructor.
         super(SingleIMPALAAgent, self).__init__(
@@ -558,6 +562,7 @@ class SingleIMPALAAgent(IMPALAAgent):
         )
         self.dynamic_batching = dynamic_batching
         self.num_workers = num_workers
+        self.visualize = visualize
 
         # If we use dynamic batching, wrap the dynamic batcher around the policy's graph_fn that we
         # actually call below during our build.
@@ -604,8 +609,11 @@ class SingleIMPALAAgent(IMPALAAgent):
 
         self.environment_steppers = list()
         for i in range(self.num_workers):
+            environment_spec_ = copy.deepcopy(environment_spec)
+            if self.visualize is True or (isinstance(self.visualize, int) and i+1 <= self.visualize):
+                environment_spec_["visualize"] = True
             env_stepper = EnvironmentStepper(
-                environment_spec=environment_spec,
+                environment_spec=environment_spec_,
                 actor_component_spec=ActorComponent(
                     preprocessor_spec=self.preprocessing_spec,
                     policy_spec=self.policy_spec,

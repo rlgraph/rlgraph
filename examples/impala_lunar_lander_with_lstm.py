@@ -69,7 +69,7 @@ def main(argv):
     )
     dummy_env.terminate()
 
-    learn_updates = 500
+    learn_updates = 8000
     mean_returns = []
     for i in range(learn_updates):
         ret = agent.update()

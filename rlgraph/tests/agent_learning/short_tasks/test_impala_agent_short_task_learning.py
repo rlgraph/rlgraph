@@ -93,11 +93,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             config_,
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
-            execution_spec=dict(seed=10),
-            update_spec=dict(batch_size=8),
-            optimizer_spec=dict(type="adam", learning_rate=0.005),
-            num_workers=4,
-            worker_sample_size=20
+            execution_spec=dict(seed=10)
         )
 
         learn_updates = 300
