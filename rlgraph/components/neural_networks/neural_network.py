@@ -61,9 +61,7 @@ class NeuralNetwork(Stack):
 
         # Force the only API-method to be `apply`. No matter whether custom-API or auto-generated (via Stack).
         self.custom_api_given = True
-        if hasattr(self, "apply"):
-            pass
-        else:
+        if not hasattr(self, "apply"):
             # Automatically create the `apply` stack.
             if "api_methods" not in kwargs:
                 kwargs["api_methods"] = [dict(api="apply_shadowed_", component_api="apply")]
@@ -78,6 +76,7 @@ class NeuralNetwork(Stack):
                     "ERROR: NeuralNetwork's custom API-method must be called `apply`! You named it '{}'.". \
                     format(next(iter(kwargs["api_methods"]))[0])
 
+            # Follow given options.
             fold_time_rank = kwargs.pop("fold_time_rank", None)
             if fold_time_rank is not None:
                 kwargs["api_methods"][0]["fold_time_rank"] = fold_time_rank
@@ -98,6 +97,62 @@ class NeuralNetwork(Stack):
             def method(self, *inputs, **kwargs):
                 # Avoid jumping back between layers and calls at runtime.
                 return self._pytorch_fast_path_exec(inputs, **kwargs)
+
+        # Auto apply-API -> Handle LSTMs correctly.
+        elif self.custom_api_given is False:
+            @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
+            def apply(self_, *inputs, **kwargs):
+                # Keep track of the folding status.
+                fold_status = None
+                # Fold time rank? For now only support 1st arg folding/unfolding.
+                original_input = inputs[0]
+                if fold_time_rank is True:
+                    args_ = tuple([self.folder.apply(original_input)] + list(inputs[1:]))
+                    fold_status = "folded"
+                else:
+                    # TODO: If only unfolding: Assume for now that 2nd input is the original one (so we can infer
+                    # TODO: batch/time dims).
+                    if unfold_time_rank is True:
+                        assert len(inputs) >= 2, \
+                            "ERROR: In Stack: If unfolding w/o folding, second arg must be the original input!"
+                        original_input = inputs[1]
+                        args_ = tuple([inputs[0]] + list(inputs[2:]))
+                    else:
+                        args_ = inputs
+                kwargs_ = kwargs
+
+                for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
+                    if sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
+                        continue
+
+                    # Unfold before an LSTM.
+                    if isinstance(sub_component, LSTMLayer) and fold_status != "unfolded":
+                        args_, kwargs_ = self._unfold(original_input, *args_, **kwargs_)
+                        fold_status = "unfolded"
+                    # Fold before a non-LSTM if not already done so.
+                    elif not isinstance(sub_component, LSTMLayer) and fold_status == "unfolded":
+                        args_, kwargs_ = self._fold(*args_, **kwargs_)
+                        fold_status = "folded"
+
+                    results = sub_component.apply(*args_, **kwargs_)
+
+                    # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
+                    if isinstance(results, dict):
+                        args_ = ()
+                        kwargs_ = results
+                    else:
+                        args_ = force_tuple(results)
+                        kwargs_ = {}
+
+                if unfold_time_rank:
+                    args_, kwargs_ = self._unfold(original_input, fold_time_rank, unfold_time_rank, *args_, **kwargs_)
+                if args_ == ():
+                    return kwargs_
+                elif len(args_) == 1:
+                    return args_[0]
+                else:
+                    return args_
+
         else:
             super(NeuralNetwork, self).build_auto_api_method(
                 stack_api_method_name, component_api_method_name, fold_time_rank, unfold_time_rank, ok_to_overwrite
@@ -111,6 +166,28 @@ class NeuralNetwork(Stack):
                         return out
                     else:
                         return dict(output=out)
+
+    def _unfold(self, original_input, *args_, **kwargs_):
+        if args_ == ():
+            assert len(kwargs_) == 1, \
+                "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
+            key = next(iter(kwargs_))
+            kwargs_ = {key: self.unfolder.apply(kwargs_[key], original_input)}
+        else:
+            assert len(args_) == 1, \
+                "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
+            args_ = tuple([self.unfolder.apply(args_[0], original_input)])
+        return args_, kwargs_
+
+    def _fold(self, *args_, **kwargs_):
+        if args_ == ():
+            assert len(kwargs_) == 1, \
+                "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
+            key = next(iter(kwargs_))
+            kwargs_ = {key: self.folder.apply(kwargs_[key])}
+        else:
+            args_ = self.folder.apply(args_[0])
+        return args_, kwargs_
 
     def add_layer(self, layer_component):
         """
