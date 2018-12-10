@@ -239,7 +239,11 @@ class ReShape(PreprocessLayer):
                 preprocessing_inputs = preprocessing_inputs_
 
             if self.unfold_time_rank:
-                new_shape = (-1, -1) + tuple(preprocessing_inputs.shape.as_list()[1:])
+                list_shape = preprocessing_inputs.shape.as_list()
+                assert len(list_shape) == 1 or list_shape[1] is not None,\
+                    "ERROR: Cannot unfold. `preprocessing_inputs` (with shape {}) " \
+                    "already seems to be unfolded!".format(list_shape)
+                new_shape = (-1, -1) + tuple(list_shape[1:])
             elif self.fold_time_rank:
                 new_shape = (-1,) + tuple(preprocessing_inputs.shape.as_list()[2:])
             else:
@@ -272,7 +276,7 @@ class ReShape(PreprocessLayer):
                 if self.fold_time_rank:
                     reshaped._batch_rank = 0
                 elif self.unfold_time_rank:
-                    reshaped._batch_rank = 0 if self.time_major is False else 1
+                    reshaped._batch_rank = 1 if self.time_major is True else 0
                     reshaped._time_rank = 0 if self.time_major is True else 1
                 else:
                     if space.has_batch_rank is True:
