@@ -103,7 +103,7 @@ class NeuralNetwork(Stack):
             @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
             def apply(self_, *inputs, **kwargs):
                 # Keep track of the folding status.
-                fold_status = None
+                fold_status = "unfolded" if self.has_rnn() else None
                 # Fold time rank? For now only support 1st arg folding/unfolding.
                 original_input = inputs[0]
                 if fold_time_rank is True:
@@ -149,9 +149,9 @@ class NeuralNetwork(Stack):
                 if args_ == ():
                     return kwargs_
                 elif len(args_) == 1:
-                    return args_[0]
+                    return dict(output=args_[0])
                 else:
-                    return args_
+                    return dict(output=args_)
 
         else:
             super(NeuralNetwork, self).build_auto_api_method(
@@ -176,7 +176,7 @@ class NeuralNetwork(Stack):
         else:
             assert len(args_) == 1, \
                 "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
-            args_ = tuple([self.unfolder.apply(args_[0], original_input)])
+            args_ = (self.unfolder.apply(args_[0], original_input),)
         return args_, kwargs_
 
     def _fold(self, *args_, **kwargs_):
@@ -186,7 +186,7 @@ class NeuralNetwork(Stack):
             key = next(iter(kwargs_))
             kwargs_ = {key: self.folder.apply(kwargs_[key])}
         else:
-            args_ = self.folder.apply(args_[0])
+            args_ = (self.folder.apply(args_[0]),)
         return args_, kwargs_
 
     def add_layer(self, layer_component):
