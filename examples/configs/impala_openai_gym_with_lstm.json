@@ -1,15 +1,24 @@
 {
   "type": "single-impala",
 
-  "num_workers": 8,
-  "worker_sample_size": 30,
+  "num_workers": 4,
+  "worker_sample_size": 60,
 
   "visualize": 1,
+
+  "weight_pg": 1.0,
+  "weight_baseline": 0.5,
+  "weight_entropy": 0.00025,
+
+  "fifo_queue_spec":
+  {
+    "capacity": 1
+  },
 
   "environment_spec":
   {
     "type": "openai-gym",
-    "gym_env": "MountainCar-v0"
+    "gym_env": "CartPole-v0"
   },
 
   "feed_previous_action_through_nn": false,
@@ -19,26 +28,23 @@
   [
   ],
 
-  "fifo_queue_spec":
-  {
-    "capacity": 1
-  },
-
   "network_spec":
-  [
+  {
+    "layers": [
       {
         "type": "dense",
-        "units": 64,
-        "activation": "relu",
+        "units": 128,
+        "activation": "linear",
         "scope": "layer0"
       },
       {
-        "type": "dense",
+        "type": "lstm",
         "units": 64,
-        "activation": "relu",
+        "activation": "linear",
         "scope": "layer1"
       }
-  ],
+    ]
+  },
 
   "internal_states_space": {
     "type": "tuple",
@@ -57,12 +63,12 @@
 
   "update_spec": {
     "do_updates": true,
-    "batch_size": 16
+    "batch_size": 32
   },
 
   "optimizer_spec":
   {
     "type": "adam",
-    "learning_rate": 0.000005
+    "learning_rate": 0.0001
   }
 }

@@ -20,7 +20,7 @@ the "mu"-policy) and a learner (main) thread to update the model (the "pi"-polic
 
 Usage:
 
-python impala_lunar_lander_with_lstm.py [--config configs/impala_lunar_lander_with_lstm.json] [--env LunarLander-v2]?
+python impala_openai_gym_with_lstm.py [--config configs/impala_openai_gym_with_lstm.json] [--env LunarLander-v2]?
 
 [1] IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures - Espeholt, Soyer,
     Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
@@ -40,9 +40,9 @@ from rlgraph.environments import OpenAIGymEnv
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('config', './configs/impala_lunar_lander_with_lstm.json', 'Agent config file.')
+flags.DEFINE_string('config', './configs/impala_openai_gym_with_lstm.json', 'Agent config file.')
 flags.DEFINE_string('env', None, 'openAI gym environment ID.')
-flags.DEFINE_bool('visualize', False, 'Show worker episodes.')
+flags.DEFINE_integer('visualize', -1, 'Show training for n worker(s).')
 
 
 def main(argv):
@@ -55,12 +55,15 @@ def main(argv):
     with open(agent_config_path, 'rt') as fp:
         agent_config = json.load(fp)
 
+    # Override openAI gym env per command line.
     if FLAGS.env is None:
         env_spec = agent_config["environment_spec"]
     else:
-        env_spec = dict(gym_env=FLAGS.env)
-    if FLAGS.visualize is not None:
+        env_spec = dict(type="openai-gym", gym_env=FLAGS.env)
+    # Override number of visualized envs per command line.
+    if FLAGS.visualize != -1:
         env_spec["visualize"] = FLAGS.visualize
+
     dummy_env = OpenAIGymEnv.from_spec(env_spec)
     agent = Agent.from_spec(
         agent_config,
@@ -69,7 +72,7 @@ def main(argv):
     )
     dummy_env.terminate()
 
-    learn_updates = 8000
+    learn_updates = 6000
     mean_returns = []
     for i in range(learn_updates):
         ret = agent.update()
@@ -83,7 +86,7 @@ def main(argv):
 
     time.sleep(1)
     agent.terminate()
-    time.sleep(1)
+    time.sleep(3)
 
 
 def _calc_mean_return(records):

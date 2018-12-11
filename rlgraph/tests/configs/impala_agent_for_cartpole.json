@@ -4,6 +4,8 @@
   "num_workers": 4,
   "worker_sample_size": 20,
 
+  "visualize": 1,
+
   "fifo_queue_spec":
   {
     "capacity": 1
@@ -35,16 +37,13 @@
     "scope": "impala-net"
   },
 
-  "exploration_spec":
-  {
-  },
-
   "update_spec": {
     "do_updates": true,
     "batch_size": 8
   },
 
-  "optimizer_spec": {
+  "optimizer_spec":
+  {
     "type": "adam",
     "learning_rate": 0.005
   }
