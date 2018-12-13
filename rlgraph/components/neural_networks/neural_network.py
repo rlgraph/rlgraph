@@ -145,7 +145,7 @@ class NeuralNetwork(Stack):
                         kwargs_ = {}
 
                 if unfold_time_rank:
-                    args_, kwargs_ = self._unfold(original_input, fold_time_rank, unfold_time_rank, *args_, **kwargs_)
+                    args_, kwargs_ = self._unfold(original_input, *args_, **kwargs_)
                 if args_ == ():
                     return kwargs_
                 elif len(args_) == 1:
