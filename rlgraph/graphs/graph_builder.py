@@ -561,6 +561,7 @@ class GraphBuilder(Specifiable):
                                 format(op_rec_column.graph_fn.__name__)
                             )
                         num_return_values = len(ops[key])
+
                     # Un-split the results dict into a tuple of `num_return_values` slots.
                     un_split_ops = []
                     for i in range(num_return_values):

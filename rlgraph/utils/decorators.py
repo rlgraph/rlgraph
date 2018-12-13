@@ -265,21 +265,26 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
 
     Args:
         graph_fn (callable): The actual graph_fn to tag.
+
         component (Optional[Component]): The Component that the graph function should belong to. None if `graph_fn` is
             decorated inside a Component class.
+
         returns (Optional[int]): How many return values it returns. If None, will try to get this number from looking at the source code or from the Component's
             `num_graph_fn_return_values` property.
+
         flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
             a FlattenedDataOp (with automatic key names).
             Can also be a set of in-Socket names to flatten explicitly (True for all).
-            (default: True).
+            Default: True.
+
         split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
             and send the SingleDataOps one by one through the graph_fn.
             Example: Spaces=A=Dict (container), B=int (primitive)
             The graph_fn should then expect for each primitive Space in A:
             _graph_fn(primitive-in-A (Space), B (int))
             NOTE that B will be the same in all calls for all primitive-in-A's.
-            (default: True).
+            Default: True.
+
         add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
             automatically generated flat key as the very first parameter into each call of the graph_fn.
             Example: Spaces=A=float (primitive), B=Tuple (container)
@@ -288,7 +293,7 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
             NOTE that A will be the same in all calls for all primitive-in-B's.
             The key can now be used to index into variables equally structured as B.
             Has no effect if `split_ops` is False.
-            (default: False).
+            Default: False.
 
     Returns:
         callable: The decorator function.
@@ -314,7 +319,8 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
 
         graph_fn_rec = GraphFnRecord(
             func=wrapped_func, wrapper_func=_graph_fn_wrapper, is_class_method=(component is None),
-            flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
+            flatten_ops=flatten_ops, split_ops=split_ops,
+            add_auto_key_as_first_param=add_auto_key_as_first_param
         )
 
         # Registers the given method with the Component (if not already done so).
@@ -448,18 +454,19 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         component (Component): The Component that this graph_fn belongs to.
         wrapped_func (callable): The graph_fn to be called during the build process.
         returns (Optional[int]): The number of return values of the graph_fn.
+
         options (Dict): Dict with the following keys (optionally) set:
             - flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
             a FlattenedDataOp (with automatic key names).
             Can also be a set of in-Socket names to flatten explicitly (True for all).
-            (default: True).
+            Default: True.
             - split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
             and send the SingleDataOps one by one through the graph_fn.
             Example: Spaces=A=Dict (container), B=int (primitive)
             The graph_fn should then expect for each primitive Space in A:
             _graph_fn(primitive-in-A (Space), B (int))
             NOTE that B will be the same in all calls for all primitive-in-A's.
-            (default: True).
+            Default: True.
             - add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
             automatically generated flat key as the very first parameter into each call of the graph_fn.
             Example: Spaces=A=float (primitive), B=Tuple (container)
@@ -468,7 +475,8 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
             NOTE that A will be the same in all calls for all primitive-in-B's.
             The key can now be used to index into variables equally structured as B.
             Has no effect if `split_ops` is False.
-            (default: False).
+            Default: False.
+
         \*args (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.
     """
     flatten_ops = options.pop("flatten_ops", False)
