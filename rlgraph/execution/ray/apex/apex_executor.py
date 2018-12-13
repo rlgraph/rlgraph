@@ -184,6 +184,7 @@ class ApexExecutor(RayExecutor):
         env_steps = 0
         update_steps = 0
         discarded = 0
+        queue_inserts = 0
         weights = None
 
         # 1. Fetch results from RayWorkers.
@@ -225,6 +226,7 @@ class ApexExecutor(RayExecutor):
                 # task (see loop below).
                 # Copy due to memory leaks in Ray, see https://github.com/ray-project/ray/pull/3484/
                 self.update_worker.input_queue.put((ray_memory, sampled_batch and copy_sample(sampled_batch)))
+                queue_inserts += 1
 
         # 3. Update priorities on priority sampling workers using loss values produced by update worker.
         while not self.update_worker.output_queue.empty():
@@ -236,7 +238,7 @@ class ApexExecutor(RayExecutor):
             # len of loss per item is update count.
             update_steps += len(indices)
 
-        return env_steps, update_steps, discarded
+        return env_steps, update_steps, discarded, queue_inserts
 
 
 class UpdateWorker(Thread):
