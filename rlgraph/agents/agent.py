@@ -469,14 +469,23 @@ class Agent(Specifiable):
         """
         self.graph_executor.store_model(path=path, add_timestep=add_timestep)
 
-    def load_model(self, path=None):
+    def load_model(self, checkpoint_directory=None, checkpoint_path=None):
         """
-        Load model from serialized format.
+        Loads model from specified path location using the following semantics:
+
+        If checkpoint directory and checkpoint path are given, attempts to find `checkpoint_path` as relative path from
+        `checkpoint_directory`.
+
+        If a checkpoint directory is given but no path (e.g. because timestep of checkpoint is not known in advance),
+        attempts to fetch latest check-point.
+
+        If no directory is given, attempts to fetch checkpoint from the full absolute path `checkpoint_path'.
 
         Args:
-            path (str): Path to checkpoint directory.
+            checkpoint_directory (str): Optional path to directory containing checkpoint(s).
+            checkpoint_path (str): Path to specific model checkpoint.
         """
-        self.graph_executor.load_model(path=path)
+        self.graph_executor.load_model(checkpoint_directory=checkpoint_directory, checkpoint_path=checkpoint_path)
 
     def get_policy_weights(self):
         """

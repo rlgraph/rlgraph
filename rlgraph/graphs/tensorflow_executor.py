@@ -600,9 +600,25 @@ class TensorFlowExecutor(GraphExecutor):
         if self.profiling_enabled and not self.disable_monitoring:
             self.profiler = tf.profiler.Profiler(graph=self.session.graph)
 
-    def load_model(self, path=None):
-        self.logger.info("Attempting to restore model from path: {}.".format(path))
-        self.saver.restore(self.session, path)
+    def load_model(self, checkpoint_directory=None, checkpoint_path=None):
+        if checkpoint_directory is not None and checkpoint_path is not None:
+            checkpoint_file = os.path.join(checkpoint_directory, checkpoint_path)
+            self.logger.info("Checkpoint directory and relative path given, fetching checkpoint from: {}"
+                             "".format(checkpoint_file))
+            self.saver.restore(self.session, checkpoint_file)
+        if checkpoint_directory is not None and checkpoint_path is None:
+            checkpoint_file = tf.train.latest_checkpoint(
+                checkpoint_dir=(self.saver_directory if checkpoint_directory is None else checkpoint_directory),
+            )
+            self.logger.info("Checkpoint directory given without path, found latest checkpoint file: {}."
+                             "".format(checkpoint_file))
+            self.saver.restore(self.session, checkpoint_file)
+        elif checkpoint_directory is None and checkpoint_path is not None:
+            self.logger.info("No checkpoint directory given, fetching from absolute checkpoint_path: {}."
+                             "".format(checkpoint_path))
+            self.saver.restore(self.session, checkpoint_path)
+        else:
+            raise ValueError("Provide either a checkpoint directory or full checkpoint path to load a model.")
 
     def store_model(self, path=None, add_timestep=True):
         if self.summary_writer is not None:

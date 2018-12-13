@@ -154,12 +154,21 @@ class GraphExecutor(Specifiable):
         """
         pass
 
-    def load_model(self, path=None):
+    def load_model(self, checkpoint_directory=None, checkpoint_path=None):
         """
-        Loads model from specified path location.
+        Loads model from specified path location using the following semantics:
+
+        If checkpoint directory and checkpoint path are given, attempts to find `checkpoint_path` as relative path from
+        `checkpoint_directory`.
+
+        If a checkpoint directory is given but no path (e.g. because timestep of checkpoint is not known in advance),
+        attempts to fetch latest check-point.
+
+        If no directory is given, attempts to fetch checkpoint from the full absolute path `checkpoint_path'.
 
         Args:
-            path (str): Path to checkpoint or model.
+            checkpoint_directory (str): Optional path to directory containing checkpoint(s).
+            checkpoint_path (str): Path to specific model checkpoint.
         """
         raise NotImplementedError
 
