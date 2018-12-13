@@ -41,6 +41,7 @@ class DQFDLossFunction(DQNLossFunction):
         Args:
             expert_margin (float): The expert margin enforces a distance in Q-values between expert action and
                 all other actions.
+
             supervised_weight (float): Indicates weight of the expert loss.
         """
         self.expert_margin = expert_margin

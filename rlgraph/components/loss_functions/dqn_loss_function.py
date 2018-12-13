@@ -47,13 +47,16 @@ class DQNLossFunction(LossFunction):
     [4] Action Branching Architectures for Deep Reinforcement Learning. Tavakoli, Pardo, and Kormushev - 2017
     """
     def __init__(self, double_q=False, huber_loss=False, importance_weights=False, n_step=1,
-                 scope="dqn-loss-function", **kwargs):
+                 shared_container_action_target=True, scope="dqn-loss-function", **kwargs):
         """
         Args:
             double_q (bool): Whether to use the double DQN loss function ([2]).
             huber_loss (bool): Whether to apply a huber loss correction ([3]).
             importance_weights (bool): Where to use importance weights from a prioritized replay.
             n_step (int): n-step adjustment to discounting.
+
+            shared_container_action_target (bool): Whether - only in the case of container actions - the target term
+                should be shared (average) over all action components' single loss terms. Default: True.
         """
         self.double_q = double_q
         self.huber_loss = huber_loss
@@ -61,6 +64,7 @@ class DQNLossFunction(LossFunction):
         # TODO reward must be preprocessed to work correctly for n-step.
         # For Apex, this is done in the worker - do we want to move this as an in-graph option too?
         self.n_step = n_step
+        self.shared_container_action_target = shared_container_action_target
 
         # Clip value, see: https://en.wikipedia.org/wiki/Huber_loss
         self.huber_delta = kwargs.get("huber_delta", 1.0)
@@ -97,7 +101,8 @@ class DQNLossFunction(LossFunction):
         # Get the targets.
         td_targets = self._graph_fn_get_td_targets(rewards, terminals, qt_values_sp, q_values_sp)
         # Average over container sub-actions.
-        td_targets = self._graph_fn_average_over_container_keys(td_targets)
+        if self.shared_container_action_target is True:
+            td_targets = self._graph_fn_average_over_container_keys(td_targets)
 
         # Calculate the loss per item.
         loss_per_item = self._graph_fn_loss_per_item(td_targets, q_values_s, actions, importance_weights)
@@ -209,9 +214,12 @@ class DQNLossFunction(LossFunction):
         Args:
             td_targets (SingleDataOp): The already calculated TD-target terms (r + gamma maxa'Qt(s',a')
                 OR for double Q: r + gamma Qt(s',argmaxa'(Q(s',a'))))
+
             q_values_s (SingleDataOp): The batch of Q-values representing the expected accumulated discounted returns
                 when in s and taking different actions a.
+
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
+
             importance_weights (Optional[SingleDataOp]): If 'self.importance_weights' is True: The batch of weights to
                 apply to the losses.
 

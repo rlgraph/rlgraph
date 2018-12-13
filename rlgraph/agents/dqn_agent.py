@@ -36,8 +36,8 @@ class DQNAgent(Agent):
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     [4] https://en.wikipedia.org/wiki/Huber_loss
     """
-    def __init__(self, double_q=True, dueling_q=True, huber_loss=False, n_step=1, memory_spec=None,
-                 store_last_memory_batch=False, store_last_q_table=False, **kwargs):
+    def __init__(self, double_q=True, dueling_q=True, huber_loss=False, n_step=1, shared_container_action_target=True,
+                 memory_spec=None, store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         """
         Args:
             double_q (bool): Whether to use the double DQN loss function (see [2]).
@@ -76,6 +76,7 @@ class DQNAgent(Agent):
         self.double_q = double_q
         self.dueling_q = dueling_q
         self.huber_loss = huber_loss
+        self.shared_container_action_target = shared_container_action_target
 
         # Debugging tools.
         self.store_last_memory_batch = store_last_memory_batch
@@ -127,6 +128,7 @@ class DQNAgent(Agent):
         use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQNLossFunction(
             discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
+            shared_container_action_target=shared_container_action_target,
             importance_weights=use_importance_weights, n_step=n_step
         )
 

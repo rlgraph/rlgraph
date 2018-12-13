@@ -36,7 +36,8 @@ class DQFDAgent(Agent):
     https://arxiv.org/abs/1704.03732
     """
     def __init__(self, expert_margin=0.5, supervised_weight=1.0, double_q=True, dueling_q=True,
-                 huber_loss=False, n_step=1, memory_spec=None, demo_memory_spec=None,
+                 huber_loss=False, n_step=1, shared_container_action_target=True,
+                 memory_spec=None, demo_memory_spec=None,
                  demo_sample_ratio=0.2, store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         # TODO Most of this is DQN duplicate but the way the loss function is instantiated, inheriting
         # from DQN does not work well.
@@ -81,6 +82,7 @@ class DQFDAgent(Agent):
         self.dueling_q = dueling_q
         self.huber_loss = huber_loss
         self.demo_batch_size = int(demo_sample_ratio * self.update_spec['batch_size'] / (1.0 - demo_sample_ratio))
+        self.shared_container_action_target = shared_container_action_target
 
         # Debugging tools.
         self.store_last_memory_batch = store_last_memory_batch
@@ -130,6 +132,7 @@ class DQFDAgent(Agent):
         self.loss_function = DQFDLossFunction(
             expert_margin=expert_margin, supervised_weight=supervised_weight,
             discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
+            shared_container_action_target=shared_container_action_target,
             importance_weights=use_importance_weights, n_step=n_step
         )
 
