@@ -168,15 +168,17 @@ class RayExecutor(object):
             iteration_step = 0
             iteration_updates = 0
             iteration_discarded = 0
+            iteration_queue_inserted = 0
             iteration_start = time.monotonic()
 
             # Record sampling and learning throughput every interval.
             while (iteration_step < report_interval) or\
                     time.monotonic() - iteration_start < report_interval_min_seconds:
-                worker_steps_executed, update_steps, discarded = self._execute_step()
+                worker_steps_executed, update_steps, discarded, queue_inserts = self._execute_step()
                 iteration_step += worker_steps_executed
                 iteration_updates += update_steps
                 iteration_discarded += discarded
+                iteration_queue_inserted += queue_inserts
 
             iteration_end = time.monotonic() - iteration_start
             timesteps_executed += iteration_step
@@ -186,10 +188,10 @@ class RayExecutor(object):
             iteration_update_steps.append(iteration_updates)
             iteration_time_steps.append(iteration_step)
 
-            self.logger.info("Executed {} Ray worker steps, {} update steps, ({} of {} ({} %), discarded = {})".format(
-                iteration_step, iteration_updates, timesteps_executed,
-                num_timesteps, (100 * timesteps_executed / num_timesteps), iteration_discarded
-            ))
+            self.logger.info("Executed {} Ray worker steps, {} update steps, ({} of {} ({} %), discarded = {},"
+                             " inserts = {})".format(iteration_step, iteration_updates, timesteps_executed,
+                             num_timesteps, (100 * timesteps_executed / num_timesteps), iteration_discarded,
+                             iteration_queue_inserted))
 
         total_time = (time.monotonic() - start) or 1e-10
         self.logger.info("Time steps executed: {} ({} ops/s)".
