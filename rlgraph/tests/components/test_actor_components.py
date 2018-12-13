@@ -162,7 +162,10 @@ class TestActorComponents(unittest.TestCase):
         preprocessor_spec = dict(
             type="dict-preprocessor-stack",
             preprocessors=dict(
-                a=[dict(type="convert_type", to_dtype="float"), dict(type="multiply", factor=0.5)]
+                a=[
+                    dict(type="convert_type", to_dtype="float"),
+                    dict(type="multiply", factor=0.5)
+                ]
             )
         )
         # Simple custom NN with dict input (splits into 2 streams (simple dense layers) and concats at the end).
