@@ -281,7 +281,7 @@ class Policy(Component):
 
         return ret
 
-    @graph_fn(flatten_ops=True, split_ops=True)
+    @graph_fn(flatten_ops=True, unsplit_ops=True)
     def _graph_fn_get_action_adapter_logits_probabilities_log_probs(self, nn_output, nn_input):
         """
         Pushes the given nn_output through all our action adapters' get_logits_probabilities_log_probs API's and
@@ -300,6 +300,11 @@ class Policy(Component):
         logits = FlattenedDataOp()
         probabilities = FlattenedDataOp()
         log_probs = FlattenedDataOp()
+
+        # nn_input has a container space -> Pick any key (it's only used for batch/time rank information anyways).
+        if isinstance(nn_input, FlattenedDataOp):
+            nn_input = next(iter(nn_input))
+
         for flat_key, action_adapter in self.action_adapters.items():
             out = action_adapter.get_logits_probabilities_log_probs(nn_output, nn_input)
             logits[flat_key], probabilities[flat_key], log_probs[flat_key] = \

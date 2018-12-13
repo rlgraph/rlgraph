@@ -78,3 +78,5 @@ class TestIMPALALossFunction(unittest.TestCase):
         # Both.
         test.test(("loss", input_), expected_outputs=[expected_loss, expected_loss_per_item], decimals=5)
 
+        test.terminate()
+
