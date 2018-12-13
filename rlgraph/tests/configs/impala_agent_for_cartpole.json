@@ -4,7 +4,7 @@
   "num_workers": 4,
   "worker_sample_size": 20,
 
-  "visualize": 1,
+  "visualize": 0,
 
   "fifo_queue_spec":
   {
