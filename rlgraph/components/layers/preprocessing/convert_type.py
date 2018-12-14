@@ -93,7 +93,13 @@ class ConvertType(PreprocessLayer):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
             return preprocessing_inputs.astype(dtype=util.dtype(self.to_dtype, to="np"))
         elif get_backend() == "pytorch":
-            return torch.tensor(preprocessing_inputs, dtype=util.dtype(self.to_dtype, to="pytorch"))
+            torch_dtype = util.dtype(self.to_dtype, to="pytorch")
+            if torch_dtype == torch.float or torch.float32:
+                return preprocessing_inputs.float()
+            elif torch_dtype == torch.int or torch.int32:
+                return preprocessing_inputs.int()
+            elif torch_dtype == torch.uint8:
+                return preprocessing_inputs.byte()
         elif get_backend() == "tf":
             in_space = get_space_from_op(preprocessing_inputs)
             to_dtype = util.dtype(self.to_dtype, to="tf")
