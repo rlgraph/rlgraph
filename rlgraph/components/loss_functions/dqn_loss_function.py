@@ -24,7 +24,6 @@ from rlgraph.spaces import IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.pytorch_util import pytorch_reduce_mean
 from rlgraph.utils.util import get_rank
 
 if get_backend() == "tf":
@@ -274,7 +273,7 @@ class DQNLossFunction(LossFunction):
 
             # Reduce over the composite actions, if any.
             if get_rank(td_delta) > 1:
-                td_delta = pytorch_reduce_mean(td_delta, list(range(1, self.ranks_to_reduce + 1)), keepdims=False)
+                td_delta = torch.mean(td_delta, tuple(range(1, self.ranks_to_reduce + 1)), keepdim=False)
 
         # Apply importance-weights from a prioritized replay to the loss.
         if self.importance_weights:
