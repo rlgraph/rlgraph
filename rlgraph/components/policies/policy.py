@@ -303,7 +303,8 @@ class Policy(Component):
         probabilities = FlattenedDataOp()
         log_probs = FlattenedDataOp()
 
-        nn_input = next(iter(nn_input.values()))
+        if isinstance(nn_input, dict):
+            nn_input = next(iter(nn_input.values()))
 
         for flat_key, action_adapter in self.action_adapters.items():
             out = action_adapter.get_logits_probabilities_log_probs(nn_output, nn_input)
