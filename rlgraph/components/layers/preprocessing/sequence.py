@@ -183,7 +183,13 @@ class Sequence(PreprocessLayer):
                 sequence = torch.stack(torch.tensor(self.deque), dim=-1)
             # Concat the sequence items in the last rank.
             else:
-                sequence = torch.cat([torch.tensor(t) for t in self.deque], dim=-1)
+                data = []
+                for t in self.deque:
+                    if isinstance(t, torch.Tensor):
+                        data.append(t)
+                    else:
+                        data.append(torch.tensor(t))
+                sequence = torch.cat(data, dim=-1)
 
             # TODO remove when transpose component implemented.
             if self.in_data_format == "channels_last" and self.out_data_format == "channels_first":
