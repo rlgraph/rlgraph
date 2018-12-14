@@ -129,27 +129,6 @@ def get_input_channels(shape):
         return shape[0]
 
 
-# TODO remove when new PyTorch versions support multi dim reductions/
-def pytorch_reduce_mean(tensor, axes, keepdims):
-    """
-    Reduces a tensor along multiple axes as this is not natively supported.
-    Args:
-        tensor (torch.Tensor): Tensor to reduce.
-        axes (list): Axes to reduce.
-        keepdims (bool): If to keep dims.
-
-    Returns:
-        torch.Tensor: Result of reduction.
-    """
-    if keepdims:
-        for axis in axes:
-            tensor = tensor.mean(axis, keepdim=True)
-    else:
-        for axis in sorted(axes, reverse=True):
-            tensor = tensor.mean(axis, keepdim=False)
-    return tensor
-
-
 if get_backend() == "pytorch":
     SMALL_NUMBER_TORCH = torch.tensor([1e-6])
     LOG_SMALL_NUMBER = torch.log(SMALL_NUMBER_TORCH)
