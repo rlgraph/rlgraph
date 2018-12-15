@@ -112,11 +112,11 @@ class ApexMemory(Specifiable):
             next_states.append(ray_decompress(next_state))
 
         return dict(
-            states=np.array(states),
-            actions=np.array(actions),
-            rewards=np.array(rewards),
-            terminals=np.array(terminals),
-            next_states=np.array(next_states)
+            states=np.asarray(states),
+            actions=np.asarray(actions),
+            rewards=np.asarray(rewards),
+            terminals=np.asarray(terminals),
+            next_states=np.asarray(next_states)
         )
 
     def get_records(self, num_records):
@@ -135,7 +135,7 @@ class ApexMemory(Specifiable):
             weight = (sample_prob * self.size) ** (-self.beta)
             weights.append(weight / max_weight)
 
-        return self.read_records(indices=indices), np.array(indices), np.array(weights)
+        return self.read_records(indices=indices), np.asarray(indices), np.asarray(weights)
 
     def update_records(self, indices, update):
         for index, loss in zip(indices, update):
