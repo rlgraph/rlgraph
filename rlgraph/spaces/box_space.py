@@ -166,8 +166,8 @@ class BoxSpace(Space):
 
             # Un-indent and just directly construct pytorch?
             if get_backend() == "pytorch" and is_input_feed:
-                # Convert to PyTorch tensor because PyTorch cannot use
-                return torch.zeros(shape)
+                # Convert to PyTorch tensors as a faux placehodler.
+                return torch.zeros(shape, dtype=dtype(dtype_=self.dtype, to="pytorch"))
             else:
                 # TODO also convert?
                 return var
