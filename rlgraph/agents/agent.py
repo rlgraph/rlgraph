@@ -181,32 +181,29 @@ class Agent(Specifiable):
         del self.next_states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
         del self.terminals_buffer[env_id]  # = []
 
-    def define_graph_api(self, policy_scope, pre_processor_scope, *args, **kwargs):
+    def define_graph_api(self, *args, **kwargs):
         """
         Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
         Each agent implements this to build its algorithm logic.
-
-        Args:
-            policy_scope (str): The global scope of the Policy within the Agent.
-            pre_processor_scope (str): The global scope of the PreprocessorStack within the Agent.
         """
+        agent = self
+
         # Add api methods for syncing.
         @rlgraph_api(component=self.root_component)
-        def get_policy_weights(self):
-            policy = self.get_sub_component_by_name(policy_scope)
+        def get_policy_weights(root):
+            policy = root.get_sub_component_by_name(agent.policy.scope)
             return policy._variables()
 
         @rlgraph_api(component=self.root_component, must_be_complete=False)
-        def set_policy_weights(self, weights):
-            policy = self.get_sub_component_by_name(policy_scope)
+        def set_policy_weights(root, weights):
+            policy = root.get_sub_component_by_name(agent.policy.scope)
             return policy.sync(weights)
 
         # To pre-process external data if needed.
         @rlgraph_api(component=self.root_component)
-        def preprocess_states(self, states):
-            preprocessor_stack = self.get_sub_component_by_name(pre_processor_scope)
-            preprocessed_states = preprocessor_stack.preprocess(states)
-            return preprocessed_states
+        def preprocess_states(root, states):
+            preprocessor_stack = root.get_sub_component_by_name(self.preprocessor.scope)
+            return preprocessor_stack.preprocess(states)
 
     def _build_graph(self, root_components, input_spaces, **kwargs):
         """
