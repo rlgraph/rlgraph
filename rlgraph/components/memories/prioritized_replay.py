@@ -17,14 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
 import numpy as np
 
+from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.segment_tree import SegmentTree
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.util import get_batch_size
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class PrioritizedReplay(Memory):

@@ -23,8 +23,7 @@ import logging
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components import Component, Exploration, PreprocessorStack, NeuralNetwork, Synchronizable, Policy, \
-    Optimizer
+from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace

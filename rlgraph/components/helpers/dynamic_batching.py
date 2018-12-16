@@ -20,18 +20,21 @@ from __future__ import print_function
 
 import functools
 
-import tensorflow as tf
+from rlgraph import get_backend
 
-# TODO handle this?
-try:
-    batcher_ops = tf.load_op_library('/home/rlgraph/deepmind/deepmind-scalable-agent/batcher.so')
-except:
+if get_backend() == "tf":
+    import tensorflow as tf
+
+    # TODO handle this?
     try:
-        batcher_ops = tf.load_op_library('/root/scalable_agent/batcher.so')
+        batcher_ops = tf.load_op_library('/home/rlgraph/deepmind/deepmind-scalable-agent/batcher.so')
     except:
-        pass
+        try:
+            batcher_ops = tf.load_op_library('/root/scalable_agent/batcher.so')
+        except:
+            pass
 
-nest = tf.contrib.framework.nest
+    nest = tf.contrib.framework.nest
 
 
 class Batcher(object):
