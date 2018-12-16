@@ -135,7 +135,8 @@ elif DISTRIBUTED_BACKEND == "ray":
     try:
         import ray
     except ImportError as e:
-        raise ValueError("INIT ERROR: Cannot run RLGraph with distributed backend Ray.")
+        pass
+    #    raise ValueError("INIT ERROR: Cannot run RLGraph with distributed backend Ray.")
 else:
     raise ValueError("Distributed backend {} not supported".format(DISTRIBUTED_BACKEND))
 
