@@ -19,9 +19,10 @@ before_install:
   - docker pull ${DOCKER_IMAGE}
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/rlgraph ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
+# TODO move to docker once pytorch testing works.
 install:
-  RUN apt-get update && apt-get -y jq
-  RUN python -m pip install -U torch torchvision
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get install -y jq';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install torch torchvision';
 
 # moved all install instructions into the Dockerfile that we use (see value of `DOCKER_IMAGE` above).
 
