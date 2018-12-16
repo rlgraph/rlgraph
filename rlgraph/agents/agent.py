@@ -202,7 +202,7 @@ class Agent(Specifiable):
         # To pre-process external data if needed.
         @rlgraph_api(component=self.root_component)
         def preprocess_states(root, states):
-            preprocessor_stack = root.get_sub_component_by_name(self.preprocessor.scope)
+            preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
             return preprocessor_stack.preprocess(states)
 
     def _build_graph(self, root_components, input_spaces, **kwargs):

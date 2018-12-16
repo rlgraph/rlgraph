@@ -197,8 +197,9 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             # Only need to check if False, otherwise, we return ops directly anyway.
             return_ops = False
             stack = inspect.stack()
+            f_locals = stack[1][0].f_locals
             # Check whether the caller component is a parent of this one.
-            caller_component = stack[1][0].f_locals.get("self_", stack[1][0].f_locals.get("self"))
+            caller_component = f_locals.get("root", f_locals.get("self_", f_locals.get("self")))
             if caller_component is not None and type(caller_component).__name__ != "MetaGraphBuilder" and \
                     caller_component not in [self] + self.get_parents():
                 raise RLGraphError("The component '{}' is not a child (or grand-child) of the caller ({})! Maybe "
