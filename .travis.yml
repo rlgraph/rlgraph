@@ -19,7 +19,11 @@ before_install:
   - docker pull ${DOCKER_IMAGE}
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/rlgraph ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
-#install:
+# TODO move to docker once pytorch testing works.
+install:
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get install -y jq';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install torch torchvision';
+
 # moved all install instructions into the Dockerfile that we use (see value of `DOCKER_IMAGE` above).
 
 script:
@@ -82,6 +86,11 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_all_compile.py';
   # Test all our envs.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/environments';
+
+  # Test selected PyTorch compilations.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'jq '.BACKEND = "pytorch"' ~/.rlgraph/rlgraph.json > tmp.json && mv tmp.json ~/.rlgraph/rlgraph.json  && cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_all_compile.py::TestAllCompile::test_apex_compilation';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_all_compile.py::TestAllCompile::test_ppo_compilation';
+
 
 notifications:
   email:
