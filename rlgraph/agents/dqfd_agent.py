@@ -20,8 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Synchronizable, Memory, PrioritizedReplay, DictMerger, \
-    ContainerSplitter, DQFDLossFunction
+from rlgraph.components import Memory, PrioritizedReplay, DictMerger, ContainerSplitter, DQFDLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
