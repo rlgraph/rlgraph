@@ -181,8 +181,7 @@ class Agent(Specifiable):
         del self.next_states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
         del self.terminals_buffer[env_id]  # = []
 
-    # TODO optimizer scope missing?
-    def define_graph_api(self, policy_scope, pre_processor_scope, *params):
+    def define_graph_api(self, policy_scope, pre_processor_scope, *args, **kwargs):
         """
         Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
         Each agent implements this to build its algorithm logic.
@@ -190,7 +189,6 @@ class Agent(Specifiable):
         Args:
             policy_scope (str): The global scope of the Policy within the Agent.
             pre_processor_scope (str): The global scope of the PreprocessorStack within the Agent.
-            params (any): Params to be used freely by child Agent implementations.
         """
         # Add api methods for syncing.
         @rlgraph_api(component=self.root_component)

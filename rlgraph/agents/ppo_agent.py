@@ -116,16 +116,12 @@ class PPOAgent(Agent):
         self.batch_size = self.update_spec["batch_size"]
 
         # Add all our sub-components to the core.
-        sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.exploration, self.loss_function, self.optimizer,
-                          self.value_function, self.value_function_optimizer]
-        self.root_component.add_components(*sub_components)
-
-        # Define the Agent's (root-Component's) API.
-        self.define_graph_api(
-            "value-function", "value-function-optimizer", "policy", "preprocessor-stack",
-            self.optimizer.scope, *sub_components
+        self.root_component.add_components(
+            self.preprocessor, self.merger, self.memory, self.splitter, self.policy, self.exploration,
+            self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer
         )
+        # Define the Agent's (root-Component's) API.
+        self.define_graph_api("policy", "preprocessor-stack")
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
@@ -133,12 +129,19 @@ class PPOAgent(Agent):
                               build_options=dict(vf_optimizer=self.value_function_optimizer))
             self.graph_built = True
 
-    def define_graph_api(self, value_function_scope, vf_optimizer_scope, policy_scope, pre_processor_scope,
-                         optimizer_scope, *sub_components):
+    def define_graph_api(self, policy_scope, pre_processor_scope, value_function_scope="value-function",
+                         vf_optimizer_scope="value-function-optimizer"):
+
         super(PPOAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, exploration, loss_function, optimizer, value_function, \
-            vf_optimizer = sub_components
+        # Use variable-aliases as inside API-methods, `self` is usually the root-component, not the Agent.
+        preprocessor = self.preprocessor
+        merger = self.merger
+        memory = self.memory
+        splitter = self.splitter
+        policy = self.policy
+        loss_function = self.loss_function
+        optimizer = self.optimizer
         sample_episodes = self.sample_episodes
 
         # Reset operation (resets preprocessor).
@@ -221,7 +224,7 @@ class PPOAgent(Agent):
                     policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
                     vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
-                    step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
+                    step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer.scope).step(
                         policy_vars, loss, loss_per_item)
                     loss.set_shape([0])
                     loss_per_item.set_shape((self.sample_size, ))
@@ -277,7 +280,7 @@ class PPOAgent(Agent):
                     vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
 
                     # Do not need step op.
-                    _, loss, loss_per_item = self_.get_sub_component_by_name(optimizer_scope).step(
+                    _, loss, loss_per_item = self_.get_sub_component_by_name(optimizer.scope).step(
                         policy_vars, loss, loss_per_item)
 
                     _, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(

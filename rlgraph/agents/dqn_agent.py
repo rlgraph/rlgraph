@@ -132,13 +132,13 @@ class DQNAgent(Agent):
             importance_weights=use_importance_weights, n_step=n_step
         )
 
-        # Add all our sub-components to the core.
-        sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.target_policy, self.exploration, self.loss_function, self.optimizer]
-        self.root_component.add_components(*sub_components)
+        self.root_component.add_components(
+            self.preprocessor, self.merger, self.memory, self.splitter, self.policy, self.target_policy,
+            self.exploration, self.loss_function, self.optimizer
+        )
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api(self.policy.scope, self.preprocessor.scope, self.optimizer.scope, *sub_components)
+        self.define_graph_api(self.policy.scope, self.preprocessor.scope)
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
@@ -159,11 +159,24 @@ class DQNAgent(Agent):
             #        lambda step_context: step_context.session.run(stage_op)
             #    )
 
-    def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+    def define_graph_api(self, policy_scope, pre_processor_scope, **kwargs):
+        """
+        Keyword Args:
+            preprocessor:
+            merger
+        """
         super(DQNAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, splitter, policy, target_policy, exploration, loss_function, optimizer = \
-            sub_components
+        # Use variable-aliases as inside API-methods, `self` is usually the root-component, not the Agent.
+        preprocessor = self.preprocessor
+        merger = self.merger
+        memory = self.memory
+        splitter = self.splitter
+        policy = self.policy
+        target_policy = self.target_policy
+        exploration = self.exploration
+        loss_function = self.loss_function
+        optimizer = self.optimizer
 
         # Reset operation (resets preprocessor).
         if self.preprocessing_required:
@@ -236,7 +249,7 @@ class DQNAgent(Agent):
                         main_policy_vars, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
                         importance_weights
                     )
-                step_op = self_.get_sub_component_by_name(optimizer_scope).apply_gradients(grads_and_vars)
+                step_op = self_.get_sub_component_by_name(optimizer.scope).apply_gradients(grads_and_vars)
                 step_and_sync_op = self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
                     step_op, main_policy_vars
                 )
@@ -267,7 +280,7 @@ class DQNAgent(Agent):
             # TODO: - every agent (root_component) has an update_from_external_batch method
             # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
             if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
-                grads_and_vars = self_.get_sub_component_by_name(optimizer_scope).calculate_gradients(policy_vars, loss)
+                grads_and_vars = self_.get_sub_component_by_name(optimizer.scope).calculate_gradients(policy_vars, loss)
                 return grads_and_vars, loss, loss_per_item, q_values_s
             else:
                 step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
