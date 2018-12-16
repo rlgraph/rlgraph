@@ -137,24 +137,33 @@ class DQFDAgent(Agent):
         )
 
         # Add all our sub-components to the core.
-        sub_components = [self.preprocessor, self.merger, self.memory, self.demo_memory,
-                          self.splitter, self.policy, self.target_policy, self.exploration,
-                          self.loss_function, self.optimizer]
-        self.root_component.add_components(*sub_components)
+        self.root_component.add_components(
+            self.preprocessor, self.merger, self.memory, self.demo_memory, self.splitter, self.policy,
+            self.target_policy, self.exploration, self.loss_function, self.optimizer
+        )
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api(self.policy.scope,  self.preprocessor.scope, self.optimizer.scope, *sub_components)
+        self.define_graph_api(self.policy.scope,  self.preprocessor.scope)
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
 
-    def define_graph_api(self, policy_scope, pre_processor_scope, optimizer_scope, *sub_components):
+    def define_graph_api(self, policy_scope, pre_processor_scope, **kwargs):
         super(DQFDAgent, self).define_graph_api(policy_scope, pre_processor_scope)
 
-        preprocessor, merger, memory, demo_memory, splitter, policy, target_policy, exploration, loss_function, optimizer = \
-            sub_components
+        # Use variable-aliases as inside API-methods, `self` is usually the root-component, not the Agent.
+        preprocessor = self.preprocessor
+        merger = self.merger
+        memory = self.memory
+        demo_memory = self.demo_memory
+        splitter = self.splitter
+        policy = self.policy
+        target_policy = self.target_policy
+        exploration = self.exploration
+        loss_function = self.loss_function
+        optimizer = self.optimizer
 
         # Reset operation (resets preprocessor).
         if self.preprocessing_required:
@@ -246,7 +255,7 @@ class DQFDAgent(Agent):
                         main_policy_vars, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
                         importance_weights, apply_demo_loss
                     )
-                step_op = self_.get_sub_component_by_name(optimizer_scope).apply_gradients(grads_and_vars)
+                step_op = self_.get_sub_component_by_name(optimizer.scope).apply_gradients(grads_and_vars)
                 step_and_sync_op = self_.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
                     step_op, main_policy_vars
                 )
@@ -273,7 +282,7 @@ class DQFDAgent(Agent):
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
             if hasattr(self_, "is_multi_gpu_tower") and self_.is_multi_gpu_tower is True:
-                grads_and_vars = self_.get_sub_component_by_name(optimizer_scope).calculate_gradients(policy_vars, loss)
+                grads_and_vars = self_.get_sub_component_by_name(optimizer.scope).calculate_gradients(policy_vars, loss)
                 return grads_and_vars, loss, loss_per_item, q_values_s
             else:
                 step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
