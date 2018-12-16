@@ -121,7 +121,7 @@ class PPOAgent(Agent):
             self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer
         )
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api("policy", "preprocessor-stack")
+        self.define_graph_api()
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
@@ -129,72 +129,68 @@ class PPOAgent(Agent):
                               build_options=dict(vf_optimizer=self.value_function_optimizer))
             self.graph_built = True
 
-    def define_graph_api(self, policy_scope, pre_processor_scope, value_function_scope="value-function",
-                         vf_optimizer_scope="value-function-optimizer"):
+    def define_graph_api(self):
 
-        super(PPOAgent, self).define_graph_api(policy_scope, pre_processor_scope)
+        super(PPOAgent, self).define_graph_api()
 
-        # Use variable-aliases as inside API-methods, `self` is usually the root-component, not the Agent.
-        preprocessor = self.preprocessor
-        merger = self.merger
-        memory = self.memory
-        splitter = self.splitter
-        policy = self.policy
-        loss_function = self.loss_function
-        optimizer = self.optimizer
-        sample_episodes = self.sample_episodes
+        agent = self
 
         # Reset operation (resets preprocessor).
         if self.preprocessing_required:
             @rlgraph_api(component=self.root_component)
-            def reset_preprocessor(self):
-                reset_op = preprocessor.reset()
+            def reset_preprocessor(root):
+                reset_op = agent.preprocessor.reset()
                 return reset_op
 
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(self, preprocessed_states, deterministic=False):
-            out = policy.get_action(preprocessed_states, deterministic=deterministic)
+        def action_from_preprocessed_state(root, preprocessed_states, deterministic=False):
+            out = agent.policy.get_action(preprocessed_states, deterministic=deterministic)
             return preprocessed_states, out["action"]
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(self, states, deterministic=False):
-            preprocessed_states = preprocessor.preprocess(states)
-            return self.action_from_preprocessed_state(preprocessed_states, deterministic)
+        def get_preprocessed_state_and_action(root, states, deterministic=False):
+            preprocessed_states = agent.preprocessor.preprocess(states)
+            return root.action_from_preprocessed_state(preprocessed_states, deterministic)
 
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
-        def insert_records(self, preprocessed_states, actions, rewards, terminals):
-            records = merger.merge(preprocessed_states, actions, rewards, terminals)
-            return memory.insert_records(records)
+        def insert_records(root, preprocessed_states, actions, rewards, terminals):
+            records = agent.merger.merge(preprocessed_states, actions, rewards, terminals)
+            return agent.memory.insert_records(records)
 
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(self_):
-            if sample_episodes:
-                records = memory.get_episodes(self.update_spec["batch_size"])
+        def update_from_memory(root):
+            if agent.sample_episodes:
+                records = agent.memory.get_episodes(self.update_spec["batch_size"])
             else:
-                records = memory.get_records(self.update_spec["batch_size"])
-            preprocessed_s, actions, rewards, terminals = splitter.split(records)
+                records = agent.memory.get_records(self.update_spec["batch_size"])
+            preprocessed_s, actions, rewards, terminals = agent.splitter.split(records)
 
             # Route to external update method.
             # Use terminals as sequence indices.
             sequence_indices = terminals
-            return self_.update_from_external_batch(preprocessed_s, actions, rewards, terminals, sequence_indices)
+            return root.update_from_external_batch(preprocessed_s, actions, rewards, terminals, sequence_indices)
 
         # Learn from an external batch.
-        @rlgraph_api(component=self.root_component)
-        def update_from_external_batch(self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
-            return self_._graph_fn_iterative_opt(preprocessed_states, actions, rewards, terminals, sequence_indices)
+        #@rlgraph_api(component=self.root_component)
+        #def update_from_external_batch(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
+        #    return root._graph_fn_iterative_opt(preprocessed_states, actions, rewards, terminals, sequence_indices)
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
-        @graph_fn(component=self.root_component)
-        def _graph_fn_iterative_opt(self_, preprocessed_states, actions, rewards, terminals, sequence_indices):
+        @rlgraph_api(component=self.root_component)
+        def _graph_fn_update_from_external_batch(
+                root, preprocessed_states, actions, rewards, terminals, sequence_indices
+        ):
             """
             Calls iterative optimization by repeatedly sub-sampling.
             """
+            # Return values.
+            loss, loss_per_item, vf_loss, vf_loss_per_item = None, None, None, None
+
             if get_backend() == "tf":
                 batch_size = tf.shape(preprocessed_states)[0]
                 last_sequence = tf.expand_dims(sequence_indices[-1], -1)
@@ -212,27 +208,33 @@ class PPOAgent(Agent):
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
 
+                    # TODO: Add multi-GPU logic and test agent.
+
+
                     policy_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = self.value_function.value_output(sample_states)
                     entropy = self.policy.get_entropy(sample_states)["entropy"]
 
-                    loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(loss_function.scope).loss(
-                        policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                        sample_terminals, sample_sequence_indices, entropy
-                    )
+                    loss, loss_per_item, vf_loss, vf_loss_per_item = \
+                        root.get_sub_component_by_name(agent.loss_function.scope).loss(
+                            policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
+                            sample_terminals, sample_sequence_indices, entropy
+                        )
 
-                    policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-                    vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
+                    policy_vars = root.get_sub_component_by_name(agent.policy.scope)._variables()
+                    vf_vars = root.get_sub_component_by_name(agent.value_function.scope)._variables()
 
-                    step_op, loss, loss_per_item = self_.get_sub_component_by_name(optimizer.scope).step(
+                    step_op, loss, loss_per_item = root.get_sub_component_by_name(agent.optimizer.scope).step(
                         policy_vars, loss, loss_per_item)
                     loss.set_shape([0])
                     loss_per_item.set_shape((self.sample_size, ))
 
-                    vf_step_op, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
-                        vf_vars, vf_loss, vf_loss_per_item)
+                    vf_step_op, vf_loss, vf_loss_per_item = \
+                        root.get_sub_component_by_name(agent.value_function_optimizer.scope).step(
+                            vf_vars, vf_loss, vf_loss_per_item
+                        )
                     vf_loss.set_shape([0])
-                    vf_loss_per_item.set_shape((self.sample_size, ))
+                    vf_loss_per_item.set_shape((self.sample_size,))
 
                     with tf.control_dependencies([step_op, vf_step_op]):
                         return index + 1, loss, loss_per_item, vf_loss, vf_loss_per_item
@@ -251,13 +253,15 @@ class PPOAgent(Agent):
                     parallel_iterations=1
                 )
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
-            if get_backend() == "pytorch":
+
+            elif get_backend() == "pytorch":
                 batch_size = preprocessed_states.shape[0]
                 if batch_size > 1:
                     last_sequence = torch.unsqueeze(sequence_indices[-1], -1)
                     sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(last_sequence)), 0)
 
                 sample_size = min(batch_size, self.sample_size)
+
                 for _ in range(self.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
                     indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
@@ -270,21 +274,23 @@ class PPOAgent(Agent):
                     policy_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = self.value_function.value_output(sample_states)
                     entropy = self.policy.get_entropy(sample_states)["entropy"]
-                    loss, loss_per_item, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(
-                        loss_function.scope).loss(
+                    loss, loss_per_item, vf_loss, vf_loss_per_item = root.get_sub_component_by_name(
+                        agent.loss_function.scope).loss(
                         policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
                         sample_terminals, sample_sequence_indices, entropy
                     )
 
-                    policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
-                    vf_vars = self_.get_sub_component_by_name(value_function_scope)._variables()
+                    policy_vars = root.get_sub_component_by_name(agent.policy.scope)._variables()
+                    vf_vars = root.get_sub_component_by_name(agent.value_function.scope)._variables()
 
                     # Do not need step op.
-                    _, loss, loss_per_item = self_.get_sub_component_by_name(optimizer.scope).step(
+                    _, loss, loss_per_item = root.get_sub_component_by_name(agent.optimizer.scope).step(
                         policy_vars, loss, loss_per_item)
 
-                    _, vf_loss, vf_loss_per_item = self_.get_sub_component_by_name(vf_optimizer_scope).step(
-                        vf_vars, vf_loss, vf_loss_per_item)
+                    _, vf_loss, vf_loss_per_item = \
+                        root.get_sub_component_by_name(agent.value_function_optimizer.scope).step(
+                            vf_vars, vf_loss, vf_loss_per_item
+                        )
 
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
 
