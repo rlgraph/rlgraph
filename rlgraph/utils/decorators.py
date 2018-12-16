@@ -200,11 +200,18 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             f_locals = stack[1][0].f_locals
             # Check whether the caller component is a parent of this one.
             caller_component = f_locals.get("root", f_locals.get("self_", f_locals.get("self")))
-            if caller_component is not None and type(caller_component).__name__ != "MetaGraphBuilder" and \
+            if caller_component is None:
+                raise RLGraphError(
+                    "API-method '{}' must have as 1st parameter (the component) either `root` or `self`. Other names "
+                    "are not allowed!".format(api_method_rec.name)
+                )
+            elif caller_component is not None and type(caller_component).__name__ != "MetaGraphBuilder" and \
                     caller_component not in [self] + self.get_parents():
-                raise RLGraphError("The component '{}' is not a child (or grand-child) of the caller ({})! Maybe "
-                                   "you forgot to add it as a sub-component via `add_components()`.".
-                                   format(self.global_scope, caller_component.global_scope))
+                raise RLGraphError(
+                    "The component '{}' is not a child (or grand-child) of the caller ({})! Maybe you forgot to add "
+                    "it as a sub-component via `add_components()`.".
+                    format(self.global_scope, caller_component.global_scope)
+                )
             for stack_item in stack[1:]:  # skip current frame
                 # If we hit an API-method call -> return op-recs.
                 if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):
