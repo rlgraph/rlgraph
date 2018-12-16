@@ -1,6 +1,6 @@
 FROM tensorflow/tensorflow:latest-py3
 
-RUN apt-get update && apt-get -y install git libsm6 libxrender-dev libxext6 cmake libz-dev
+RUN apt-get update && apt-get -y install git libsm6 libxrender-dev libxext6 cmake libz-dev torch jq
 RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN python -m pip install -U pip
 RUN python -m pip install -U setuptools
