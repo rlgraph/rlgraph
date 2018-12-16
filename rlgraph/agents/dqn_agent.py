@@ -198,9 +198,10 @@ class DQNAgent(Agent):
             if "multi-gpu-sync-optimizer" in root.sub_components:
                 multi_gpu_syncer = root.sub_components["multi-gpu-sync-optimizer"]
                 return multi_gpu_syncer.sync_target_qnets()
+            # We could be the main root or a multi-GPU tower.
             else:
-                policy_vars = agent.policy._variables()
-                return agent.target_policy.sync(policy_vars)
+                policy_vars = root.get_sub_component_by_name(agent.policy.scope)._variables()
+                return root.get_sub_component_by_name(agent.target_policy.scope).sync(policy_vars)
 
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
@@ -223,7 +224,8 @@ class DQNAgent(Agent):
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
-                root, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights
+                root, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
+                importance_weights
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
