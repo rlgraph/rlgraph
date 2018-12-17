@@ -80,11 +80,15 @@ class PPOLossFunction(LossFunction):
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
+
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
                 (from a memory).
+
             sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
                 from multiple environments.
+
             entropy (SingleDataOp): Policy entropy.
+
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
@@ -119,6 +123,7 @@ class PPOLossFunction(LossFunction):
             baseline_loss = (v_targets - baseline_values) ** 2
 
             return loss, baseline_loss
+
         elif get_backend() == "pytorch":
             # Detach grads.
             prev_log_probs = log_probs.detach()

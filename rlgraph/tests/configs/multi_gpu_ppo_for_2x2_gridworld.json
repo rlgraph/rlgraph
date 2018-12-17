@@ -1,0 +1,70 @@
+{
+  "type": "ppo",
+
+  "sample_episodes": false,
+  "standardize_advantages": false,
+
+  "clip_ratio": 0.2,
+  "discount": 0.99,
+  "gae_lambda": 1.0,
+
+  "memory_spec":
+  {
+    "type": "ring-buffer",
+    "capacity": 32
+  },
+
+  "preprocessing_spec":
+  [
+    {
+      "type": "reshape",
+      "flatten": true,
+      "flatten_categories": 4
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 10,
+      "activation": "linear",
+      "scope": "hidden-layer"
+    }
+  ],
+
+  "observe_spec": {
+    "buffer_size": 32
+  },
+
+  "execution_spec": {
+    "seed": 10,
+    "device_strategy": "multi_gpu_sync",
+    "default_device": "/device:CPU:*",
+    "gpu_spec": {
+      "gpus_enabled" : true,
+      "max_usable_gpus": 4,
+      "per_process_gpu_memory_fraction": 0.25,
+      "allow_memory_growth": true
+    },
+    "disable_monitoring": false,
+    "session_config": {
+      "allow_soft_placement": true,
+      "log_device_placement": false,
+	  "device_count": {
+		"CPU": 1
+	  }
+    }
+  },
+
+  "update_spec": {
+    "update_interval": 4,
+    "batch_size": 48,
+    "sync_interval": 32
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.15
+  }
+}
