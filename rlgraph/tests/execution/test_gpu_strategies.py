@@ -45,6 +45,8 @@ class TestGpuStrategies(unittest.TestCase):
         episodic_life=True
     )
     random_env_spec = dict(type="random", state_space=FloatBox(shape=(2,)), action_space=IntBox(2))
+    grid_world_2x2_flattened_state_space = FloatBox(shape=(4,), add_batch_rank=True)
+    grid_world_4x4_flattened_state_space = FloatBox(shape=(16,), add_batch_rank=True)
 
     def test_multi_gpu_dqn_agent_compilation(self):
         """
@@ -96,22 +98,23 @@ class TestGpuStrategies(unittest.TestCase):
 
         THIS TEST REQUIRES A MULTI GPU SYSTEM.
         """
-        #root_logger.setLevel(DEBUG)  # test
-        env = GridWorld("2x2")
+        env_spec = dict(type="grid-world", world="2x2")
+        dummy_env = GridWorld.from_spec(env_spec)
+        agent_config = config_from_path("configs/multi_gpu_dqn_for_2x2_gridworld.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
         agent = DQNAgent.from_spec(
-            config_from_path("configs/multi_gpu_dqn_for_2x2_gridworld.json"),
-            dueling_q=False,
-            state_space=env.state_space,
-            action_space=env.action_space,
-            observe_spec=dict(buffer_size=100),
-            # Rule of thumb for multi-GPU (with n GPUs): n-fold batch-size and learning rate w/ respect to 1 GPU.
-            update_spec=dict(update_interval=4, batch_size=48, sync_interval=32),
-            optimizer_spec=dict(type="adam", learning_rate=0.15),
-            store_last_q_table=True
+            agent_config,
+            state_space=self.grid_world_2x2_flattened_state_space,
+            action_space=dummy_env.action_space,
         )
 
         time_steps = 400
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, worker_executes_preprocessing=False)
+        worker = SingleThreadedWorker(
+            env_spec=env_spec,
+            agent=agent,
+            worker_executes_preprocessing=True,
+            preprocessing_spec=preprocessing_spec
+        )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print("STATES:\n{}".format(agent.last_q_table["states"]))
