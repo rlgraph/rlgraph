@@ -89,6 +89,9 @@ class Component(Specifiable):
             
             space_agnostic (bool): Whether this component does not care about input spaces (e.g. if it does not
                 create any space-dependent variables). Default: False.
+
+            nesting_level (Optional[int]): The Component's nesting level. Root component has 0.
+                None for non-placed Components. Default: None.
         """
         super(Component, self).__init__()
 
@@ -113,6 +116,7 @@ class Component(Specifiable):
         self.switched_off_apis = kwargs.pop("switched_off_apis", set())
         self.backend = kwargs.pop("backend", None)
         self.space_agnostic = kwargs.pop("space_agnostic", None)
+        self.nesting_level = kwargs.pop("nesting_level", None)
 
         assert not kwargs, "ERROR: kwargs ({}) still contains items!".format(kwargs)
 
@@ -807,12 +811,15 @@ class Component(Specifiable):
                                    format(component.name))
             # Make sure each Component can only be added once to a parent/container Component.
             elif component.parent_component is not None:
-                raise RLGraphError("ERROR: Sub-Component with name '{}' has already been added once to a container "
-                                "Component! Each Component can only be added once to a parent.".format(component.name))
+                raise RLGraphError(
+                    "ERROR: Sub-Component with name '{}' has already been added once to a container Component! Each "
+                    "Component can only be added once to a parent.".format(component.name)
+                )
             # Make sure we don't add to ourselves.
             elif component is self:
                 raise RLGraphError("ERROR: Cannot add a Component ({}) as a sub-Component to itself!".format(self.name))
             component.parent_component = self
+            component.nesting_level = self.nesting_level + 1
             self.sub_components[component.name] = component
 
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
@@ -820,7 +827,8 @@ class Component(Specifiable):
 
             # Execution modes must be coherent within one component subgraph.
             self.propagate_sub_component_properties(
-                properties=dict(execution_mode=self.execution_mode), component=component
+                properties=dict(execution_mode=self.execution_mode, nesting_level=self.nesting_level + 1),
+                component=component
             )
 
             # Should we expose some API-methods of the child?
@@ -995,6 +1003,9 @@ class Component(Specifiable):
             # Normal property: Set to static given value.
             else:
                 setattr(component, name, value)
+                # Nesting_level: Increase by one the deeper we go.
+                if name == "nesting_level":
+                    properties_scoped[name] = value + 1
         for sc in component.sub_components.values():
             component.propagate_sub_component_properties(properties_scoped, sc, recursive_=True)
 

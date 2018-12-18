@@ -82,7 +82,7 @@ class Agent(Specifiable):
         self.discount = discount
 
         # The agent's root-Component.
-        self.root_component = Component(name=self.name)
+        self.root_component = Component(name=self.name, nesting_level=0)
 
         # Define the input-Spaces:
         # Tag the input-Space to `self.set_policy_weights` as equal to whatever the variables-Space will be for
