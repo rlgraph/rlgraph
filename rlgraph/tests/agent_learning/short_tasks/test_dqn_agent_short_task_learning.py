@@ -155,7 +155,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             store_last_q_table=True
         )
 
-        time_steps = 4000
+        time_steps = 5000
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld.from_spec(env_spec),
             agent=agent,
@@ -164,35 +164,35 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             render=False
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
-        #
-        # print("LAST q-table:\n{}".format(agent.last_q_table))
-        #
-        # self.assertEqual(results["timesteps_executed"], time_steps)
-        # self.assertEqual(results["env_frames"], time_steps)
-        # self.assertGreaterEqual(results["mean_episode_reward"], -7)
-        # self.assertGreaterEqual(results["max_episode_reward"], -1.0)
-        # self.assertLessEqual(results["episodes_executed"], time_steps / 3)
-        #
-        # # Check q-table for correct values.
-        # expected_q_values_per_state = {
-        #     (0., 0., -1., 0.): {"forward": (-5.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-        #     (0., 0., 1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-        #     (0., 0., 0., -1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-        #     (0., 0., 0., 1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-        #     (0., 1., -1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-        #     (0., 1., 1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-        #     (0., 1., 0., -1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-        #     (0., 1., 0., 1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
-        # }
-        # for state, q_values_forward, q_values_jump in zip(
-        #         agent.last_q_table["states"], agent.last_q_table["q_values"]["forward"],
-        #         agent.last_q_table["q_values"]["jump"]
-        # ):
-        #     state, q_values_forward, q_values_jump = tuple(state), tuple(q_values_forward), tuple(q_values_jump)
-        #     assert state in expected_q_values_per_state, \
-        #         "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
-            # recursive_assert_almost_equal(q_values_forward, expected_q_values_per_state[state]["forward"], decimals=0)
-            # recursive_assert_almost_equal(q_values_jump, expected_q_values_per_state[state]["jump"], decimals=0)
+
+        print("LAST q-table:\n{}".format(agent.last_q_table))
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertGreaterEqual(results["mean_episode_reward"], -7)
+        self.assertGreaterEqual(results["max_episode_reward"], -1.0)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 3)
+
+        # Check q-table for correct values.
+        expected_q_values_per_state = {
+            (0., 0., -1., 0.): {"forward": (-5.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 0., 1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 0., 0., -1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 0., 0., 1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 1., -1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 1., 1., 0.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 1., 0., -1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+            (0., 1., 0., 1.): {"forward": (0.0, -1.0, -1.0), "jump": (0.0, -1.0)},
+        }
+        for state, q_values_forward, q_values_jump in zip(
+                agent.last_q_table["states"], agent.last_q_table["q_values"]["forward"],
+                agent.last_q_table["q_values"]["jump"]
+        ):
+            state, q_values_forward, q_values_jump = tuple(state), tuple(q_values_forward), tuple(q_values_jump)
+            assert state in expected_q_values_per_state, \
+                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
+            recursive_assert_almost_equal(q_values_forward, expected_q_values_per_state[state]["forward"], decimals=0)
+            recursive_assert_almost_equal(q_values_jump, expected_q_values_per_state[state]["jump"], decimals=0)
 
     def test_double_dqn_on_4x4_grid_world(self):
         """

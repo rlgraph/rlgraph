@@ -59,29 +59,29 @@
       "decay_spec": {
         "type": "linear_decay",
         "from": 1.0,
-        "to": 0.2,
+        "to": 0.05,
         "start_timestep": 0,
-        "num_timesteps": 40000
+        "num_timesteps": 2000
       }
     }
   },
 
   "observe_spec":
   {
-    "buffer_size": 64
+    "buffer_size": 8
   },
 
   "update_spec": {
     "do_updates": true,
     "update_interval": 4,
     "batch_size": 8,
-    "sync_interval": 16
+    "sync_interval": 8
   },
 
   "optimizer_spec":
   {
     "type": "adam",
-    "learning_rate": 0.0001,
+    "learning_rate": 0.001,
     "clip_grad_norm": 10
   }
 }
