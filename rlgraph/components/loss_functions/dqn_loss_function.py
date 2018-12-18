@@ -108,6 +108,9 @@ class DQNLossFunction(LossFunction):
         # Average over container sub-actions.
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
 
+        # Apply huber loss.
+        loss_per_item = self._graph_fn_apply_huber_loss_if_necessary(loss_per_item)
+
         return loss_per_item
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
@@ -277,11 +280,12 @@ class DQNLossFunction(LossFunction):
 
         # Apply importance-weights from a prioritized replay to the loss.
         if self.importance_weights:
-            return importance_weights * self._apply_huber_loss_if_necessary(td_delta)
+            return importance_weights * td_delta
         else:
-            return self._apply_huber_loss_if_necessary(td_delta)
+            return td_delta
 
-    def _apply_huber_loss_if_necessary(self, td_delta):
+    @graph_fn
+    def _graph_fn_apply_huber_loss_if_necessary(self, td_delta):
         if self.backend == "python" or get_backend() == "python":
             if self.huber_loss:
                 return np.where(
