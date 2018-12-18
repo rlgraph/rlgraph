@@ -1149,8 +1149,8 @@ class Component(Specifiable):
             # tensor operations.
             elif isinstance(variable, list) or isinstance(variable, np.ndarray):
                 if indices is not None:
+                    ret = []
                     for i in indices:
-                        ret = []
                         val = variable[i]
                         # Type checking is necessary because torch.stack only works on same types.
                         if isinstance(val, torch.Tensor):
