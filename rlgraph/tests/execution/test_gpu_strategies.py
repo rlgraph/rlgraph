@@ -22,7 +22,7 @@ import unittest
 from rlgraph.utils import root_logger
 from logging import DEBUG
 
-from rlgraph.agents import ApexAgent, DQNAgent
+from rlgraph.agents import ApexAgent, DQNAgent, PPOAgent
 from rlgraph.environments import OpenAIGymEnv, RandomEnv, GridWorld
 #from rlgraph.execution.ray import ApexExecutor
 from rlgraph.spaces import *
@@ -162,7 +162,7 @@ class TestGpuStrategies(unittest.TestCase):
         dummy_env = GridWorld.from_spec(env_spec)
         agent_config = config_from_path("configs/multi_gpu_ppo_for_2x2_gridworld.json")
         preprocessing_spec = agent_config.pop("preprocessing_spec")
-        agent = DQNAgent.from_spec(
+        agent = PPOAgent.from_spec(
             agent_config,
             state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,

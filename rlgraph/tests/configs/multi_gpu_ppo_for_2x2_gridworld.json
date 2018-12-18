@@ -32,6 +32,15 @@
       "scope": "hidden-layer"
     }
   ],
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 10,
+      "activation": "linear",
+      "scope": "hidden-layer"
+    }
+  ],
 
   "observe_spec": {
     "buffer_size": 32
@@ -58,13 +67,16 @@
   },
 
   "update_spec": {
-    "update_interval": 4,
-    "batch_size": 48,
-    "sync_interval": 32
+    "update_mode": "time_steps",
+    "do_updates": true,
+    "update_interval": 16,
+    "batch_size": 16,
+    "num_iterations": 6,
+    "sample_size": 8
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.15
+    "learning_rate": 0.015
   }
 }
