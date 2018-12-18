@@ -263,7 +263,7 @@ class PPOAgent(Agent):
                 sample_size = min(batch_size, self.sample_size)
 
                 for _ in range(self.iterations):
-                    start = torch.rand(1) * (batch_size - 1)
+                    start = int(torch.rand(1) * (batch_size - 1))
                     indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
                     sample_states = torch.index_select(preprocessed_states, 0, indices)
                     sample_actions = torch.index_select(actions, 0, indices)
