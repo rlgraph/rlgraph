@@ -941,7 +941,7 @@ class Component(Specifiable):
         Returns:
             List[Component]: A list (may be empty if this component has no parents) of all parent and grand-parents.
         """
-        ret = list()
+        ret = []
         component = self
         while component.parent_component is not None:
             ret.append(component.parent_component)
@@ -1148,21 +1148,24 @@ class Component(Specifiable):
             # Lists or numpy arrays may be used to store mutable state that does not need
             # tensor operations.
             elif isinstance(variable, list) or isinstance(variable, np.ndarray):
-                ret = []
-                for i in indices:
-                    val = variable[i]
-                    # Type checking is necessary because torch.stack only works on same types.
-                    if isinstance(val, torch.Tensor):
-                        if dtype is None:
-                            ret.append(val)
-                        elif dtype == torch.float32:
-                            ret.append(val.float())
-                        elif dtype == torch.int32:
-                            ret.append(val.int())
-                        elif dtype == torch.uint8:
-                            ret.append(val.byte())
-                # Stack list into one Tensor with a btach dim.
-                return torch.stack(ret)
+                if indices is not None:
+                    for i in indices:
+                        ret = []
+                        val = variable[i]
+                        # Type checking is necessary because torch.stack only works on same types.
+                        if isinstance(val, torch.Tensor):
+                            if dtype is None:
+                                ret.append(val)
+                            elif dtype == torch.float32:
+                                ret.append(val.float())
+                            elif dtype == torch.int32:
+                                ret.append(val.int())
+                            elif dtype == torch.uint8:
+                                ret.append(val.byte())
+                    # Stack list into one Tensor with a btach dim.
+                    return torch.stack(ret)
+                else:
+                    return variable
 
     def sub_component_by_name(self, scope_name):
         """
