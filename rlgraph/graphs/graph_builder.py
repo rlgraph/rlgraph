@@ -35,8 +35,8 @@ from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalenc
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import is_constant, ContainerDataOp, flatten_op
-from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
-    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, get_call_param_name
+from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumn, DataOpRecordColumnIntoGraphFn, \
+    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -1069,6 +1069,21 @@ class GraphBuilder(Specifiable):
         """
         loop_counter = 0
         while len(op_records_list) > 0:
+            # In this iteration, do we still have API-method op-recs (which are part of columns that go into or come
+            # from API-methods).
+            have_api_method_recs = any(
+                isinstance(or_.column, (DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromAPIMethod)) for or_ in
+                op_records_list
+            )
+            highest_nesting_of_callable_graph_fn_column = -1
+            if have_api_method_recs is False:
+                for or_ in op_records_list:
+                    if isinstance(or_.column, DataOpRecordColumnIntoGraphFn):
+                        col = or_.column
+                        if col.is_complete() and col.already_sent is False and \
+                                col.component.nesting_level > highest_nesting_of_callable_graph_fn_column:
+                            highest_nesting_of_callable_graph_fn_column = col.component.nesting_level
+
             # Collect op-recs to process in the next iteration.
             self.op_records_to_process = set()
 
@@ -1134,16 +1149,23 @@ class GraphBuilder(Specifiable):
                     # any graph fn calls for as long as possible.
                     # We don't want to run through a graph_fn, then have to call an API-method from within that graph_fn
                     # and the component of that API-method is not input-/variable-complete yet.
-                    # AND: GraphFn column must be complete AND has not been sent through the graph_fn yet.
-                    if not any(isinstance(or_, DataOpRecordColumnIntoAPIMethod) for or_ in self.op_records_to_process) \
-                            and op_rec.column.is_complete() and op_rec.column.already_sent is False:
+                    if have_api_method_recs:
+                        # Recycle this op-rec.
+                        self.op_records_to_process.add(op_rec)
+                    # There are other graph_fn columns that have a higher Component nesting_level and are
+                    # actually callable -> Call those first.
+                    elif highest_nesting_of_callable_graph_fn_column > op_rec.column.component.nesting_level:
+                        # Recycle this op-rec.
+                        self.op_records_to_process.add(op_rec)
+                    # GraphFn column must be complete AND has not been sent through the graph_fn yet.
+                    elif op_rec.column.is_complete() and op_rec.column.already_sent is False:
                         # Only call the graph_fn if the Component is already input-complete.
                         if op_rec.column.component.input_complete:
                             # Call the graph_fn with the given column and call-options.
                             self.run_through_graph_fn_with_device_and_scope(op_rec.column)
                             # Store all resulting op_recs (returned by the graph_fn) to be processed next.
                             self.op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
-                        # Component not input-complete. Keep coming back with this op.
+                        # Component not input-complete. Recycle this op-rec.
                         else:
                             self.build_component_when_input_complete(op_rec.column.component)
                             self.op_records_to_process.add(op_rec)
