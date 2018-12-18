@@ -1206,6 +1206,8 @@ class GraphBuilder(Specifiable):
         - Give deeper nested Components priority over shallower nested ones.
         - Sort by op-rec ID to enforce determinism.
 
+        Note: We sort in reverse order, highest key-values first.
+
         Args:
             recs (Set[DataOpRecord]): The DataOpRecords to sort.
 
@@ -1213,10 +1215,13 @@ class GraphBuilder(Specifiable):
             list: The sorted op-recs.
         """
         def sorting_func(rec):
+            # Op-rec is a placeholder. Highest priority.
+            if rec.column is None:
+                return DataOpRecord.MAX_ID * 2 + rec.id
             # API-methods have priority (over GraphFns).
-            if isinstance(rec.column, DataOpRecordColumnIntoAPIMethod):
-                return rec.id
+            elif isinstance(rec.column, DataOpRecordColumnIntoAPIMethod):
+                return DataOpRecord.MAX_ID + rec.id
             # Deeper nested Components have priority. If same level, use op-rec's ID for determinism.
-            return DataOpRecord.MAX_ID + (rec.column.component.nesting_level + rec.id / DataOpRecord.MAX_ID)
+            return rec.column.component.nesting_level + rec.id / DataOpRecord.MAX_ID
 
         return sorted(recs, key=sorting_func, reverse=True)

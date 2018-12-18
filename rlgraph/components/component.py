@@ -819,7 +819,7 @@ class Component(Specifiable):
             elif component is self:
                 raise RLGraphError("ERROR: Cannot add a Component ({}) as a sub-Component to itself!".format(self.name))
             component.parent_component = self
-            component.nesting_level = self.nesting_level + 1
+            component.nesting_level = (self.nesting_level or 0) + 1
             self.sub_components[component.name] = component
 
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
@@ -827,7 +827,7 @@ class Component(Specifiable):
 
             # Execution modes must be coherent within one component subgraph.
             self.propagate_sub_component_properties(
-                properties=dict(execution_mode=self.execution_mode, nesting_level=self.nesting_level + 1),
+                properties=dict(execution_mode=self.execution_mode, nesting_level=(self.nesting_level or 0) + 1),
                 component=component
             )
 
