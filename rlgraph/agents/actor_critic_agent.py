@@ -111,7 +111,6 @@ class ActorCriticAgent(Agent):
         super(ActorCriticAgent, self).define_graph_api()
 
         agent = self
-
         sample_episodes = self.sample_episodes
 
         # Reset operation (resets preprocessor).

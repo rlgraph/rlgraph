@@ -704,7 +704,7 @@ class Component(Specifiable):
                     if get_ref:
                         variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
                     else:
-                        variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name].get_value()
+                        variables[re.sub(r'/', custom_scope_separator, name)] = self.read_variable(self.variables[name])
                 elif global_scope_name in self.variables:
                     if global_scope:
                         if get_ref:
@@ -712,12 +712,12 @@ class Component(Specifiable):
                                 self.variables[global_scope_name]
                         else:
                             variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = \
-                                self.variables[global_scope_name].get_value()
+                                self.read_variable(self.variables[global_scope_name])
                     else:
                         if get_ref:
                             variables[name] = self.variables[global_scope_name]
                         else:
-                            variables[name] = self.variables[global_scope_name].get_value()
+                            variables[name] = self.read_variable(self.variables[global_scope_name])
         return variables
 
     def create_summary(self, name, values, type_="histogram"):
