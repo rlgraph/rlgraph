@@ -17,12 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import re
 
 from rlgraph import get_backend
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.component import Component
 from rlgraph.spaces import Dict
+from rlgraph.utils.util import force_list
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import DataOpTuple
 
@@ -125,11 +127,22 @@ class MultiGpuSynchronizer(Component):
 
     @rlgraph_api
     def _graph_fn_calculate_update_from_external_batch(self, main_variables, *inputs):
+        """
+
+        Args:
+            main_variables ():
+            *inputs ():
+
+        Returns:
+
+        """
         # - Init device memory, i.e. load batch to GPU memory.
         # - Call gradient calculation on multi-gpu optimizer which splits batch
         #   and gets gradients from each sub-graph, then averages them.
         # - Apply averaged gradients to master component.
         # - Sync new weights to towers.
+        main_variables = force_list(main_variables)
+        num_var_sets = len(main_variables)
 
         # Split the incoming batch into its per-GPU shards.
         input_batches = self.batch_splitter.split_batch(*inputs)
@@ -148,10 +161,10 @@ class MultiGpuSynchronizer(Component):
                 shard_data_stopped = tuple([tf.stop_gradient(datum.read_value()) for datum in shard_data])
                 return_values_to_be_averaged = self.towers[i].update_from_external_batch(*shard_data_stopped)
 
-                grads_and_vars = return_values_to_be_averaged[0]
-                loss = return_values_to_be_averaged[1]
-                loss_per_item = return_values_to_be_averaged[2]
-                rest = return_values_to_be_averaged[3:]
+                grads_and_vars = return_values_to_be_averaged[0:num_var_sets]
+                loss = return_values_to_be_averaged[num_var_sets + 0]
+                loss_per_item = return_values_to_be_averaged[num_var_sets + 1]
+                rest = return_values_to_be_averaged[num_var_sets + 2:]
                 if all_rest is None:
                     all_rest = [list()] * len(rest)
 
@@ -161,15 +174,15 @@ class MultiGpuSynchronizer(Component):
                 for j, r in enumerate(rest):
                     all_rest[j].append(r)
 
-        ret = [
+        ret = []
+        for i in range(num_var_sets):
             # Average over the gradients per variable.
-            self._average_grads_and_vars(main_variables, all_grads_and_vars),
-            # Simple average over all GPUs.
-            tf.reduce_mean(tf.stack(all_loss, axis=0)),
-            # concatenate the loss_per_item to regenerate original (un-split) batch
-            tf.concat(all_loss_per_item, axis=0),
-        ]
+            ret.append(self._average_grads_and_vars(main_variables[i], np.asarray(all_grads_and_vars)[:, i]))
 
+        # Simple average over all GPUs.
+        ret.append(tf.reduce_mean(tf.stack(all_loss, axis=0)))
+        # concatenate the loss_per_item to regenerate original (un-split) batch
+        ret.append(tf.concat(all_loss_per_item, axis=0))
         # For the remaining return items, do like for loss-per-item (regenerate values for original, unsplit batch).
         for rest_list in all_rest:
             ret.append(tf.concat(rest_list, axis=0))
