@@ -174,6 +174,13 @@ class PPOAgent(Agent):
             sequence_indices = terminals
             return root.update_from_external_batch(preprocessed_s, actions, rewards, terminals, sequence_indices)
 
+        # TODO: This needs to be moved to generic agent for all agents that have separate value function baselines
+        # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
+        # value-function never performs any forward pass (only used as variable storage).
+        @rlgraph_api(component=self.root_component)
+        def get_state_values(root, preprocessed_states):
+            return agent.value_function.value_output(preprocessed_states)
+
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
         @rlgraph_api(component=self.root_component)
@@ -188,9 +195,8 @@ class PPOAgent(Agent):
             # Return values.
             loss, loss_per_item, vf_loss, vf_loss_per_item = None, None, None, None
 
-            policy_vars = root.get_sub_component_by_name(agent.policy.scope)._variables()
-            vf_vars = root.get_sub_component_by_name(agent.value_function.scope)._variables()
             policy = root.get_sub_component_by_name(agent.policy.scope)
+            policy_vars = policy._variables()
             value_function = root.get_sub_component_by_name(agent.value_function.scope)
             optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
             loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
@@ -215,14 +221,17 @@ class PPOAgent(Agent):
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
                     if multi_gpu_sync_optimizer is not None:
-                        main_vars = agent.policy._variables() + agent.value_function._variables()
+                        main_policy_vars = agent.policy._variables()
+                        main_vf_vars = agent.value_function._variables()
                         grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                             multi_gpu_sync_optimizer.calculate_update_from_external_batch(
-                                main_vars, sample_states, sample_actions, sample_rewards,
-                                sample_terminals
+                                main_policy_vars, main_vf_vars,
+                                sample_states, sample_actions, sample_rewards, sample_terminals
                             )
                         step_op = agent.optimizer.apply_gradients(grads_and_vars)
-                        step_and_sync_op = multi_gpu_sync_optimizer.sync_policy_weights_to_towers(step_op, main_vars)
+                        step_and_sync_op = multi_gpu_sync_optimizer.sync_policy_weights_to_towers(
+                            step_op, [main_policy_vars, main_vf_vars]
+                        )
                         return step_and_sync_op, loss, loss_per_item, vf_loss, vf_loss_per_item
 
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
@@ -242,14 +251,15 @@ class PPOAgent(Agent):
                     loss_per_item.set_shape((agent.sample_size,))
 
                     vf_step_op, vf_loss, vf_loss_per_item = value_function_optimizer.step(
-                        vf_vars, vf_loss, vf_loss_per_item
+                        value_function._variables(), vf_loss, vf_loss_per_item
                     )
                     vf_loss.set_shape([0])
                     vf_loss_per_item.set_shape((agent.sample_size,))
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
                         grads_and_vars = optimizer.calculate_gradients(policy_vars, loss)
-                        vf_grads_and_vars = value_function_optimizer.calculate_gradients(vf_vars, vf_loss)
+                        vf_grads_and_vars = value_function_optimizer.calculate_gradients(value_function._variables(),
+                                                                                         vf_loss)
                         return grads_and_vars, vf_grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item
                     else:
                         with tf.control_dependencies([step_op, vf_step_op]):
