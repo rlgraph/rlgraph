@@ -199,7 +199,7 @@ class GraphBuilder(Specifiable):
             self.op_records_to_process.update(component.constant_op_records)
             self.build_component_when_input_complete(component)
 
-        op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
+        op_records_list = self._sort_op_recs(self.op_records_to_process)
 
         # Re-iterate until our bag of op-recs to process is empty.
         iterations = self._build(op_records_list)
@@ -469,7 +469,7 @@ class GraphBuilder(Specifiable):
         for api_method in api_methods:
             # Start with the input set for this method.
             api_input_records = self.root_component.api_methods[api_method].in_op_columns[0].op_records
-            op_records_list = sorted(api_input_records, key=lambda rec: rec.id)
+            op_records_list = self._sort_op_recs(api_input_records)
 
             # Re-iterate until our bag of op-recs to process is empty.
             loop_counter = 0
@@ -479,7 +479,7 @@ class GraphBuilder(Specifiable):
                     # There are next records:
                     if len(op_rec.next) > 0:
                         # Push the op-record forward one step.
-                        for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
+                        for next_op_rec in self._sort_op_recs(op_rec.next):  # type: DataOpRecord
                             # If not last op in this API-method ("done") -> continue.
                             # Otherwise, replace "done" with actual op.
                             if next_op_rec.op != "done":
@@ -502,7 +502,7 @@ class GraphBuilder(Specifiable):
                         new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
 
                 # No sanity checks because meta graph was already built successfully.
-                new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
+                new_op_records_list = self._sort_op_recs(new_op_records_to_process)
                 op_records_list = new_op_records_list
                 loop_counter += 1
         return subgraph_container
@@ -1042,7 +1042,7 @@ class GraphBuilder(Specifiable):
             # Check whether the Component is input-complete (and build already if it is).
             self.build_component_when_input_complete(component)
 
-        op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
+        op_records_list = self._sort_op_recs(self.op_records_to_process)
         iterations = self._build(op_records_list)
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
@@ -1079,7 +1079,7 @@ class GraphBuilder(Specifiable):
                 # There are next records:
                 if len(op_rec.next) > 0:
                     # Push actual op and Space forward one op-rec at a time.
-                    for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
+                    for next_op_rec in self._sort_op_recs(op_rec.next):  # type: DataOpRecord
                         # Assert that next-record's `previous` field points back to op_rec.
                         assert next_op_rec.previous is op_rec, \
                             "ERROR: Op-rec {} in meta-graph has {} as next, but {}'s previous field points to {}!". \
@@ -1156,7 +1156,7 @@ class GraphBuilder(Specifiable):
                 # -> Ignore Op.
 
             # Sanity check, whether we are stuck.
-            new_op_records_list = sorted(self.op_records_to_process, key=self._sort_op_recs)
+            new_op_records_list = self._sort_op_recs(self.op_records_to_process)
             if op_records_list == new_op_records_list:
                 # Probably deadlocked. Do a premature sanity check to report possible problems.
                 if loop_counter > self.max_build_iterations:
@@ -1198,7 +1198,7 @@ class GraphBuilder(Specifiable):
         return loop_counter
 
     @staticmethod
-    def _sort_op_recs(rec):
+    def _sort_op_recs(recs):
         """
         Sorts op-recs according to:
         - Give API-method calls priority over GraphFn calls (API-method call ops just have to be passed along without
@@ -1207,13 +1207,16 @@ class GraphBuilder(Specifiable):
         - Sort by op-rec ID to enforce determinism.
 
         Args:
-            rec (DataOpRecord): The DataOpRecord to sort.
+            recs (Set[DataOpRecord]): The DataOpRecords to sort.
 
         Returns:
-            int: The sorting key.
+            list: The sorted op-recs.
         """
-        # API-methods have priority (over GraphFns).
-        if isinstance(rec.column, DataOpRecordColumnIntoAPIMethod):
-            return rec.id
-        # Deeper nested Components have priority. If same level, use op-rec's ID for determinism.
-        return DataOpRecord.MAX_ID + (rec.column.component.nesting_level + rec.id / DataOpRecord.MAX_ID)
+        def sorting_func(rec):
+            # API-methods have priority (over GraphFns).
+            if isinstance(rec.column, DataOpRecordColumnIntoAPIMethod):
+                return rec.id
+            # Deeper nested Components have priority. If same level, use op-rec's ID for determinism.
+            return DataOpRecord.MAX_ID + (rec.column.component.nesting_level + rec.id / DataOpRecord.MAX_ID)
+
+        return sorted(recs, key=sorting_func, reverse=True)
