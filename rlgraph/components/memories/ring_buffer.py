@@ -239,8 +239,8 @@ class RingBuffer(Memory):
 
             # End index is just the pointer to the most recent episode.
             limit = self.episode_indices[stored_episodes - 1]
-            limit += torch.where(condition=(start < limit), x=0, y=self.capacity)
-
+            if start >= limit:
+                limit += self.capacity
             indices = torch.arange(start, limit) % self.capacity
 
             records = OrderedDict()
