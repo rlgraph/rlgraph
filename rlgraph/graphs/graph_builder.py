@@ -1129,8 +1129,14 @@ class GraphBuilder(Specifiable):
                 # No next records:
                 # - Op belongs to a column going into a graph_fn.
                 elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
-                    # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
-                    if op_rec.column.is_complete() and op_rec.column.already_sent is False:
+                    # Only call the GraphFn iff:
+                    # There are no more DataOpRecordColumnIntoAPIMethod ops in our list: We would like to hold off
+                    # any graph fn calls for as long as possible.
+                    # We don't want to run through a graph_fn, then have to call an API-method from within that graph_fn
+                    # and the component of that API-method is not input-/variable-complete yet.
+                    # AND: GraphFn column must be complete AND has not been sent through the graph_fn yet.
+                    if not any(isinstance(or_, DataOpRecordColumnIntoAPIMethod) for or_ in self.op_records_to_process) \
+                            and op_rec.column.is_complete() and op_rec.column.already_sent is False:
                         # Only call the graph_fn if the Component is already input-complete.
                         if op_rec.column.component.input_complete:
                             # Call the graph_fn with the given column and call-options.
@@ -1143,13 +1149,14 @@ class GraphBuilder(Specifiable):
                             self.op_records_to_process.add(op_rec)
                             if op_rec.column.component.input_complete is False:
                                 non_complete_components.add(op_rec.column.component.global_scope)
+                    # - There are still into-API-method-op-recs that should be handled first.
                     # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
                     # - Op column has already been sent (sibling ops may have arrived in same iteration).
-                # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
+                # else: - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
                 # -> Ignore Op.
 
             # Sanity check, whether we are stuck.
-            new_op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
+            new_op_records_list = sorted(self.op_records_to_process, key=self._sort_op_recs)
             if op_records_list == new_op_records_list:
                 # Probably deadlocked. Do a premature sanity check to report possible problems.
                 if loop_counter > self.max_build_iterations:
@@ -1189,3 +1196,24 @@ class GraphBuilder(Specifiable):
 
             loop_counter += 1
         return loop_counter
+
+    @staticmethod
+    def _sort_op_recs(rec):
+        """
+        Sorts op-recs according to:
+        - Give API-method calls priority over GraphFn calls (API-method call ops just have to be passed along without
+        worrying about input-/variable-completeness).
+        - Give deeper nested Components priority over shallower nested ones.
+        - Sort by op-rec ID to enforce determinism.
+
+        Args:
+            rec (DataOpRecord): The DataOpRecord to sort.
+
+        Returns:
+            int: The sorting key.
+        """
+        # API-methods have priority (over GraphFns).
+        if isinstance(rec.column, DataOpRecordColumnIntoAPIMethod):
+            return rec.id
+        # Deeper nested Components have priority. If same level, use op-rec's ID for determinism.
+        return DataOpRecord.MAX_ID + (rec.column.component.nesting_level + rec.id / DataOpRecord.MAX_ID)

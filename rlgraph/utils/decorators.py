@@ -514,16 +514,13 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         # Check Spaces and create variables.
         component.graph_builder.build_component_when_input_complete(component)
         assert component.input_complete
-        # TODO: This check should go in, but fails for multi-GPU DQN runs.
         # If we are calling `_variables()` -> make sure we are also variable-complete.
         if wrapped_func.__name__ == "_graph_fn__variables":
             assert component.variable_complete
         # Call the graph_fn (only if not already done so by build above (e.g. `_variables()`).
         if in_graph_fn_column.out_graph_fn_column is None:
             assert in_graph_fn_column.already_sent is False
-            out_graph_fn_column = component.graph_builder.run_through_graph_fn_with_device_and_scope(
-                in_graph_fn_column  #, create_new_out_column=True
-            )
+            out_graph_fn_column = component.graph_builder.run_through_graph_fn_with_device_and_scope(in_graph_fn_column)
         else:
             out_graph_fn_column = in_graph_fn_column.out_graph_fn_column
         # Check again, in case we are now also variable-complete.
