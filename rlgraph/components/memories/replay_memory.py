@@ -17,12 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
+from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
-from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.decorators import rlgraph_api
+
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class ReplayMemory(Memory):

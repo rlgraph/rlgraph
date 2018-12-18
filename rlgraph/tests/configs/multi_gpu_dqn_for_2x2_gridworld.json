@@ -2,18 +2,20 @@
   "type": "dqn",
 
   "dueling_q": false,
+  "store_last_q_table": true,
 
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 64
+    "capacity": 32
   },
 
   "preprocessing_spec":
   [
     {
       "type": "reshape",
-      "flatten": true
+      "flatten": true,
+      "flatten_categories": 4
     }
   ],
 
@@ -26,6 +28,10 @@
       "scope": "hidden-layer"
     }
   ],
+
+  "observe_spec": {
+    "buffer_size": 32
+  },
 
   "exploration_spec": {
     "epsilon_spec": {
@@ -57,5 +63,16 @@
 		"CPU": 1
 	  }
     }
+  },
+
+  "update_spec": {
+    "update_interval": 4,
+    "batch_size": 48,
+    "sync_interval": 32
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.15
   }
 }

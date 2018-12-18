@@ -17,7 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+from rlgraph import get_backend
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class SegmentTree(object):
@@ -39,7 +42,7 @@ class SegmentTree(object):
         self.values = storage_variable
         self.capacity = capacity
 
-    def insert(self, index, element, insert_op=tf.add):
+    def insert(self, index, element, insert_op=None):
         """
         Inserts an element into the segment tree by determining
         its position in the tree.
@@ -49,6 +52,8 @@ class SegmentTree(object):
             element (any): Element to insert.
             insert_op (Union(tf.add, tf.minimum, tf, maximum)): Insert operation on the tree.
         """
+        insert_op = insert_op or tf.add
+
         index += self.capacity
 
         # Use a TensorArray to collect updates to the segment tree, then perform them all at once.
@@ -173,7 +178,7 @@ class SegmentTree(object):
 
         return index - self.capacity
 
-    def reduce(self, start, limit, reduce_op=tf.add):
+    def reduce(self, start, limit, reduce_op=None):
         """
         Applies an operation to specified segment.
 
@@ -185,6 +190,8 @@ class SegmentTree(object):
         Returns:
             Number: Result of reduce operation
         """
+        reduce_op = reduce_op or tf.add
+
         # Init result with neutral element of reduce op.
         # Note that all of these are commutative reduce ops.
         if reduce_op == tf.add:

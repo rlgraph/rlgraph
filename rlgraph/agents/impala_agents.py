@@ -661,7 +661,7 @@ class SingleIMPALAAgent(IMPALAAgent):
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root Component's) API.
-        self.define_graph_api(*sub_components)
+        self.define_graph_api()
 
         if self.auto_build:
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
@@ -680,30 +680,34 @@ class SingleIMPALAAgent(IMPALAAgent):
                 self.dequeue_op = self.root_component.sub_components["fifo-queue"].api_methods["get_records"]. \
                     out_op_columns[0].op_records[0].op
 
-    def define_graph_api(self, fifo_output_splitter, fifo_queue, queue_runner,
-                         transpose_states, transpose_terminals, transpose_action_probs, transpose_actions,
-                         transpose_rewards,
-                         staging_area, preprocessor, states_dict_splitter, policy, loss_function, optimizer):
+    def define_graph_api(self):
+
+        #fifo_output_splitter, fifo_queue, queue_runner,
+        #transpose_states, transpose_terminals, transpose_action_probs, transpose_actions,
+        #transpose_rewards,
+        #staging_area, preprocessor, states_dict_splitter, policy, loss_function, optimizer
+
+        agent = self
 
         @rlgraph_api(component=self.root_component)
-        def setup_queue_runner(self_):
-            return queue_runner.setup()
+        def setup_queue_runner(root):
+            return agent.queue_runner.setup()
 
         @rlgraph_api(component=self.root_component)
-        def get_queue_size(self_):
-            return fifo_queue.get_size()
+        def get_queue_size(root):
+            return agent.fifo_queue.get_size()
 
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(self_):
+        def update_from_memory(root):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
             # This is done by the network itself for all network inputs:
             # - preprocessed_s
             # - preprocessed_last_s_prime
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
-            records = fifo_queue.get_records(self.update_spec["batch_size"])
+            records = agent.fifo_queue.get_records(self.update_spec["batch_size"])
 
-            out = fifo_output_splitter.split_into_dict(records)
+            out = agent.fifo_output_splitter.split_into_dict(records)
             terminals = out["terminals"]
             states = out["states"]
             action_probs_mu = out["action_probs"]
@@ -714,56 +718,56 @@ class SingleIMPALAAgent(IMPALAAgent):
             # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing: already done, use space_agnostic feature. See ReShape)
-            states = transpose_states.apply(states)
-            terminals = transpose_terminals.apply(terminals)
-            action_probs_mu = transpose_action_probs.apply(action_probs_mu)
+            states = agent.transpose_states.apply(states)
+            terminals = agent.transpose_terminals.apply(terminals)
+            action_probs_mu = agent.transpose_action_probs.apply(action_probs_mu)
             actions = None
             if not self.feed_previous_action_through_nn:
-                actions = transpose_actions.apply(out["actions"])
+                actions = agent.transpose_actions.apply(out["actions"])
             rewards = None
             if not self.feed_previous_reward_through_nn:
-                rewards = transpose_rewards.apply(out["rewards"])
+                rewards = agent.transpose_rewards.apply(out["rewards"])
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
             if self.has_gpu:
                 if self.has_rnn:
-                    stage_op = staging_area.stage(states, terminals, action_probs_mu, initial_internal_states)
-                    states, terminals, action_probs_mu, initial_internal_states = staging_area.unstage()
+                    stage_op = agent.staging_area.stage(states, terminals, action_probs_mu, initial_internal_states)
+                    states, terminals, action_probs_mu, initial_internal_states = agent.staging_area.unstage()
                 else:
-                    stage_op = staging_area.stage(states, terminals, action_probs_mu)
-                    states, terminals, action_probs_mu = staging_area.unstage()
+                    stage_op = agent.staging_area.stage(states, terminals, action_probs_mu)
+                    states, terminals, action_probs_mu = agent.staging_area.unstage()
             else:
                 # TODO: No-op component?
                 stage_op = None
 
             # Preprocess actions and rewards inside the state (actions: flatten one-hot, rewards: expand).
-            if self.preprocessing_required:
-                states = preprocessor.preprocess(states)
+            if agent.preprocessing_required:
+                states = agent.preprocessor.preprocess(states)
 
             # Get the pi-action probs AND the values for all our states.
-            out = policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
+            out = agent.policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
             state_values_pi = out["state_values"]
             logits_pi = out["logits"]
 
             # Isolate actions and rewards from states.
             # TODO: What if only one of actions or rewards is fed through NN, but the other not?
             if self.feed_previous_reward_through_nn and self.feed_previous_action_through_nn:
-                out = states_dict_splitter.split(states)
+                out = agent.states_dict_splitter.split(states)
                 actions = out[-2]  # TODO: Are these always the correct slots for "previous_action" and "previous_reward"?
                 rewards = out[-1]
 
             # Calculate the loss.
-            loss, loss_per_item = loss_function.loss(
+            loss, loss_per_item = agent.loss_function.loss(
                 logits_pi, action_probs_mu, state_values_pi, actions, rewards, terminals
             )
             if self.dynamic_batching:
-                policy_vars = queue_runner.data_producing_components[0].actor_component.policy._variables()
+                policy_vars = agent.queue_runner.data_producing_components[0].actor_component.policy._variables()
             else:
-                policy_vars = policy._variables()
+                policy_vars = agent.policy._variables()
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+            step_op, loss, loss_per_item = agent.optimizer.step(policy_vars, loss, loss_per_item)
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
@@ -771,5 +775,3 @@ class SingleIMPALAAgent(IMPALAAgent):
 
     def __repr__(self):
         return "SingleIMPALAAgent()"
-
-

@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.component import Component
 from rlgraph.spaces import Dict
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
@@ -114,6 +114,7 @@ class MultiGpuSynchronizer(Component):
                 )
                 self.tower_placeholders.append(tuple(device_variable.values()))
 
+    @rlgraph_api
     def sync_target_qnets(self):
         tower_ops = list()
         for i in range(self.num_gpus):
@@ -121,9 +122,6 @@ class MultiGpuSynchronizer(Component):
             tower_ops.append(op)
         group_op = self._graph_fn_group(*tower_ops)
         return group_op
-
-    def _graph_fn_group(self, *tower_ops):
-        return tf.group(*tower_ops)
 
     @rlgraph_api
     def _graph_fn_calculate_update_from_external_batch(self, main_variables, *inputs):
@@ -190,6 +188,10 @@ class MultiGpuSynchronizer(Component):
                 sync_ops.append(sync_op)
 
             return tf.group(*sync_ops)
+
+    @graph_fn
+    def _graph_fn_group(self, *tower_ops):
+        return tf.group(*tower_ops)
 
     def _load_to_device(self, *device_inputs):
         """
