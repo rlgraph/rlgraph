@@ -77,9 +77,10 @@
         "flatten": true
     }
   ],
-    "value_function_spec":
+
+  "value_function_spec":
   [
-{
+    {
         "type": "conv2d",
         "filters": 32,
         "kernel_size": 8,
