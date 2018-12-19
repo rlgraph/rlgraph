@@ -31,6 +31,9 @@ from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.utils.specifiable import Specifiable
 
+if get_backend() == "tf":
+    import tensorflow as tf
+
 
 class Agent(Specifiable):
     """
@@ -194,25 +197,31 @@ class Agent(Specifiable):
         @rlgraph_api(component=self.root_component)
         def get_weights(root):
             policy = root.get_sub_component_by_name(agent.policy.scope)
-            weights = policy._variables()
+            policy_weights = policy._variables()
+            value_function_weights = None
             if agent.value_function is not None:
                 value_func = root.get_sub_component_by_name(agent.value_function.scope)
-                value_function_variables = value_func._variables()
-                weights = root._graph_fn_merge(weights, value_function_variables)
-            return weights
+                value_function_weights = value_func._variables()
+            return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
+
+        @rlgraph_api(component=self.root_component, must_be_complete=False)
+        def set_weights(root, policy_weights, value_function_weights=None):
+            policy = root.get_sub_component_by_name(agent.policy.scope)
+            policy_sync_op = policy.sync(policy_weights)
+            if value_function_weights is not None:
+                assert agent.value_function is not None
+                vf = root.get_sub_component_by_name(agent.value_function.scope)
+                vf_sync_op = vf.sync(value_function_weights)
+                return root._graph_fn_group(policy_sync_op, vf_sync_op)
+            else:
+                return policy_sync_op
 
         # TODO: Replace this with future on-the-fly-API-components.
         @graph_fn(component=self.root_component)
-        def _graph_fn_merge(root, *dicts):
-            ret = {}
-            for d in dicts:
-                ret.update(d)
-            return ret
-
-        @rlgraph_api(component=self.root_component, must_be_complete=False)
-        def set_weights(root, weights):
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            return policy.sync(weights, strict=False)
+        def _graph_fn_group(root, *ops):
+            if get_backend() == "tf":
+                return tf.group(*ops)
+            return ops[0]
 
         # To pre-process external data if needed.
         @rlgraph_api(component=self.root_component)
@@ -504,7 +513,7 @@ class Agent(Specifiable):
         Returns:
             any: Weights and optionally weight meta data for this model.
         """
-        return dict(self.graph_executor.execute("get_weights"))
+        return self.graph_executor.execute("get_weights")
 
     def set_weights(self, weights):
         """

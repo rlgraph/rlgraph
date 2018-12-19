@@ -43,7 +43,7 @@ class RandomAgent(Agent):
         pass
 
     # Override these with pass so we can use them when testing distributed strategies.
-    def set_weights(self, weights):
+    def set_weights(self, weights, value_function_weights=None):
         pass
 
     def get_weights(self):

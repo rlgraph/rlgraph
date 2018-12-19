@@ -196,26 +196,26 @@ class GraphExecutor(Specifiable):
         """
         pass
 
-    def get_weights(self):
-        """
-        Returns all weights for computation graph of  this graph executor.
+    #def get_weights(self):
+    #    """
+    #    Returns all weights for computation graph of this graph executor.
 
-        Returns:
-            any: Weights for this graph..
-        """
-        return self.execute("_variables")
+    #    Returns:
+    #        any: Weights for this graph..
+    #    """
+    #    return self.execute("_variables")
 
-    def set_weights(self, weights):
-        """
-        Sets weights of the underlying computation graph..
+    #def set_weights(self, weights):
+    #    """
+    #    Sets weights of the underlying computation graph..
 
-        Args:
-            weights (any): Weights and optionally meta data to update depending on the backend.
+    #    Args:
+    #        weights (any): Weights and optionally meta data to update depending on the backend.
 
-        Raises:
-            ValueError if weights do not match graph weights in shapes and types.
-        """
-        self.execute(("sync", weights))
+    #    Raises:
+    #        ValueError if weights do not match graph weights in shapes and types.
+    #    """
+    #    self.execute(("sync", weights))
 
     def terminate(self):
         """
