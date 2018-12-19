@@ -218,7 +218,8 @@ class Agent(Specifiable):
         if self.value_function is not None:
             @rlgraph_api(component=self.root_component)
             def get_state_values(root, states):
-                return agent.value_function.value_output(states)
+                vf = root.get_sub_component_by_name(agent.value_function.scope)
+                return vf.value_output(states)
 
         # Add API methods for syncing.
         @rlgraph_api(component=self.root_component)
