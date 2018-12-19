@@ -374,6 +374,7 @@ class SequenceHelper(Component):
             return tf.squeeze(deltas)
         elif get_backend() == "pytorch":
             deltas = []
+            discount_tensor = torch.tensor(discount)
             start_index = 0
             i = 0
             if len(values) > 1:
@@ -392,7 +393,7 @@ class SequenceHelper(Component):
                     adjusted_v = torch.tensor(baseline_slice)
 
                     # +1 because we want to include i-th value.
-                    delta = rewards[start_index:i + 1] + discount * adjusted_v[1:] - adjusted_v[:-1]
+                    delta = rewards[start_index:i + 1] + discount_tensor * adjusted_v[1:] - adjusted_v[:-1]
                     deltas.extend(delta)
                     start_index = i + 1
                 i += 1
