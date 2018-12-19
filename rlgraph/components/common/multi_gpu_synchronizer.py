@@ -17,14 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import re
 
 from rlgraph import get_backend
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.component import Component
 from rlgraph.spaces import Dict
-from rlgraph.utils.util import force_list
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import DataOpTuple
 
@@ -38,7 +36,7 @@ class MultiGpuSynchronizer(Component):
     Serves as a replacement pipeline for an Agent's `update_from_external_batch` method, which
     needs to be rerouted through this Component's `calculate_update_from_external_batch` method.
     """
-    def __init__(self, batch_size, scope="multi-gpu-sync-optimizer", **kwargs):
+    def __init__(self, batch_size, scope="multi-gpu-synchronizer", **kwargs):
         """
         Args:
             batch_size (int): The batch size that will need to be split between the different GPUs
@@ -89,8 +87,6 @@ class MultiGpuSynchronizer(Component):
     # TODO: Solve this problem via staging areas (one per GPU).
     # TODO: Stuff coming from the batch-splitter can then be staged/unstaged (previous batch shard).
     def create_variables(self, input_spaces, action_space=None):
-        super(MultiGpuSynchronizer, self).create_variables(input_spaces, action_space)
-
         # Get input space to load device fun.
         device_input_space = {}
         idx = 0
@@ -116,21 +112,22 @@ class MultiGpuSynchronizer(Component):
                 )
                 self.tower_placeholders.append(tuple(device_variable.values()))
 
+    # TODO: This is DQN-specific and should not be here.
     @rlgraph_api
     def sync_target_qnets(self):
         tower_ops = list()
         for i in range(self.num_gpus):
             op = self.towers[i].sync_target_qnet()
             tower_ops.append(op)
-        group_op = self._graph_fn_group(*tower_ops)
-        return group_op
+
+        return self._graph_fn_group(*tower_ops)
 
     @rlgraph_api
-    def _graph_fn_calculate_update_from_external_batch(self, main_variables, *inputs):
+    def _graph_fn_calculate_update_from_external_batch(self, variables, *inputs):
         """
 
         Args:
-            main_variables ():
+            variables ():
             *inputs ():
 
         Returns:
@@ -141,8 +138,8 @@ class MultiGpuSynchronizer(Component):
         #   and gets gradients from each sub-graph, then averages them.
         # - Apply averaged gradients to master component.
         # - Sync new weights to towers.
-        main_variables = force_list(main_variables)
-        num_var_sets = len(main_variables)
+        #main_variables = force_list(main_variables)
+        #num_var_sets = len(main_variables)
 
         # Split the incoming batch into its per-GPU shards.
         input_batches = self.batch_splitter.split_batch(*inputs)
@@ -161,10 +158,10 @@ class MultiGpuSynchronizer(Component):
                 shard_data_stopped = tuple([tf.stop_gradient(datum.read_value()) for datum in shard_data])
                 return_values_to_be_averaged = self.towers[i].update_from_external_batch(*shard_data_stopped)
 
-                grads_and_vars = return_values_to_be_averaged[0:num_var_sets]
-                loss = return_values_to_be_averaged[num_var_sets + 0]
-                loss_per_item = return_values_to_be_averaged[num_var_sets + 1]
-                rest = return_values_to_be_averaged[num_var_sets + 2:]
+                grads_and_vars = return_values_to_be_averaged[0]
+                loss = return_values_to_be_averaged[1]
+                loss_per_item = return_values_to_be_averaged[2]
+                rest = return_values_to_be_averaged[3:]
                 if all_rest is None:
                     all_rest = [list()] * len(rest)
 
@@ -175,9 +172,9 @@ class MultiGpuSynchronizer(Component):
                     all_rest[j].append(r)
 
         ret = []
-        for i in range(num_var_sets):
-            # Average over the gradients per variable.
-            ret.append(self._average_grads_and_vars(main_variables[i], np.asarray(all_grads_and_vars)[:, i]))
+        #for i in range(num_var_sets):
+        #    # Average over the gradients per variable.
+        ret.append(self._average_grads_and_vars(variables, all_grads_and_vars))
 
         # Simple average over all GPUs.
         ret.append(tf.reduce_mean(tf.stack(all_loss, axis=0)))
@@ -190,21 +187,24 @@ class MultiGpuSynchronizer(Component):
         # Return averaged gradients.
         return tuple(ret)
 
+    @graph_fn
+    def _graph_fn_group(self, *tower_ops):
+        group_op = None
+        if get_backend() == "tf":
+            group_op = tf.group(*tower_ops)
+        return group_op
+
     @rlgraph_api(must_be_complete=False)
-    def _graph_fn_sync_policy_weights_to_towers(self, optimizer_step_op, policy_variables):
+    def _graph_fn_sync_variables_to_towers(self, optimizer_step_op, variables):
         # Wait for the optimizer update, then sync all variables from the main (root) policy to each tower.
         with tf.control_dependencies([optimizer_step_op]):
             sync_ops = []
             for i, tower in enumerate(self.towers):
                 # Sync weights to shards
-                sync_op = self.towers[i].set_policy_weights(policy_variables)
+                sync_op = self.towers[i].set_policy_weights(variables)
                 sync_ops.append(sync_op)
 
             return tf.group(*sync_ops)
-
-    @graph_fn
-    def _graph_fn_group(self, *tower_ops):
-        return tf.group(*tower_ops)
 
     def _load_to_device(self, *device_inputs):
         """
