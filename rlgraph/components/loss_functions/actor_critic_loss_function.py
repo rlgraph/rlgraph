@@ -147,7 +147,7 @@ class ActorCriticLossFunction(LossFunction):
 
             # Ensure the very last entry is 1 for sequence indices so we don't connect different episodes fragments
             # when sampling sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
-            sequence_indices = torch.cat((sequence_indices[:-1], tf.ones_like(last_sequence)), 0)
+            sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(last_sequence)), 0)
 
             # # Let the gae-helper function calculate the pg-advantages.
             baseline_values = torch.squeeze(baseline_values, -1)
