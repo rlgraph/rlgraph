@@ -177,7 +177,7 @@ class RingBuffer(Memory):
             self.episode_indices[slice_start:slice_end] = mask
 
             # Update indices.
-            self.num_episodes = num_episode_update.int()
+            self.num_episodes = int(num_episode_update)
             self.index = (self.index + num_records) % self.capacity
             self.size = min(self.size + num_records, self.capacity)
 
@@ -230,7 +230,7 @@ class RingBuffer(Memory):
             return self._read_records(indices=indices)
         elif get_backend() == "pytorch":
             stored_episodes = self.num_episodes
-            available_episodes = torch.min(torch.tensor(num_episodes), self.num_episodes)
+            available_episodes = min(num_episodes, self.num_episodes)
 
             if stored_episodes == available_episodes:
                 start = 0

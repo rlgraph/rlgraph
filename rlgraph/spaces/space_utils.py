@@ -120,6 +120,8 @@ def get_space_from_op(op):
         # A single numpy array.
         elif isinstance(op, np.ndarray):
             return BoxSpace.from_spec(spec=dtype(str(op.dtype), "np"), shape=op.shape)
+        elif isinstance(op, list):
+            return try_space_inference_from_list(op)
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
         # PyTorch Tensors do not have get_shape so must check backend.
         elif hasattr(op, "dtype") is False or (get_backend() == "tf" and not hasattr(op, "get_shape")):
@@ -372,3 +374,35 @@ def check_space_equivalence(space1, space2):
     # TODO: time rank?
 
     return False
+
+
+def try_space_inference_from_list(list_op):
+    """
+    Attempts to infer shape space from a list op. A list op may be the result of fetching state from a Python
+    memory.
+
+    Args:
+        list_op (list): List with arbitrary sub-structure.
+
+    Returns:
+        Space: Inferred Space object represented by list.
+    """
+    if get_backend() == "pytorch":
+        batch_shape = len(list_op)
+        if batch_shape > 0:
+            # Try to infer more things by looking inside list.
+            elem = list_op[0]
+            if isinstance(elem, torch.Tensor):
+                list_type = elem.dtype
+                inner_shape = elem.shape
+                return BoxSpace.from_spec(spec=dtype(list_type, "np"), shape=(batch_shape,) + inner_shape,
+                                          add_batch_rank=True)
+            elif isinstance(elem, list):
+                inner_shape = len(elem)
+                return BoxSpace.from_spec(spec=dtype(float, "np"), shape=(batch_shape, inner_shape),
+                                          add_batch_rank=True)
+        else:
+            # Most general guess is a Float box.
+            return FloatBox(shape=(batch_shape,))
+    else:
+        raise ValueError("List inference should only be attempted on the Python backend.")
