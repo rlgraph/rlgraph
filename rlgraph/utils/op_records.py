@@ -30,8 +30,11 @@ class DataOpRecord(object):
     """
     A simple wrapper class for a DataOp carrying the op itself and some additional information about it.
     """
+    # The current ID value.
     _ID = -1
-    MAX_ID = 1e6  # The highest allowed ID.
+    # The highest allowed ID (can be changed to any higher value; used e.g. to compute sorting keys for
+    # build-prioritization).
+    MAX_ID = 1e6
 
     def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_=None):
         """

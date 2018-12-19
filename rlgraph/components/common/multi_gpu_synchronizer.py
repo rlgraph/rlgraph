@@ -24,7 +24,7 @@ from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.component import Component
 from rlgraph.spaces import Dict
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.ops import DataOpTuple, DataOpDict
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -127,36 +127,37 @@ class MultiGpuSynchronizer(Component):
         """
 
         Args:
-            variables ():
-            *inputs ():
+            variables (DataOpDict): Dict with each key representing one syncable Component (e.g. Policy) and values
+                being dicts of named variables.
+            *inputs (DataOp): Any sequence of DataOps to be passed into each towers' `update_from_external_batch`
+                API-method.
 
         Returns:
-
+            tuple:
+                - DataOpDict: Corresponding to `variables`, a dict of averaged grads_and_vars to be applied to the main
+                    root Component's policies/NNs.
+                - DataOp: Total loss averaged over all GPUs.
+                - DataOp: Loss per item for the original, unsplit batch.
+                - depends on algo: TODO: This is DQN specific atm and needs to be rethought.
         """
-        # - Init device memory, i.e. load batch to GPU memory.
-        # - Call gradient calculation on multi-gpu optimizer which splits batch
-        #   and gets gradients from each sub-graph, then averages them.
-        # - Apply averaged gradients to master component.
-        # - Sync new weights to towers.
-        #main_variables = force_list(main_variables)
-        #num_var_sets = len(main_variables)
-
         # Split the incoming batch into its per-GPU shards.
         input_batches = self.batch_splitter.split_batch(*inputs)
 
         # Load shards to the different devices.
         per_device_assign_ops, loaded_input_batches = self._load_to_device(*input_batches)
 
-        all_grads_and_vars = []
+        all_grads_and_vars = dict()
+        for key in variables.keys():
+            all_grads_and_vars[key] = []
         all_loss = []
         all_loss_per_item = []
         all_rest = None
 
         assert len(loaded_input_batches) == self.num_gpus
-        for i, shard_data in enumerate(loaded_input_batches):
-            with tf.control_dependencies([per_device_assign_ops[i]]):
+        for gpu, shard_data in enumerate(loaded_input_batches):
+            with tf.control_dependencies([per_device_assign_ops[gpu]]):
                 shard_data_stopped = tuple([tf.stop_gradient(datum.read_value()) for datum in shard_data])
-                return_values_to_be_averaged = self.towers[i].update_from_external_batch(*shard_data_stopped)
+                return_values_to_be_averaged = self.towers[gpu].update_from_external_batch(*shard_data_stopped)
 
                 grads_and_vars = return_values_to_be_averaged[0]
                 loss = return_values_to_be_averaged[1]
@@ -165,15 +166,14 @@ class MultiGpuSynchronizer(Component):
                 if all_rest is None:
                     all_rest = [list()] * len(rest)
 
-                all_grads_and_vars.append(grads_and_vars)
+                for key, value in grads_and_vars.items():
+                    all_grads_and_vars[key].append(value)
                 all_loss.append(loss)
                 all_loss_per_item.append(loss_per_item)
-                for j, r in enumerate(rest):
-                    all_rest[j].append(r)
+                for i, r in enumerate(rest):
+                    all_rest[i].append(r)
 
         ret = []
-        #for i in range(num_var_sets):
-        #    # Average over the gradients per variable.
         ret.append(self._average_grads_and_vars(variables, all_grads_and_vars))
 
         # Simple average over all GPUs.
@@ -233,37 +233,40 @@ class MultiGpuSynchronizer(Component):
         """
         Utility to average gradients (per var) across towers.
 
-        Note: ported from Ray RLLib to demonstrate the different modularization in RLGraph.
-
         Args:
-            grads_and_vars (list): List grads_and_vars lists.
+            main_variables (DataOpDict[Dict[str,DataOp]]): Dict of Dict of variables.
+            grads_and_vars_all_gpus (DataOpDict[??]]): Dict of grads_and_vars lists.
 
         Returns:
             list: List of grads_and_vars tuples averaged across GPUs.
         """
-        gpu_grad_averages = []
         if get_backend() == "tf":
-            for i, grads_and_vars in enumerate(zip(*grads_and_vars_all_gpus)):
-                gpu_grads = []
+            ret = dict()
+            for component_key in main_variables.keys():
+                gpu_grad_averages = []
+                for i, grads_and_vars in enumerate(zip(*grads_and_vars_all_gpus[component_key])):
+                    gpu_grads = []
 
-                for grad, var in grads_and_vars:
-                    if grad is not None:
-                        # Add batch dimension.
-                        batch_grad = tf.expand_dims(input=grad, axis=0)
+                    for grad, var in grads_and_vars:
+                        if grad is not None:
+                            # Add batch dimension.
+                            batch_grad = tf.expand_dims(input=grad, axis=0)
 
-                        # Add along axis for that gpu.
-                        gpu_grads.append(batch_grad)
+                            # Add along axis for that gpu.
+                            gpu_grads.append(batch_grad)
 
-                if not gpu_grads:
-                    continue
+                    if not gpu_grads:
+                        continue
 
-                aggregate_grads = tf.concat(axis=0, values=gpu_grads)
-                mean_grad = tf.reduce_mean(input_tensor=aggregate_grads, axis=0)
-                # Need the actual main policy vars, as these are the ones that should be updated.
-                # TODO: This is a hack and needs to be changed, but it works for now to look up main policy variables.
-                main_variable_key = re.sub(r'{}/tower-0/'.format(self.global_scope), "", grads_and_vars[0][1].op.name)
-                main_variable_key = re.sub(r'/', "-", main_variable_key)
-                var = main_variables[main_variable_key]
-                gpu_grad_averages.append((mean_grad, var))
+                    aggregate_grads = tf.concat(axis=0, values=gpu_grads)
+                    mean_grad = tf.reduce_mean(input_tensor=aggregate_grads, axis=0)
+                    # Need the actual main policy vars, as these are the ones that should be updated.
+                    # TODO: This is a hack and needs to be changed, but it works for now to look up main policy variables.
+                    main_variable_key = re.sub(r'{}/tower-0/'.format(self.global_scope), "", grads_and_vars[0][1].op.name)
+                    main_variable_key = re.sub(r'/', "-", main_variable_key)
+                    var = main_variables[component_key][main_variable_key]
+                    gpu_grad_averages.append((mean_grad, var))
 
-        return DataOpTuple(gpu_grad_averages)
+                ret[component_key] = DataOpTuple(gpu_grad_averages)
+
+            return DataOpDict(ret)
