@@ -35,6 +35,9 @@ script:
   # PPO: Cartpole.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_ppo_agent_short_task_learning.py::TestPPOShortTaskLearning::test_ppo_on_cart_pole';
 
+  # Test Agent functionalities.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_base_agent_functionality.py';
+
   # Test the core lib.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core/test_api_methods.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core/test_device_placements.py';
