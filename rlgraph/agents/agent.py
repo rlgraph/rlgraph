@@ -23,7 +23,8 @@ import logging
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer
+from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
+    ValueFunction
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
@@ -38,31 +39,45 @@ class Agent(Specifiable):
     """
     def __init__(self, state_space, action_space, discount=0.98,
                  preprocessing_spec=None, network_spec=None, internal_states_space=None,
-                 policy_spec=None,
-                 exploration_spec=None, execution_spec=None, optimizer_spec=None, observe_spec=None, update_spec=None,
+                 policy_spec=None, value_function_spec=None,
+                 exploration_spec=None, execution_spec=None, optimizer_spec=None, value_function_optimizer_spec=None,
+                 observe_spec=None, update_spec=None,
                  summary_spec=None, saver_spec=None, auto_build=True, name="agent"):
         """
         Args:
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
             action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
+
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
+
             discount (float): The discount factor (gamma).
+
             network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
                 object itself.
+
             internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
                 Space object for the Space(s) of the internal (RNN) states.
+
             policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
+            value_function_spec (list): Neural network specification for baseline.
+
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
+
+            value_function_optimizer_spec (dict): Optimizer config for value function otpimizer. If None, the optimizer
+                spec for the policy is used (same learning rate and optimizer type).
+
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
+
             auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
                 graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
                 components before building.
+
             name (str): Some name for this Agent object.
         """
         super(Agent, self).__init__()
@@ -113,8 +128,10 @@ class Agent(Specifiable):
         # Done by default.
         self.policy.add_components(Synchronizable(), expose_apis="sync")
 
-        # TODO: Need to push this to all Agents.
+        # Create non-shared baseline network.
         self.value_function = None
+        if value_function_spec is not None:
+            self.value_function = ValueFunction(network_spec=value_function_spec)
 
         self.internal_states_space = Space.from_spec(internal_states_space)
 
@@ -153,8 +170,16 @@ class Agent(Specifiable):
             # Save spec in case agent needs to create more optimizers e.g. for baseline.
             self.optimizer_spec = optimizer_spec
             self.optimizer = Optimizer.from_spec(optimizer_spec)
-            #get_optimizer_from_device_strategy(
-                #optimizer_spec, self.execution_spec.get("device_strategy", 'default')
+
+        self.value_function_optimizer = None
+        if self.value_function is not None:
+            if value_function_optimizer_spec is None:
+                vf_optimizer_spec = self.optimizer_spec
+            else:
+                vf_optimizer_spec = value_function_optimizer_spec
+            vf_optimizer_spec["scope"] = "value-function-optimizer"
+            self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
+
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
 
@@ -189,6 +214,11 @@ class Agent(Specifiable):
         Each agent implements this to build its algorithm logic.
         """
         agent = self
+
+        if self.value_function is not None:
+            @rlgraph_api(component=self.root_component)
+            def get_state_values(root, states):
+                return root.value_function.value_output(states)
 
         # Add API methods for syncing.
         @rlgraph_api(component=self.root_component)
