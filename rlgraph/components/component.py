@@ -832,10 +832,10 @@ class Component(Specifiable):
                     must_be_complete = api_method_rec.must_be_complete
 
                     @rlgraph_api(component=self, name=api_method_name, must_be_complete=must_be_complete)
-                    def exposed_api_method_wrapper(self, *inputs):
+                    def exposed_api_method_wrapper(self, *inputs, **kwargs):
                         # Complicated way to lookup sub-component's method to avoid fixtures when original
                         # component gets copied.
-                        return getattr(self.sub_components[component_name], name_)(*inputs)
+                        return getattr(self.sub_components[component_name], name_)(*inputs, **kwargs)
 
         # Add own reusable scope to front of all sub-components' reusable scope.
         if self.reuse_variable_scope is not None:

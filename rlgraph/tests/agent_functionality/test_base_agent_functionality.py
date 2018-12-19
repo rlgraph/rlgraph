@@ -19,35 +19,36 @@ from __future__ import print_function
 
 import logging
 import unittest
+
 from rlgraph.agents import Agent
-import rlgraph.spaces as spaces
-from rlgraph.environments import RandomEnv
-from rlgraph.tests import recursive_assert_almost_equal
-from rlgraph.tests.test_util import config_from_path
+from rlgraph.environments import GridWorld
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.utils import root_logger
 
 
-class TestApexAgentFunctionality(unittest.TestCase):
+class TestBaseAgentFunctionality(unittest.TestCase):
     """
-    Tests Ape-X specific functionality.
+    Tests the base Agent's functionality.
     """
-    root_logger.setLevel(level=logging.INFO)
+    root_logger.setLevel(level=logging.DEBUG)
 
-    def test_apex_weight_syncing(self):
-        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
-
+    def test_weights_getting_setting(self):
+        """
+        Tests getting and setting of the Agent's weights.
+        """
+        env = GridWorld(world="2x2")
         agent = Agent.from_spec(
-            config_from_path("configs/apex_agent_for_random_env.json"),
+            config_from_path("configs/dqn_agent_for_functionality_test.json"),
             state_space=env.state_space,
             action_space=env.action_space
         )
 
         weights = agent.get_weights()
-        print('weights: {}'.format(weights))
+        new_weights = {}
+        for key, weight in weights.items():
+            new_weights[key] = weight + 0.01
 
-        for variable, value in weights.items():
-            value += 0.01
-        agent.set_weights(weights)
+        agent.set_weights(new_weights)
+        new_actual_weights = agent.get_weights()
 
-        new_weights = agent.get_weights()
-        recursive_assert_almost_equal(weights, new_weights)
+        recursive_assert_almost_equal(new_actual_weights, new_weights)

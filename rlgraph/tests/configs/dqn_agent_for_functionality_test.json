@@ -12,7 +12,8 @@
   [
     {
       "type": "reshape",
-      "flatten": true
+      "flatten": true,
+      "flatten_categories": 4
     }
   ],
 
@@ -28,11 +29,12 @@
     }
   ],
 
-  "action_adapter_spec":
-  {
-    "activation": "linear",
-    "weights_spec": 0.8,
-    "biases_spec": false
+  "policy_spec": {
+    "action_adapter_spec": {
+      "activation": "linear",
+      "weights_spec": 0.8,
+      "biases_spec": false
+    }
   },
 
   "exploration_spec":
