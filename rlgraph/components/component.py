@@ -708,7 +708,7 @@ class Component(Specifiable):
                     if get_ref:
                         variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
                     else:
-                        variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name].get_value()
+                        variables[re.sub(r'/', custom_scope_separator, name)] = self.read_variable(self.variables[name])
                 elif global_scope_name in self.variables:
                     if global_scope:
                         if get_ref:
@@ -716,12 +716,12 @@ class Component(Specifiable):
                                 self.variables[global_scope_name]
                         else:
                             variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = \
-                                self.variables[global_scope_name].get_value()
+                                self.read_variable(self.variables[global_scope_name])
                     else:
                         if get_ref:
                             variables[name] = self.variables[global_scope_name]
                         else:
-                            variables[name] = self.variables[global_scope_name].get_value()
+                            variables[name] = self.read_variable(self.variables[global_scope_name])
         return variables
 
     def create_summary(self, name, values, type_="histogram"):
@@ -840,10 +840,10 @@ class Component(Specifiable):
                     must_be_complete = api_method_rec.must_be_complete
 
                     @rlgraph_api(component=self, name=api_method_name, must_be_complete=must_be_complete)
-                    def exposed_api_method_wrapper(self, *inputs):
+                    def exposed_api_method_wrapper(self, *inputs, **kwargs):
                         # Complicated way to lookup sub-component's method to avoid fixtures when original
                         # component gets copied.
-                        return getattr(self.sub_components[component_name], name_)(*inputs)
+                        return getattr(self.sub_components[component_name], name_)(*inputs, **kwargs)
 
         # Add own reusable scope to front of all sub-components' reusable scope.
         if self.reuse_variable_scope is not None:
@@ -949,7 +949,7 @@ class Component(Specifiable):
         Returns:
             List[Component]: A list (may be empty if this component has no parents) of all parent and grand-parents.
         """
-        ret = list()
+        ret = []
         component = self
         while component.parent_component is not None:
             ret.append(component.parent_component)
@@ -1159,21 +1159,24 @@ class Component(Specifiable):
             # Lists or numpy arrays may be used to store mutable state that does not need
             # tensor operations.
             elif isinstance(variable, list) or isinstance(variable, np.ndarray):
-                ret = []
-                for i in indices:
-                    val = variable[i]
-                    # Type checking is necessary because torch.stack only works on same types.
-                    if isinstance(val, torch.Tensor):
-                        if dtype is None:
-                            ret.append(val)
-                        elif dtype == torch.float32:
-                            ret.append(val.float())
-                        elif dtype == torch.int32:
-                            ret.append(val.int())
-                        elif dtype == torch.uint8:
-                            ret.append(val.byte())
-                # Stack list into one Tensor with a btach dim.
-                return torch.stack(ret)
+                if indices is not None:
+                    ret = []
+                    for i in indices:
+                        val = variable[i]
+                        # Type checking is necessary because torch.stack only works on same types.
+                        if isinstance(val, torch.Tensor):
+                            if dtype is None:
+                                ret.append(val)
+                            elif dtype == torch.float32:
+                                ret.append(val.float())
+                            elif dtype == torch.int32:
+                                ret.append(val.int())
+                            elif dtype == torch.uint8:
+                                ret.append(val.byte())
+                    # Stack list into one Tensor with a btach dim.
+                    return torch.stack(ret)
+                else:
+                    return variable
 
     def sub_component_by_name(self, scope_name):
         """

@@ -27,7 +27,7 @@ from rlgraph.components import Component, Exploration, PreprocessorStack, Synchr
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.utils.specifiable import Specifiable
 
@@ -85,7 +85,7 @@ class Agent(Specifiable):
         self.root_component = Component(name=self.name, nesting_level=0)
 
         # Define the input-Spaces:
-        # Tag the input-Space to `self.set_policy_weights` as equal to whatever the variables-Space will be for
+        # Tag the input-Space to `self.set_weights` as equal to whatever the variables-Space will be for
         # the Agent's policy Component.
         self.input_spaces = dict(
             states=self.state_space.with_batch_rank(),
@@ -112,6 +112,9 @@ class Agent(Specifiable):
         self.policy = Policy.from_spec(self.policy_spec)
         # Done by default.
         self.policy.add_components(Synchronizable(), expose_apis="sync")
+
+        # TODO: Need to push this to all Agents.
+        self.value_function = None
 
         self.internal_states_space = Space.from_spec(internal_states_space)
 
@@ -187,16 +190,29 @@ class Agent(Specifiable):
         """
         agent = self
 
-        # Add api methods for syncing.
+        # Add API methods for syncing.
         @rlgraph_api(component=self.root_component)
-        def get_policy_weights(root):
+        def get_weights(root):
             policy = root.get_sub_component_by_name(agent.policy.scope)
-            return policy._variables()
+            weights = policy._variables()
+            if agent.value_function is not None:
+                value_func = root.get_sub_component_by_name(agent.value_function.scope)
+                value_function_variables = value_func._variables()
+                weights = root._graph_fn_merge(weights, value_function_variables)
+            return weights
+
+        # TODO: Replace this with future on-the-fly-API-components.
+        @graph_fn(component=self.root_component)
+        def _graph_fn_merge(root, *dicts):
+            ret = {}
+            for d in dicts:
+                ret.update(d)
+            return ret
 
         @rlgraph_api(component=self.root_component, must_be_complete=False)
-        def set_policy_weights(root, weights):
+        def set_weights(root, weights):
             policy = root.get_sub_component_by_name(agent.policy.scope)
-            return policy.sync(weights)
+            return policy.sync(weights, strict=False)
 
         # To pre-process external data if needed.
         @rlgraph_api(component=self.root_component)
@@ -481,16 +497,16 @@ class Agent(Specifiable):
         """
         self.graph_executor.load_model(checkpoint_directory=checkpoint_directory, checkpoint_path=checkpoint_path)
 
-    def get_policy_weights(self):
+    def get_weights(self):
         """
         Returns all weights relevant for the agent's policy for syncing purposes.
 
         Returns:
             any: Weights and optionally weight meta data for this model.
         """
-        return dict(self.graph_executor.execute("get_policy_weights"))
+        return dict(self.graph_executor.execute("get_weights"))
 
-    def set_policy_weights(self, weights):
+    def set_weights(self, weights):
         """
         Sets policy weights of this agent, e.g. for external syncing purposes.
 
@@ -500,5 +516,5 @@ class Agent(Specifiable):
         Raises:
             ValueError if weights do not match graph weights in shapes and types.
         """
-        return self.graph_executor.execute(("set_policy_weights", weights))
+        return self.graph_executor.execute(("set_weights", weights))
 

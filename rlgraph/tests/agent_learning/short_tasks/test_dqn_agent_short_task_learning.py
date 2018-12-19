@@ -155,7 +155,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             store_last_q_table=True
         )
 
-        time_steps = 40000
+        time_steps = 5000
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld.from_spec(env_spec),
             agent=agent,
@@ -191,7 +191,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state, q_values_forward, q_values_jump = tuple(state), tuple(q_values_forward), tuple(q_values_jump)
             assert state in expected_q_values_per_state, \
                 "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
-            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
+            recursive_assert_almost_equal(q_values_forward, expected_q_values_per_state[state]["forward"], decimals=0)
+            recursive_assert_almost_equal(q_values_jump, expected_q_values_per_state[state]["jump"], decimals=0)
 
     def test_double_dqn_on_4x4_grid_world(self):
         """

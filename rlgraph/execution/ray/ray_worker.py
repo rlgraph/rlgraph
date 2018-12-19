@@ -416,8 +416,8 @@ class RayWorker(RayActor):
         sample = self.execute_and_get_timesteps(num_timesteps=self.worker_sample_size)
         return sample, sample.batch_size
 
-    def set_policy_weights(self, weights):
-        self.agent.set_policy_weights(weights)
+    def set_weights(self, weights):
+        self.agent.set_weights(weights)
 
     def get_workload_statistics(self):
         """

@@ -137,10 +137,13 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     param_name = api_method_rec.input_names[slot]
 
                 # Var-positional arg, attach the actual position to input_name string.
-                if self.api_method_inputs[param_name] == "*flex":
+                if self.api_method_inputs.get(param_name, "") == "*flex":
                     if flex is None:
                         flex = i
                     param_name += "[{}]".format(i - flex)
+                # Actual kwarg (not in list of api_method_inputs).
+                elif api_method_rec.kwargs_name is not None and param_name not in self.api_method_inputs:
+                    param_name = api_method_rec.kwargs_name + "[{}]".format(param_name)
 
                 # We are already in building phase (params may be coming from inside graph_fn).
                 if self.graph_builder is not None and self.graph_builder.phase == "building":

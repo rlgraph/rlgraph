@@ -314,12 +314,18 @@ class TestDQNLossFunctions(unittest.TestCase):
             a=2.06667 - 1.0=1.06667
             ba=2.06667 - 0.0= 2.06667
             bb=2.06667 - -2.0=4.06667
+            
+            Huberloss/square before aggregation:
             SUM=0.5(1.06667)^2 + 0.5(2.06667)^2 + 0.5(4.06667)^2 = 10.973357
             10.973357/3 = 3.657786
+
+            Huber loss/square after aggregation: 
+            SUM=0.5 * ((1.06667 + 2.06667 + 4.06667)/3) ^ 2
+               =2.88
         """
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
-        expected_loss_per_item = np.array([3.657786], dtype=np.float32)
+        expected_loss_per_item = np.array([2.8800], dtype=np.float32)
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item, decimals=4)
         # Just expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()
@@ -380,15 +386,24 @@ class TestDQNLossFunctions(unittest.TestCase):
             a=[1.726-1.0, -1.0-4.0]=[0.726, -5.0]
             ba=[1.726-0.0, -1.0+0.3]=[1.726, -0.7]
             bb=[1.726+2.0, -1.0-0.5]=[3.726, -1.5]
+            
+            Huberloss/square before aggregation:
             SUM=[
                 0.5(0.726)^2 + 0.5(1.726)^2 + 0.5(3.726)^2,
                 0.5(-5.0)^2 + 0.5(-0.7)^2 + 0.5(-1.5)^2
                 ] = [8.694614, 13.87]
             /3 = [2.89820467, 4.62333]
+            
+            Huberloss/square after aggregation:
+             =[
+                0.5 * ((0.726 + 1.726 + 3.726) / 3)^2,
+                0.5 * ((-5.0 + -0.7 + -1.5) / 3)^2
+                ] = [2.1204 2.88]
+            
         """
 
         # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
-        expected_loss_per_item = np.array([2.89820467, 4.62333], dtype=np.float32)
+        expected_loss_per_item = np.array([2.1204, 2.88], dtype=np.float32)
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item, decimals=4, print=True)
         # Just expect the mean over the batch.
         expected_loss = expected_loss_per_item.mean()

@@ -119,8 +119,8 @@ class MultiGpuSynchronizer(Component):
         for i in range(self.num_gpus):
             op = self.towers[i].sync_target_qnet()
             tower_ops.append(op)
-
-        return self._graph_fn_group(*tower_ops)
+        group_op = self._graph_fn_group(*tower_ops)
+        return group_op
 
     @rlgraph_api
     def _graph_fn_calculate_update_from_external_batch(self, variables, *inputs):
@@ -189,10 +189,8 @@ class MultiGpuSynchronizer(Component):
 
     @graph_fn
     def _graph_fn_group(self, *tower_ops):
-        group_op = None
         if get_backend() == "tf":
-            group_op = tf.group(*tower_ops)
-        return group_op
+            return tf.group(*tower_ops)
 
     @rlgraph_api(must_be_complete=False)
     def _graph_fn_sync_variables_to_towers(self, optimizer_step_op, variables):
@@ -201,7 +199,7 @@ class MultiGpuSynchronizer(Component):
             sync_ops = []
             for i, tower in enumerate(self.towers):
                 # Sync weights to shards
-                sync_op = self.towers[i].set_policy_weights(variables)
+                sync_op = self.towers[i].set_weights(variables)
                 sync_ops.append(sync_op)
 
             return tf.group(*sync_ops)

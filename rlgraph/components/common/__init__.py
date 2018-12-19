@@ -25,7 +25,6 @@ from rlgraph.components.common.decay_components import DecayComponent, LinearDec
     ConstantDecay
 from rlgraph.components.common.noise_components import NoiseComponent, ConstantNoise, GaussianNoise, \
     OrnsteinUhlenbeckNoise
-from rlgraph.components.common.fixed_loop import FixedLoop
 from rlgraph.components.common.sampler import Sampler
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
@@ -55,5 +54,5 @@ __all__ = ["BatchApply", "ContainerSplitter", "DictMerger",
            "Synchronizable", "RepeaterStack", "Slice",
            "DecayComponent", "ConstantDecay", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
-           "FixedLoop", "Sampler", "BatchSplitter", "MultiGpuSynchronizer"]
+            "Sampler", "BatchSplitter", "MultiGpuSynchronizer"]
 
