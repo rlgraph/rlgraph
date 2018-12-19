@@ -180,15 +180,15 @@ class TestRayWorker(unittest.TestCase):
         worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec,  auto_build=True)
 
         # This imitates the initial executor sync without ray.put
-        weights = local_agent.get_policy_weights()
+        weights = local_agent.get_weights()
         print('Weight type in init sync = {}'.format(type(weights)))
-        worker.set_policy_weights.remote(weights)
+        worker.set_weights.remote(weights)
         print('Init weight sync successful.')
 
         # Replicate worker syncing steps as done in e.g. Ape-X executor:
-        weights = ray.put(local_agent.get_policy_weights())
+        weights = ray.put(local_agent.get_weights())
         print('Weight type returned by ray put = {}'.format(type(weights)))
         print(weights)
-        worker.set_policy_weights.remote(weights)
+        worker.set_weights.remote(weights)
         print('Object store weight sync successful.')
 
