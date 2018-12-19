@@ -82,7 +82,7 @@ class Synchronizable(Component):
         return False
 
     @rlgraph_api(must_be_complete=False, returns=1)
-    def _graph_fn_sync(self, values_):
+    def _graph_fn_sync(self, values_, strict=True):
         """
         Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable
         Component.
@@ -91,6 +91,9 @@ class Synchronizable(Component):
             values_ (DataOpDict): The dict of variable values (coming from the "_variables"-Socket of any other
                 Component) that need to be assigned to this Component's parent's variables.
                 The keys in the dict refer to the names of our parent's variables and must match their names.
+
+            strict (bool): Whether to check strictly if the given `values_` match the variables of the to-be-synced
+                Component (in the number of vars).
 
         Returns:
             DataOp: The op that executes the syncing.
@@ -101,7 +104,7 @@ class Synchronizable(Component):
         if get_backend() == "tf":
             parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
             syncs_from, syncs_to = (sorted(values_.items()), sorted(parents_vars.items()))
-            if len(syncs_from) != len(syncs_to):
+            if strict is True and len(syncs_from) != len(syncs_to):
                 raise RLGraphError("ERROR: Number of Variables to sync must match! "
                                    "We have {} syncs_from and {} syncs_to.".format(len(syncs_from), len(syncs_to)))
             for (key_from, var_from), (key_to, var_to) in zip(syncs_from, syncs_to):
