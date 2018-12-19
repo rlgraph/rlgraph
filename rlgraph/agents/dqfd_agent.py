@@ -191,8 +191,8 @@ class DQFDAgent(Agent):
         def sync_target_qnet(root):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-sync-optimizer" in root.sub_components:
-                multi_gpu_syncer = root.sub_components["multi-gpu-sync-optimizer"]
+            if "multi-gpu-synchronizer" in root.sub_components:
+                multi_gpu_syncer = root.sub_components["multi-gpu-synchronizer"]
                 return multi_gpu_syncer.sync_target_qnets()
             # We could be the main root or a multi-GPU tower.
             else:
@@ -237,16 +237,16 @@ class DQFDAgent(Agent):
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-sync-optimizer" in root.sub_components:
+            if "multi-gpu-synchronizer" in root.sub_components:
                 main_policy_vars = agent.policy._variables()
                 # TODO: This may be called differently in other agents (replace by root-policy).
                 grads_and_vars, loss, loss_per_item, q_values_s = \
-                    root.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch(
+                    root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                         main_policy_vars, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
                         importance_weights, apply_demo_loss
                     )
                 step_op = agent.optimizer.apply_gradients(grads_and_vars)
-                step_and_sync_op = root.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
+                step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
                     step_op, main_policy_vars
                 )
                 return step_and_sync_op, loss, loss_per_item, q_values_s

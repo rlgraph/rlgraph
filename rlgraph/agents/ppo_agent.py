@@ -24,7 +24,7 @@ from rlgraph.agents import Agent
 from rlgraph.components import DictMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction, ValueFunction,\
     Optimizer
 from rlgraph.spaces import BoolBox, FloatBox
-from rlgraph.utils.util import strip_list
+from rlgraph.utils.util import strip_list, default_dict
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
@@ -190,7 +190,7 @@ class PPOAgent(Agent):
             """
             Calls iterative optimization by repeatedly sub-sampling.
             """
-            multi_gpu_sync_optimizer = root.sub_components.get("multi-gpu-sync-optimizer")
+            multi_gpu_sync_optimizer = root.sub_components.get("multi-gpu-synchronizer")
 
             # Return values.
             loss, loss_per_item, vf_loss, vf_loss_per_item = None, None, None, None
@@ -223,14 +223,14 @@ class PPOAgent(Agent):
                     if multi_gpu_sync_optimizer is not None:
                         main_policy_vars = agent.policy._variables()
                         main_vf_vars = agent.value_function._variables()
+                        main_vars = main_policy_vars.update(main_vf_vars)
                         grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                             multi_gpu_sync_optimizer.calculate_update_from_external_batch(
-                                main_policy_vars, main_vf_vars,
-                                sample_states, sample_actions, sample_rewards, sample_terminals
+                                main_vars, sample_states, sample_actions, sample_rewards, sample_terminals
                             )
                         step_op = agent.optimizer.apply_gradients(grads_and_vars)
-                        step_and_sync_op = multi_gpu_sync_optimizer.sync_policy_weights_to_towers(
-                            step_op, [main_policy_vars, main_vf_vars]
+                        step_and_sync_op = multi_gpu_sync_optimizer.sync_variables_to_towers(
+                            step_op, main_vars
                         )
                         return step_and_sync_op, loss, loss_per_item, vf_loss, vf_loss_per_item
 

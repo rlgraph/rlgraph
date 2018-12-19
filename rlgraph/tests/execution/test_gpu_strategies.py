@@ -108,7 +108,7 @@ class TestGpuStrategies(unittest.TestCase):
             action_space=dummy_env.action_space,
         )
 
-        time_steps = 400
+        time_steps = 1000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
@@ -124,7 +124,7 @@ class TestGpuStrategies(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -4.5)
         self.assertGreaterEqual(results["max_episode_reward"], 0.0)
-        self.assertLessEqual(results["episodes_executed"], 250)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 2)
 
         # Check q-table for correct values.
         expected_q_values_per_state = {
@@ -168,7 +168,7 @@ class TestGpuStrategies(unittest.TestCase):
             action_space=dummy_env.action_space,
         )
 
-        time_steps = 400
+        time_steps = 1000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
