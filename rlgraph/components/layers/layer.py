@@ -25,8 +25,8 @@ class Layer(Component):
     """
     A Layer is a simple Component that implements the `apply` method with n inputs and m return values.
     """
-    def __init__(self, **kwargs):
-        super(Layer, self).__init__(scope=kwargs.pop("scope", "layer"), **kwargs)
+    def __init__(self, scope="layer", **kwargs):
+        super(Layer, self).__init__(scope=scope, **kwargs)
 
     def get_preprocessed_space(self, space):
         """

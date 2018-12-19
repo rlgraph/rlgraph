@@ -41,24 +41,23 @@ class PPOAgent(Agent):
 
     Paper: https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, value_function_spec, value_function_optimizer_spec=None,
-                 clip_ratio=0.2, gae_lambda=1.0, standardize_advantages=False,
+    def __init__(self, clip_ratio=0.2, gae_lambda=1.0, standardize_advantages=False,
                  sample_episodes=True, weight_entropy=None, memory_spec=None, **kwargs):
         """
         Args:
-            value_function_spec (list): Neural network specification for baseline.
-            value_function_optimizer_spec (dict): Optimizer config for value function otpimizer. If None, the optimizer
-                spec for the policy is used (same learning rate and optimizer type).
             clip_ratio (float): Clipping parameter for likelihood ratio.
             gae_lambda (float): Lambda for generalized advantage estimation.
             standardize_advantages (bool): If true, standardize advantage values in update.
+
             sample_episodes (bool): If true, the update method interprets the batch_size as the number of
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
                 example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
+
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
+
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
-            a ring-buffer.
+                a ring-buffer.
         """
         super(PPOAgent, self).__init__(
             policy_spec=dict(deterministic=False),  # Set policy to stochastic.
@@ -97,19 +96,6 @@ class PPOAgent(Agent):
         self.loss_function = PPOLossFunction(discount=self.discount, gae_lambda=gae_lambda, clip_ratio=clip_ratio,
                                              standardize_advantages=standardize_advantages,
                                              weight_entropy=weight_entropy)
-
-        # TODO make network sharing optional.
-        # Create non-shared baseline network.
-        self.value_function = ValueFunction(network_spec=value_function_spec)
-
-        # Cannot use the default scope for another optimizer again.
-        if value_function_optimizer_spec is None:
-            vf_optimizer_spec = self.optimizer_spec
-        else:
-            vf_optimizer_spec = value_function_optimizer_spec
-
-        vf_optimizer_spec["scope"] = "value-function-optimizer"
-        self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
 
         self.iterations = self.update_spec["num_iterations"]
         self.sample_size = self.update_spec["sample_size"]
