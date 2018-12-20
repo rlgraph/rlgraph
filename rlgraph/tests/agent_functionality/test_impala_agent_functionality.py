@@ -23,11 +23,9 @@ import time
 import unittest
 
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
-from rlgraph.components.policies.policy import Policy
 from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.neural_networks.impala.impala_networks import LargeIMPALANetwork
-from rlgraph.components.explorations import Exploration
 from rlgraph.environments import Environment
 from rlgraph.spaces import *
 from rlgraph.utils.ops import DataOpTuple
@@ -179,6 +177,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         )
 
     def test_environment_stepper_component_with_large_impala_architecture(self):
+        worker_sample_size = 100
         env_spec = dict(
             type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
             frameskip=4
@@ -191,19 +190,13 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             dict(
                 type="dict-preprocessor-stack",
                 preprocessors=dict(
-                    ## The images from the env  are divided by 255.
-                    #RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
                     # The prev. action/reward from the env must be flattened/bumped-up-to-(1,).
                     previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)],
                     previous_reward=[dict(type="reshape", new_shape=(1,)), dict(type="convert_type", to_dtype="float32")],
                 )
             ),
-            # Policy spec.
-            dict(network_spec=LargeIMPALANetwork(), action_space=action_space),
-            # Exploration spec.
-            Exploration(epsilon_spec=dict(decay_spec=dict(
-                type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
-            ))
+            # Policy spec. worker_sample_size=1 as its an actor network.
+            dict(network_spec=LargeIMPALANetwork(worker_sample_size=1), action_space=action_space)
         )
         environment_stepper = EnvironmentStepper(
             environment_spec=env_spec,
@@ -211,7 +204,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             state_space=state_space,
             reward_space="float32",
             internal_states_space=self.internal_states_space,
-            num_steps=100,
+            num_steps=worker_sample_size,
             # Add both prev-action and -reward into the state sent through the network.
             add_previous_action_to_state=True,
             add_previous_reward_to_state=True,
@@ -223,8 +216,6 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             component=environment_stepper,
             action_space=action_space,
         )
-        # Reset the stepper.
-        #test.test("reset")
 
         # Step n times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
@@ -242,88 +233,30 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         self.assertTrue(isinstance(out, DataOpTuple))  # the step results as a tuple (see below)
 
         # Check types of single data.
-        self.assertTrue(out[0]["INSTR"].dtype == np.object)
-        self.assertTrue(out[0]["RGB_INTERLEAVED"].dtype == np.float32)
-        self.assertTrue(out[0]["RGB_INTERLEAVED"].min() >= 0.0)  # make sure we have pixels / 255
-        self.assertTrue(out[0]["RGB_INTERLEAVED"].max() <= 1.0)
-        self.assertTrue(out[1].dtype == np.int32)  # actions
-        self.assertTrue(out[2].dtype == np.float32)  # rewards
-        self.assertTrue(out[3].dtype == np.float32)  # episode return
-        self.assertTrue(out[4].dtype == np.bool_)  # next-state is terminal?
-        self.assertTrue(out[5]["INSTR"].dtype == np.object)  # next state (raw, not preprocessed)
-        self.assertTrue(out[5]["RGB_INTERLEAVED"].dtype == np.uint8)  # next state (raw, not preprocessed)
-        self.assertTrue(out[5]["RGB_INTERLEAVED"].min() >= 0)  # make sure we have pixels
-        self.assertTrue(out[5]["RGB_INTERLEAVED"].max() <= 255)
+        self.assertTrue(out[0].dtype == np.bool_)  # next-state is terminal?
+        self.assertTrue(out[1]["INSTR"].dtype == np.object)
+        self.assertTrue(out[1]["RGB_INTERLEAVED"].dtype == np.uint8)
+        self.assertTrue(out[1]["RGB_INTERLEAVED"].shape == (worker_sample_size + 1,) + state_space["RGB_INTERLEAVED"].shape)
+        self.assertTrue(out[1]["RGB_INTERLEAVED"].min() >= 0)  # make sure we have pixels
+        self.assertTrue(out[1]["RGB_INTERLEAVED"].max() <= 255)
+        self.assertTrue(out[1]["previous_action"].dtype == np.int32)  # actions
+        self.assertTrue(out[1]["previous_action"].shape == (worker_sample_size + 1,))
+        self.assertTrue(out[1]["previous_reward"].dtype == np.float32)  # rewards
+        self.assertTrue(out[1]["previous_reward"].shape == (worker_sample_size + 1,))
         # action probs (test whether sum to one).
-        self.assertTrue(out[6].dtype == np.float32)
-        self.assertTrue(out[6].min() >= 0.0)
-        self.assertTrue(out[6].max() <= 1.0)
-        recursive_assert_almost_equal(out[6].sum(axis=-1, keepdims=False),
-                                      np.ones(shape=(environment_stepper.num_steps,)), decimals=4)
+        self.assertTrue(out[2].dtype == np.float32)
+        self.assertTrue(out[2].shape == (100, action_space.num_categories))
+        self.assertTrue(out[2].min() >= 0.0)
+        self.assertTrue(out[2].max() <= 1.0)
+        recursive_assert_almost_equal(out[2].sum(axis=-1, keepdims=False),
+                                      np.ones(shape=(worker_sample_size,)), decimals=4)
         # internal states (c- and h-state)
-        self.assertTrue(out[7][0].dtype == np.float32)
-        self.assertTrue(out[7][1].dtype == np.float32)
-        self.assertTrue(out[7][0].shape == (environment_stepper.num_steps, 256))
-        self.assertTrue(out[7][1].shape == (environment_stepper.num_steps, 256))
-
-        # Check whether episode returns match single rewards (including terminal signals).
-        episode_returns = 0.0
-        for i in range(environment_stepper.num_steps):
-            episode_returns += out[2][i]
-            self.assertAlmostEqual(episode_returns, out[3][i])
-            # Terminal: Reset for next step.
-            if out[4][i] is np.bool_(True):
-                episode_returns = 0.0
+        self.assertTrue(out[3][0].dtype == np.float32)
+        self.assertTrue(out[3][0].shape == (worker_sample_size + 1, 256))
+        self.assertTrue(out[3][1].dtype == np.float32)
+        self.assertTrue(out[3][1].shape == (worker_sample_size + 1, 256))
 
         test.terminate()
-
-    def test_to_find_out_what_breaks_specifiable_server_start_via_thread_pools(self):
-        env_spec = dict(
-            type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
-            frameskip=4
-        )
-        dummy_env = Environment.from_spec(env_spec)
-        state_space = dummy_env.state_space
-        action_space = dummy_env.action_space
-        actor_component = ActorComponent(
-            # Preprocessor spec (only for image and prev-action channel).
-            dict(
-                type="dict-preprocessor-stack",
-                preprocessors=dict(
-                    # The images from the env  are divided by 255.
-                    RGB_INTERLEAVED=[dict(type="divide", divisor=255)],
-                    # The prev. action/reward from the env must be flattened/bumped-up-to-(1,).
-                    previous_action=[dict(type="reshape", flatten=True, flatten_categories=action_space.num_categories)],
-                    previous_reward=[dict(type="reshape", new_shape=(1,)), dict(type="convert_type", to_dtype="float32")],
-                )
-            ),
-            # Policy spec.
-            dict(network_spec=LargeIMPALANetwork(), action_space=action_space),
-            # Exploration spec.
-            Exploration(epsilon_spec=dict(decay_spec=dict(
-                type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
-            ))
-        )
-        environment_stepper = EnvironmentStepper(
-            environment_spec=env_spec,
-            actor_component_spec=actor_component,
-            state_space=state_space,
-            reward_space="float32",
-            internal_states_space=self.internal_states_space,
-            num_steps=100,
-            # Add both prev-action and -reward into the state sent through the network.
-            add_previous_action_to_state=True,
-            add_previous_reward_to_state=True,
-            add_action_probs=True,
-            action_probs_space=self.action_probs_space
-        )
-
-        test = ComponentTest(
-            component=environment_stepper,
-            action_space=action_space,
-        )
-        # Reset the stepper.
-        test.test("reset")
 
     #def test_isolated_impala_learner_agent_functionality(self):
     #    """
