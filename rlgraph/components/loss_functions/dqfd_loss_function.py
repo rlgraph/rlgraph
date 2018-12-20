@@ -60,11 +60,11 @@ class DQFDLossFunction(DQNLossFunction):
     @rlgraph_api
     def loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp=None,
                       importance_weights=None, apply_demo_loss=False):
-
-        # Get the targets -> inherited from DQNLossFunction
+        # Get the targets per action.
         td_targets = self._graph_fn_get_td_targets(rewards, terminals, qt_values_sp, q_values_sp)
         # Average over container sub-actions.
-        td_targets = self._graph_fn_average_over_container_keys(td_targets)
+        if self.shared_container_action_target is True:
+            td_targets = self._graph_fn_average_over_container_keys(td_targets)
 
         # Calculate the loss per item.
         loss_per_item = self._graph_fn_loss_per_item(td_targets, q_values_s, actions,
