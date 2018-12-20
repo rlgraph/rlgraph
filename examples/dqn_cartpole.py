@@ -43,6 +43,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string('config', './configs/dqn_cartpole.json', 'Agent config file.')
 flags.DEFINE_string('env', 'CartPole-v0', 'gym environment ID.')
+flags.DEFINE_boolean('render', False, 'Render the environment.')
 
 
 def main(argv):
@@ -75,7 +76,7 @@ def main(argv):
                 len(rewards), reward, np.mean(rewards[-10:])
             ))
 
-    worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False, worker_executes_preprocessing=False,
+    worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=FLAGS.render, worker_executes_preprocessing=False,
                                   episode_finish_callback=episode_finished_callback)
     print("Starting workload, this will take some time for the agents to build.")
     results = worker.execute_episodes(200, use_exploration=True)
