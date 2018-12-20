@@ -24,6 +24,7 @@ import unittest
 
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.policies.policy import Policy
+from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.neural_networks.impala.impala_networks import LargeIMPALANetwork
 from rlgraph.components.explorations import Exploration
@@ -65,7 +66,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         Creates a large IMPALA architecture network and runs an input sample through it.
         """
         # Create the network (with a small time-step value for this test).
-        large_impala_architecture = LargeIMPALANetwork()
+        large_impala_architecture = LargeIMPALANetwork(worker_sample_size=2)
         test = ComponentTest(
             large_impala_architecture, input_spaces=dict(input_dict=self.input_space)
         )
@@ -75,10 +76,10 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         expected = None
         ret = test.test(("apply", sample_input), expected_outputs=expected)
         # Check shape of outputs.
-        self.assertEquals(ret[0].shape, (2, 3, 256))
+        self.assertEquals(ret["output"].shape, (2, 3, 256))
         # Check shapes of current internal_states (c and h).
-        self.assertEquals(ret[1][0].shape, (3, 256))
-        self.assertEquals(ret[1][1].shape, (3, 256))
+        self.assertEquals(ret["last_internal_states"][0].shape, (3, 256))
+        self.assertEquals(ret["last_internal_states"][1].shape, (3, 256))
 
     def test_large_impala_policy_without_agent(self):
         """
@@ -141,8 +142,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             )
         )
         # IMPALA uses a baseline action adapter (v-trace off-policy PG with baseline value function).
-        policy = Policy(LargeIMPALANetwork(), action_space=self.action_space,
-                        action_adapter_spec=dict(type="baseline_action_adapter"))
+        policy = SharedValueFunctionPolicy(LargeIMPALANetwork(), action_space=self.action_space)
         exploration = Exploration(epsilon_spec=dict(decay_spec=dict(
             type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
         ))
@@ -264,7 +264,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             action_space=action_space,
         )
         # Reset the stepper.
-        test.test("reset")
+        #test.test("reset")
 
         # Step n times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
