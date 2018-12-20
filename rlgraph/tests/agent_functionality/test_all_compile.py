@@ -122,7 +122,7 @@ class TestAllCompile(unittest.TestCase):
             type="actor",
             state_space=env.state_space,
             action_space=env.action_space,
-            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
+            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False),
             # Make session-creation hang in docker.
             execution_spec=dict(disable_monitoring=True)
         )
@@ -130,6 +130,7 @@ class TestAllCompile(unittest.TestCase):
         actor_agent.environment_stepper.environment_server.start()
         print("Compiled IMPALA type=actor agent.")
         actor_agent.environment_stepper.environment_server.stop()
+        actor_agent.terminate()
 
     def test_impala_learner_compilation(self):
         """
@@ -146,13 +147,13 @@ class TestAllCompile(unittest.TestCase):
             level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
         )
 
-        agent = IMPALAAgent.from_spec(
+        learner_agent = IMPALAAgent.from_spec(
             agent_config,
             type="learner",
             state_space=env.state_space,
             action_space=env.action_space,
-            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
+            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False),
         )
-        agent.terminate()
+        learner_agent.terminate()
 
         print("Compiled IMPALA type=learner agent.")
