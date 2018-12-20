@@ -338,8 +338,9 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         action_space = IntBox(0, 18)
         agent = DQNAgent.from_spec(
             agent_config,
+            huber_loss=True,
             double_q=True,
-            dueling_q=False,
+            dueling_q=True,
             state_space=FloatBox(shape=(4,)),
             action_space=action_space,
             store_last_q_table=True
