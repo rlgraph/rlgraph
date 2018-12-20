@@ -507,5 +507,6 @@ class GridWorld(Environment):
 
             if actions % 2 == 0:
                 converted_actions["jump"] = 0
-
+            else:
+                converted_actions["jump"] = 1
             return converted_actions
