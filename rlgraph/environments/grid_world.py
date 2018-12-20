@@ -450,12 +450,15 @@ class GridWorld(Environment):
 
     def _translate_action(self, actions):
         """
-        Maps single integer to dict actions.
+        Maps a single integer action to dict actions. This allows us to compare how
+        container actions perform when instead using a large range on a single discrete action by enumerating
+        all combinations.
+
         Args:
             actions Union(int, dict): Maps single integer to different actions.
 
         Returns:
-            dict: Actions dict
+            dict: Actions dict.
         """
         # If already dict, do nothing.
         if isinstance(actions, dict):
