@@ -78,6 +78,7 @@ class DeepmindLabEnv(Environment):
 
         self.frameskip = frameskip
         self.random_state = np.random.RandomState(seed=seed or int(time.time()))
+        self.reset()
 
     def terminate(self):
         """

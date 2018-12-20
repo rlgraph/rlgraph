@@ -191,7 +191,7 @@ class OpenAIGymEnv(Environment):
 
             return max_frame, step_reward, terminal, info
 
-    def step(self, actions, **kwargs):
+    def step(self, actions):
         if self.visualize:
             self.gym_env.render()
         state, reward, terminal, info = self._step_and_skip(actions)
