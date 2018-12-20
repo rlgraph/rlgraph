@@ -242,8 +242,8 @@ class DQFDAgent(Agent):
                 # TODO: This may be called differently in other agents (replace by root-policy).
                 grads_and_vars, loss, loss_per_item, q_values_s = \
                     root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
-                        main_policy_vars, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                        importance_weights, apply_demo_loss
+                        dict(policy=main_policy_vars), preprocessed_states, actions, rewards, terminals,
+                        preprocessed_next_states, importance_weights, apply_demo_loss
                     )
                 step_op = agent.optimizer.apply_gradients(grads_and_vars)
                 step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(

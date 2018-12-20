@@ -209,10 +209,10 @@ class PPOAgent(Agent):
                     if multi_gpu_sync_optimizer is not None:
                         main_policy_vars = agent.policy._variables()
                         main_vf_vars = agent.value_function._variables()
-                        main_vars = main_policy_vars.update(main_vf_vars)
                         grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                             multi_gpu_sync_optimizer.calculate_update_from_external_batch(
-                                main_vars, sample_states, sample_actions, sample_rewards, sample_terminals
+                                dict(policy=main_policy_vars, vf=main_vf_vars),
+                                sample_states, sample_actions, sample_rewards, sample_terminals
                             )
                         step_op = agent.optimizer.apply_gradients(grads_and_vars)
                         step_and_sync_op = multi_gpu_sync_optimizer.sync_variables_to_towers(

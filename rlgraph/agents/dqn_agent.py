@@ -93,7 +93,7 @@ class DQNAgent(Agent):
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             # weights will have a Space derived from the vars of policy.
-            weights="variables:{}".format(self.policy.scope),
+            policy_weights="variables:{}".format(self.policy.scope),
             time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
@@ -102,11 +102,9 @@ class DQNAgent(Agent):
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=weight_space,
-            # TODO: This is currently necessary for multi-GPU handling (as the update_from_external_batch
-            # TODO: gets overridden by a generic function with args=*inputs)
-            #inputs=[preprocessed_state_space, self.action_space.with_batch_rank(), reward_space, terminal_space,
-            #        preprocessed_state_space, weight_space]
         ))
+        if self.value_function is not None:
+            self.input_spaces["value_function_weights"] = "variables:{}".format(self.value_function.scope),
 
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "next_states", "terminals")
@@ -146,18 +144,6 @@ class DQNAgent(Agent):
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
-
-            # TODO: What should the external batch be? 0s.
-            #if "multi-gpu-synchronizer" in self.root_component.sub_components:
-            #    # Get 1st return op of API-method `calculate_update_from_external_batch`
-            #    # (which is the group of stage-ops).
-            #    stage_op = self.root_component.sub_components["multi-gpu-synchronizer"].\
-            #        api_methods["calculate_update_from_external_batch"].\
-            #        out_op_columns[0].op_records[0].op
-            #    # Initialize the stage.
-            #    self.graph_executor.monitored_session.run_step_fn(
-            #        lambda step_context: step_context.session.run(stage_op)
-            #    )
 
     def define_graph_api(self, *args, **kwargs):
         super(DQNAgent, self).define_graph_api()
@@ -231,11 +217,10 @@ class DQNAgent(Agent):
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
             if "multi-gpu-synchronizer" in root.sub_components:
                 main_policy_vars = agent.policy._variables()
-                # TODO: This may be called differently in other agents (replace by root-policy).
                 grads_and_vars, loss, loss_per_item, q_values_s = \
                     root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
-                        main_policy_vars, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                        importance_weights
+                        dict(policy=main_policy_vars), preprocessed_states, actions, rewards, terminals,
+                        preprocessed_next_states, importance_weights
                     )
                 step_op = agent.optimizer.apply_gradients(grads_and_vars)
                 step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
