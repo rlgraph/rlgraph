@@ -24,7 +24,7 @@ from threading import Thread
 
 from rlgraph import get_distributed_backend
 from rlgraph.agents import Agent
-from rlgraph.execution.ray import RayWorker
+from rlgraph.execution.ray import RayValueWorker
 from rlgraph.execution.ray.apex.ray_memory_actor import RayMemoryActor
 from rlgraph.execution.ray.ray_executor import RayExecutor
 from rlgraph.execution.ray.ray_util import create_colocated_ray_actors, RayTaskPool
@@ -131,7 +131,7 @@ class ApexExecutor(RayExecutor):
         self.logger.info("Initializing {} remote data collection agents, sample size: {}".format(
             self.num_sample_workers, self.worker_spec["worker_sample_size"]))
         self.ray_env_sample_workers = self.create_remote_workers(
-            RayWorker, self.num_sample_workers, self.agent_config,
+            RayValueWorker, self.num_sample_workers, self.agent_config,
             # *args
             self.worker_spec, self.environment_spec, self.worker_frameskip
         )

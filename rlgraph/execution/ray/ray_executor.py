@@ -90,11 +90,11 @@ class RayExecutor(object):
         Creates Ray actors for remote execution.
 
         Args:
-            cls (RayWorker): Actor class, must be an instance of RayWorker.
+            cls (RayValueWorker): Actor class, must be an instance of RayValueWorker.
             num_actors (int): Num
             agent_config (dict): Agent config.
             worker_spec (dict): Worker spec.
-            *args (any): Arguments for RayWorker class.
+            *args (any): Arguments for RayValueWorker class.
 
         Returns:
             list: Remote Ray actors.

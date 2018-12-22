@@ -35,10 +35,9 @@ if get_distributed_backend() == "ray":
     import ray
 
 
-class RayWorker(RayActor):
+class RayPolicyWorker(RayActor):
     """
-    Ray wrapper for single threaded worker, provides further api methods to interact
-    with the agent used in the worker.
+    A ray policy worker for distributed policy optimisation.
     """
 
     def __init__(self, agent_config, worker_spec, env_spec, frameskip=1, auto_build=False):
