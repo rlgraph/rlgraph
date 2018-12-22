@@ -90,6 +90,7 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Local session config which needs to be updated with device options during setup.
         self.tf_session_type = self.session_config.pop("type", "monitored-training-session")
+        self.tf_session_auto_start = self.session_config.pop("auto_start", True)
         self.tf_session_config = tf.ConfigProto(**self.session_config)
         self.tf_session_options = None
 
@@ -357,11 +358,8 @@ class TensorFlowExecutor(GraphExecutor):
         self.setup_specifiable_servers(hooks)
 
         # Finalize our graph, create and enter the session.
-        self.setup_session(hooks)
-
-        # NOT NECESSARY: SEEMS TO BE DONE AUTOMATICALLY BY SESSION
-        # Start Queue Runners (if any).
-        #self.start_queue_runners()
+        if self.tf_session_auto_start is True:
+            self.setup_session(hooks)
 
     def setup_saver(self, hooks):
         """
