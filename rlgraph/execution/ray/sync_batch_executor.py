@@ -40,6 +40,7 @@ class SyncBatchExecutor(RayExecutor):
         """
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         self.worker_spec = ray_spec.pop("worker_spec")
+        self.compress_states = self.worker_spec["compress_states"]
         super(SyncBatchExecutor, self).__init__(executor_spec=ray_spec.pop("executor_spec"),
                                            environment_spec=environment_spec,
                                            worker_spec=self.worker_spec)
@@ -122,7 +123,7 @@ class SyncBatchExecutor(RayExecutor):
             sample_batches.extend(batches)
 
         # 3. Merge samples
-        batch = EnvironmentSample.merge_samples(sample_batches)
+        batch = EnvironmentSample.merge_samples(sample_batches, decompress=self.compress_states)
 
         # 4. Update from merged batch.
         self.local_agent.update(batch=batch)

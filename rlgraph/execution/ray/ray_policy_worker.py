@@ -441,6 +441,8 @@ class RayPolicyWorker(RayActor):
         if self.generalized_advantage_estimation:
             rewards = self.agent.post_process(states, rewards, terminals, sequence_indices)
 
+        if self.compress:
+            states = [ray_compress(state) for state in states]
         return dict(
             states=states,
             actions=actions,
