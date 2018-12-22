@@ -19,9 +19,9 @@ from __future__ import print_function
 
 import os
 import base64
+import numpy as np
 from rlgraph import get_distributed_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
-
 
 if get_distributed_backend() == "ray":
     import ray
@@ -158,3 +158,24 @@ def worker_exploration(worker_index, num_workers):
     """
     exponent = (1.0 + worker_index / float(num_workers - 1) * 7)
     return 0.4 ** exponent
+
+
+def merge_samples(samples, decompress=False):
+    """
+    Merges list of samples into a final batch.
+    Args:
+        samples (list): List of EnvironmentSamples
+        decompress (bool): If true, assume states are compressed and decompress them.
+
+    Returns:
+        dict: Sample batch of numpy arrays.
+    """
+    batch = {}
+    sample_layout = samples[0].sample_batch
+    for key in sample_layout.keys():
+        batch[key] = np.concatenate([sample[key] for sample in samples])
+
+    if decompress:
+        assert "states" in batch
+        batch["states"] = np.asarray([ray_decompress(state) for state in batch["states"]])
+    return batch

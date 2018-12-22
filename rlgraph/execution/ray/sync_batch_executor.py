@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.execution import EnvironmentSample
 from rlgraph.execution.ray.ray_policy_worker import RayPolicyWorker
 
 from rlgraph import get_distributed_backend
 from rlgraph.execution.ray.ray_executor import RayExecutor
+from rlgraph.execution.ray.ray_util import merge_samples
 
 if get_distributed_backend() == "ray":
     import ray
@@ -123,7 +123,7 @@ class SyncBatchExecutor(RayExecutor):
             sample_batches.extend(batches)
 
         # 3. Merge samples
-        batch = EnvironmentSample.merge_samples(sample_batches, decompress=self.compress_states)
+        batch = merge_samples(sample_batches, decompress=self.compress_states)
 
         # 4. Update from merged batch.
         self.local_agent.update(batch=batch)

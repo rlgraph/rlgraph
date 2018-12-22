@@ -17,9 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-
-from rlgraph.execution.ray.ray_util import ray_decompress
 
 
 class EnvironmentSample(object):
@@ -54,24 +51,3 @@ class EnvironmentSample(object):
 
     def get_metrics(self):
         return self.metrics
-
-    @staticmethod
-    def merge_samples(samples, decompress=False):
-        """
-        Merges list of samples into a final batch.
-        Args:
-            samples (list): List of EnvironmentSamples
-            decompress (bool): If true, assume states are compressed and decompress them.
-
-        Returns:
-            dict: Sample batch of numpy arrays.
-        """
-        batch = {}
-        sample_layout = samples[0].sample_batch
-        for key in sample_layout.keys():
-            batch[key] = np.concatenate([sample[key] for sample in samples])
-
-        if decompress:
-            assert "states" in batch
-            batch["states"] = np.asarray([ray_decompress(state) for state in batch["states"]])
-        return batch
