@@ -137,15 +137,14 @@ class IMPALAAgent(Agent):
         # Limit communication in distributed mode between each actor and the learner (never between actors).
         execution_spec = kwargs.pop("execution_spec", None)
         if execution_spec is not None and execution_spec.get("mode") == "distributed":
-            execution_spec["session_config"] = dict(
+            default_dict(execution_spec["session_config"], dict(
                 type="monitored-training-session",
                 allow_soft_placement=True,
-                log_device_placement=False,
                 device_filters=["/job:learner/task:0"] + (
                     ["/job:actor/task:{}".format(execution_spec["distributed_spec"]["task_index"])] if
                     self.type == "actor" else ["/job:learner/task:0"]
                 )
-            )
+            ))
             # If Actor, make non-chief in either case (even if task idx == 0).
             if self.type == "actor":
                 execution_spec["distributed_spec"]["is_chief"] = False

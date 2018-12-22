@@ -222,7 +222,7 @@ class LargeIMPALANetwork(IMPALANetwork):
             NNLayer(activation="relu", scope="relu-2"),  # ReLU 2
         ])
 
-        image_stack= Stack(sub_components, scope="image-stack")
+        image_stack = Stack(sub_components, scope="image-stack")
 
         return image_stack
 
