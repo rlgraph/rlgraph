@@ -651,7 +651,8 @@ class TensorFlowExecutor(GraphExecutor):
         and other open connections.
         """
         # Close the tf.Session.
-        self.monitored_session.close()
+        if self.tf_session_auto_start is True:
+            self.monitored_session.close()
 
     def _build_device_strategy(self, root_component, root_optimizer, batch_size, extra_build_args=None):
         """
