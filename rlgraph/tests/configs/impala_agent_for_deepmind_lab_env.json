@@ -1,6 +1,8 @@
 {
   "type": "impala",
 
+  "architecture": "large",
+
   "update_spec": {
     "batch_size": 2
   },
