@@ -228,7 +228,7 @@ class RayPolicyWorker(RayActor):
                 self.last_ep_start_timestamps[i] = time.perf_counter()
             self.last_ep_start_initialized = True
 
-        start = time.monotonic()
+        start = time.perf_counter()
         timesteps_executed = 0
         episodes_executed = [0] * self.num_environments
         env_frames = 0
@@ -308,7 +308,6 @@ class RayPolicyWorker(RayActor):
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
 
-                    # TODO sequence indices
                     # Append to final result trajectories.
                     batch_states.extend(sample_states[env_id])
                     batch_actions.extend(sample_actions[env_id])
@@ -346,22 +345,30 @@ class RayPolicyWorker(RayActor):
         self.last_ep_start_timestamps = current_episode_start_timestamps
         self.last_ep_sample_times = current_episode_sample_times
 
+        # Sequence indices are the same as terminals for terminal episodes.
+        batch_sequence_indices = batch_terminals.copy()
+
         # We already accounted for all terminated episodes. This means we only
         # have to do accounting for any unfinished fragments.
         for i, env_id in enumerate(self.env_ids):
             # This env was not terminal -> need to process remaining trajectory
             if not terminals[i]:
-                # TODO add with correct sequence index 1
                 batch_states.extend(sample_states[env_id])
                 batch_actions.extend(sample_actions[env_id])
                 batch_rewards.extend(sample_rewards[env_id])
                 batch_terminals.extend(sample_terminals[env_id])
 
+                # Take terminals thus far - all zero.
+                batch_sequence_indices = sample_terminals[env_id].copy()
+                # Set final elem to true because sub-sequence ends here.
+                batch_sequence_indices[-1] = True
+
         # Perform final batch-processing once.
         sample_batch, batch_size = self._process_policy_trajectories(batch_states, batch_actions,
-                                                                     batch_rewards, batch_terminals)
+                                                                     batch_rewards, batch_terminals,
+                                                                     batch_sequence_indices)
 
-        total_time = (time.monotonic() - start) or 1e-10
+        total_time = (time.perf_counter() - start) or 1e-10
         self.sample_steps.append(timesteps_executed)
         self.sample_times.append(total_time)
         self.sample_env_frames.append(env_frames)
