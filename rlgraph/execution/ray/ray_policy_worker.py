@@ -23,7 +23,6 @@ from six.moves import xrange as range_
 import time
 
 from rlgraph import get_distributed_backend
-from rlgraph.utils.util import SMALL_NUMBER
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 from rlgraph.execution.environment_sample import EnvironmentSample
@@ -57,13 +56,17 @@ class RayPolicyWorker(RayActor):
         worker_spec = deepcopy(worker_spec)
         self.worker_sample_size = worker_spec.pop("worker_sample_size")
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
-        self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
+
+        # Use GAE.
+        self.generalized_advantage_estimation = worker_spec.pop("generalized_advantage_estimation", True)
+        self.gae_lambda = worker_spec.pop("gae_lambda", 1.0)
+        self.compress = worker_spec.pop("compress_states", False)
+
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         self.auto_build = auto_build
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
-        # TODO from spec once we decided on generic vectorization.
         self.vector_env = SequentialVectorEnv(self.num_environments, env_spec, num_background_envs)
 
         # Then update agent config.
@@ -227,15 +230,14 @@ class RayPolicyWorker(RayActor):
 
         start = time.monotonic()
         timesteps_executed = 0
-        episodes_executed = [0 for _ in range_(self.num_environments)]
+        episodes_executed = [0] * self.num_environments
         env_frames = 0
 
         # Final result batch.
-        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = [], [], [], [], []
+        batch_states, batch_actions, batch_rewards, batch_terminals = [], [], [], []
 
         # Running trajectories.
         sample_states, sample_actions, sample_rewards, sample_terminals = {}, {}, {}, {}
-        next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
 
         # Reset envs and Agent either if finished an episode in current loop or if last state
         # from previous execution was terminal for that environment.
@@ -252,7 +254,8 @@ class RayPolicyWorker(RayActor):
         current_episode_sample_times = self.last_ep_sample_times
 
         # Whether the episode in each env has terminated.
-        terminals = [False for _ in range_(self.num_environments)]
+        terminals = [False] * self.num_environments
+
         while timesteps_executed < num_timesteps:
             current_iteration_start_timestamp = time.perf_counter()
             for i, env_id in enumerate(self.env_ids):
@@ -305,29 +308,12 @@ class RayPolicyWorker(RayActor):
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
 
-                    env_sample_states = sample_states[env_id]
-                    # Get next states for this environment's trajectory.
-                    env_sample_next_states = env_sample_states[1:]
-
-                    next_state = self.agent.state_space.force_batch(next_states[i])
-                    if self.preprocessors[env_id] is not None:
-                        next_state = self.preprocessors[env_id].preprocess(next_state)
-
-                    # Extend because next state has a batch dim.
-                    env_sample_next_states.extend(next_state)
-
-                    # Post-process this trajectory via n-step discounting.
-                    # print("processing terminal episode of length:", len(env_sample_states))
-                    post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
-                        sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
-                        sample_terminals[env_id], was_terminal=True)
-
+                    # TODO sequence indices
                     # Append to final result trajectories.
-                    batch_states.extend(post_s)
-                    batch_actions.extend(post_a)
-                    batch_rewards.extend(post_r)
-                    batch_next_states.extend(post_next_s)
-                    batch_terminals.extend(post_t)
+                    batch_states.extend(sample_states[env_id])
+                    batch_actions.extend(sample_actions[env_id])
+                    batch_rewards.extend(sample_rewards[env_id])
+                    batch_terminals.extend(sample_terminals[env_id])
 
                     # Reset running trajectory for this env.
                     sample_states[env_id] = []
@@ -365,32 +351,15 @@ class RayPolicyWorker(RayActor):
         for i, env_id in enumerate(self.env_ids):
             # This env was not terminal -> need to process remaining trajectory
             if not terminals[i]:
-                env_sample_states = sample_states[env_id]
-                # Get next states for this environment's trajectory.
-                env_sample_next_states = env_sample_states[1:]
-                next_state = self.agent.state_space.force_batch(next_states[i])
-                if self.preprocessors[env_id] is not None:
-                    next_state = self.preprocessors[env_id].preprocess(next_state)
-                    # This is the env state in the next call so avoid double preprocessing
-                    # by adding to buffer.
-                    self.preprocessed_states_buffer[i] = np.array(next_state)
-                    self.is_preprocessed[env_id] = True
-
-                # Extend because next state has a batch dim.
-                env_sample_next_states.extend(next_state)
-                post_s, post_a, post_r, post_next_s, post_t = self._truncate_n_step(env_sample_states,
-                    sample_actions[env_id], sample_rewards[env_id], env_sample_next_states,
-                    sample_terminals[env_id], was_terminal=False)
-
-                batch_states.extend(post_s)
-                batch_actions.extend(post_a)
-                batch_rewards.extend(post_r)
-                batch_next_states.extend(post_next_s)
-                batch_terminals.extend(post_t)
+                # TODO add with correct sequence index 1
+                batch_states.extend(sample_states[env_id])
+                batch_actions.extend(sample_actions[env_id])
+                batch_rewards.extend(sample_rewards[env_id])
+                batch_terminals.extend(sample_terminals[env_id])
 
         # Perform final batch-processing once.
-        sample_batch, batch_size = self._batch_process_sample(batch_states, batch_actions,
-                                                              batch_rewards, batch_next_states, batch_terminals)
+        sample_batch, batch_size = self._process_policy_trajectories(batch_states, batch_actions,
+                                                                     batch_rewards, batch_terminals)
 
         total_time = (time.monotonic() - start) or 1e-10
         self.sample_steps.append(timesteps_executed)
@@ -401,7 +370,7 @@ class RayPolicyWorker(RayActor):
         # for each worker to calculate expensive statistics now.
         return EnvironmentSample(
             sample_batch=sample_batch,
-            batch_size=batch_size,
+            batch_size=len(batch_rewards),
             metrics=dict(
                 runtime=total_time,
                 # Agent act/observe throughput.
@@ -458,90 +427,18 @@ class RayPolicyWorker(RayActor):
             mean_worker_env_frames_per_second=sum(adjusted_frames) / sum(self.sample_times)
         )
 
-    def _truncate_n_step(self, states, actions, rewards, next_states, terminals, was_terminal=True):
+    def _process_policy_trajectories(self, states, actions, rewards, terminals, sequence_indices):
         """
-        Computes n-step truncation for exactly one episode segment of one environment.
-
-        Returns:
-             n-step truncated (shortened) version.
+        Post-processes policy trajectories.
         """
-        if self.n_step_adjustment > 1:
-            new_len = len(states) - self.n_step_adjustment + 1
+        if self.generalized_advantage_estimation:
+            rewards = self.agent.post_process(states, rewards, terminals, sequence_indices)
 
-            # There are 2 cases. If the trajectory did not end in a terminal,
-            # we just have to move states forward and truncate.
-            if was_terminal:
-                # We know the ONLY last terminal is True.
-                terminal_position = len(rewards) - 1
-                for i in range(len(rewards)):
-                    for j in range(1, self.n_step_adjustment):
-                        # Outside sample data. Stop inner loop and set truncate = True
-                        if i + j >= len(next_states):
-                            break
-                        # Normal case: No terminal ahead (so far) in n-step sequence.
-                        if i + j < terminal_position:
-                            next_states[i] = next_states[i + j]
-                            rewards[i] += self.discount ** j * rewards[i + j]
-                        # Terminal ahead: Don't go beyond it.
-                        # Repeat it for the remaining n-steps and always assume r=0.0.
-                        else:
-                            next_states[i] = next_states[terminal_position]
-                            terminals[i] = True
-                            if i + j <= terminal_position:
-                                rewards[i] += self.discount ** j * rewards[i + j]
-            else:
-                # We know this segment does not contain any terminals so we simply have to adjust next
-                # states and rewards.
-                for i in range_(len(rewards) - self.n_step_adjustment + 1):
-                    for j in range_(1, self.n_step_adjustment):
-                        next_states[i] = next_states[i + j]
-                        rewards[i] += self.discount ** j * rewards[i + j]
-                for arr in [states, actions, rewards, next_states, terminals]:
-                    del arr[new_len:]
-
-        return states, actions, rewards, next_states, terminals
-
-    def _batch_process_sample(self, states, actions, rewards, next_states, terminals):
-        """
-        Batch Post-processes sample, e.g. by computing priority weights, and compressing.
-
-        Args:
-            states (list): List of states.
-            actions (list): List of actions.
-            rewards (list): List of rewards.
-            next_states: (list): List of next_states.
-            terminals (list): List of terminals.
-
-        Returns:
-            dict: Sample batch dict.
-        """
-        weights = np.ones_like(rewards)
-
-        # Compute loss-per-item.
-        if self.worker_computes_weights:
-            # Next states were just collected, we batch process them here.
-            # TODO make generic agent method?
-            _, loss_per_item = self.agent.get_td_loss(
-                dict(
-                    states=states,
-                    actions=actions,
-                    rewards=rewards,
-                    terminals=terminals,
-                    next_states=next_states,
-                    importance_weights=weights
-                )
-            )
-            weights = np.abs(loss_per_item) + SMALL_NUMBER
-
-        compressed_states = [ray_compress(state) for state in states]
-        compressed_next_states = compressed_states[1:] + [ray_compress(next_states[-1])]
         return dict(
-            states=np.array(compressed_states),
-            actions=np.array(actions),
-            rewards=np.array(rewards),
-            terminals=np.array(terminals),
-            next_states=np.array(compressed_next_states),
-            importance_weights=np.array(weights)
+            states=states,
+            actions=actions,
+            rewards=rewards,
+            terminals=terminals
         ), len(rewards)
 
     def get_action(self, states, use_exploration, apply_preprocessing):
