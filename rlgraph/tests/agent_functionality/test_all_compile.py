@@ -23,6 +23,7 @@ from rlgraph import get_backend
 from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent, PPOAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.spaces import FloatBox, Tuple
+from rlgraph.utils.util import default_dict
 from rlgraph.tests.test_util import config_from_path
 
 
@@ -113,16 +114,15 @@ class TestAllCompile(unittest.TestCase):
             return
 
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        env = DeepmindLabEnv(
-            level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-
+        env_spec = dict(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
+        dummy_env = DeepmindLabEnv.from_spec(env_spec)
         actor_agent = IMPALAAgent.from_spec(
             agent_config,
             type="actor",
-            state_space=env.state_space,
-            action_space=env.action_space,
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
             internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False),
+            environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
             # Make session-creation hang in docker.
             execution_spec=dict(disable_monitoring=True)
         )
@@ -143,17 +143,15 @@ class TestAllCompile(unittest.TestCase):
             return
 
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        environment_spec = dict(
-            type="deepmind-lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-        dummy_env = DeepmindLabEnv.from_spec(environment_spec)
-
+        env_spec = dict(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
+        dummy_env = DeepmindLabEnv.from_spec(env_spec)
         learner_agent = IMPALAAgent.from_spec(
             agent_config,
             type="learner",
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             internal_states_space=IMPALAAgent.default_internal_states_space,
+            environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
             # Setup distributed tf.
             execution_spec=dict(
                 mode="distributed",
