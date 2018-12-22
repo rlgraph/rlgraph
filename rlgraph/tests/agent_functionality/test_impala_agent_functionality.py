@@ -22,6 +22,7 @@ import numpy as np
 import time
 import unittest
 
+from rlgraph.agents.impala_agents import IMPALAAgent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
@@ -30,8 +31,8 @@ from rlgraph.environments import Environment
 from rlgraph.spaces import *
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.tests.component_test import ComponentTest
-from rlgraph.tests.test_util import recursive_assert_almost_equal
-from rlgraph.utils import root_logger
+from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
+from rlgraph.utils import root_logger, default_dict
 
 
 class TestIMPALAAgentFunctionality(unittest.TestCase):
@@ -257,6 +258,134 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         self.assertTrue(out[3][1].shape == (worker_sample_size + 1, 256))
 
         test.terminate()
+
+    def test_single_impala_agent_functionality(self):
+        """
+        Creates a single IMPALAAgent and runs it for a few steps in a DeepMindLab Env to test
+        all steps of the actor and learning process.
+        """
+        try:
+            from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+        except ImportError:
+            print("Deepmind Lab not installed: Will skip this test.")
+            return
+
+        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+        env_spec = dict(level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
+        dummy_env = DeepmindLabEnv.from_spec(env_spec)
+
+        agent = IMPALAAgent.from_spec(
+            agent_config,
+            type="single",
+            architecture="large",
+            environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
+            # TODO: automate this (by lookup from NN).
+            internal_states_space=IMPALAAgent.default_internal_states_space,
+            # Summarize time-steps to have an overview of the env-stepping speed.
+            summary_spec=dict(summary_regexp="time-step", directory="/home/rlgraph/"),
+            dynamic_batching=False,
+            num_actors=4
+        )
+        # Count items in the queue.
+        print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
+
+        updates = 50
+        update_times = list()
+        print("Updating from queue ...")
+        for _ in range(updates):
+            start_time = time.monotonic()
+            print(agent.update())
+            update_times.append(time.monotonic() - start_time)
+
+        print("Updates per second (including waiting for enqueued items): {}/s".format(updates / np.sum(update_times)))
+        #print("Env-steps per second: {}".format(agent.update_spec["batch_size"]*20*updates / np.sum(update_times)))
+
+        agent.terminate()
+
+    def test_isolated_impala_actor_agent_functionality(self):
+        """
+        Creates a non-distributed IMPALAAgent (actor) and runs it for a few steps in a DeepMindLab Env to test
+        all steps of the learning process.
+        """
+        try:
+            from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+        except ImportError:
+            print("Deepmind Lab not installed: Will skip this test.")
+            return
+
+        agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+        env_spec = dict(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
+        dummy_env = DeepmindLabEnv.from_spec(env_spec)
+
+        agent = IMPALAAgent.from_spec(
+            agent_config,
+            type="actor",
+            architecture="large",
+            environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
+            # TODO: automate this (by lookup from NN).
+            internal_states_space=IMPALAAgent.default_internal_states_space,
+        )
+        agent.call_api_method("reset")
+        time_start = time.perf_counter()
+        steps = 50
+        for _ in range(steps):
+            agent.call_api_method("perform_n_steps_and_insert_into_fifo")
+        time_total = time.perf_counter() - time_start
+        print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
+            steps, agent.worker_sample_size, time_total , agent.worker_sample_size * steps / time_total)
+        )
+
+    #def test_distributed_impala_agent_functionality_actor_part(self):
+    #    """
+    #    Creates an IMPALAAgent (actor) and starts it without the learner piece.
+    #    Distributed actor agents are able to run autonomously as they don't require the learner to be present
+    #    and connected to the server.
+    #    """
+    #    try:
+    #        from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+    #    except ImportError:
+    #        print("Deepmind Lab not installed: Will skip this test.")
+    #        return
+
+    #    agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
+    #    env_spec = dict(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
+    #    dummy_env = DeepmindLabEnv.from_spec(env_spec)
+    #    agent = IMPALAAgent.from_spec(
+    #        agent_config,
+    #        type="actor",
+    #        architecture="large",
+    #        environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
+    #        state_space=dummy_env.state_space,
+    #        action_space=dummy_env.action_space,
+    #        # TODO: automate this (by lookup from NN).
+    #        internal_states_space=IMPALAAgent.default_internal_states_space,
+    #        # Setup distributed tf.
+    #        execution_spec=dict(
+    #            mode="distributed",
+    #            distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec),
+    #            session_config=dict(
+    #                type="monitored-training-session",
+    #                #log_device_placement=True
+    #            ),
+    #            #enable_profiler=True,
+    #            #profiler_frequency=1
+    #        ),
+    #        fifo_queue_spec=dict(capacity=10000)
+    #    )
+    #    agent.call_api_method("reset")
+    #    time_start = time.perf_counter()
+    #    steps = 50
+    #    for _ in range(steps):
+    #        agent.call_api_method("perform_n_steps_and_insert_into_fifo")
+    #    time_total = time.perf_counter() - time_start
+    #    print("Done running {}x{} steps in Deepmind Lab env using IMPALAAgent in {}sec ({} actions/sec).".format(
+    #        steps, agent.worker_sample_size, time_total, agent.worker_sample_size * steps / time_total)
+    #    )
+    #    agent.terminate()
 
     #def test_isolated_impala_learner_agent_functionality(self):
     #    """
