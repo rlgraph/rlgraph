@@ -17,17 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-import random
-from six.moves import queue
-from threading import Thread
+from rlgraph.execution.ray.ray_policy_worker import RayPolicyWorker
 
 from rlgraph import get_distributed_backend
-from rlgraph.agents import Agent
-from rlgraph.execution.ray import RayValueWorker
-from rlgraph.execution.ray.apex.ray_memory_actor import RayMemoryActor
 from rlgraph.execution.ray.ray_executor import RayExecutor
-from rlgraph.execution.ray.ray_util import create_colocated_ray_actors, RayTaskPool
 
 if get_distributed_backend() == "ray":
     import ray
@@ -54,14 +47,13 @@ class SyncBatchExecutor(RayExecutor):
         assert "type" in agent_config
         self.agent_config = agent_config
         self.local_agent = self.build_agent_from_config(self.agent_config)
+        self.update_batch_size = self.agent_config["update_spec"]["batch_size"]
 
         # Create remote sample workers based on ray cluster spec.
         self.num_sample_workers = self.executor_spec["num_sample_workers"]
 
         # These are the tasks actually interacting with the environment.
-        self.env_sample_tasks = RayTaskPool()
-        self.env_interaction_task_depth = self.executor_spec["env_interaction_task_depth"]
-        self.worker_sample_size = self.executor_spec["num_worker_samples"] + self.worker_spec["n_step_adjustment"] - 1
+        self.worker_sample_size = self.executor_spec["num_worker_samples"]
 
         assert not ray_spec, "ERROR: ray_spec still contains items: {}".format(ray_spec)
         self.logger.info("Setting up execution for Apex executor.")
@@ -82,7 +74,7 @@ class SyncBatchExecutor(RayExecutor):
         self.logger.info("Initializing {} remote data collection agents, sample size: {}".format(
             self.num_sample_workers, self.worker_spec["worker_sample_size"]))
         self.ray_env_sample_workers = self.create_remote_workers(
-            RayValueWorker, self.num_sample_workers, self.agent_config,
+            RayPolicyWorker, self.num_sample_workers, self.agent_config,
             # *args
             self.worker_spec, self.environment_spec, self.worker_frameskip
         )
@@ -105,7 +97,8 @@ class SyncBatchExecutor(RayExecutor):
 
         - Sync weights to policy workers.
         - Schedule a set of samples
-        - Wait until all sample tasks are complete
+        - Wait until enough samples tasks are complete to form an update batch
+        - Merge samples
         - Perform local update(s)
         """
         # Env steps done during this rollout.
@@ -113,21 +106,16 @@ class SyncBatchExecutor(RayExecutor):
         update_steps = 0
 
         # 1. Sync local learners weights to remote workers.
+        weights = ray.put(self.local_agent.get_weights())
+        for ray_worker in self.ray_env_sample_workers:
+            ray_worker.set_weights.remote(weights)
 
         # 2. Schedule samples and fetch results from RayWorkers.
-        completed_sample_tasks = list(self.env_sample_tasks.get_completed())
-        sample_batch_sizes = ray.get([task[1][1] for task in completed_sample_tasks])
-        for i, (ray_worker, (env_sample_obj_id, sample_size)) in enumerate(completed_sample_tasks):
-            # Randomly add env sample to a local replay actor.
-            sample_steps = sample_batch_sizes[i]
-            env_steps += sample_steps
+        sample_batches = []
 
-            # TODO merge
+        # 3. Merge samples
 
-            # TODO update logic
-
-            self.env_sample_tasks.add_task(ray_worker, ray_worker.execute_and_get_with_count.remote())
-
+        # 4. Update from merged batch.
         return env_steps, update_steps, 0, 0
 
 
