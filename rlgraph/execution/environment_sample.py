@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 
 class EnvironmentSample(object):
     """
@@ -51,4 +53,18 @@ class EnvironmentSample(object):
     def get_metrics(self):
         return self.metrics
 
+    @staticmethod
+    def merge_samples(samples):
+        """
+        Merges list of samples into a final batch.
+        Args:
+            samples (list): List of EnvironmentSamples
 
+        Returns:
+            dict: Sample batch of numpy arrays.
+        """
+        batch = {}
+        sample_layout = samples[0].sample_batch
+        for key in sample_layout.keys():
+            batch[key] = np.concatenate([sample[key] for sample in samples])
+        return batch

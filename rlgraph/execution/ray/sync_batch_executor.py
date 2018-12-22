@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.execution import EnvironmentSample
 from rlgraph.execution.ray.ray_policy_worker import RayPolicyWorker
 
 from rlgraph import get_distributed_backend
@@ -112,10 +113,19 @@ class SyncBatchExecutor(RayExecutor):
 
         # 2. Schedule samples and fetch results from RayWorkers.
         sample_batches = []
+        num_samples = 0
+        while num_samples < self.update_batch_size:
+            batches = ray.get(worker.execute_and_get_timesteps(self.worker_sample_size)
+                              for worker in self.ray_env_sample_workers)
+            # Each batch has exactly worker_sample_size length.
+            num_samples += len(batches) * self.worker_sample_size
+            sample_batches.extend(batches)
 
         # 3. Merge samples
+        batch = EnvironmentSample.merge_samples(sample_batches)
 
         # 4. Update from merged batch.
+        self.local_agent.update(batch=batch)
         return env_steps, update_steps, 0, 0
 
 
