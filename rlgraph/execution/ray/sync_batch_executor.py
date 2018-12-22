@@ -112,7 +112,9 @@ class SyncBatchExecutor(RayExecutor):
         env_steps = 0
         update_steps = 0
 
-        # 1. Fetch results from RayWorkers.
+        # 1. Sync local learners weights to remote workers.
+
+        # 2. Schedule samples and fetch results from RayWorkers.
         completed_sample_tasks = list(self.env_sample_tasks.get_completed())
         sample_batch_sizes = ray.get([task[1][1] for task in completed_sample_tasks])
         for i, (ray_worker, (env_sample_obj_id, sample_size)) in enumerate(completed_sample_tasks):

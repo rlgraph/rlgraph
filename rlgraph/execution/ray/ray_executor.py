@@ -66,7 +66,7 @@ class RayExecutor(object):
         self.env_internal_frame_skip = environment_spec.get("frameskip", 1)
 
         # Map worker objects to host ids.
-        self.worker_ids = dict()
+        self.worker_ids = {}
 
     def ray_init(self):
         """
@@ -148,9 +148,9 @@ class RayExecutor(object):
             workload (dict): Workload parameters, primarily 'num_timesteps' and 'report_interval'
                 to indicate how many steps to execute and how often to report results.
         """
-        self.sample_iteration_throughputs = list()
-        self.update_iteration_throughputs = list()
-        self.iteration_times = list()
+        self.sample_iteration_throughputs = []
+        self.update_iteration_throughputs = []
+        self.iteration_times = []
 
         # Assume time step based initially.
         num_timesteps = workload["num_timesteps"]
@@ -159,8 +159,8 @@ class RayExecutor(object):
         report_interval = workload["report_interval"]
         report_interval_min_seconds = workload["report_interval_min_seconds"]
         timesteps_executed = 0
-        iteration_time_steps = list()
-        iteration_update_steps = list()
+        iteration_time_steps = []
+        iteration_update_steps = []
 
         start = time.monotonic()
         # Call _execute_step as many times as required.
@@ -345,13 +345,13 @@ class RayExecutor(object):
         Returns:
             dict: Aggregate worker statistics.
         """
-        min_rewards = list()
-        max_rewards = list()
-        mean_rewards = list()
-        final_rewards = list()
-        worker_op_throughputs = list()
-        worker_env_frame_throughputs = list()
-        episodes_executed = list()
+        min_rewards = []
+        max_rewards = []
+        mean_rewards = []
+        final_rewards = []
+        worker_op_throughputs = []
+        worker_env_frame_throughputs = []
+        episodes_executed = []
         steps_executed = 0
 
         for ray_worker in self.ray_env_sample_workers:
