@@ -22,7 +22,7 @@ import numpy as np
 import time
 import unittest
 
-from rlgraph.agents.impala_agents import IMPALAAgent
+from rlgraph.agents.impala_agents import IMPALAAgent, SingleIMPALAAgent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
@@ -59,6 +59,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
     )
     internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
     cluster_spec = dict(learner=["localhost:22222"], actor=["localhost:22223"])
+    cluster_spec_single_actor = dict(actor=["localhost:22223"])
 
     def test_large_impala_network_without_agent(self):
         """
@@ -274,9 +275,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         env_spec = dict(level_id="lt_hallway_slope", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
         dummy_env = DeepmindLabEnv.from_spec(env_spec)
 
-        agent = IMPALAAgent.from_spec(
-            agent_config,
-            type="single",
+        agent = SingleIMPALAAgent.from_spec(
+            default_dict(dict(type="single-impala-agent"), agent_config),
             architecture="large",
             environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
             state_space=dummy_env.state_space,
@@ -328,16 +328,26 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             action_space=dummy_env.action_space,
             # TODO: automate this (by lookup from NN).
             internal_states_space=IMPALAAgent.default_internal_states_space,
+            execution_spec=dict(
+                #mode="distributed",
+                #distributed_spec=dict(job="actor", task_index=0, cluster_spec=self.cluster_spec_single_actor),
+                disable_monitoring=True
+            ),
+            # Need large queue to be able to fill it up (don't have a learner).
+            fifo_queue_spec=dict(capacity=10000)
         )
-        agent.call_api_method("reset")
+        # Start Specifiable Server with Env manually (monitoring is disabled).
+        agent.environment_stepper.environment_server.start_server()
         time_start = time.perf_counter()
-        steps = 50
+        steps = 5
         for _ in range(steps):
             agent.call_api_method("perform_n_steps_and_insert_into_fifo")
         time_total = time.perf_counter() - time_start
         print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
             steps, agent.worker_sample_size, time_total , agent.worker_sample_size * steps / time_total)
         )
+        agent.environment_stepper.environment_server.stop_server()
+        agent.terminate()
 
     #def test_distributed_impala_agent_functionality_actor_part(self):
     #    """
@@ -376,7 +386,6 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
     #        ),
     #        fifo_queue_spec=dict(capacity=10000)
     #    )
-    #    agent.call_api_method("reset")
     #    time_start = time.perf_counter()
     #    steps = 50
     #    for _ in range(steps):

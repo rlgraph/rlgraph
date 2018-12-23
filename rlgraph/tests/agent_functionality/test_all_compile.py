@@ -126,10 +126,10 @@ class TestAllCompile(unittest.TestCase):
             # Make session-creation hang in docker.
             execution_spec=dict(disable_monitoring=True)
         )
-        # Start Specifiable Server with Env manually.
-        actor_agent.environment_stepper.environment_server.start()
+        # Start Specifiable Server with Env manually (monitoring is disabled).
+        actor_agent.environment_stepper.environment_server.start_server()
         print("Compiled IMPALA type=actor agent.")
-        actor_agent.environment_stepper.environment_server.stop()
+        actor_agent.environment_stepper.environment_server.stop_server()
         actor_agent.terminate()
 
     def test_impala_learner_compilation(self):
