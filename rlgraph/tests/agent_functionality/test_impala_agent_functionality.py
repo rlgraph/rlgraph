@@ -231,6 +231,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             execution_spec=dict(disable_monitoring=True)
         )
 
+        environment_stepper.environment_server.start_server()
+
         # Step n times through the Env and collect results.
         # 1st return value is the step-op (None), 2nd return value is the tuple of items (3 steps each), with each
         # step containing: Preprocessed state, actions, rewards, episode returns, terminals, (raw) next-states.
@@ -270,6 +272,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         self.assertTrue(out[3][1].dtype == np.float32)
         self.assertTrue(out[3][1].shape == (worker_sample_size + 1, 256))
 
+        environment_stepper.environment_server.stop_server()
+
         test.terminate()
 
     def test_single_impala_agent_functionality(self):
@@ -298,7 +302,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             # Summarize time-steps to have an overview of the env-stepping speed.
             summary_spec=dict(summary_regexp="time-step", directory="/home/rlgraph/"),
             dynamic_batching=False,
-            num_actors=4
+            num_workers=4
         )
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
