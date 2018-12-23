@@ -68,7 +68,9 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Create the network (with a small time-step value for this test).
         large_impala_architecture = LargeIMPALANetwork(worker_sample_size=2)
         test = ComponentTest(
-            large_impala_architecture, input_spaces=dict(input_dict=self.input_space)
+            large_impala_architecture,
+            input_spaces=dict(input_dict=self.input_space),
+            execution_spec=dict(disable_monitoring=True)
         )
 
         # Send a 2x3 sample through the network (2=sequence-length (time-rank), 3=batch-size).
@@ -80,6 +82,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Check shapes of current internal_states (c and h).
         self.assertEquals(ret["last_internal_states"][0].shape, (3, 256))
         self.assertEquals(ret["last_internal_states"][1].shape, (3, 256))
+
+        test.terminate()
 
     def test_large_impala_policy_without_agent(self):
         """
@@ -93,8 +97,10 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             switched_off_apis={"get_action_from_logits_and_probabilities", "get_action_log_probs"}
         )
         test = ComponentTest(
-            policy, input_spaces=dict(nn_input=self.input_space, internal_states=self.internal_states_space),
-            action_space=self.action_space
+            policy,
+            input_spaces=dict(nn_input=self.input_space, internal_states=self.internal_states_space),
+            action_space=self.action_space,
+            execution_spec=dict(disable_monitoring=True)
         )
 
         # Send a 1x1 sample through the network (1=sequence-length (time-rank), 1=batch-size).
@@ -116,6 +122,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         self.assertEquals(out["last_internal_states"][0].shape, (1, 256))
         self.assertEquals(out["last_internal_states"][1].shape, (1, 256))
 
+        test.terminate()
+
     def test_large_impala_actor_component_without_agent(self):
         """
         Creates a large IMPALA architecture network inside a policy inside an actor component and runs a few input
@@ -134,7 +142,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 states=self.input_space,
                 internal_states=self.internal_states_space
             ),
-            action_space=self.action_space
+            action_space=self.action_space,
+            execution_spec=dict(disable_monitoring=True)
         )
 
         # Send a sample through the network (sequence-length (time-rank) x batch-size).
@@ -178,6 +187,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             )
         )
 
+        test.terminate()
+
     def test_environment_stepper_component_with_large_impala_architecture(self):
         worker_sample_size = 100
         env_spec = dict(
@@ -217,6 +228,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         test = ComponentTest(
             component=environment_stepper,
             action_space=action_space,
+            execution_spec=dict(disable_monitoring=True)
         )
 
         # Step n times through the Env and collect results.
