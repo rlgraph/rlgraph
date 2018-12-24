@@ -25,7 +25,7 @@ import unittest
 from rlgraph.environments import GridWorld, OpenAIGymEnv
 from rlgraph.agents import DQNAgent
 from rlgraph.execution import SingleThreadedWorker
-from rlgraph.spaces import FloatBox
+from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.utils import root_logger
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 
@@ -145,17 +145,18 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         dummy_env = GridWorld.from_spec(env_spec)
         agent_config = config_from_path("configs/dqn_agent_for_2x2_gridworld_with_container_actions.json")
         preprocessing_spec = agent_config.pop("preprocessing_spec")
+
         agent = DQNAgent.from_spec(
             agent_config,
             double_q=True,
-            dueling_q=True,
+            dueling_q=False,
             state_space=FloatBox(shape=(4,)),
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=15),
             store_last_q_table=True
         )
 
-        time_steps = 5000
+        time_steps = 10000
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld.from_spec(env_spec),
             agent=agent,
@@ -324,3 +325,34 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertGreaterEqual(results["mean_episode_reward"], 25)
         self.assertLessEqual(results["episodes_executed"], 150)
 
+    def test_double_dqn_on_2x2_grid_world_single_action_to_container(self):
+        """
+        Tests how dqn solves a mapping of a single integer to multiple actions (as opposed to using container
+        actions).
+        """
+        # ftj = forward + turn + jump
+        env_spec = dict(world="2x2", action_type="ftj", state_representation="xy+orientation")
+        agent_config = config_from_path("configs/dqn_agent_for_2x2_gridworld_single_to_container.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
+
+        action_space = IntBox(0, 18)
+        agent = DQNAgent.from_spec(
+            agent_config,
+            huber_loss=True,
+            double_q=True,
+            dueling_q=True,
+            state_space=FloatBox(shape=(4,)),
+            action_space=action_space,
+            store_last_q_table=True
+        )
+
+        time_steps = 10000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: GridWorld.from_spec(env_spec),
+            agent=agent,
+            preprocessing_spec=preprocessing_spec,
+            worker_executes_preprocessing=True,
+            render=False
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        print(results)

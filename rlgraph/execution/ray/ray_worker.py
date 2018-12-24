@@ -535,7 +535,8 @@ class RayWorker(RayActor):
             weights = np.abs(loss_per_item) + SMALL_NUMBER
 
         compressed_states = [ray_compress(state) for state in states]
-        compressed_next_states = compressed_states[1:] + [ray_compress(next_states[-1])]
+        compressed_next_states = compressed_states[self.n_step_adjustment:] + [ray_compress(next_s) for next_s in
+                                                   next_states[-self.n_step_adjustment:]]
         return dict(
             states=np.array(compressed_states),
             actions=np.array(actions),
