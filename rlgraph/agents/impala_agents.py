@@ -605,11 +605,18 @@ class SingleIMPALAAgent(IMPALAAgent):
             environment_spec_ = copy.deepcopy(environment_spec)
             if self.visualize is True or (isinstance(self.visualize, int) and i+1 <= self.visualize):
                 environment_spec_["visualize"] = True
+
+            # Force worker_sample_size for IMPALA NNs (LSTM) in env-stepper to be 1.
+            policy_spec = copy.deepcopy(self.policy_spec)
+            if isinstance(policy_spec, dict) and isinstance(policy_spec["network_spec"], dict) and \
+                    "type" in policy_spec["network_spec"] and "IMPALANetwork" in policy_spec["network_spec"]["type"]:
+                policy_spec["network_spec"]["worker_sample_size"] = 1
+
             env_stepper = EnvironmentStepper(
                 environment_spec=environment_spec_,
                 actor_component_spec=ActorComponent(
                     preprocessor_spec=self.preprocessing_spec,
-                    policy_spec=self.policy_spec,
+                    policy_spec=policy_spec,
                     exploration_spec=self.exploration_spec
                 ),
                 state_space=self.state_space.with_batch_rank(),
