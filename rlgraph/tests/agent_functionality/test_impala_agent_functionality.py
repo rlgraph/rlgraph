@@ -307,12 +307,12 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Count items in the queue.
         print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
 
-        updates = 50
+        updates = 5
         update_times = list()
         print("Updating from queue ...")
         for _ in range(updates):
             start_time = time.monotonic()
-            print(agent.update())
+            agent.update()
             update_times.append(time.monotonic() - start_time)
 
         print("Updates per second (including waiting for enqueued items): {}/s".format(updates / np.sum(update_times)))
