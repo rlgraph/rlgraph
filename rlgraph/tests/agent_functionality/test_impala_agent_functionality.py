@@ -316,7 +316,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             update_times.append(time.monotonic() - start_time)
 
         print("Updates per second (including waiting for enqueued items): {}/s".format(updates / np.sum(update_times)))
-        #print("Env-steps per second: {}".format(agent.update_spec["batch_size"]*20*updates / np.sum(update_times)))
+
+        time.sleep(5)
 
         agent.terminate()
 
