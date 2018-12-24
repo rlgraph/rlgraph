@@ -585,13 +585,7 @@ class SingleIMPALAAgent(IMPALAAgent):
         else:
             internal_states_slicer = None
 
-        # TODO: add state transposer, remove action/rewards transposer (part of state).
-        self.transpose_states = Transpose(scope="transpose-states")
-        self.transpose_terminals = Transpose(scope="transpose-terminals")
-        self.transpose_action_probs = Transpose(scope="transpose-a-probs-mu")
-        # Transposing of actions and rewards may not be needed.
-        self.transpose_actions = Transpose(scope="transpose-actions")
-        self.transpose_rewards = Transpose(scope="transpose-rewards")
+        self.transposer = Transpose(scope="transposer")
 
         # Create an IMPALALossFunction with some parameters.
         self.loss_function = IMPALALossFunction(
@@ -650,8 +644,7 @@ class SingleIMPALAAgent(IMPALAAgent):
 
         sub_components = [
             self.fifo_output_splitter, self.fifo_queue, self.queue_runner,
-            self.transpose_states, self.transpose_terminals, self.transpose_action_probs,
-            self.transpose_actions, self.transpose_rewards,
+            self.transposer,
             self.staging_area, self.preprocessor, self.states_dict_splitter,
             self.policy, self.loss_function, self.optimizer
         ]
@@ -680,11 +673,6 @@ class SingleIMPALAAgent(IMPALAAgent):
                     out_op_columns[0].op_records[0].op
 
     def define_graph_api(self):
-
-        #fifo_output_splitter, fifo_queue, queue_runner,
-        #transpose_states, transpose_terminals, transpose_action_probs, transpose_actions,
-        #transpose_rewards,
-        #staging_area, preprocessor, states_dict_splitter, policy, loss_function, optimizer
 
         agent = self
 
@@ -717,15 +705,15 @@ class SingleIMPALAAgent(IMPALAAgent):
             # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing: already done, use space_agnostic feature. See ReShape)
-            states = agent.transpose_states.apply(states)
-            terminals = agent.transpose_terminals.apply(terminals)
-            action_probs_mu = agent.transpose_action_probs.apply(action_probs_mu)
+            states = agent.transposer.apply(states)
+            terminals = agent.transposer.apply(terminals)
+            action_probs_mu = agent.transposer.apply(action_probs_mu)
             actions = None
             if not self.feed_previous_action_through_nn:
-                actions = agent.transpose_actions.apply(out["actions"])
+                actions = agent.transposer.apply(out["actions"])
             rewards = None
             if not self.feed_previous_reward_through_nn:
-                rewards = agent.transpose_rewards.apply(out["rewards"])
+                rewards = agent.transposer.apply(out["rewards"])
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
