@@ -81,14 +81,14 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
     def decorator_func(wrapped_func):
 
         def api_method_wrapper(self, *args, **kwargs):
-            name_ = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
+            api_fn_name = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
             # Direct evaluation of function.
             if self.execution_mode == "define_by_run":
                 type(self).call_count += 1
 
                 start = time.perf_counter()
                 # Check with owner if extra args needed.
-                if name_ in self.api_methods and self.api_methods[name_].add_auto_key_as_first_param:
+                if api_fn_name in self.api_methods and self.api_methods[api_fn_name].add_auto_key_as_first_param:
                     output = wrapped_func(self, "", *args, **kwargs)
                 else:
                     output = wrapped_func(self, *args, **kwargs)
@@ -99,7 +99,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 )
                 return output
 
-            api_method_rec = self.api_methods[name_]
+            api_method_rec = self.api_methods[api_fn_name]
 
             # Create op-record column to call API method with. Ignore None input params. These should not be sent
             # to the API-method.
@@ -165,23 +165,23 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                         self.api_method_inputs[param_name] = in_op_column.op_records[i].space
 
             # Regular API-method: Call it here.
-            args_, kwargs_ = in_op_column.get_args_and_kwargs()
+            api_fn_args, api_fn_kwargs = in_op_column.get_args_and_kwargs()
 
             if api_method_rec.is_graph_fn_wrapper is False:
-                return_values = wrapped_func(self, *args_, **kwargs_)
+                return_values = wrapped_func(self, *api_fn_args, **api_fn_kwargs)
             # Wrapped graph_fn: Call it through yet another wrapper.
             else:
                 return_values = graph_fn_wrapper(
                     self, wrapped_func, returns, dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
                         add_auto_key_as_first_param=add_auto_key_as_first_param
-                    ), *args_, **kwargs_
+                    ), *api_fn_args, **api_fn_kwargs
                 )
 
             # Process the results (push into a column).
             out_op_column = DataOpRecordColumnFromAPIMethod(
                 component=self,
-                api_method_name=name_,
+                api_method_name=api_fn_name,
                 args=util.force_tuple(return_values) if type(return_values) != dict else None,
                 kwargs=return_values if type(return_values) == dict else None
             )
@@ -240,11 +240,11 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
         func_type = util.get_method_type(wrapped_func)
         is_graph_fn_wrapper = (func_type == "graph_fn")
-        name_ = name or (re.sub(r'^_graph_fn_', "", wrapped_func.__name__) if is_graph_fn_wrapper else
+        api_fn_name = name or (re.sub(r'^_graph_fn_', "", wrapped_func.__name__) if is_graph_fn_wrapper else
                          wrapped_func.__name__)
         api_method_rec = APIMethodRecord(
             func=wrapped_func, wrapper_func=api_method_wrapper,
-            name=name_,
+            name=api_fn_name,
             must_be_complete=must_be_complete, ok_to_overwrite=ok_to_overwrite,
             is_graph_fn_wrapper=is_graph_fn_wrapper, is_class_method=(component is None),
             flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
@@ -258,7 +258,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
         else:
             cls = wrapped_func.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0]
             if cls not in component_api_registry:
-                component_api_registry[cls] = list()
+                component_api_registry[cls] = []
             component_api_registry[cls].append(api_method_rec)
 
         return api_method_wrapper
