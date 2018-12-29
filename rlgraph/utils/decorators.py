@@ -228,15 +228,15 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 if type(return_values) == dict:
                     return {key: value.op for key, value in out_op_column.get_args_and_kwargs()[1].items()}
                 else:
-                    tuple_ = tuple(map(lambda x: x.op, out_op_column.get_args_and_kwargs()[0]))
-                    return tuple_[0] if len(tuple_) == 1 else tuple_
+                    tuple_returns = tuple(map(lambda x: x.op, out_op_column.get_args_and_kwargs()[0]))
+                    return tuple_returns[0] if len(tuple_returns) == 1 else tuple_returns
             # Parent caller is non-graph_fn: Return op-recs.
             else:
                 if type(return_values) == dict:
                     return return_values
                 else:
-                    tuple_ = out_op_column.get_args_and_kwargs()[0]
-                    return tuple_[0] if len(tuple_) == 1 else tuple_
+                    tuple_returns = out_op_column.get_args_and_kwargs()[0]
+                    return tuple_returns[0] if len(tuple_returns) == 1 else tuple_returns
 
         func_type = util.get_method_type(wrapped_func)
         is_graph_fn_wrapper = (func_type == "graph_fn")
@@ -252,7 +252,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
         # Registers the given method with the Component (if not already done so).
         if component is not None:
-            define_api_method(component, api_method_rec, copy_=False)
+            define_api_method(component, api_method_rec, copy_record=False)
         # Registers the given function with the Component sub-class so we can define it for each
         # constructed instance of that sub-class.
         else:
@@ -336,7 +336,7 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
 
         # Registers the given method with the Component (if not already done so).
         if component is not None:
-            define_graph_fn(component, graph_fn_rec, copy_=False)
+            define_graph_fn(component, graph_fn_rec, copy_record=False)
         # Registers the given function with the Component sub-class so we can define it for each
         # constructed instance of that sub-class.
         else:
@@ -353,17 +353,17 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
         return decorator_func(graph_fn)
 
 
-def define_api_method(component, api_method_record, copy_=True):
+def define_api_method(component, api_method_record, copy_record=True):
     """
     Registers an API-method with a Component instance.
 
     Args:
         component (Component): The Component object to register the API method with.
         api_method_record (APIMethodRecord): The APIMethodRecord describing the to-be-registered API-method.
-        copy_ (bool): Whether to deepcopy the APIMethodRecord prior to handing it to the Component for storing.
+        copy_record (bool): Whether to deepcopy the APIMethodRecord prior to handing it to the Component for storing.
     """
     # Deep copy the record (in case this got registered the normal way with via decorating a class method).
-    if copy_:
+    if copy_record:
         api_method_record = copy.deepcopy(api_method_record)
     api_method_record.component = component
 
@@ -423,17 +423,17 @@ def define_api_method(component, api_method_record, copy_=True):
                 component.api_method_inputs[param.name] = None
 
 
-def define_graph_fn(component, graph_fn_record, copy_=True):
+def define_graph_fn(component, graph_fn_record, copy_record=True):
     """
     Registers a graph_fn with a Component instance.
 
     Args:
         component (Component): The Component object to register the graph function with.
         graph_fn_record (GraphFnRecord): The GraphFnRecord describing the to-be-registered graph function.
-        copy_ (bool): Whether to deepcopy the GraphFnRecord prior to handing it to the Component for storing.
+        copy_record (bool): Whether to deepcopy the GraphFnRecord prior to handing it to the Component for storing.
     """
     # Deep copy the record (in case this got registered the normal way with via decorating a class method).
-    if copy_ is True:
+    if copy_record is True:
         graph_fn_record = copy.deepcopy(graph_fn_record)
 
     graph_fn_record.component = component
