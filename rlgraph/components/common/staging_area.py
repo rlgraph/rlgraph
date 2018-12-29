@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import flatten_op, unflatten_op, FlattenedDataOp
-from rlgraph.utils.util import dtype as dtype_
+from rlgraph.utils.util import convert_dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf

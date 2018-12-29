@@ -23,7 +23,7 @@ import unittest
 
 from rlgraph.environments.environment import Environment
 from rlgraph.utils.specifiable_server import SpecifiableServer, SpecifiableServerHook
-from rlgraph.utils.util import dtype
+from rlgraph.utils.util import convert_dtype
 from rlgraph.spaces import IntBox, FloatBox
 
 
@@ -46,17 +46,17 @@ class TestSpecifiableServer(unittest.TestCase):
 
         # Check all 3 outputs of the Env step (next state, reward, terminal).
         self.assertEqual(ret1[0].shape, ())
-        self.assertEqual(ret1[0].dtype, dtype("float32"))
+        self.assertEqual(ret1[0].dtype, convert_dtype("float32"))
         self.assertEqual(ret1[1].shape, ())
-        self.assertEqual(ret1[1].dtype, dtype("float32"))
+        self.assertEqual(ret1[1].dtype, convert_dtype("float32"))
         self.assertEqual(ret1[2].shape, ())
-        self.assertEqual(ret1[2].dtype, dtype("bool"))
+        self.assertEqual(ret1[2].dtype, convert_dtype("bool"))
         self.assertEqual(ret2[0].shape, ())
-        self.assertEqual(ret2[0].dtype, dtype("float32"))
+        self.assertEqual(ret2[0].dtype, convert_dtype("float32"))
         self.assertEqual(ret2[1].shape, ())
-        self.assertEqual(ret2[1].dtype, dtype("float32"))
+        self.assertEqual(ret2[1].dtype, convert_dtype("float32"))
         self.assertEqual(ret2[2].shape, ())
-        self.assertEqual(ret2[2].dtype, dtype("bool"))
+        self.assertEqual(ret2[2].dtype, convert_dtype("bool"))
 
         # Start the session and run the op, then check its actual values.
         with tf.train.SingularMonitoredSession(hooks=[SpecifiableServerHook()]) as sess:

@@ -91,9 +91,9 @@ class ConvertType(PreprocessLayer):
         if self.backend == "python" or get_backend() == "python":
             if isinstance(preprocessing_inputs, list):
                 preprocessing_inputs = np.asarray(preprocessing_inputs)
-            return preprocessing_inputs.astype(dtype=util.dtype(self.to_dtype, to="np"))
+            return preprocessing_inputs.astype(dtype=util.convert_dtype(self.to_dtype, to="np"))
         elif get_backend() == "pytorch":
-            torch_dtype = util.dtype(self.to_dtype, to="pytorch")
+            torch_dtype = util.convert_dtype(self.to_dtype, to="pytorch")
             if torch_dtype == torch.float or torch.float32:
                 return preprocessing_inputs.float()
             elif torch_dtype == torch.int or torch.int32:
@@ -102,7 +102,7 @@ class ConvertType(PreprocessLayer):
                 return preprocessing_inputs.byte()
         elif get_backend() == "tf":
             in_space = get_space_from_op(preprocessing_inputs)
-            to_dtype = util.dtype(self.to_dtype, to="tf")
+            to_dtype = util.convert_dtype(self.to_dtype, to="tf")
             if preprocessing_inputs.dtype != to_dtype:
                 ret = tf.cast(x=preprocessing_inputs, dtype=to_dtype)
                 if in_space.has_batch_rank is True:

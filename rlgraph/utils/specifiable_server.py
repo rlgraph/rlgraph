@@ -24,7 +24,7 @@ from rlgraph.spaces.space import Space
 from rlgraph.spaces.containers import ContainerSpace
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.utils.util import force_list, dtype
+from rlgraph.utils.util import force_list, convert_dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -129,7 +129,7 @@ class SpecifiableServer(Specifiable):
                     return_slots.append(i)
                 # Expecting a tensor.
                 elif space is not None:
-                    dtypes.append(dtype(space.dtype))
+                    dtypes.append(convert_dtype(space.dtype))
                     shapes.append(space.shape)
                     return_slots.append(i)
 

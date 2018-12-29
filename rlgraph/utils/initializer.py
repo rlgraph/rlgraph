@@ -23,7 +23,7 @@ import numpy as np
 from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.utils.util import dtype
+from rlgraph.utils.util import convert_dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -76,7 +76,7 @@ class Initializer(Specifiable):
                 pass
             # A 1D initializer (e.g. for biases).
             elif isinstance(specification, list):
-                array = np.asarray(specification, dtype=dtype("float32", "np"))
+                array = np.asarray(specification, dtype=convert_dtype("float32", "np"))
                 if array.shape != self.shape:
                     raise RLGraphError("ERROR: Number/shape of given items ({}) not identical with shape ({})!".
                                        format(array.shape, self.shape))
@@ -91,6 +91,6 @@ class Initializer(Specifiable):
 
             # Create the backend initializer object.
             if get_backend() == "tf":
-                self.initializer = tf.constant_initializer(value=specification, dtype=dtype("float32"))
+                self.initializer = tf.constant_initializer(value=specification, dtype=convert_dtype("float32"))
             elif get_backend() == "pytorch":
                 self.initializer = lambda t: torch.nn.init.constant_(tensor=t, val=specification)

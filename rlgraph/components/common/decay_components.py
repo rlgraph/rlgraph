@@ -97,7 +97,7 @@ class DecayComponent(Component):
                         x=tf.tile(tf.constant([self.to_]), multiples=shape),
                         # We are inside the decay time window.
                         y=self._graph_fn_decay(
-                            tf.cast(x=time_step - self.start_timestep, dtype=util.dtype("float"))
+                            tf.cast(x=time_step - self.start_timestep, dtype=util.convert_dtype("float"))
                         ),
                         name="cond-past-end-time"
                     ),
@@ -116,7 +116,7 @@ class DecayComponent(Component):
                         true_fn=lambda: self.to_,
                         # We are inside the decay time window.
                         false_fn=lambda: self._graph_fn_decay(
-                            tf.cast(x=time_step - self.start_timestep, dtype=util.dtype("float"))
+                            tf.cast(x=time_step - self.start_timestep, dtype=util.convert_dtype("float"))
                         ),
                     ),
                 )

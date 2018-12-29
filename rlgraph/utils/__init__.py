@@ -21,7 +21,7 @@ from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError,
 from rlgraph.utils.ops import DataOp, SingleDataOp, DataOpDict, DataOpTuple, ContainerDataOp, FlattenedDataOp
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.initializer import Initializer
-from rlgraph.utils.util import dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER, \
+from rlgraph.utils.util import convert_dtype, get_shape, get_rank, force_tuple, force_list, LARGE_INTEGER, SMALL_NUMBER, \
     tf_logger, print_logging_handler, root_logger, logging_formatter, default_dict
 from rlgraph.utils.numpy import softmax, relu, one_hot
 from rlgraph.utils.pytorch_util import pytorch_one_hot, PyTorchVariable
@@ -32,7 +32,7 @@ from rlgraph.utils.execution_util import print_call_chain
 
 __all__ = [
     "RLGraphError", "RLGraphAPICallParamError", "RLGraphBuildError",
-    "Initializer", "Specifiable", "dtype", "get_shape", "get_rank", "force_tuple", "force_list",
+    "Initializer", "Specifiable", "convert_dtype", "get_shape", "get_rank", "force_tuple", "force_list",
     "logging_formatter", "root_logger", "tf_logger", "print_logging_handler", "softmax", "relu", "one_hot",
     "DataOp", "SingleDataOp", "DataOpDict", "DataOpTuple", "ContainerDataOp", "FlattenedDataOp",
     "pytorch_one_hot", "PyTorchVariable", "LARGE_INTEGER", "SMALL_NUMBER"

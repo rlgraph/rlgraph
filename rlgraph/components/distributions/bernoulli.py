@@ -40,7 +40,7 @@ class Bernoulli(Distribution):
             parameters (DataOp): The p value (probability that distribution returns True).
         """
         if get_backend() == "tf":
-            return tf.distributions.Bernoulli(probs=parameters, dtype=util.dtype("bool"))
+            return tf.distributions.Bernoulli(probs=parameters, dtype=util.convert_dtype("bool"))
         elif get_backend() == "pytorch":
             return torch.distributions.Bernoulli(probs=parameters)
 

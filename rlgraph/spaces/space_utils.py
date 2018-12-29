@@ -27,7 +27,7 @@ from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
-from rlgraph.utils.util import RLGraphError, dtype, get_shape
+from rlgraph.utils.util import RLGraphError, convert_dtype, get_shape
 
 if get_backend() == "pytorch":
     import torch
@@ -119,7 +119,7 @@ def get_space_from_op(op):
             raise RLGraphError("Cannot derive Space from non-allowed op ({})!".format(op))
         # A single numpy array.
         elif isinstance(op, np.ndarray):
-            return BoxSpace.from_spec(spec=dtype(str(op.dtype), "np"), shape=op.shape)
+            return BoxSpace.from_spec(spec=convert_dtype(str(op.dtype), "np"), shape=op.shape)
         elif isinstance(op, list):
             return try_space_inference_from_list(op)
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
@@ -177,11 +177,11 @@ def get_space_from_op(op):
             # FloatBox
             if "float" in base_dtype_str:
                 return FloatBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                                time_major=time_major, dtype=dtype(base_dtype, "np"))
+                                time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # IntBox
             elif "int" in base_dtype_str:
                 return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
-                              time_major=time_major, dtype=dtype(base_dtype, "np"))
+                              time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # a BoolBox
             elif "bool" in base_dtype_str:
                 return BoolBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
@@ -395,11 +395,11 @@ def try_space_inference_from_list(list_op):
             if isinstance(elem, torch.Tensor):
                 list_type = elem.dtype
                 inner_shape = elem.shape
-                return BoxSpace.from_spec(spec=dtype(list_type, "np"), shape=(batch_shape,) + inner_shape,
+                return BoxSpace.from_spec(spec=convert_dtype(list_type, "np"), shape=(batch_shape,) + inner_shape,
                                           add_batch_rank=True)
             elif isinstance(elem, list):
                 inner_shape = len(elem)
-                return BoxSpace.from_spec(spec=dtype(float, "np"), shape=(batch_shape, inner_shape),
+                return BoxSpace.from_spec(spec=convert_dtype(float, "np"), shape=(batch_shape, inner_shape),
                                           add_batch_rank=True)
         else:
             # Most general guess is a Float box.

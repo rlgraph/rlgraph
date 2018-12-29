@@ -21,7 +21,7 @@ import inspect
 import numpy as np
 
 from rlgraph.spaces.space_utils import get_space_from_op
-from rlgraph.utils import dtype
+from rlgraph.utils import convert_dtype
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
 
@@ -111,7 +111,7 @@ class DataOpRecordColumn(object):
                     elif args[i] is not None:
                         op = args[i]
                         if is_constant(op) and not isinstance(op, np.ndarray):
-                            op = np.array(op, dtype=dtype(type(op), "np"))
+                            op = np.array(op, dtype=convert_dtype(type(op), "np"))
                         op_rec.op = op
                         op_rec.space = get_space_from_op(op)
                         component.constant_op_records.add(op_rec)
@@ -132,7 +132,7 @@ class DataOpRecordColumn(object):
                     elif value is not None:
                         op = value
                         if is_constant(op):
-                            op = np.array(op, dtype=dtype(type(op), "np"))
+                            op = np.array(op, dtype=convert_dtype(type(op), "np"))
                         op_rec.op = op
                         op_rec.space = get_space_from_op(op)
                         component.constant_op_records.add(op_rec)

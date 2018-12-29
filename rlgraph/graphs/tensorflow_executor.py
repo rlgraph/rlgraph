@@ -444,7 +444,7 @@ class TensorFlowExecutor(GraphExecutor):
         var_list = list(self.graph_builder.root_component.variables.values())
 
         self.global_training_timestep = tf.get_variable(
-            name="global-timestep", dtype=util.dtype("int"), trainable=False, initializer=0,
+            name="global-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,
             collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
         var_list.append(self.global_training_timestep)
 
