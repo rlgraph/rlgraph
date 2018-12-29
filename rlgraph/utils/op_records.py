@@ -32,7 +32,7 @@ class DataOpRecord(object):
     """
     _ID = -1
 
-    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_=None):
+    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_record=None):
         """
         Args:
             op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
@@ -58,7 +58,8 @@ class DataOpRecord(object):
         self.space = space
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
-        self.next = next_ if isinstance(next_, set) else ({next_} if next_ is not None else set())
+        self.next = next_record if isinstance(next_record, set) else ({next_record}
+                                                                      if next_record is not None else set())
         # The previous op that lead to this one.
         self.previous = previous
 
@@ -271,9 +272,9 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         if len(flattened) > 1:
             # Loop through the non-first ones and make sure all keys match vs the first one.
             for other in flattened[1:]:
-                iter_ = iter(other)
+                other_arg_iter = iter(other)
                 for key, value in flattened[0]:
-                    k_other, v_other = next(iter_)
+                    k_other, v_other = next(other_arg_iter)
                     if key != k_other:  # or get_shape(v_other) != get_shape(value):
                         raise RLGraphError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
 

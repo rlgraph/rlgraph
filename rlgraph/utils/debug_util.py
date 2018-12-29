@@ -30,12 +30,12 @@ class PerformanceTimer(object):
         self.last = 0
 
         self.data = defaultdict(lambda: np.nan)
-        self.subtimers = dict()
+        self.subtimers = {}
 
         self.filename = filename
         self.columns = columns
 
-        self.complete_data = list()
+        self.complete_data = []
 
     def __enter__(self):
         self.start = time.time()

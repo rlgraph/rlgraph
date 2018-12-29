@@ -31,6 +31,7 @@ elif get_backend() == "pytorch":
     import torch
 
 
+# TODO why is this here and not in e.g. layers?
 class Initializer(Specifiable):
     def __init__(self, shape, specification=None, **kwargs):
         """

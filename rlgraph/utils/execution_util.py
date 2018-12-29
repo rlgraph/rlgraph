@@ -57,15 +57,15 @@ def print_call_chain(profile_data, sort=True, filter_threshold=None):
         print("({}.{}: {} s)".format(v[0], v[1], v[2]))
 
 
-def define_by_run_flatten(container, scope_="", list_=None, scope_separator_at_start=False):
+def define_by_run_flatten(container, key_scope="", tensor_tuple_list=None, scope_separator_at_start=False):
     """
     Flattens a native python dict/tuple into a flat dict with auto-key generation. Run-time equivalent
     to build-time flatten operation.
 
     Args:
         container (Union[dict,tuple]): Container  to flatten.
-        scope_ (str): The recursive scope for auto-key generation.
-        list_ (list): The list of tuples (key, value) to be converted into the final results.
+        key_scope (str): The recursive scope for auto-key generation.
+        tensor_tuple_list (list): The list of tuples (key, value) to be converted into the final results.
         scope_separator_at_start (bool): If to prepend a scope separator before the first key in a
             recursive structure. Default false.
 
@@ -75,36 +75,36 @@ def define_by_run_flatten(container, scope_="", list_=None, scope_separator_at_s
     ret = False
 
     # Are we in the non-recursive (first) call?
-    if list_ is None:
-        list_ = []
+    if tensor_tuple_list is None:
+        tensor_tuple_list = []
         if not isinstance(container, (dict, tuple)):
             return OrderedDict([("", container)])
         ret = True
 
     if isinstance(container, dict):
         if scope_separator_at_start:
-            scope_ += "/"
+            key_scope += "/"
         else:
-            scope_ = ""
+            key_scope = ""
         for key in sorted(container.keys()):
             # Make sure we have no double slashes from flattening an already FlattenedDataOp.
-            scope = (scope_[:-1] if len(key) == 0 or key[0] == "/" else scope_) + key
-            define_by_run_flatten(container[key], scope_=scope, list_=list_, scope_separator_at_start=True)
+            scope = (key_scope[:-1] if len(key) == 0 or key[0] == "/" else key_scope) + key
+            define_by_run_flatten(container[key], key_scope=scope, tensor_tuple_list=tensor_tuple_list, scope_separator_at_start=True)
     elif isinstance(container, tuple):
         if scope_separator_at_start:
-            scope_ += "/" + FLAT_TUPLE_OPEN
+            key_scope += "/" + FLAT_TUPLE_OPEN
         else:
-            scope_ += "" + FLAT_TUPLE_OPEN
+            key_scope += "" + FLAT_TUPLE_OPEN
         for i, c in enumerate(container):
-            define_by_run_flatten(c, scope_=scope_ + str(i) + FLAT_TUPLE_CLOSE, list_=list_,
+            define_by_run_flatten(c, key_scope=key_scope + str(i) + FLAT_TUPLE_CLOSE, tensor_tuple_list=tensor_tuple_list,
                                   scope_separator_at_start=True)
     else:
         assert not isinstance(container, (dict, tuple))
-        list_.append((scope_, container))
+        tensor_tuple_list.append((key_scope, container))
 
     # Non recursive (first) call -> Return the final dict.
     if ret:
-        return OrderedDict(list_)
+        return OrderedDict(tensor_tuple_list)
 
 
 def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
@@ -201,31 +201,31 @@ def define_by_run_unflatten(result_dict):
         parent_structure = None
         parent_key = None
         current_structure = None
-        type_ = None
+        op_type = None
 
         # N.b. removed this because we do not prepend / any more before first key.
         op_key_list = op_name.split("/")  # skip 1st char (/)
         for sub_key in op_key_list:
             mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
             if mo:
-                type_ = list
+                op_type = list
                 idx = int(mo.group(1))
             else:
-                type_ = OrderedDict
+                op_type = OrderedDict
                 idx = sub_key
 
             if current_structure is None:
                 if base_structure is None:
-                    base_structure = [None] if type_ == list else OrderedDict()
+                    base_structure = [None] if op_type == list else OrderedDict()
                 current_structure = base_structure
             elif parent_key is not None:
                 if (isinstance(parent_structure, list) and (parent_structure[parent_key] is None)) or \
                         (isinstance(parent_structure, OrderedDict) and parent_key not in parent_structure):
-                    current_structure = [None] if type_ == list else OrderedDict()
+                    current_structure = [None] if op_type == list else OrderedDict()
                     parent_structure[parent_key] = current_structure
                 else:
                     current_structure = parent_structure[parent_key]
-                    if type_ == list and len(current_structure) == idx:
+                    if op_type == list and len(current_structure) == idx:
                         current_structure.append(None)
 
             parent_structure = current_structure
@@ -233,7 +233,7 @@ def define_by_run_unflatten(result_dict):
             if isinstance(parent_structure, list) and len(parent_structure) == parent_key:
                 parent_structure.append(None)
 
-        if type_ == list and len(current_structure) == parent_key:
+        if op_type == list and len(current_structure) == parent_key:
             current_structure.append(None)
         current_structure[parent_key] = op_val
 
