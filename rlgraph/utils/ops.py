@@ -162,22 +162,22 @@ def unflatten_op(op):
         parent_structure = None
         parent_key = None
         current_structure = None
-        type_ = None
+        op_type = None
 
         # N.b. removed this because we do not prepend / any more before first key.
         op_key_list = op_name.split("/")  # skip 1st char (/)
         for sub_key in op_key_list:
             mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
             if mo:
-                type_ = list
+                op_type = list
                 idx = int(mo.group(1))
             else:
-                type_ = DataOpDict
+                op_type = DataOpDict
                 idx = sub_key
 
             if current_structure is None:
                 if base_structure is None:
-                    base_structure = [None] if type_ == list else DataOpDict()
+                    base_structure = [None] if op_type == list else DataOpDict()
                 current_structure = base_structure
             elif parent_key is not None:
                 # DEBUG:
@@ -187,11 +187,11 @@ def unflatten_op(op):
 
                 if (isinstance(parent_structure, list) and (parent_structure[parent_key] is None)) or \
                         (isinstance(parent_structure, DataOpDict) and parent_key not in parent_structure):
-                    current_structure = [None] if type_ == list else DataOpDict()
+                    current_structure = [None] if op_type == list else DataOpDict()
                     parent_structure[parent_key] = current_structure
                 else:
                     current_structure = parent_structure[parent_key]
-                    if type_ == list and len(current_structure) == idx:
+                    if op_type == list and len(current_structure) == idx:
                         current_structure.append(None)
 
             parent_structure = current_structure
@@ -199,7 +199,7 @@ def unflatten_op(op):
             if isinstance(parent_structure, list) and len(parent_structure) == parent_key:
                 parent_structure.append(None)
 
-        if type_ == list and len(current_structure) == parent_key:
+        if op_type == list and len(current_structure) == parent_key:
             current_structure.append(None)
         current_structure[parent_key] = op_val
 
