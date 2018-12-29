@@ -35,6 +35,7 @@ Agent.__lookup_classes__ = dict(
     dqnagent=DQNAgent,
     dqfd=DQFDAgent,
     dqfdagent=DQFDAgent,
+    impala=IMPALAAgent,  # TODO: Split non-single agents into Actor and Learner
     singleimpala=SingleIMPALAAgent,
     singleimpalaagent=SingleIMPALAAgent,
     ppo=PPOAgent,

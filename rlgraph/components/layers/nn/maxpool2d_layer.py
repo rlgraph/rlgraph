@@ -58,7 +58,13 @@ class MaxPool2DLayer(NNLayer):
     @rlgraph_api
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
-            return tf.nn.pool(
+            result = tf.nn.pool(
                 inputs[0], window_shape=self.pool_size, pooling_type="MAX", padding=self.padding.upper(),
                 strides=self.strides
             )
+            # TODO: Move into util function.
+            if hasattr(inputs[0], "_batch_rank"):
+                result._batch_rank = inputs[0]._batch_rank
+            if hasattr(inputs[0], "_time_rank"):
+                result._time_rank = inputs[0]._time_rank
+            return result

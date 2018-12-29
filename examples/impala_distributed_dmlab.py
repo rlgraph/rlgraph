@@ -152,10 +152,8 @@ def main(argv):
     else:
         # Actor just acts
         print("Starting actor. Terminate with SIGINT (Ctrl+C).")
-        agent.call_api_method("reset")
         while True:
-            agent.graph_executor.monitored_session.run([agent.enqueue_op])
-
+            agent.call_api_method("perform_n_steps_and_insert_into_fifo")  #.monitored_session.run([agent.enqueue_op])
 
     learn_updates = 100
     mean_returns = []

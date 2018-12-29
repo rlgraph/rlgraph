@@ -54,7 +54,13 @@ class Multiply(PreprocessLayer):
         Returns:
             op: The op to scale the input.
         """
-        return preprocessing_inputs * self.factor
+        result = preprocessing_inputs * self.factor
+        # TODO: Move into util function.
+        if hasattr(preprocessing_inputs, "_batch_rank"):
+            result._batch_rank = preprocessing_inputs._batch_rank
+        if hasattr(preprocessing_inputs, "_time_rank"):
+            result._time_rank = preprocessing_inputs._time_rank
+        return result
 
 
 class Divide(PreprocessLayer):
@@ -88,4 +94,11 @@ class Divide(PreprocessLayer):
         Returns:
             DataOp: The op to divide the input.
         """
-        return preprocessing_inputs / self.divisor
+        result = preprocessing_inputs / self.divisor
+        # TODO: Move into util function.
+        if hasattr(preprocessing_inputs, "_batch_rank"):
+            result._batch_rank = preprocessing_inputs._batch_rank
+        if hasattr(preprocessing_inputs, "_time_rank"):
+            result._time_rank = preprocessing_inputs._time_rank
+        return result
+
