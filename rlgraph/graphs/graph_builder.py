@@ -92,12 +92,14 @@ class GraphBuilder(Specifiable):
         self.num_ops = 0
         # Number of trainable variables (optimizable weights).
         self.num_trainable_parameters = 0
+        self.graph_call_times = []
+        self.var_call_times = []
 
         # Create an empty root-Component into which everything will be assembled by an Algo.
         self.root_component = None
 
         # Maps API method names to in- (placeholders) and out op columns (ops to pull).
-        self.api = dict()
+        self.api = {}
 
         self.op_records_to_process = set()
         self.op_records_to_process_later = set()
@@ -847,7 +849,8 @@ class GraphBuilder(Specifiable):
                         return_ops)
 
             for i, param in enumerate(params):
-                # TODO: What if len(params) < len(self.api[api_method][0])? Need to handle default API-method params also for the root-component (this one).
+                # TODO: What if len(params) < len(self.api[api_method][0])?
+                # Need to handle default API-method params also for the root-component (this one).
                 if len(self.api[api_method_call][0]) <= i:
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
                                        "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params)))
@@ -899,6 +902,7 @@ class GraphBuilder(Specifiable):
         Executes a graph_fn in define by run mode.
 
         Args:
+            component (Component): Component this graph_fn is eecuted on.
             graph_fn (callable): Graph function to execute.
             options (dict): Execution options.
         Returns:
