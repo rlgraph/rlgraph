@@ -148,7 +148,7 @@ class EnvironmentStepper(Component):
 
         self.environment_spec = environment_spec
         self.environment_server = SpecifiableServer(
-            class_=Environment,
+            specifiable_class=Environment,
             spec=environment_spec,
             output_spaces=dict(
                 step_flow=self.state_space_env_list + [self.reward_space, bool],

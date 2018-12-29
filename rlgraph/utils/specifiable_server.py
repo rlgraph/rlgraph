@@ -39,12 +39,12 @@ class SpecifiableServer(Specifiable):
     """
 
     # Class instances get registered/deregistered here.
-    INSTANCES = list()
+    INSTANCES = []
 
-    def __init__(self, class_, spec, output_spaces, shutdown_method=None):
+    def __init__(self, specifiable_class, spec, output_spaces, shutdown_method=None):
         """
         Args:
-            class_ (type): The class to use for constructing the Specifiable from spec. This class needs to be
+            specifiable_class (type): The class to use for constructing the Specifiable from spec. This class needs to be
                 a child class of Specifiable (with a __lookup_classes__ property).
             spec (dict): The specification dict that will be used to construct the Specifiable.
             output_spaces (Union[callable,Dict[str,Space]]): A callable that takes a method_name as argument
@@ -58,11 +58,11 @@ class SpecifiableServer(Specifiable):
         """
         super(SpecifiableServer, self).__init__()
 
-        self.class_ = class_
+        self.specifiable_class = specifiable_class
         self.spec = spec
         # If dict: Process possible specs so we don't have to do this during calls.
         if isinstance(output_spaces, dict):
-            self.output_spaces = dict()
+            self.output_spaces = {}
             for method_name, space_spec in output_spaces.items():
                 if isinstance(space_spec, (tuple, list)):
                     self.output_spaces[method_name] = [Space.from_spec(spec) if spec is not None else
@@ -114,7 +114,7 @@ class SpecifiableServer(Specifiable):
 
             if specs is None:
                 raise RLGraphError(
-                    "No Space information received for method '{}:{}'".format(self.class_.__name__, method_name)
+                    "No Space information received for method '{}:{}'".format(self.specifiable_class.__name__, method_name)
                 )
 
             dtypes = []
@@ -136,23 +136,23 @@ class SpecifiableServer(Specifiable):
             if get_backend() == "tf":
                 # This function will send the method-call-comment via the out-pipe to the remote (server) Specifiable
                 # object - all in-graph - and return the results to be used further by other graph ops.
-                def py_call(*args_):
-                    args_ = [arg.decode('UTF-8') if isinstance(arg, bytes) else arg for arg in args_]
+                def py_call(*call_args):
+                    call_args = [arg.decode('UTF-8') if isinstance(arg, bytes) else arg for arg in call_args]
                     try:
-                        self.out_pipe.send(args_)
-                        result_ = self.out_pipe.recv()
+                        self.out_pipe.send(call_args)
+                        received_results = self.out_pipe.recv()
 
                         # If an error occurred, it'll be passed back through the pipe.
-                        if isinstance(result_, Exception):
-                            raise result_
-                        elif result_ is not None:
-                            return result_
+                        if isinstance(received_results, Exception):
+                            raise received_results
+                        elif received_results is not None:
+                            return received_results
 
                     except Exception as e:
                         if isinstance(e, IOError):
                             raise StopIteration()  # Clean exit.
                         else:
-                            print("ERROR: Sent={} Exception={}".format(args_, e))
+                            print("ERROR: Sent={} Exception={}".format(call_args, e))
                             raise
 
                 results = tf.py_func(py_call, (method_name,) + tuple(args), dtypes, name=method_name)
@@ -174,7 +174,7 @@ class SpecifiableServer(Specifiable):
         self.out_pipe, self.in_pipe = multiprocessing.Pipe()
         # Create and start the process passing it the spec to construct the desired Specifiable object..
         self.process = multiprocessing.Process(
-            target=self.run_server, args=(self.class_, self.spec, self.in_pipe, self.shutdown_method)
+            target=self.run_server, args=(self.specifiable_class, self.spec, self.in_pipe, self.shutdown_method)
         )
         self.process.start()
 
@@ -243,7 +243,7 @@ if get_backend() == "tf":
         SpecifiableServer objects.
         """
         def __init__(self):
-            self.specifiable_buffer = list()
+            self.specifiable_buffer = []
 
         def begin(self):
             """
