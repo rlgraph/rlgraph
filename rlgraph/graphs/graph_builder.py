@@ -685,8 +685,8 @@ class GraphBuilder(Specifiable):
         """
         for api_method_rec in self.root_component.api_methods.values():
             # Ignore `_variables` API-method for now.
-            #if api_method_rec.name == "_variables":
-            #    continue
+            if api_method_rec.name == "_variables":
+                continue
             for out_op_column in api_method_rec.out_op_columns:
                 for op_rec in out_op_column.op_records:
                     if op_rec.op is None:
