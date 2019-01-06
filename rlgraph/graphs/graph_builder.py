@@ -338,20 +338,25 @@ class GraphBuilder(Specifiable):
                     self.build_component_when_input_complete(component.parent_component)
 
         # Check variable-completeness and actually call the _variable graph_fn if not already done so.
-        if component.input_complete is True and component.check_variable_completeness():
-            # The graph_fn _variables has some in-op-columns that need to be run through the function.
-            if "_graph_fn__variables" in component.graph_fns:
-                graph_fn_rec = component.graph_fns["_graph_fn__variables"]
-                # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
-                # TODO: Then link the first in-op-column (empty) to all out-op-columns.
-                for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
-                    if in_op_col.already_sent is False:
-                        self.run_through_graph_fn_with_device_and_scope(in_op_col)
-                        # If graph_fn_rec doesn't know about the out-op-col yet, add it.
-                        if len(graph_fn_rec.out_op_columns) <= i:
-                            assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
-                            graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
-                        self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+        if component.input_complete is True and component.variable_complete is False:
+            if component.check_variable_completeness():
+                # The graph_fn _variables has some in-op-columns that need to be run through the function.
+                if "_graph_fn__variables" in component.graph_fns:
+                    graph_fn_rec = component.graph_fns["_graph_fn__variables"]
+                    # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
+                    # TODO: Then link the first in-op-column (empty) to all out-op-columns.
+                    for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
+                        if in_op_col.already_sent is False:
+                            self.run_through_graph_fn_with_device_and_scope(in_op_col)
+                            # If graph_fn_rec doesn't know about the out-op-col yet, add it.
+                            if len(graph_fn_rec.out_op_columns) <= i:
+                                assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
+                                graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
+                            self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+
+                # Now that the component is variable-complete, the parent may have become variable-complete as well.
+                if component.parent_component is not None:
+                    self.build_component_when_input_complete(component.parent_component)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column, create_new_out_column=None):
         """
@@ -366,6 +371,12 @@ class GraphBuilder(Specifiable):
                 an error.
                 Default: False.
         """
+        if op_rec_column.already_sent is not False:
+            raise RLGraphBuildError(
+                "op_rec_column ID={} already sent through graph_fn '{}'! Cannot do so again.".format(
+                    op_rec_column.id, op_rec_column.graph_fn.__name__)
+            )
+
         # Get the device for the ops generated in the graph_fn (None for custom device-definitions within the graph_fn).
         device = self.get_device(op_rec_column.component, variables=False)
 
@@ -409,7 +420,7 @@ class GraphBuilder(Specifiable):
             op_rec_column.out_graph_fn_column = out_op_rec_column
 
         # Tag column as already sent through graph_fn.
-        op_rec_column.already_sent = True  # TODO: assert is False before this?
+        op_rec_column.already_sent = True
         return op_rec_column.out_graph_fn_column
 
     def get_device(self, component, variables=False):
