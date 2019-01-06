@@ -333,13 +333,19 @@ class GraphBuilder(Specifiable):
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
-                # Now that the component is input-complete, the parent may have become variable-complete.
-                if component.parent_component is not None:
-                    self.build_component_when_input_complete(component.parent_component)
+                # Now that the component is built, the parent may have become variable-complete.
+                #if component.parent_component is not None:
+                #    self.build_component_when_input_complete(component.parent_component)
 
         # Check variable-completeness and actually call the _variable graph_fn if not already done so.
-        if component.input_complete is True and component.variable_complete is False:
-            if component.check_variable_completeness():
+        # Collect sub-components and build them as well if they just became variable-complete.
+        sub_components = component.sub_components.values()
+        sub_components_not_var_complete = set()
+        for sub_component in sub_components:
+            if sub_component.variable_complete is False:
+                sub_components_not_var_complete.add(sub_component)
+
+        if component.input_complete is True and component.check_variable_completeness():
                 # The graph_fn _variables has some in-op-columns that need to be run through the function.
                 if "_graph_fn__variables" in component.graph_fns:
                     graph_fn_rec = component.graph_fns["_graph_fn__variables"]
@@ -354,9 +360,11 @@ class GraphBuilder(Specifiable):
                                 graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
                             self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
 
+                for sub_component in sub_components_not_var_complete:
+                    self.build_component_when_input_complete(sub_component)
                 # Now that the component is variable-complete, the parent may have become variable-complete as well.
-                if component.parent_component is not None:
-                    self.build_component_when_input_complete(component.parent_component)
+                #if component.parent_component is not None:
+                #    self.build_component_when_input_complete(component.parent_component)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column, create_new_out_column=None):
         """
