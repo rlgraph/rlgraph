@@ -161,14 +161,15 @@ class TestExplorations(unittest.TestCase):
 
         # With exploration: Check, whether actions are equally distributed.
         batch_size = 2
+        num_time_steps = 30
         nn_outputs = nn_output_space.sample(batch_size)
-        time_steps = time_step_space.sample(30)
+        time_steps = time_step_space.sample(num_time_steps)
         # Collect action-batch-of-2 for each of our various random time steps.
-        actions_a = np.ndarray(shape=(30, batch_size), dtype=np.int)
-        actions_b = np.ndarray(shape=(30, batch_size), dtype=np.int)
-        actions_c = np.ndarray(shape=(30, batch_size), dtype=np.int)
-        for i, time_step in enumerate(time_steps):
-            a = test.test(("get_action", [nn_outputs, time_step]), expected_outputs=None)
+        actions_a = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
+        actions_b = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
+        actions_c = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
+        for i, t in enumerate(time_steps):
+            a = test.test(("get_action", [nn_outputs, t]), expected_outputs=None)
             actions_a[i] = a["a"]
             actions_b[i] = a["b"]
             actions_c[i] = a["c"]
@@ -184,19 +185,19 @@ class TestExplorations(unittest.TestCase):
         self.assertAlmostEqual(stddev_action_b, 0.5, places=0)
         mean_action_c = actions_c.mean()
         stddev_action_c = actions_c.std()
-        self.assertAlmostEqual(mean_action_c, 2.0, places=0)
+        self.assertAlmostEqual(mean_action_c, 1.5, places=0)
         self.assertAlmostEqual(stddev_action_c, 1.0, places=0)
 
         # Without exploration (epsilon is force-set to 0.0): Check, whether actions are always the same
         # (given same nn_output all the time).
         nn_outputs = nn_output_space.sample(batch_size)
-        time_steps = time_step_space.sample(30) + 10000
+        time_steps = time_step_space.sample(num_time_steps) + 10000
         # Collect action-batch-of-2 for each of our various random time steps.
-        actions_a = np.ndarray(shape=(30, batch_size), dtype=np.int)
-        actions_b = np.ndarray(shape=(30, batch_size), dtype=np.int)
-        actions_c = np.ndarray(shape=(30, batch_size), dtype=np.int)
-        for i, time_step in enumerate(time_steps):
-            a = test.test(("get_action", [nn_outputs, time_step]), expected_outputs=None)
+        actions_a = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
+        actions_b = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
+        actions_c = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
+        for i, t in enumerate(time_steps):
+            a = test.test(("get_action", [nn_outputs, t]), expected_outputs=None)
             actions_a[i] = a["a"]
             actions_b[i] = a["b"]
             actions_c[i] = a["c"]
