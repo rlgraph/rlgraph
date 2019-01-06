@@ -105,7 +105,13 @@ class NNLayer(Layer):
             # Pass inputs through activation function.
             else:
                 activation_function = get_activation_function(self.activation, self.activation_params)
-                return activation_function(*inputs)
+                output = activation_function(*inputs)
+                # TODO: Move into util function.
+                # Add batch-/time-rank flags.
+                output._batch_rank = 0 if self.time_major is False else 1
+                if self.in_space_0 and self.in_space_0.has_time_rank:
+                    output._time_rank = 0 if self.in_space_0.time_major is True else 1
+                return output
         # `self.layer` already includes activation function details.
         else:
             if get_backend() == "tf":

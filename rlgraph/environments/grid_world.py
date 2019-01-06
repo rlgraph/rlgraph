@@ -250,6 +250,7 @@ class GridWorld(Environment):
         # Forward, turn, jump container action.
         move = None
         if self.action_type == "ftj":
+            actions = self._translate_action(actions)
             # Turn around (0 (left turn), 1 (no turn), 2 (right turn)).
             if "turn" in actions:
                 self.orientation += (actions["turn"] - 1) * 90
@@ -447,3 +448,68 @@ class GridWorld(Environment):
     def y(self):
         return self.discrete_pos % self.n_col
 
+    def _translate_action(self, actions):
+        """
+        Maps a single integer action to dict actions. This allows us to compare how
+        container actions perform when instead using a large range on a single discrete action by enumerating
+        all combinations.
+
+        Args:
+            actions Union(int, dict): Maps single integer to different actions.
+
+        Returns:
+            dict: Actions dict.
+        """
+        # If already dict, do nothing.
+        if isinstance(actions, dict):
+            return actions
+        else:
+            # Unpack
+            if isinstance(actions, (np.ndarray, list)):
+                actions = actions[0]
+            # 3 x 3 x 2 = 18 actions
+            assert 18 > actions >= 0
+            # For "ftj": A dict with keys: "turn" (0 (turn left), 1 (no turn), 2 (turn right)), "forward"
+            # (0 (backward), 1(stay), 2 (forward)) and "jump" (0 (no jump) and 1 (jump)).
+            converted_actions = {}
+
+            # Mapping:
+            # 0 = 0 0 0
+            # 1 = 0 0 1
+            # 2 = 0 1 0
+            # 3 = 0 1 1
+            # 4 = 0 2 0
+            # 5 = 0 2 1
+            # 6 = 1 0 0
+            # 7 = 1 0 1
+            # 8 = 1 1 0
+            # 9 = 1 1 1
+            # 10 = 1 2 0
+            # 11 = 1 2 1
+            # 12 = 2 0 0
+            # 13 = 2 0 1
+            # 14 = 2 1 0
+            # 15 = 2 1 1
+            # 16 = 2 2 0
+            # 17 = 2 2 1
+
+            # Set turn via range:
+            if 6 > actions >= 0:
+                converted_actions["turn"] = 0
+            elif 12 > actions >= 6:
+                converted_actions["turn"] = 1
+            elif 18 > actions >= 12:
+                converted_actions["turn"] = 2
+
+            if actions in [0, 1, 6, 7, 12, 13]:
+                converted_actions["forward"] = 0
+            elif actions in [2, 3, 8, 9, 14, 15]:
+                converted_actions["forward"] = 1
+            elif actions in [4, 5, 10, 11, 16, 17]:
+                converted_actions["forward"] = 2
+
+            if actions % 2 == 0:
+                converted_actions["jump"] = 0
+            else:
+                converted_actions["jump"] = 1
+            return converted_actions

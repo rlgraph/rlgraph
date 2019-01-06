@@ -90,6 +90,7 @@ class TensorFlowExecutor(GraphExecutor):
 
         # Local session config which needs to be updated with device options during setup.
         self.tf_session_type = self.session_config.pop("type", "monitored-training-session")
+        self.tf_session_auto_start = self.session_config.pop("auto_start", True)
         self.tf_session_config = tf.ConfigProto(**self.session_config)
         self.tf_session_options = None
 
@@ -357,11 +358,8 @@ class TensorFlowExecutor(GraphExecutor):
         self.setup_specifiable_servers(hooks)
 
         # Finalize our graph, create and enter the session.
-        self.setup_session(hooks)
-
-        # NOT NECESSARY: SEEMS TO BE DONE AUTOMATICALLY BY SESSION
-        # Start Queue Runners (if any).
-        #self.start_queue_runners()
+        if self.tf_session_auto_start is True:
+            self.setup_session(hooks)
 
     def setup_saver(self, hooks):
         """
@@ -446,7 +444,7 @@ class TensorFlowExecutor(GraphExecutor):
         var_list = list(self.graph_builder.root_component.variables.values())
 
         self.global_training_timestep = tf.get_variable(
-            name="global-timestep", dtype=util.dtype("int"), trainable=False, initializer=0,
+            name="global-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,
             collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
         var_list.append(self.global_training_timestep)
 
@@ -653,7 +651,8 @@ class TensorFlowExecutor(GraphExecutor):
         and other open connections.
         """
         # Close the tf.Session.
-        self.monitored_session.close()
+        if self.tf_session_auto_start is True:
+            self.monitored_session.close()
 
     def _build_device_strategy(self, root_component, root_optimizer, batch_size, extra_build_args=None):
         """

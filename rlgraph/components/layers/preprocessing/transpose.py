@@ -72,7 +72,8 @@ class Transpose(PreprocessLayer):
         if get_backend() == "tf":
             # Flip around ranks 0 and 1.
             transposed = tf.transpose(
-                preprocessing_inputs, perm=(1, 0) + tuple(i for i in range(2, len(preprocessing_inputs.shape.as_list()))), name="transpose"
+                preprocessing_inputs,
+                perm=(1, 0) + tuple(i for i in range(2, len(preprocessing_inputs.shape.as_list()))), name="transpose"
             )
             if self.output_is_time_major is None:
                 transposed._time_rank = 0 if self.output_time_majors[key] is True else 1

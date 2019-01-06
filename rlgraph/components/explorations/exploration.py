@@ -24,7 +24,7 @@ from rlgraph.components.explorations.epsilon_exploration import EpsilonExplorati
 from rlgraph.components.common.noise_components import NoiseComponent
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.util import dtype
+from rlgraph.utils.util import convert_dtype
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
@@ -139,7 +139,7 @@ class Exploration(Component):
                 random_actions = tf.random_uniform(
                     shape=tf.shape(sample),
                     maxval=self.flat_action_space[key].num_categories,
-                    dtype=dtype("int")
+                    dtype=convert_dtype("int")
                 )
 
                 return tf.where(

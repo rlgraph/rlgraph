@@ -22,7 +22,7 @@ from six.moves import xrange as range_
 import re
 
 from rlgraph import get_backend
-from rlgraph.utils.util import dtype
+from rlgraph.utils.util import convert_dtype
 from rlgraph.utils.initializer import Initializer
 from rlgraph.spaces import Space
 
@@ -167,7 +167,7 @@ class BoxSpace(Space):
             # Un-indent and just directly construct pytorch?
             if get_backend() == "pytorch" and is_input_feed:
                 # Convert to PyTorch tensors as a faux placehodler.
-                return torch.zeros(shape, dtype=dtype(dtype_=self.dtype, to="pytorch"))
+                return torch.zeros(shape, dtype=convert_dtype(dtype=self.dtype, to="pytorch"))
             else:
                 # TODO also convert?
                 return var
@@ -176,7 +176,7 @@ class BoxSpace(Space):
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
             name = re.sub(r'^/_?', "", name)
             if is_input_feed:
-                return tf.placeholder(dtype=dtype(self.dtype), shape=shape, name=name)
+                return tf.placeholder(dtype=convert_dtype(self.dtype), shape=shape, name=name)
             else:
                 init_spec = kwargs.pop("initializer", None)
                 # Bools should be initializable via 0 or not 0.
@@ -189,7 +189,7 @@ class BoxSpace(Space):
                     initializer = Initializer.from_spec(shape=shape, specification=init_spec).initializer
 
                 return tf.get_variable(
-                    name, shape=shape, dtype=dtype(self.dtype), initializer=initializer,
+                    name, shape=shape, dtype=convert_dtype(self.dtype), initializer=initializer,
                     collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
                     **kwargs
                 )

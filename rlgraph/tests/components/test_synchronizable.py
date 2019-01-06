@@ -53,7 +53,7 @@ class MyCompWithVars(Component):
 
 class TestSynchronizableComponent(unittest.TestCase):
 
-    def test_values_api_method(self):
+    def test_variables_api_method(self):
         # Proof that all Components can push out their variable values.
         component_to_test = MyCompWithVars(synchronizable=False)
         test = ComponentTest(component=component_to_test)
@@ -99,7 +99,7 @@ class TestSynchronizableComponent(unittest.TestCase):
             "sync-to/"+VARIABLE_NAMES[1]: np.ones(shape=sync_from.space.shape)
         })
 
-    def test_sync_socket_between_2_identical_comps_that_have_vars_only_in_their_sub_comps(self):
+    def test_sync_between_2_identical_comps_that_have_vars_only_in_their_sub_comps(self):
         """
         Similar to the Policy scenario, where the Policy Component owns a NeuralNetwork (which has vars)
         and has to be synced with other Policies.

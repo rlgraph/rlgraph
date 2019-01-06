@@ -22,7 +22,8 @@ from rlgraph.components.helpers.v_trace_function import VTraceFunction
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.util import get_rank
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -123,7 +124,9 @@ class IMPALALossFunction(LossFunction):
                 actor's policies (mu). Dimensions are: time x batch x action-space+categories.
             values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
                 Dimensions are: (time+1) x batch x 1.
-            actions (DataOp): The actually taken actions. Dimensions are: time x batch (discrete int actions).
+            actions (DataOp): The actually taken actions.
+                Both one-hot actions as well as discrete int actions are allowed.
+                Dimensions are: time x batch x (one-hot values)?.
             rewards (DataOp): The received rewards. Dimensions are: time x batch.
             terminals (DataOp): The observed terminal signals. Dimensions are: time x batch.
 
@@ -140,7 +143,13 @@ class IMPALALossFunction(LossFunction):
                 actions = actions[1:]
             if self.slice_rewards:
                 rewards = rewards[1:]
-            actions_flat = tf.one_hot(actions, depth=self.action_space.num_categories)
+            # If already given as flat (e.g. cycled from previous_action via env-stepper) ->
+            # Need to revert as well here for v-trace function.
+            if actions.dtype == tf.float32:
+                actions_flat = actions
+                actions = tf.argmax(actions_flat, axis=2)
+            else:
+                actions_flat = tf.one_hot(actions, depth=self.action_space.num_categories)
 
             # Discounts are simply 0.0, if there is a terminal, otherwise: `self.discount`.
             discounts = tf.expand_dims(tf.to_float(~terminals) * self.discount, axis=-1, name="discounts")
@@ -156,7 +165,8 @@ class IMPALALossFunction(LossFunction):
             # (already multiplied by rho_t_pg): A = rho_t_pg * (rt + gamma*vt - V(t)).
             # Both vs and pg_advantages will block the gradient as they should be treated as constants by the gradient
             # calculator of this loss func.
-            rewards = tf.expand_dims(rewards, axis=-1)
+            if get_rank(rewards) == 2:
+                rewards = tf.expand_dims(rewards, axis=-1)
             vs, pg_advantages = self.v_trace_function.calc_v_trace_values(
                 logits_actions_pi, tf.log(action_probs_mu), actions, actions_flat, discounts, rewards, values,
                 bootstrapped_values

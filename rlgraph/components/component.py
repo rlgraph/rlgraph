@@ -521,10 +521,10 @@ class Component(Specifiable):
             # Numpyize initializer and give it correct dtype.
             else:
                 shape = None
-                initializer = np.asarray(initializer, dtype=util.dtype(dtype, "np"))
+                initializer = np.asarray(initializer, dtype=util.convert_dtype(dtype, "np"))
 
             var = tf.get_variable(
-                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable,
+                name=name, shape=shape, dtype=util.convert_dtype(dtype), initializer=initializer, trainable=trainable,
                 collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
                 use_resource=use_resource
             )
@@ -535,7 +535,7 @@ class Component(Specifiable):
             )
 
             var = eager.Variable(
-                name=name, shape=shape, dtype=util.dtype(dtype), initializer=initializer, trainable=trainable,
+                name=name, shape=shape, dtype=util.convert_dtype(dtype), initializer=initializer, trainable=trainable,
                 collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES]
             )
 

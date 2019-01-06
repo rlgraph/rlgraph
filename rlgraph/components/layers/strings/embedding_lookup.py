@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.util import dtype
+from rlgraph.utils.util import convert_dtype
 from rlgraph.components.layers.layer import Layer
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
@@ -77,7 +77,7 @@ class EmbeddingLookup(Layer):
         self.initializer = Initializer.from_spec(shape=shape, specification=self.initializer_spec)
         # TODO: For IMPALA partitioner is not needed. Do this later.
         self.embedding_matrix = self.get_variable(
-            name="embedding-matrix", shape=shape, dtype=dtype("float"), initializer=self.initializer.initializer,
+            name="embedding-matrix", shape=shape, dtype=convert_dtype("float"), initializer=self.initializer.initializer,
             #partitioner=self.partitioners, regularizer=self.regularizers,
             trainable=self.trainable
         )

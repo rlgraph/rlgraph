@@ -155,10 +155,12 @@ class LSTMLayer(NNLayer):
         Args:
             inputs (SingleDataOp): The data to pass through the layer (batch of n items, m timesteps).
                 Position of batch- and time-ranks in the input depend on `self.time_major` setting.
+
             initial_c_and_h_states (DataOpTuple): The initial cell- and hidden-states to use.
-                None for the default behavior (TODO: describe here what default means: zero?)
+                None for the default behavior (all zeros).
                 The cell-state in an LSTM is passed between cells from step to step and only affected by element-wise
                 operations. The hidden state is identical to the output of the LSTM on the previous time step.
+
             sequence_length (Optional[SingleDataOp]): An int tensor mapping each batch item to a sequence length
                 such that the remaining time slots for each batch item are filled with zeros.
 
@@ -188,6 +190,13 @@ class LSTMLayer(NNLayer):
                 )
             # We are running with a fixed number of time steps (static unroll).
             else:
+                # Set to zeros as tf lstm object does not handle None.
+                if initial_c_and_h_states is None:
+                    shape = (tf.shape(inputs)[0 if self.in_space.time_major is False else 1], self.units)
+                    initial_c_and_h_states = tf.nn.rnn_cell.LSTMStateTuple(
+                        tf.zeros(shape=shape, dtype=tf.float32),
+                        tf.zeros(shape=shape, dtype=tf.float32)
+                    )
                 output_list = list()
                 lstm_state_tuple = initial_c_and_h_states
                 # TODO: Add option to reset the internal state in the middle of this loop iff some reset signal

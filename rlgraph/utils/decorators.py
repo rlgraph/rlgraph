@@ -81,14 +81,14 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
     def decorator_func(wrapped_func):
 
         def api_method_wrapper(self, *args, **kwargs):
-            name_ = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
+            api_fn_name = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
             # Direct evaluation of function.
             if self.execution_mode == "define_by_run":
                 type(self).call_count += 1
 
                 start = time.perf_counter()
                 # Check with owner if extra args needed.
-                if name_ in self.api_methods and self.api_methods[name_].add_auto_key_as_first_param:
+                if api_fn_name in self.api_methods and self.api_methods[api_fn_name].add_auto_key_as_first_param:
                     output = wrapped_func(self, "", *args, **kwargs)
                 else:
                     output = wrapped_func(self, *args, **kwargs)
@@ -99,7 +99,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 )
                 return output
 
-            api_method_rec = self.api_methods[name_]
+            api_method_rec = self.api_methods[api_fn_name]
 
             # Create op-record column to call API method with. Ignore None input params. These should not be sent
             # to the API-method.
@@ -165,23 +165,23 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                         self.api_method_inputs[param_name] = in_op_column.op_records[i].space
 
             # Regular API-method: Call it here.
-            args_, kwargs_ = in_op_column.get_args_and_kwargs()
+            api_fn_args, api_fn_kwargs = in_op_column.get_args_and_kwargs()
 
             if api_method_rec.is_graph_fn_wrapper is False:
-                return_values = wrapped_func(self, *args_, **kwargs_)
+                return_values = wrapped_func(self, *api_fn_args, **api_fn_kwargs)
             # Wrapped graph_fn: Call it through yet another wrapper.
             else:
                 return_values = graph_fn_wrapper(
                     self, wrapped_func, returns, dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
                         add_auto_key_as_first_param=add_auto_key_as_first_param
-                    ), *args_, **kwargs_
+                    ), *api_fn_args, **api_fn_kwargs
                 )
 
             # Process the results (push into a column).
             out_op_column = DataOpRecordColumnFromAPIMethod(
                 component=self,
-                api_method_name=name_,
+                api_method_name=api_fn_name,
                 args=util.force_tuple(return_values) if type(return_values) != dict else None,
                 kwargs=return_values if type(return_values) == dict else None
             )
@@ -228,23 +228,23 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 if type(return_values) == dict:
                     return {key: value.op for key, value in out_op_column.get_args_and_kwargs()[1].items()}
                 else:
-                    tuple_ = tuple(map(lambda x: x.op, out_op_column.get_args_and_kwargs()[0]))
-                    return tuple_[0] if len(tuple_) == 1 else tuple_
+                    tuple_returns = tuple(map(lambda x: x.op, out_op_column.get_args_and_kwargs()[0]))
+                    return tuple_returns[0] if len(tuple_returns) == 1 else tuple_returns
             # Parent caller is non-graph_fn: Return op-recs.
             else:
                 if type(return_values) == dict:
                     return return_values
                 else:
-                    tuple_ = out_op_column.get_args_and_kwargs()[0]
-                    return tuple_[0] if len(tuple_) == 1 else tuple_
+                    tuple_returns = out_op_column.get_args_and_kwargs()[0]
+                    return tuple_returns[0] if len(tuple_returns) == 1 else tuple_returns
 
         func_type = util.get_method_type(wrapped_func)
         is_graph_fn_wrapper = (func_type == "graph_fn")
-        name_ = name or (re.sub(r'^_graph_fn_', "", wrapped_func.__name__) if is_graph_fn_wrapper else
+        api_fn_name = name or (re.sub(r'^_graph_fn_', "", wrapped_func.__name__) if is_graph_fn_wrapper else
                          wrapped_func.__name__)
         api_method_rec = APIMethodRecord(
             func=wrapped_func, wrapper_func=api_method_wrapper,
-            name=name_,
+            name=api_fn_name,
             must_be_complete=must_be_complete, ok_to_overwrite=ok_to_overwrite,
             is_graph_fn_wrapper=is_graph_fn_wrapper, is_class_method=(component is None),
             flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
@@ -252,13 +252,13 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
         # Registers the given method with the Component (if not already done so).
         if component is not None:
-            define_api_method(component, api_method_rec, copy_=False)
+            define_api_method(component, api_method_rec, copy_record=False)
         # Registers the given function with the Component sub-class so we can define it for each
         # constructed instance of that sub-class.
         else:
             cls = wrapped_func.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0]
             if cls not in component_api_registry:
-                component_api_registry[cls] = list()
+                component_api_registry[cls] = []
             component_api_registry[cls].append(api_method_rec)
 
         return api_method_wrapper
@@ -336,7 +336,7 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
 
         # Registers the given method with the Component (if not already done so).
         if component is not None:
-            define_graph_fn(component, graph_fn_rec, copy_=False)
+            define_graph_fn(component, graph_fn_rec, copy_record=False)
         # Registers the given function with the Component sub-class so we can define it for each
         # constructed instance of that sub-class.
         else:
@@ -353,17 +353,17 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
         return decorator_func(graph_fn)
 
 
-def define_api_method(component, api_method_record, copy_=True):
+def define_api_method(component, api_method_record, copy_record=True):
     """
     Registers an API-method with a Component instance.
 
     Args:
         component (Component): The Component object to register the API method with.
         api_method_record (APIMethodRecord): The APIMethodRecord describing the to-be-registered API-method.
-        copy_ (bool): Whether to deepcopy the APIMethodRecord prior to handing it to the Component for storing.
+        copy_record (bool): Whether to deepcopy the APIMethodRecord prior to handing it to the Component for storing.
     """
     # Deep copy the record (in case this got registered the normal way with via decorating a class method).
-    if copy_:
+    if copy_record:
         api_method_record = copy.deepcopy(api_method_record)
     api_method_record.component = component
 
@@ -423,17 +423,17 @@ def define_api_method(component, api_method_record, copy_=True):
                 component.api_method_inputs[param.name] = None
 
 
-def define_graph_fn(component, graph_fn_record, copy_=True):
+def define_graph_fn(component, graph_fn_record, copy_record=True):
     """
     Registers a graph_fn with a Component instance.
 
     Args:
         component (Component): The Component object to register the graph function with.
         graph_fn_record (GraphFnRecord): The GraphFnRecord describing the to-be-registered graph function.
-        copy_ (bool): Whether to deepcopy the GraphFnRecord prior to handing it to the Component for storing.
+        copy_record (bool): Whether to deepcopy the GraphFnRecord prior to handing it to the Component for storing.
     """
     # Deep copy the record (in case this got registered the normal way with via decorating a class method).
-    if copy_ is True:
+    if copy_record is True:
         graph_fn_record = copy.deepcopy(graph_fn_record)
 
     graph_fn_record.component = component

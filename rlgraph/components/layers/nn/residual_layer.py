@@ -48,7 +48,7 @@ class ResidualLayer(NNLayer):
 
         # Copy the repeat_units n times and add them to this Component.
         self.residual_units = [self.residual_unit] + [
-            self.residual_unit.copy(scope=self.residual_unit.scope+"-rep"+str(i+1)) for i in range(repeats - 1)
+            self.residual_unit.copy(scope=self.residual_unit.scope+"-rep"+str(i)) for i in range(repeats - 1)
         ]
         self.add_components(*self.residual_units)
 
@@ -69,9 +69,13 @@ class ResidualLayer(NNLayer):
                 results = self.residual_units[i].apply(results)
 
             # Then activate and add up.
-            added_with_input = results + inputs
+            result = results + inputs
             activation_function = get_activation_function(self.activation, self.activation_params)
             if activation_function is not None:
-                return activation_function(added_with_input)
-            else:
-                return added_with_input
+                result = activation_function(added_with_input)
+            # TODO: Move into util function.
+            if hasattr(inputs, "_batch_rank"):
+                result._batch_rank = inputs._batch_rank
+            if hasattr(inputs, "_time_rank"):
+                result._time_rank = inputs._time_rank
+            return result

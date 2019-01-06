@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from rlgraph.utils.util import dtype as dtype_
+from rlgraph.utils.util import convert_dtype as dtype_
 from rlgraph.spaces.box_space import BoxSpace
 
 

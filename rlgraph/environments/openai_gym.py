@@ -17,24 +17,26 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import time
+
 import gym
 import numpy as np
 from six.moves import xrange as range_
-import time
 
-from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.environments import Environment
 from rlgraph.spaces import *
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
 class OpenAIGymEnv(Environment):
     """
     OpenAI Gym adapter for RLgraph: https://gym.openai.com/.
     """
+
     def __init__(
-        self, gym_env, frameskip=None, max_num_noops=0, noop_action=0, episodic_life=False, fire_reset=False,
-        monitor=None, monitor_safe=False, monitor_video=0, visualize=False,
-        force_float32=True, **kwargs
+            self, gym_env, frameskip=None, max_num_noops=0, noop_action=0, episodic_life=False, fire_reset=False,
+            monitor=None, monitor_safe=False, monitor_video=0, visualize=False,
+            force_float32=True, **kwargs
     ):
         """
         Args:
@@ -63,6 +65,11 @@ class OpenAIGymEnv(Environment):
         else:
             self.gym_env = gym_env
 
+        # Multi-goal environments states comes in a dict{observation: dtype, desired_goal: dtype, achieved_goal:dtype}
+        if isinstance(self.gym_env.env, gym.GoalEnv):
+            self.gym_env = gym.wrappers.FlattenDictWrapper(self.gym_env, dict_keys=['observation', 'desired_goal'])
+            self.achieved_goal = self.translate_space(self.gym_env.env.observation_space.spaces['achieved_goal'],
+                                                      force_float32=force_float32)
         # Manually set the frameskip property.
         self.frameskip = None
         if frameskip is not None:
@@ -98,12 +105,13 @@ class OpenAIGymEnv(Environment):
             self.gym_env = gym.wrappers.Monitor(self.gym_env, monitor, force=not monitor_safe,
                                                 video_callable=video_callable)
 
+        self.action_space = self.translate_space(self.gym_env.action_space)
+
         # Don't trust gym's own information on dtype. Find out what the observation space really is.
         # Gym_env.observation_space's low/high used to be float64 ndarrays, but the actual output was uint8.
-        self.action_space = self.translate_space(self.gym_env.action_space)
-        self.state_space = self.translate_space(
-            self.gym_env.observation_space, dtype=self.reset().dtype, force_float32=force_float32
-        )
+        self.state_space = self.translate_space(self.gym_env.observation_space, dtype=self.reset().dtype,
+                                                force_float32=force_float32)
+
         super(OpenAIGymEnv, self).__init__(self.state_space, self.action_space, **kwargs)
 
         # If state_space is not a FloatBox -> Set force_float32 to False.
@@ -169,6 +177,7 @@ class OpenAIGymEnv(Environment):
         self.gym_env = None
 
     def _step_and_skip(self, actions):
+        # TODO - allow for goal reward substitution for multi-goal envs
         if self.frameskip is None:
             # Frames kipping is unset or set as env property.
             return self.gym_env.step(actions)
@@ -191,7 +200,7 @@ class OpenAIGymEnv(Environment):
 
             return max_frame, step_reward, terminal, info
 
-    def step(self, actions, **kwargs):
+    def step(self, actions):
         if self.visualize:
             self.gym_env.render()
         state, reward, terminal, info = self._step_and_skip(actions)
@@ -250,10 +259,10 @@ class OpenAIGymEnv(Environment):
         elif isinstance(space, gym.spaces.Tuple):
             return Tuple(*[OpenAIGymEnv.translate_space(s) for s in space.spaces])
         elif isinstance(space, gym.spaces.Dict):
-            return Dict({key: OpenAIGymEnv.translate_space(value) for key, value in space.spaces.items()})
+            return Dict({key: OpenAIGymEnv.translate_space(value, dtype, force_float32)
+                         for key, value in space.spaces.items()})
 
         raise RLGraphError("Unknown openAI gym Space class ({}) for state_space!".format(space))
 
     def __str__(self):
         return "OpenAIGym({})".format(self.gym_env)
-

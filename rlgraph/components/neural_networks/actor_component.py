@@ -29,7 +29,7 @@ class ActorComponent(Component):
     A Component that incorporates an entire pipeline from env state to an action choice.
     Includes preprocessor, policy and exploration sub-components.
     """
-    def __init__(self, preprocessor_spec, policy_spec, exploration_spec, #deterministic_policy=None,
+    def __init__(self, preprocessor_spec, policy_spec, exploration_spec=None,
                  **kwargs):
         """
         Args:
