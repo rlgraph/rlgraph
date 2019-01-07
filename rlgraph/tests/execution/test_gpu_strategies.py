@@ -55,7 +55,7 @@ class TestGpuStrategies(unittest.TestCase):
         THIS TEST REQUIRES A MULTI GPU SYSTEM.
         """
         root_logger.setLevel(DEBUG)
-        agent_config = config_from_path("configs/multi_gpu_dqn_for_random_env.json")
+        agent_config = config_from_path("configs/multi_gpu_dqn_for_random_env.json", root="../")
         environment = RandomEnv.from_spec(self.random_env_spec)
 
         agent = DQNAgent.from_spec(
@@ -64,7 +64,7 @@ class TestGpuStrategies(unittest.TestCase):
         print("Compiled DQN agent on multi-GPU system")
 
         # Do an update from external batch.
-        batch_size = 5
+        batch_size = agent_config["update_spec"]["batch_size"]
         external_batch = dict(
             states=environment.state_space.sample(size=batch_size),
             actions=environment.action_space.sample(size=batch_size),
