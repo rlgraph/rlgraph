@@ -66,7 +66,7 @@ class OpenAIGymEnv(Environment):
             self.gym_env = gym_env
 
         # Multi-goal environments states comes in a dict{observation: dtype, desired_goal: dtype, achieved_goal:dtype}
-        if isinstance(self.gym_env.env, gym.GoalEnv):
+        if hasattr(gym, "GoalEnv") and isinstance(self.gym_env.env, gym.GoalEnv):
             self.gym_env = gym.wrappers.FlattenDictWrapper(self.gym_env, dict_keys=['observation', 'desired_goal'])
             self.achieved_goal = self.translate_space(self.gym_env.env.observation_space.spaces['achieved_goal'],
                                                       force_float32=force_float32)
