@@ -16,16 +16,14 @@ class BatchSplitter(Component):
     """
     Splits a number of incoming DataOps along their batch dimension.
     """
-    def __init__(self, num_shards, shard_size, **kwargs):
+    def __init__(self, num_shards, shard_size, scope="batch-splitter", **kwargs):
         """
         Args:
             num_shards (int): Number of shards to split the batch dimension into.
             shard_size (int): The number of samples in a per-GPU shard.
         """
         super(BatchSplitter, self).__init__(
-            scope=kwargs.pop("scope", "batch-splitter"),
-            graph_fn_num_outputs=dict(_graph_fn_split_batch=num_shards),
-            **kwargs
+            scope=scope, graph_fn_num_outputs=dict(_graph_fn_split_batch=num_shards), **kwargs
         )
 
         assert num_shards > 1, "ERROR: num shards must be greater than 1 but is {}.".format(
