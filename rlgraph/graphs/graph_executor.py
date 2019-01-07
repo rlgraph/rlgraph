@@ -77,6 +77,9 @@ class GraphExecutor(Specifiable):
 
         # Number of available GPUs and their names.
         self.gpus_enabled = None
+        # Whether to fake GPUs in case there are none available (in which case, we place everything on the CPU).
+        self.fake_gpus = None
+
         self.gpu_names = None
         self.used_devices = list()
         self.max_usable_gpus = 0

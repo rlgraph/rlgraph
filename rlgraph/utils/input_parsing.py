@@ -133,9 +133,11 @@ def parse_execution_spec(execution_spec):
                 gpus_enabled=False,
                 # If yes, how many GPUs are to be used?
                 max_usable_gpus=0,
+                # If True, use `max_usable_gpus` fake-GPUs (CPU) iff no GPUs are available.
+                fake_gpus_if_necessary=False,
                 # Specify specific CUDA devices to be used, e.g. gpu 0 and 2 = [0, 2].
                 # If None, we use CUDA devices [0, max_usable_gpus - 1]
-                enable_cuda_devices=None,
+                cuda_devices=None,
                 # Fraction of the overall amount of memory that each visible GPU should be allocated.
                 per_process_gpu_memory_fraction=None,
                 # If True, not all memory will be allocated which is relevant on shared resources.
@@ -197,7 +199,7 @@ def parse_execution_spec(execution_spec):
                 max_usable_gpus=0,
                 # Specify specific CUDA devices to be used, e.g. gpu 0 and 2 = [0, 2].
                 # If None, we use CUDA devices [0, max_usable_gpus - 1]
-                enable_cuda_devices=None
+                cuda_devices=None
             ),
             # Device placement settings.
             device_strategy="default",

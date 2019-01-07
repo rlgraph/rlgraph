@@ -25,6 +25,7 @@ import rlgraph.utils as util
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
+from rlgraph.utils.util import force_list
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -679,12 +680,18 @@ class TensorFlowExecutor(GraphExecutor):
             self.vf_optimizer = extra_build_args["vf_optimizer"]
 
         if self.device_strategy == "multi_gpu_sync":
-            assert self.num_gpus > 1, "ERROR: MultiGpuSync strategy needs more than one GPU available but" \
-                                      "there are only {} GPUs visible.".format(self.num_gpus)
-            self.logger.info("Building MultiGpuSync strategy with {} GPUs.".format(self.num_gpus))
+            assert self.num_gpus > 1 or (self.fake_gpus is True and self.max_usable_gpus > 0), \
+                "ERROR: MultiGpuSync strategy needs more than one GPU available (or more than 0 `max_usable_gpus` if" \
+                "GPUs are faked), but there are only {} GPUs visible and {} `max_usable_gpus`.". \
+                format(self.num_gpus, self.max_usable_gpus)
+            self.logger.info(
+                "Building MultiGpuSync strategy with {} GPUs (use fake GPUs={}).".format(self.num_gpus, self.fake_gpus)
+            )
 
+            # Support faked GPUs (will place all towers on the CPU in that case).
+            devices = self.gpu_names or [self.default_device for _ in range(self.max_usable_gpus)]
             sub_graphs = []
-            for i, device in enumerate(self.gpu_names):
+            for i, device in enumerate(devices):
                 # Copy and assign GPU to copy.
                 self.logger.info("Creating device sub-graph for device: {}.".format(device))
                 # Only place the ops of the tower on the GPU (variables are shared with root).
@@ -697,7 +704,7 @@ class TensorFlowExecutor(GraphExecutor):
             # Setup and add MultiGpuSynchronizer to root.
             multi_gpu_optimizer = MultiGpuSynchronizer(batch_size=batch_size)
             root_component.add_components(multi_gpu_optimizer)
-            multi_gpu_optimizer.setup_towers(sub_graphs, self.gpu_names)
+            multi_gpu_optimizer.setup_towers(sub_graphs, devices)
 
     def _sanity_check_devices(self):
         """
@@ -731,54 +738,56 @@ class TensorFlowExecutor(GraphExecutor):
                 assert self.max_usable_gpus > 0, "ERROR: GPUs are enabled but max_usable_gpus are not >0 but {}".\
                     format(self.max_usable_gpus)
                 gpu_names = sorted([x.name for x in self.local_device_protos if x.device_type == 'GPU'])
-                cuda_visible_devices = gpu_spec.get("enable_cuda_devices", None)
-                if len(gpu_names) < self.max_usable_gpus:
-                    self.logger.warn("WARNING: max_usable_gpus is {} but only {} gpus are locally visible,"
-                                     "using all available GPUs.".format(self.max_usable_gpus, len(gpu_names)))
 
-                # Indicate specific CUDA devices to be used.
-                if cuda_visible_devices is not None:
-                    if isinstance(str, cuda_visible_devices):
-                        # Assume "0, 3".
-                        device_list = cuda_visible_devices.split(",")
-                        num_provided_cuda_devices = len(device_list)
-                        use_names = [gpu_names[int(device_id)] for device_id in device_list]
-                    elif isinstance(cuda_visible_devices, list):
+                # Set fake_gpus to True iff `fake_gpus_if_necessary` is True AND we really don't have any GPUs.
+                self.fake_gpus = gpu_spec.get("fake_gpus_if_necessary", False) and len(gpu_names) == 0
+
+                if self.fake_gpus is False:
+                    cuda_visible_devices = gpu_spec.get("cuda_visible_devices", None)
+                    if len(gpu_names) < self.max_usable_gpus:
+                        self.logger.warn("WARNING: max_usable_gpus is {} but only {} gpus are locally visible. "
+                                         "Using all available GPUs.".format(self.max_usable_gpus, len(gpu_names)))
+
+                    # Indicate specific CUDA devices to be used.
+                    if cuda_visible_devices is not None:
+                        if not isinstance(cuda_visible_devices, (str, int, list)):
+                            raise ValueError(
+                                "ERROR: 'cuda_visible_devices' must be int/string or list of device index-values, e.g. "
+                                "[0,2] or '0' or 1, but is: {}".format(type(cuda_visible_devices))
+                            )
+                        cuda_visible_devices = force_list(cuda_visible_devices)
                         num_provided_cuda_devices = len(cuda_visible_devices)
                         use_names = [gpu_names[int(device_id)] for device_id in cuda_visible_devices]
                         cuda_visible_devices = ",".join(cuda_visible_devices)
-                    else:
-                        raise ValueError("ERROR: 'cuda_devices' must be string or list of device index "
-                                         "values, e.g. [0, 1] or '0,1', but is: {}".format(type(cuda_visible_devices)))
 
-                    # Must match number of allowed GPUs.
-                    assert self.max_usable_gpus == num_provided_cuda_devices,\
-                        "ERROR: Provided CUDA {} devices: {}, but max_usable_gpus is {}. Must match!"
+                        # Must match number of allowed GPUs.
+                        assert self.max_usable_gpus == num_provided_cuda_devices,\
+                            "ERROR: Provided CUDA {} devices: {}, but max_usable_gpus is {}. Must match!"
 
-                    # Expose these devices.
-                    self.logger.info("GPU strategy: exposing CUDA devices with ids: {}".format(cuda_visible_devices))
-                    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
-                    self.gpu_names = use_names
+                        # Expose these devices.
+                        self.logger.info("GPU strategy: Exposing CUDA devices with ids: {}".format(cuda_visible_devices))
+                        os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+                        self.gpu_names = use_names
 
-                else:
                     # Assign as many as specified.
-                    visible_devices = []
-                    use_names = []
-                    for i, name in enumerate(gpu_names):
-                        if len(use_names) < self.max_usable_gpus:
-                            use_names.append(name)
-                            visible_devices.append(str(i))
-                    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(visible_devices)
-                    self.logger.info("GPU strategy initialized with GPUs enabled: {}".format(use_names))
-                    self.gpu_names = use_names
+                    else:
+                        cuda_visible_devices = []
+                        use_names = []
+                        for i, name in enumerate(gpu_names):
+                            if len(use_names) < self.max_usable_gpus:
+                                use_names.append(name)
+                                cuda_visible_devices.append(str(i))
+                        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
+                        self.logger.info("GPU strategy initialized with GPUs enabled: {}".format(use_names))
+                        self.gpu_names = use_names
 
-                self.num_gpus = len(self.gpu_names)
-                self.available_devices.extend(self.gpu_names)
-                per_process_gpu_memory_fraction = gpu_spec.get("per_process_gpu_memory_fraction", None)
-                if per_process_gpu_memory_fraction is not None:
-                    self.tf_session_config.gpu_options.per_process_gpu_memory_fraction = per_process_gpu_memory_fraction
+                    self.num_gpus = len(self.gpu_names)
+                    self.available_devices.extend(self.gpu_names)
+                    per_process_gpu_memory_fraction = gpu_spec.get("per_process_gpu_memory_fraction", None)
+                    if per_process_gpu_memory_fraction is not None:
+                        self.tf_session_config.gpu_options.per_process_gpu_memory_fraction = per_process_gpu_memory_fraction
 
-                self.tf_session_config.gpu_options.allow_growth = gpu_spec.get("allow_memory_growth", False)
+                    self.tf_session_config.gpu_options.allow_growth = gpu_spec.get("allow_memory_growth", False)
         else:
             # Do not allow any GPUs to be used.
             self.gpus_enabled = False
