@@ -53,6 +53,7 @@
     "gpu_spec": {
       "gpus_enabled" : true,
       "max_usable_gpus": 4,
+      "fake_gpus_if_necessary": true,
       "per_process_gpu_memory_fraction": 0.25,
       "allow_memory_growth": true
     },

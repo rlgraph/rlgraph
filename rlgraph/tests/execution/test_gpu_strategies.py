@@ -197,8 +197,6 @@ class TestGpuStrategies(unittest.TestCase):
         #        "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
         #    recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
 
-
-
     # TODO (Bart maybe): We should probably have some tests that simply test the update call
     # This is just slightly annoying because we have to assemble a preprocessed batch manually
     # It would be good to have a utility method for that to use in tests (e.g. sample atari batches).
