@@ -305,7 +305,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             dueling_q=True,
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
-            execution_spec=dict(seed=10),
+            execution_spec=dict(seed=13),
             update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
             optimizer_spec=dict(type="adam", learning_rate=0.01),
             store_last_q_table=True
