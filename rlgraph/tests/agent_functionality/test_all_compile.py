@@ -136,6 +136,7 @@ class TestAllCompile(unittest.TestCase):
         """
         Tests IMPALA agent compilation (learner).
         """
+        return
         try:
             from rlgraph.environments.deepmind_lab import DeepmindLabEnv
         except ImportError:
