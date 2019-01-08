@@ -135,6 +135,7 @@ class Agent(Specifiable):
         self.value_function = None
         if value_function_spec is not None:
             self.value_function = ValueFunction(network_spec=value_function_spec)
+            self.value_function.add_components(Synchronizable(), expose_apis="sync")
             self.vars_merger = DictMerger("policy", "vf", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
         else:

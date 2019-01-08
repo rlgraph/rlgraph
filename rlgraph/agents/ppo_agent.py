@@ -72,7 +72,8 @@ class PPOAgent(Agent):
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
-            weights="variables:policy",
+            policy_weights="variables:policy",
+            value_function_weights="variables:value-function",
             deterministic=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
@@ -202,12 +203,18 @@ class PPOAgent(Agent):
                     if multi_gpu_sync_optimizer is not None:
                         main_policy_vars = agent.policy._variables()
                         main_vf_vars = agent.value_function._variables()
-                        grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
-                            multi_gpu_sync_optimizer.calculate_update_from_external_batch(
-                                dict(policy=main_policy_vars, vf=main_vf_vars),
-                                sample_states, sample_actions, sample_rewards, sample_terminals
-                            )
-                        step_op = agent.optimizer.apply_gradients(grads_and_vars)
+                        all_vars = agent.vars_merger.merge(main_policy_vars, main_vf_vars)
+                        # grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
+                        out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
+                            all_vars,
+                            sample_states, sample_actions, sample_rewards, sample_terminals
+                        )
+                        avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.split(
+                            out["avg_grads_and_vars_by_component"]
+                        )
+                        policy_step_op = agent.optimizer.apply_gradients(avg_grads_and_vars_policy)
+                        vf_step_op = agent.value_function_optimizer.apply_gradients(avg_grads_and_vars_vf)
+                        step_op = root._graph_fn_group(policy_step_op, vf_step_op)
                         step_and_sync_op = multi_gpu_sync_optimizer.sync_variables_to_towers(
                             step_op, all_vars
                         )
