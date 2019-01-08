@@ -178,9 +178,11 @@ class PPOAgent(Agent):
             policy = root.get_sub_component_by_name(agent.policy.scope)
             policy_vars = policy._variables()
             value_function = root.get_sub_component_by_name(agent.value_function.scope)
+            value_function_vars = value_function._variables()
             optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
             loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
             value_function_optimizer = root.get_sub_component_by_name(agent.value_function_optimizer.scope)
+            vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
 
             if get_backend() == "tf":
                 batch_size = tf.shape(preprocessed_states)[0]
@@ -243,10 +245,11 @@ class PPOAgent(Agent):
                     vf_loss_per_item.set_shape((agent.sample_size,))
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
-                        grads_and_vars = optimizer.calculate_gradients(policy_vars, loss)
-                        vf_grads_and_vars = value_function_optimizer.calculate_gradients(value_function._variables(),
-                                                                                         vf_loss)
-                        return grads_and_vars, vf_grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item
+                        # TODO: This should only be necessary in the last iteration, correct?
+                        policy_grads_and_vars = optimizer.calculate_gradients(policy_vars, loss)
+                        vf_grads_and_vars = value_function_optimizer.calculate_gradients(value_function_vars, vf_loss)
+                        grads_and_vars_by_component = vars_merger.merge(policy_grads_and_vars, vf_grads_and_vars)
+                        return grads_and_vars_by_component, loss, loss_per_item, vf_loss, vf_loss_per_item
                     else:
                         with tf.control_dependencies([step_op, vf_step_op]):
                             return index_ + 1, loss, loss_per_item, vf_loss, vf_loss_per_item
@@ -267,7 +270,7 @@ class PPOAgent(Agent):
                                    tf.zeros(shape=(agent.sample_size,))],
                         parallel_iterations=1
                     )
-                    return loss, loss_per_item, vf_loss, vf_loss_per_item
+                    return tf.no_op(), loss, loss_per_item, vf_loss, vf_loss_per_item
 
             elif get_backend() == "pytorch":
                 batch_size = preprocessed_states.shape[0]
