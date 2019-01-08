@@ -122,6 +122,8 @@ class TestFIFOQueue(unittest.TestCase):
             print("pulling from source-side queue:")
             print(test_1.test(("get_records", 2), expected_outputs=None))
 
+            test_1.terminate()
+
         def run2():
             fifo_queue_2 = FIFOQueue(capacity=self.capacity, device="/job:source/task:0/cpu")
             test_2 = ComponentTest(component=fifo_queue_2, input_spaces=self.input_spaces, execution_spec=dict(
@@ -133,6 +135,8 @@ class TestFIFOQueue(unittest.TestCase):
             print(test_2.test("get_size", expected_outputs=None))
             print("pulling from target-side queue:")
             print(test_2.test(("get_records", 5), expected_outputs=None))
+
+            test_2.terminate()
 
         # Start thread to save this one from getting stuck due to capacity overflow.
         thread_1 = threading.Thread(target=run1)

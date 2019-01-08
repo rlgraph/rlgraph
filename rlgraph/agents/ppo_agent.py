@@ -160,13 +160,6 @@ class PPOAgent(Agent):
             sequence_indices = terminals
             return root.update_from_external_batch(preprocessed_s, actions, rewards, terminals, sequence_indices)
 
-        # TODO: This needs to be moved to generic agent for all agents that have separate value function baselines
-        # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
-        # value-function never performs any forward pass (only used as variable storage).
-        @rlgraph_api(component=self.root_component)
-        def get_state_values(root, preprocessed_states):
-            return agent.value_function.value_output(preprocessed_states)
-
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
         @rlgraph_api(component=self.root_component)
@@ -216,7 +209,7 @@ class PPOAgent(Agent):
                             )
                         step_op = agent.optimizer.apply_gradients(grads_and_vars)
                         step_and_sync_op = multi_gpu_sync_optimizer.sync_variables_to_towers(
-                            step_op, main_vars
+                            step_op, all_vars
                         )
                         return step_and_sync_op, loss, loss_per_item, vf_loss, vf_loss_per_item
 

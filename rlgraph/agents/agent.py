@@ -224,6 +224,8 @@ class Agent(Specifiable):
         agent = self
 
         if self.value_function is not None:
+            # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
+            # value-function never performs any forward pass (only used as variable storage).
             @rlgraph_api(component=self.root_component)
             def get_state_values(root, preprocessed_states):
                 vf = root.get_sub_component_by_name(agent.value_function.scope)
