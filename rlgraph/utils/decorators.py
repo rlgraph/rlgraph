@@ -123,6 +123,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             all_args = [(i, a) for i, a in enumerate(args) if a is not None] + \
                        [(k, v) for k, v in sorted(kwargs.items()) if v is not None]
             flex = None
+            build_when_done = False
             for i, (key, value) in enumerate(all_args):
                 # Named arg/kwarg -> get input_name from that and peel op_rec.
                 if isinstance(key, str):
@@ -150,11 +151,12 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     self.api_method_inputs[param_name] = in_op_column.op_records[i].space
                     # Check input-completeness of Component (but not strict as we are only calling API, not a graph_fn).
                     if self.input_complete is False:
-                        # Check Spaces and create variables.
-                        self.graph_builder.build_component_when_input_complete(self)
+                        # Build right after this loop in case more Space information comes in through next args/kwargs.
+                        build_when_done = True
 
                 # A DataOpRecord from the meta-graph.
                 elif isinstance(value, DataOpRecord):
+                    # Create entry with unknown Space if it doesn't exist yet.
                     if param_name not in self.api_method_inputs:
                         self.api_method_inputs[param_name] = None
 
@@ -163,6 +165,10 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     #in_op_column.op_records[i].space = get_space_from_op(value)
                     if param_name not in self.api_method_inputs or self.api_method_inputs[param_name] is None:
                         self.api_method_inputs[param_name] = in_op_column.op_records[i].space
+
+            if build_when_done:
+                # Check Spaces and create variables.
+                self.graph_builder.build_component_when_input_complete(self)
 
             # Regular API-method: Call it here.
             api_fn_args, api_fn_kwargs = in_op_column.get_args_and_kwargs()
@@ -519,7 +525,11 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         assert component.input_complete
         # If we are calling `_variables()` -> make sure we are also variable-complete.
         if wrapped_func.__name__ == "_graph_fn__variables":
-            assert component.variable_complete
+            if component.variable_complete is False:
+                raise RLGraphVariableIncompleteError(
+                    "Component '{}' is variable incomplete, but its variables are needed in an API-call during the "
+                    "build procedure!".format(component.global_scope), component=component
+                )
         # Call the graph_fn (only if not already done so by build above (e.g. `_variables()`).
         if in_graph_fn_column.out_graph_fn_column is None:
             assert in_graph_fn_column.already_sent is False
