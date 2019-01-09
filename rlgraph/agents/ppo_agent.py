@@ -105,7 +105,8 @@ class PPOAgent(Agent):
         # Add all our sub-components to the core.
         self.root_component.add_components(
             self.preprocessor, self.merger, self.memory, self.splitter, self.policy, self.exploration,
-            self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer
+            self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer, self.vars_merger,
+            self.vars_splitter
         )
         # Define the Agent's (root-Component's) API.
         self.define_graph_api()
@@ -209,7 +210,7 @@ class PPOAgent(Agent):
                         # grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
                             all_vars,
-                            sample_states, sample_actions, sample_rewards, sample_terminals
+                            sample_states, sample_actions, sample_rewards, sample_terminals, indices
                         )
                         avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.split(
                             out["avg_grads_and_vars_by_component"]
@@ -220,7 +221,9 @@ class PPOAgent(Agent):
                         step_and_sync_op = multi_gpu_sync_optimizer.sync_variables_to_towers(
                             step_op, all_vars
                         )
-                        return step_and_sync_op, loss, loss_per_item, vf_loss, vf_loss_per_item
+                        loss_vf, loss_per_item_vf = out["additional_return_0"], out["additional_return_1"]
+                        with tf.control_dependencies([step_and_sync_op]):
+                            return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
 
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
 
