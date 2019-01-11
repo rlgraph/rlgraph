@@ -406,5 +406,17 @@ class DQNAgent(Agent):
         if self.preprocessing_required and len(self.preprocessor.variables) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
+    def post_process(self, batch):
+        batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+                       batch["next_states"], batch["importance_weights"]]
+        ret = self.graph_executor.execute(("get_td_loss", batch_input))
+
+        # Remove unnecessary return dicts.
+        if isinstance(ret, dict):
+            ret = ret["get_td_loss"]
+
+        # Return [0]=total loss, [1]=loss-per-item
+        return ret[0], ret[1]
+
     def __repr__(self):
         return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)
