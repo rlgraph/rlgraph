@@ -21,7 +21,7 @@ import unittest
 import numpy as np
 
 from rlgraph.components.layers.nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer, MaxPool2DLayer, \
-    LSTMLayer, ResidualLayer
+    LSTMLayer, ResidualLayer, LocalResponseNormalizationLayer
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
 from rlgraph.utils.numpy import sigmoid, relu, lstm_layer, dense_layer
@@ -128,6 +128,30 @@ class TestNNLayer(unittest.TestCase):
         item1_ch2 = max(input_[1][0][0][2], input_[1][0][1][2], input_[1][1][0][2], input_[1][1][1][2])
         expected = np.array([[[[item0_ch0, item0_ch1, item0_ch2]]], [[[item1_ch0, item1_ch1, item1_ch2]]]])
         test.test(("apply", input_), expected_outputs=expected)
+
+
+    def test_local_response_normalization_layer(self):
+        space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
+
+        # Todo: This is a very simple example ignoring the depth radius, which is the main idea of this normalization
+        depth_radius = 0.0
+        bias = np.random.random() + 1.0
+        alpha = np.random.random() + 1.0
+        beta = np.random.random() + 1.0
+
+        test_local_response_normalization_layer = LocalResponseNormalizationLayer(
+            depth_radius=depth_radius, bias=bias, alpha=alpha, beta=beta
+        )
+        test = ComponentTest(component=test_local_response_normalization_layer, input_spaces=dict(inputs=space))
+
+        # Batch of 2 sample.
+        input_ = space.sample(2)
+
+        calculated = input_ / (bias + alpha * np.square(input_)) ** beta
+
+        expected = np.array(calculated)
+        test.test(("apply", input_), expected_outputs=expected)
+
 
     def test_concat_layer(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
