@@ -439,7 +439,14 @@ class RayPolicyWorker(RayActor):
         Post-processes policy trajectories.
         """
         if self.generalized_advantage_estimation:
-            rewards = self.agent.post_process(states, rewards, terminals, sequence_indices)
+            rewards = self.agent.post_process(
+                dict(
+                    states=states,
+                    rewards=rewards,
+                    terminals=terminals,
+                    sequence_indices=sequence_indices
+                )
+            )
 
         if self.compress:
             states = [ray_compress(state) for state in states]

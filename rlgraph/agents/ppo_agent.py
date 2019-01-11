@@ -371,5 +371,16 @@ class PPOAgent(Agent):
         if self.preprocessing_required and len(self.preprocessor.variables) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
+    def post_process(self, batch):
+        batch_input = [batch["states"], batch["rewards"], batch["terminals"], batch["sequence_indices"]]
+        ret = self.graph_executor.execute(("get_gae_rewards", batch_input))
+
+        # Remove unnecessary return dicts.
+        if isinstance(ret, dict):
+            ret = ret["get_td_loss"]
+
+        # Return [0]=total loss, [1]=loss-per-item
+        return ret[0], ret[1]
+
     def __repr__(self):
         return "PPOAgent"
