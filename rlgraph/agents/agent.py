@@ -549,3 +549,21 @@ class Agent(Specifiable):
         """
         return self.graph_executor.execute(("set_weights", weights))
 
+    def post_process(self, batch):
+        """
+        Optional method to post-processes a batch if post-processing is off-loaded to workers instead of
+        executed by a central learner before computing the loss.
+
+        The post-processing function must be able to post-process batches of multiple environments
+        and episodes with non-terminated fragments via sequence-indices.
+
+        This enables efficient processing of multi-environment batches.
+
+        Args:
+            batch (dict): Batch to process. Must contain key 'sequence-indices' to describe where
+                environment fragments end (even if the corresponding episode has not terminated.
+
+        Returns:
+            any: Post-processed batch.
+        """
+        pass

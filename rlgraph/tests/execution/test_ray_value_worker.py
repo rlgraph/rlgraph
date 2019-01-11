@@ -31,7 +31,7 @@ if get_distributed_backend() == "ray":
     import ray
 
 
-class TestRayWorker(unittest.TestCase):
+class TestRayValueWorker(unittest.TestCase):
 
     env_spec = dict(
       type="openai",
