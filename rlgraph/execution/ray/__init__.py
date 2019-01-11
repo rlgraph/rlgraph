@@ -21,5 +21,13 @@ from rlgraph.execution.ray.ray_executor import RayExecutor
 from rlgraph.execution.ray.ray_value_worker import RayValueWorker
 
 from rlgraph.execution.ray.apex import ApexExecutor, ApexMemory, RayMemoryActor
+from rlgraph.execution.ray.sync_batch_executor import SyncBatchExecutor
+
+RayExecutor.__lookup_classes__ = dict(
+    apex=ApexExecutor,
+    apexecutor=ApexExecutor,
+    syncbatch=SyncBatchExecutor,
+    syncbatchexecutor=SyncBatchExecutor
+)
 
 __all__ = ["RayExecutor", "RayValueWorker", "ApexExecutor", "ApexMemory", "RayMemoryActor"]

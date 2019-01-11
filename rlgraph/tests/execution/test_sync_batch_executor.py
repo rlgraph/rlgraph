@@ -24,7 +24,7 @@ from rlgraph.tests.test_util import config_from_path
 
 class TestSyncBatchExecutor(unittest.TestCase):
     """
-    Tests the ApexExecutor which provides an interface for distributing Apex-style workloads
+    Tests the synchronous batch executor which provides an interface for executing A2C-style algorithms.
     via Ray.
     """
     def test_ppo_learning_cartpole(self):
