@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op
-from rlgraph.utils.util import dtype as dtype_
+from rlgraph.utils.util import convert_dtype as dtype_
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":

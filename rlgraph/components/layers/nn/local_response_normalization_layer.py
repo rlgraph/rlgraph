@@ -26,11 +26,11 @@ elif get_backend() == "pytorch":
     import torch.nn as nn
 
 
-class MaxPool2DLayer(NNLayer):
+class LocalResponseNormalizationLayer(NNLayer):
     """
     A max-pooling 2D layer.
     """
-    def __init__(self, pool_size, strides, padding="valid", data_format="channels_last", **kwargs):
+    def __init__(self, depth_radius=5, bias=1, alpha=1, beta=0.5, **kwargs):
         """
         Args:
             pool_size (Optional[int,Tuple[int,int]]): An int or tuple of 2 ints (height x width) specifying the
@@ -41,26 +41,27 @@ class MaxPool2DLayer(NNLayer):
             data_format (str): One of 'channels_last' (default) or 'channels_first'. Specifies which rank (first or
                 last) is the color-channel. If the input Space is with batch, the batch always has the first rank.
         """
-        super(MaxPool2DLayer, self).__init__(scope=kwargs.pop("scope", "maxpool-2d"), **kwargs)
+        super(LocalResponseNormalizationLayer, self).__init__(scope=kwargs.pop("scope", "maxpool-2d"), **kwargs)
 
-        self.pool_size = pool_size if isinstance(pool_size, (tuple, list)) else (pool_size, pool_size)
-        self.strides = strides if isinstance(strides, (tuple, list)) else (strides, strides)
-        self.padding = padding
-        self.data_format = data_format
+        self.depth_radius = depth_radius
+        self.bias = bias
+        self.alpha = alpha
+        self.beta = beta
 
         if get_backend() == "pytorch":
-            self.layer = nn.MaxPool2d(
-                kernel_size=self.pool_size,
-                stride=self.strides,
-                padding=self.padding
+            # Todo: Ensure channels_first?
+            self.layer = nn.LocalReponseNorm(
+                size=self.depth_radius*2,  # The PyTorch implementation divides the size by 2
+                alpha=self.alpha,
+                beta=self.beta,
+                k=self.bias
             )
 
     @rlgraph_api
     def _graph_fn_apply(self, *inputs):
         if get_backend() == "tf":
-            result = tf.nn.pool(
-                inputs[0], window_shape=self.pool_size, pooling_type="MAX", padding=self.padding.upper(),
-                strides=self.strides
+            result = tf.nn.local_response_normalization(
+                inputs[0], depth_radius=self.depth_radius, bias=self.bias, alpha=self.alpha, beta=self.beta
             )
             # TODO: Move into util function.
             if hasattr(inputs[0], "_batch_rank"):

@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from rlgraph.utils.util import dtype
+from rlgraph.utils.util import convert_dtype
 from rlgraph.spaces.box_space import BoxSpace
 
 
@@ -39,5 +39,5 @@ class BoolBox(BoxSpace):
         if self.shape == ():
             return isinstance(sample, (bool, np.bool_))
         else:
-            return dtype(sample.dtype, "np") == np.bool_
+            return convert_dtype(sample.dtype, "np") == np.bool_
 

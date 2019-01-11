@@ -47,12 +47,14 @@ print_logging_handler.setLevel(level=logging.INFO)
 root_logger.addHandler(print_logging_handler)
 
 
-def dtype(dtype_, to="tf"):
+# TODO: Consider making "to" non-optional: https://github.com/rlgraph/rlgraph/issues/34
+
+def convert_dtype(dtype, to="tf"):
     """
     Translates any type (tf, numpy, python, etc..) into the respective tensorflow/numpy data type.
 
     Args:
-        dtype_ (any): String describing a numerical type (e.g. 'float'), numpy data type, tf dtype,
+        dtype (any): String describing a numerical type (e.g. 'float'), numpy data type, tf dtype,
             pytorch data-type, or python numerical type.
         to (str): Either one of 'tf' (tensorflow), 'pt' (pytorch), 'np' (numpy), 'str' (string).
             Default="tf".
@@ -62,42 +64,42 @@ def dtype(dtype_, to="tf"):
     """
     # Bool: tensorflow.
     if get_backend() == "tf":
-        if dtype_ in ["bool", bool, np.bool_, tf.bool]:
+        if dtype in ["bool", bool, np.bool_, tf.bool]:
             return np.bool_ if to == "np" else tf.bool
-        elif dtype_ in ["float", "float32", float, np.float32, tf.float32]:
+        elif dtype in ["float", "float32", float, np.float32, tf.float32]:
             return np.float32 if to == "np" else tf.float32
-        if dtype_ in ["float64", np.float64, tf.float64]:
+        if dtype in ["float64", np.float64, tf.float64]:
             return np.float64 if to == "np" else tf.float64
-        elif dtype_ in ["int", "int32", int, np.int32, tf.int32]:
+        elif dtype in ["int", "int32", int, np.int32, tf.int32]:
             return np.int32 if to == "np" else tf.int32
-        elif dtype_ in ["int64", np.int64]:
+        elif dtype in ["int64", np.int64]:
             return np.int64 if to == "np" else tf.int64
-        elif dtype_ in ["uint8", np.uint8]:
+        elif dtype in ["uint8", np.uint8]:
             return np.uint8 if to == "np" else tf.uint8
-        elif dtype_ in ["str", np.str_]:
+        elif dtype in ["str", np.str_]:
             return np.unicode_ if to == "np" else tf.string
-        elif dtype_ in ["int16", np.int16]:
+        elif dtype in ["int16", np.int16]:
             return np.int16 if to == "np" else tf.int16
     elif get_backend() == "pytorch":
         # N.b. this behaves differently than other bools, careful with Python bool comparisons.
-        if dtype_ in ["bool", bool, np.bool_] or dtype_ is torch.uint8:
+        if dtype in ["bool", bool, np.bool_] or dtype is torch.uint8:
             return np.bool_ if to == "np" else torch.uint8
-        elif dtype_ in ["float", "float32", float, np.float32] or dtype_ is torch.float32:
+        elif dtype in ["float", "float32", float, np.float32] or dtype is torch.float32:
             return np.float32 if to == "np" else torch.float32
-        if dtype_ in ["float64", np.float64] or dtype_ is torch.float64:
+        if dtype in ["float64", np.float64] or dtype is torch.float64:
             return np.float64 if to == "np" else torch.float64
-        elif dtype_ in ["int", "int32", int, np.int32] or dtype_ is torch.int32:
+        elif dtype in ["int", "int32", int, np.int32] or dtype is torch.int32:
             return np.int32 if to == "np" else torch.int32
-        elif dtype_ in ["int64", np.int64] or dtype_ is torch.int64:
+        elif dtype in ["int64", np.int64] or dtype is torch.int64:
             return np.int64 if to == "np" else torch.int64
-        elif dtype_ in ["uint8", np.uint8] or dtype_ is torch.uint8:
+        elif dtype in ["uint8", np.uint8] or dtype is torch.uint8:
             return np.uint8 if to == "np" else torch.uint8
-        elif dtype_ in ["int16", np.int16] or dtype_ is torch.int16:
+        elif dtype in ["int16", np.int16] or dtype is torch.int16:
             return np.int16 if to == "np" else torch.int16
 
         # N.b. no string tensor type.
 
-    raise RLGraphError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype_)))
+    raise RLGraphError("Error: Type conversion to '{}' for type '{}' not supported.".format(to, str(dtype)))
 
 
 def get_rank(tensor):
@@ -248,19 +250,19 @@ def default_dict(original, defaults):
     return original
 
 
-def clip(x, min_, max_):
+def clip(x, min_val, max_val):
     """
-    Clips x between min_ and max_.
+    Clips x between min_ and max_val.
 
     Args:
         x (float): The input to be clipped.
-        min_ (float): The min value for x.
-        max_ (float): The max value for x.
+        min_val (float): The min value for x.
+        max_val (float): The max value for x.
 
     Returns:
         float: The clipped value.
     """
-    return max(min_, min(x, max_))
+    return max(min_val, min(x, max_val))
 
 
 def get_method_type(method):
@@ -323,7 +325,6 @@ def get_num_return_values(method):
             return_code = re.sub(r'\([^\(\)]*\)', '', return_code)
             return_code = re.sub(r'"[^"]*"', '', return_code)
             # Probably have to add more resolution code here.
-            # ...
 
         # Count the commas and return.
         num_return_values = len(return_code.split(","))
@@ -394,10 +395,10 @@ def convert_param(param, requires_grad):
         if isinstance(param, list):
             param = np.asarray(param)
         if isinstance(param, np.ndarray):
-            type_ = param.dtype
+            param_type = param.dtype
         else:
-            type_ = type(param)
-        convert_type = dtype(type_, to="pytorch")
+            param_type = type(param)
+        convert_type = convert_dtype(param_type, to="pytorch")
 
         # PyTorch cannot convert from a np.bool_, must be uint.
         if isinstance(param, np.ndarray) and param.dtype == np.bool_:

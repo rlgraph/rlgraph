@@ -21,7 +21,7 @@ import inspect
 import numpy as np
 
 from rlgraph.spaces.space_utils import get_space_from_op
-from rlgraph.utils import dtype
+from rlgraph.utils import convert_dtype
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
 
@@ -32,7 +32,7 @@ class DataOpRecord(object):
     """
     _ID = -1
 
-    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_=None):
+    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_record=None):
         """
         Args:
             op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
@@ -58,7 +58,8 @@ class DataOpRecord(object):
         self.space = space
 
         # Set of (op-col ID, slot) tuples that are connected from this one.
-        self.next = next_ if isinstance(next_, set) else ({next_} if next_ is not None else set())
+        self.next = next_record if isinstance(next_record, set) else ({next_record}
+                                                                      if next_record is not None else set())
         # The previous op that lead to this one.
         self.previous = previous
 
@@ -110,7 +111,7 @@ class DataOpRecordColumn(object):
                     elif args[i] is not None:
                         op = args[i]
                         if is_constant(op) and not isinstance(op, np.ndarray):
-                            op = np.array(op, dtype=dtype(type(op), "np"))
+                            op = np.array(op, dtype=convert_dtype(type(op), "np"))
                         op_rec.op = op
                         op_rec.space = get_space_from_op(op)
                         component.constant_op_records.add(op_rec)
@@ -131,7 +132,7 @@ class DataOpRecordColumn(object):
                     elif value is not None:
                         op = value
                         if is_constant(op):
-                            op = np.array(op, dtype=dtype(type(op), "np"))
+                            op = np.array(op, dtype=convert_dtype(type(op), "np"))
                         op_rec.op = op
                         op_rec.space = get_space_from_op(op)
                         component.constant_op_records.add(op_rec)
@@ -271,9 +272,9 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         if len(flattened) > 1:
             # Loop through the non-first ones and make sure all keys match vs the first one.
             for other in flattened[1:]:
-                iter_ = iter(other)
+                other_arg_iter = iter(other)
                 for key, value in flattened[0]:
-                    k_other, v_other = next(iter_)
+                    k_other, v_other = next(other_arg_iter)
                     if key != k_other:  # or get_shape(v_other) != get_shape(value):
                         raise RLGraphError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
 

@@ -86,31 +86,31 @@ class Specifiable(object):
         Returns:
             The object generated from the spec.
         """
-        # type_ is already a created object of this class -> Take it as is.
+        # specifiable_type is already a created object of this class -> Take it as is.
         if isinstance(spec, cls):
             return spec
 
-        # `type_`: Indicator for the Specifiable's constructor.
+        # `specifiable_type`: Indicator for the Specifiable's constructor.
         # `ctor_args`: *args arguments for the constructor.
         # `ctor_kwargs`: **kwargs arguments for the constructor.
         # Copy so caller can reuse safely.
         spec = deepcopy(spec)
         if isinstance(spec, dict):
             if "type" in spec:
-                type_ = spec.pop("type", None)
+                specifiable_type = spec.pop("type", None)
             else:
-                type_ = None
+                specifiable_type = None
             ctor_kwargs = spec
             ctor_kwargs.update(kwargs)  # give kwargs priority
         else:
-            type_ = spec
+            specifiable_type = spec
             ctor_kwargs = kwargs
         # Special `_args` field in kwargs for *args-utilizing constructors.
         ctor_args = ctor_kwargs.pop("_args", [])
 
         # Figure out the actual constructor (class) from `type_`.
         # None: Try __default__object (if no args/kwargs), only then constructor of cls (using args/kwargs).
-        if type_ is None:
+        if specifiable_type is None:
             # We have a default constructor that was defined directly by cls (not by its children).
             if cls.__default_constructor__ is not None and ctor_args == [] and \
                     (not hasattr(cls.__bases__[0], "__default_constructor__") or
@@ -128,35 +128,36 @@ class Specifiable(object):
                 constructor = cls
         # Try the __lookup_classes__ of this class.
         else:
-            constructor = cls.lookup_class(type_)
+            constructor = cls.lookup_class(specifiable_type)
 
             # Found in cls.__lookup_classes__.
             if constructor is not None:
                 pass
             # Python callable.
-            elif callable(type_):
-                constructor = type_
+            elif callable(specifiable_type):
+                constructor = specifiable_type
             # A string: Filename or a python module+class.
-            elif isinstance(type_, str):
-                if re.search(r'\.(yaml|yml|json)$', type_):
-                    return cls.from_file(type_, *ctor_args, **ctor_kwargs)
-                elif type_.find('.') != -1:
-                    module_name, function_name = type_.rsplit(".", 1)
+            elif isinstance(specifiable_type, str):
+                if re.search(r'\.(yaml|yml|json)$', specifiable_type):
+                    return cls.from_file(specifiable_type, *ctor_args, **ctor_kwargs)
+                elif specifiable_type.find('.') != -1:
+                    module_name, function_name = specifiable_type.rsplit(".", 1)
                     module = importlib.import_module(module_name)
                     constructor = getattr(module, function_name)
                 else:
                     raise RLGraphError(
                         "ERROR: String specifier ({}) in from_spec must be a filename, a module+class, or a key "
-                        "into {}.__lookup_classes__!".format(type_, cls.__name__)
+                        "into {}.__lookup_classes__!".format(specifiable_type, cls.__name__)
                     )
 
         if not constructor:
-            raise RLGraphError("Invalid type: {}".format(type_))
+            raise RLGraphError("Invalid type: {}".format(specifiable_type))
 
-        obj = constructor(*ctor_args, **ctor_kwargs)
-        assert isinstance(obj, constructor.func if isinstance(constructor, partial) else constructor)
+        # Create object with inferred constructor.
+        specifiable_object = constructor(*ctor_args, **ctor_kwargs)
+        assert isinstance(specifiable_object, constructor.func if isinstance(constructor, partial) else constructor)
 
-        return obj
+        return specifiable_object
 
     @classmethod
     def from_file(cls, filename, *args, **kwargs):
@@ -187,15 +188,14 @@ class Specifiable(object):
         return cls.from_spec(spec=spec, **kwargs)
 
     @classmethod
-    def lookup_class(cls, type_):
+    def lookup_class(cls, lookup_type):
         if isinstance(cls.__lookup_classes__, dict) and \
-            (type_ in cls.__lookup_classes__ or \
-             (isinstance(type_, str) and re.sub(r'[\W_]', '', type_.lower()) in cls.__lookup_classes__)
-            ):
-            class_ = cls.__lookup_classes__.get(type_)
-            if class_ is None:
-                class_ = cls.__lookup_classes__[re.sub(r'[\W_]', '', type_.lower())]
-            return class_
+            (lookup_type in cls.__lookup_classes__ or (isinstance(lookup_type, str)
+             and re.sub(r'[\W_]', '', lookup_type.lower()) in cls.__lookup_classes__)):
+            available_class_for_type = cls.__lookup_classes__.get(lookup_type)
+            if available_class_for_type is None:
+                available_class_for_type = cls.__lookup_classes__[re.sub(r'[\W_]', '', lookup_type.lower())]
+            return available_class_for_type
         return None
 
 

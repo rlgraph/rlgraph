@@ -23,6 +23,7 @@ from rlgraph import get_backend
 from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent, PPOAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.spaces import FloatBox, Tuple
+from rlgraph.utils.util import default_dict
 from rlgraph.tests.test_util import config_from_path
 
 
@@ -30,6 +31,8 @@ class TestAllCompile(unittest.TestCase):
     """
     Tests if all agents compile correctly on relevant configurations.
     """
+    impala_cluster_spec = dict(learner=["localhost:22222"], actor=["localhost:22223"])
+
     def test_dqn_compilation(self):
         """
         Tests DQN Agent compilation.
@@ -85,22 +88,20 @@ class TestAllCompile(unittest.TestCase):
             action_space=env.action_space
         )
 
-    #def test_impala_single_agent_compilation(self):
-    #    """
-    #    Tests IMPALA agent compilation (single-node mode).
-    #    """
-    #    env = GridWorld("2x2")
-    #    agent = IMPALAAgent.from_spec(
-    #        config_from_path("configs/impala_agent_for_2x2_gridworld.json"),
-    #        state_space=env.state_space,
-    #        action_space=env.action_space,
-    #        execution_spec=dict(seed=12),
-    #        update_spec=dict(batch_size=16),
-    #        optimizer_spec=dict(type="adam", learning_rate=0.05),
-    #        batch_apply=True
-    #    )
-    #    agent.terminate()
-    #    print("Compiled IMPALA type=actor agent.")
+    def test_impala_single_agent_compilation(self):
+        """
+        Tests IMPALA agent compilation (single-node mode).
+        """
+        env = GridWorld("2x2")
+        agent = IMPALAAgent.from_spec(
+            config_from_path("configs/impala_agent_for_2x2_gridworld.json"),
+            state_space=env.state_space,
+            action_space=env.action_space,
+            update_spec=dict(batch_size=16),
+            optimizer_spec=dict(type="adam", learning_rate=0.05)
+        )
+        agent.terminate()
+        print("Compiled IMPALA type=single agent.")
 
     def test_impala_actor_compilation(self):
         """
@@ -113,23 +114,23 @@ class TestAllCompile(unittest.TestCase):
             return
 
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        env = DeepmindLabEnv(
-            level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-
+        env_spec = dict(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
+        dummy_env = DeepmindLabEnv.from_spec(env_spec)
         actor_agent = IMPALAAgent.from_spec(
             agent_config,
             type="actor",
-            state_space=env.state_space,
-            action_space=env.action_space,
-            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
+            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False),
+            environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
             # Make session-creation hang in docker.
             execution_spec=dict(disable_monitoring=True)
         )
-        # Start Specifiable Server with Env manually.
-        actor_agent.environment_stepper.environment_server.start()
+        # Start Specifiable Server with Env manually (monitoring is disabled).
+        actor_agent.environment_stepper.environment_server.start_server()
         print("Compiled IMPALA type=actor agent.")
-        actor_agent.environment_stepper.environment_server.stop()
+        actor_agent.environment_stepper.environment_server.stop_server()
+        actor_agent.terminate()
 
     def test_impala_learner_compilation(self):
         """
@@ -142,17 +143,43 @@ class TestAllCompile(unittest.TestCase):
             return
 
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
-        env = DeepmindLabEnv(
-            level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4
-        )
-
-        agent = IMPALAAgent.from_spec(
+        env_spec = dict(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
+        dummy_env = DeepmindLabEnv.from_spec(env_spec)
+        learner_agent = IMPALAAgent.from_spec(
             agent_config,
             type="learner",
-            state_space=env.state_space,
-            action_space=env.action_space,
-            internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True),
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space,
+            internal_states_space=IMPALAAgent.default_internal_states_space,
+            environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
+            # Setup distributed tf.
+            execution_spec=dict(
+                mode="distributed",
+                #gpu_spec=dict(
+                #    gpus_enabled=True,
+                #    max_usable_gpus=1,
+                #    num_gpus=1
+                #),
+                distributed_spec=dict(job="learner", task_index=0, cluster_spec=self.impala_cluster_spec),
+                session_config=dict(
+                    type="monitored-training-session",
+                    allow_soft_placement=True,
+                    log_device_placement=True,
+                    auto_start=False
+                ),
+                enable_timeline=True,
+            )
         )
-        agent.terminate()
+        print("Compiled IMPALA type=learner agent without starting the session (would block waiting for actor).")
 
-        print("Compiled IMPALA type=learner agent.")
+        ## Take one batch from the filled up queue and run an update_from_memory with the learner.
+        #update_steps = 10
+        #time_start = time.perf_counter()
+        #for _ in range(update_steps):
+        #    agent.call_api_method("update_from_memory")
+        #time_total = time.perf_counter() - time_start
+        #print("Done learning {}xbatch-of-{} in {}sec ({} updates/sec).".format(
+        #    update_steps, agent.update_spec["batch_size"], time_total , update_steps / time_total)
+        #)
+
+        learner_agent.terminate()

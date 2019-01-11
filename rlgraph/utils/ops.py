@@ -85,14 +85,14 @@ class FlattenedDataOp(DataOp, OrderedDict):
     pass
 
 
-def flatten_op(op, scope_="", list_=None, scope_separator_at_start=False):
+def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=False):
     """
     Flattens a single ContainerDataOp or a native python dict/tuple into a FlattenedDataOp with auto-key generation.
 
     Args:
         op (Union[ContainerDataOp,dict,tuple]): The item to flatten.
-        scope_ (str): The recursive scope for auto-key generation.
-        list_ (list): The list of tuples (key, value) to be converted into the final FlattenedDataOp.
+        key_scope (str): The recursive scope for auto-key generation.
+        op_tuple_list (list): The list of tuples (key, value) to be converted into the final FlattenedDataOp.
         scope_separator_at_start (bool): If to prepend a scope separator before the first key in a
             recursive structure. Default false.
 
@@ -102,37 +102,37 @@ def flatten_op(op, scope_="", list_=None, scope_separator_at_start=False):
     ret = False
 
     # Are we in the non-recursive (first) call?
-    if list_ is None:
+    if op_tuple_list is None:
         # Flatten a SingleDataOp -> return FlattenedDataOp with only-key=""
         if not isinstance(op, (ContainerDataOp, dict, tuple)):
             return FlattenedDataOp([("", op)])
-        list_ = []
+        op_tuple_list = []
         ret = True
 
     if isinstance(op, dict):
         if scope_separator_at_start:
-            scope_ += "/"
+            key_scope += "/"
         else:
-            scope_ = ""
+            key_scope = ""
         for key in sorted(op.keys()):
             # Make sure we have no double slashes from flattening an already FlattenedDataOp.
-            scope = (scope_[:-1] if len(key) == 0 or key[0] == "/" else scope_) + key
-            flatten_op(op[key], scope_=scope, list_=list_, scope_separator_at_start=True)
+            scope = (key_scope[:-1] if len(key) == 0 or key[0] == "/" else key_scope) + key
+            flatten_op(op[key], key_scope=scope, op_tuple_list=op_tuple_list, scope_separator_at_start=True)
     elif isinstance(op, tuple):
         if scope_separator_at_start:
-            scope_ += "/" + FLAT_TUPLE_OPEN
+            key_scope += "/" + FLAT_TUPLE_OPEN
         else:
-            scope_ += "" + FLAT_TUPLE_OPEN
+            key_scope += "" + FLAT_TUPLE_OPEN
         for i, c in enumerate(op):
-            flatten_op(c, scope_=scope_ + str(i) + FLAT_TUPLE_CLOSE, list_=list_,
+            flatten_op(c, key_scope=key_scope + str(i) + FLAT_TUPLE_CLOSE, op_tuple_list=op_tuple_list,
                        scope_separator_at_start=True)
     else:
         assert not isinstance(op, (dict, tuple))
-        list_.append((scope_, op))
+        op_tuple_list.append((key_scope, op))
 
     # Non recursive (first) call -> Return the final FlattenedDataOp.
     if ret:
-        return FlattenedDataOp(list_)
+        return FlattenedDataOp(op_tuple_list)
 
 
 def unflatten_op(op):
@@ -162,22 +162,22 @@ def unflatten_op(op):
         parent_structure = None
         parent_key = None
         current_structure = None
-        type_ = None
+        op_type = None
 
         # N.b. removed this because we do not prepend / any more before first key.
         op_key_list = op_name.split("/")  # skip 1st char (/)
         for sub_key in op_key_list:
             mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
             if mo:
-                type_ = list
+                op_type = list
                 idx = int(mo.group(1))
             else:
-                type_ = DataOpDict
+                op_type = DataOpDict
                 idx = sub_key
 
             if current_structure is None:
                 if base_structure is None:
-                    base_structure = [None] if type_ == list else DataOpDict()
+                    base_structure = [None] if op_type == list else DataOpDict()
                 current_structure = base_structure
             elif parent_key is not None:
                 # DEBUG:
@@ -187,11 +187,11 @@ def unflatten_op(op):
 
                 if (isinstance(parent_structure, list) and (parent_structure[parent_key] is None)) or \
                         (isinstance(parent_structure, DataOpDict) and parent_key not in parent_structure):
-                    current_structure = [None] if type_ == list else DataOpDict()
+                    current_structure = [None] if op_type == list else DataOpDict()
                     parent_structure[parent_key] = current_structure
                 else:
                     current_structure = parent_structure[parent_key]
-                    if type_ == list and len(current_structure) == idx:
+                    if op_type == list and len(current_structure) == idx:
                         current_structure.append(None)
 
             parent_structure = current_structure
@@ -199,7 +199,7 @@ def unflatten_op(op):
             if isinstance(parent_structure, list) and len(parent_structure) == parent_key:
                 parent_structure.append(None)
 
-        if type_ == list and len(current_structure) == parent_key:
+        if op_type == list and len(current_structure) == parent_key:
             current_structure.append(None)
         current_structure[parent_key] = op_val
 

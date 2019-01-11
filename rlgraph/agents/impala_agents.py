@@ -137,15 +137,14 @@ class IMPALAAgent(Agent):
         # Limit communication in distributed mode between each actor and the learner (never between actors).
         execution_spec = kwargs.pop("execution_spec", None)
         if execution_spec is not None and execution_spec.get("mode") == "distributed":
-            execution_spec["session_config"] = dict(
+            default_dict(execution_spec["session_config"], dict(
                 type="monitored-training-session",
                 allow_soft_placement=True,
-                log_device_placement=False,
                 device_filters=["/job:learner/task:0"] + (
                     ["/job:actor/task:{}".format(execution_spec["distributed_spec"]["task_index"])] if
                     self.type == "actor" else ["/job:learner/task:0"]
                 )
-            )
+            ))
             # If Actor, make non-chief in either case (even if task idx == 0).
             if self.type == "actor":
                 execution_spec["distributed_spec"]["is_chief"] = False
@@ -586,13 +585,7 @@ class SingleIMPALAAgent(IMPALAAgent):
         else:
             internal_states_slicer = None
 
-        # TODO: add state transposer, remove action/rewards transposer (part of state).
-        self.transpose_states = Transpose(scope="transpose-states")
-        self.transpose_terminals = Transpose(scope="transpose-terminals")
-        self.transpose_action_probs = Transpose(scope="transpose-a-probs-mu")
-        # Transposing of actions and rewards may not be needed.
-        self.transpose_actions = Transpose(scope="transpose-actions")
-        self.transpose_rewards = Transpose(scope="transpose-rewards")
+        self.transposer = Transpose(scope="transposer")
 
         # Create an IMPALALossFunction with some parameters.
         self.loss_function = IMPALALossFunction(
@@ -612,11 +605,18 @@ class SingleIMPALAAgent(IMPALAAgent):
             environment_spec_ = copy.deepcopy(environment_spec)
             if self.visualize is True or (isinstance(self.visualize, int) and i+1 <= self.visualize):
                 environment_spec_["visualize"] = True
+
+            # Force worker_sample_size for IMPALA NNs (LSTM) in env-stepper to be 1.
+            policy_spec = copy.deepcopy(self.policy_spec)
+            if isinstance(policy_spec, dict) and isinstance(policy_spec["network_spec"], dict) and \
+                    "type" in policy_spec["network_spec"] and "IMPALANetwork" in policy_spec["network_spec"]["type"]:
+                policy_spec["network_spec"]["worker_sample_size"] = 1
+
             env_stepper = EnvironmentStepper(
                 environment_spec=environment_spec_,
                 actor_component_spec=ActorComponent(
                     preprocessor_spec=self.preprocessing_spec,
-                    policy_spec=self.policy_spec,
+                    policy_spec=policy_spec,
                     exploration_spec=self.exploration_spec
                 ),
                 state_space=self.state_space.with_batch_rank(),
@@ -651,8 +651,7 @@ class SingleIMPALAAgent(IMPALAAgent):
 
         sub_components = [
             self.fifo_output_splitter, self.fifo_queue, self.queue_runner,
-            self.transpose_states, self.transpose_terminals, self.transpose_action_probs,
-            self.transpose_actions, self.transpose_rewards,
+            self.transposer,
             self.staging_area, self.preprocessor, self.states_dict_splitter,
             self.policy, self.loss_function, self.optimizer
         ]
@@ -681,11 +680,6 @@ class SingleIMPALAAgent(IMPALAAgent):
                     out_op_columns[0].op_records[0].op
 
     def define_graph_api(self):
-
-        #fifo_output_splitter, fifo_queue, queue_runner,
-        #transpose_states, transpose_terminals, transpose_action_probs, transpose_actions,
-        #transpose_rewards,
-        #staging_area, preprocessor, states_dict_splitter, policy, loss_function, optimizer
 
         agent = self
 
@@ -718,15 +712,15 @@ class SingleIMPALAAgent(IMPALAAgent):
             # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing: already done, use space_agnostic feature. See ReShape)
-            states = agent.transpose_states.apply(states)
-            terminals = agent.transpose_terminals.apply(terminals)
-            action_probs_mu = agent.transpose_action_probs.apply(action_probs_mu)
+            states = agent.transposer.apply(states)
+            terminals = agent.transposer.apply(terminals)
+            action_probs_mu = agent.transposer.apply(action_probs_mu)
             actions = None
             if not self.feed_previous_action_through_nn:
-                actions = agent.transpose_actions.apply(out["actions"])
+                actions = agent.transposer.apply(out["actions"])
             rewards = None
             if not self.feed_previous_reward_through_nn:
-                rewards = agent.transpose_rewards.apply(out["rewards"])
+                rewards = agent.transposer.apply(out["rewards"])
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).

@@ -21,7 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.strings.string_layer import StringLayer
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.util import dtype as dtype_
+from rlgraph.utils.util import convert_dtype as dtype_
 
 if get_backend() == "tf":
     import tensorflow as tf

@@ -92,12 +92,14 @@ class GraphBuilder(Specifiable):
         self.num_ops = 0
         # Number of trainable variables (optimizable weights).
         self.num_trainable_parameters = 0
+        self.graph_call_times = []
+        self.var_call_times = []
 
         # Create an empty root-Component into which everything will be assembled by an Algo.
         self.root_component = None
 
         # Maps API method names to in- (placeholders) and out op columns (ops to pull).
-        self.api = dict()
+        self.api = {}
 
         self.op_records_to_process = set()
         self.op_records_to_process_later = set()
@@ -331,25 +333,38 @@ class GraphBuilder(Specifiable):
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
-                # Now that the component is input-complete, the parent may have become variable-complete.
-                if component.parent_component is not None:
-                    self.build_component_when_input_complete(component.parent_component)
+                # Now that the component is built, the parent may have become variable-complete.
+                #if component.parent_component is not None:
+                #    self.build_component_when_input_complete(component.parent_component)
 
         # Check variable-completeness and actually call the _variable graph_fn if not already done so.
+        # Collect sub-components and build them as well if they just became variable-complete.
+        sub_components = component.sub_components.values()
+        sub_components_not_var_complete = set()
+        for sub_component in sub_components:
+            if sub_component.variable_complete is False:
+                sub_components_not_var_complete.add(sub_component)
+
         if component.input_complete is True and component.check_variable_completeness():
-            # The graph_fn _variables has some in-op-columns that need to be run through the function.
-            if "_graph_fn__variables" in component.graph_fns:
-                graph_fn_rec = component.graph_fns["_graph_fn__variables"]
-                # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
-                # TODO: Then link the first in-op-column (empty) to all out-op-columns.
-                for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
-                    if in_op_col.already_sent is False:
-                        self.run_through_graph_fn_with_device_and_scope(in_op_col)
-                        # If graph_fn_rec doesn't know about the out-op-col yet, add it.
-                        if len(graph_fn_rec.out_op_columns) <= i:
-                            assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
-                            graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
-                        self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+                # The graph_fn _variables has some in-op-columns that need to be run through the function.
+                if "_graph_fn__variables" in component.graph_fns:
+                    graph_fn_rec = component.graph_fns["_graph_fn__variables"]
+                    # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
+                    # TODO: Then link the first in-op-column (empty) to all out-op-columns.
+                    for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
+                        if in_op_col.already_sent is False:
+                            self.run_through_graph_fn_with_device_and_scope(in_op_col)
+                            # If graph_fn_rec doesn't know about the out-op-col yet, add it.
+                            if len(graph_fn_rec.out_op_columns) <= i:
+                                assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
+                                graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
+                            self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+
+                for sub_component in sub_components_not_var_complete:
+                    self.build_component_when_input_complete(sub_component)
+                # Now that the component is variable-complete, the parent may have become variable-complete as well.
+                #if component.parent_component is not None:
+                #    self.build_component_when_input_complete(component.parent_component)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column, create_new_out_column=None):
         """
@@ -364,6 +379,12 @@ class GraphBuilder(Specifiable):
                 an error.
                 Default: False.
         """
+        if op_rec_column.already_sent is not False:
+            raise RLGraphBuildError(
+                "op_rec_column ID={} already sent through graph_fn '{}'! Cannot do so again.".format(
+                    op_rec_column.id, op_rec_column.graph_fn.__name__)
+            )
+
         # Get the device for the ops generated in the graph_fn (None for custom device-definitions within the graph_fn).
         device = self.get_device(op_rec_column.component, variables=False)
 
@@ -407,7 +428,7 @@ class GraphBuilder(Specifiable):
             op_rec_column.out_graph_fn_column = out_op_rec_column
 
         # Tag column as already sent through graph_fn.
-        op_rec_column.already_sent = True  # TODO: assert is False before this?
+        op_rec_column.already_sent = True
         return op_rec_column.out_graph_fn_column
 
     def get_device(self, component, variables=False):
@@ -847,7 +868,8 @@ class GraphBuilder(Specifiable):
                         return_ops)
 
             for i, param in enumerate(params):
-                # TODO: What if len(params) < len(self.api[api_method][0])? Need to handle default API-method params also for the root-component (this one).
+                # TODO: What if len(params) < len(self.api[api_method][0])?
+                # Need to handle default API-method params also for the root-component (this one).
                 if len(self.api[api_method_call][0]) <= i:
                     raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
                                        "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params)))
@@ -899,6 +921,7 @@ class GraphBuilder(Specifiable):
         Executes a graph_fn in define by run mode.
 
         Args:
+            component (Component): Component this graph_fn is eecuted on.
             graph_fn (callable): Graph function to execute.
             options (dict): Execution options.
         Returns:

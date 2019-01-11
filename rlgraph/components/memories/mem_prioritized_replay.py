@@ -22,7 +22,7 @@ import operator
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
-from rlgraph.utils.util import SMALL_NUMBER, get_rank, dtype as dtype_
+from rlgraph.utils.util import SMALL_NUMBER, get_rank, convert_dtype as dtype_
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.utils.decorators import rlgraph_api
