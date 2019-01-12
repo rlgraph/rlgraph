@@ -106,7 +106,7 @@ class MetaGraphBuilder(Specifiable):
                         use_named = True
                     else:
                         # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
-                        assert param_name in input_spaces, \
+                        assert input_spaces is not None and param_name in input_spaces, \
                             "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
 

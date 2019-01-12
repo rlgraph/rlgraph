@@ -137,31 +137,6 @@ agent.observe(
 loss = agent.update()
 ```
 
-## Distributed execution
-
-RLgraph supports multiple distributed backends, as graph definition and execution are separate. For example, to use
-a high performance version of distributed DQN (Ape-X), a corresponding ApexExecutor can distribute execution via Ray:
-
-```python
-from rlgraph.execution.ray import ApexExecutor
-
-# See learning tests for example configurations e,g.
-# rlgraph/tests/execution/test_apex_executor.py
-env_spec = dict(type="openai", gym_env="CartPole-v0")
-
-# Ray executor creating Ray actors.
-exec = ApexExecutor(
-  environment_spec=env_spec,
-  agent_config=agent_config,
-)
-
-# Executes actual workload on distributed Ray cluster.
-result = exec.execute_workload(workload=dict(num_timesteps=10000, report_interval=1000))
-
-# Prints result metrics.
-print(result)
-```
-
 Full examples can be found in the examples folder.
 
 ## Cite
