@@ -235,18 +235,6 @@ class PPOAgent(Agent):
                             sample_terminals, sample_sequence_indices, entropy
                         )
 
-                    step_op, loss, loss_per_item = optimizer.step(
-                        policy._variables(), loss, loss_per_item
-                    )
-                    loss.set_shape([0])
-                    loss_per_item.set_shape((agent.sample_size,))
-
-                    vf_step_op, vf_loss, vf_loss_per_item = value_function_optimizer.step(
-                        value_function._variables(), vf_loss, vf_loss_per_item
-                    )
-                    vf_loss.set_shape([0])
-                    vf_loss_per_item.set_shape((agent.sample_size,))
-
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
                         # TODO: This should only be necessary in the last iteration, correct?
                         policy_grads_and_vars = optimizer.calculate_gradients(policy._variables(), loss)
@@ -256,6 +244,18 @@ class PPOAgent(Agent):
                         grads_and_vars_by_component = vars_merger.merge(policy_grads_and_vars, vf_grads_and_vars)
                         return grads_and_vars_by_component, loss, loss_per_item, vf_loss, vf_loss_per_item
                     else:
+                        step_op, loss, loss_per_item = optimizer.step(
+                            policy._variables(), loss, loss_per_item
+                        )
+                        loss.set_shape([0])
+                        loss_per_item.set_shape((agent.sample_size,))
+
+                        vf_step_op, vf_loss, vf_loss_per_item = value_function_optimizer.step(
+                            value_function._variables(), vf_loss, vf_loss_per_item
+                        )
+                        vf_loss.set_shape([0])
+                        vf_loss_per_item.set_shape((agent.sample_size,))
+
                         with tf.control_dependencies([step_op, vf_step_op]):
                             return index_ + 1, loss, loss_per_item, vf_loss, vf_loss_per_item
 
