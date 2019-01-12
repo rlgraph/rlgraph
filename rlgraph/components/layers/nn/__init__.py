@@ -25,6 +25,7 @@ from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
 from rlgraph.components.layers.nn.residual_layer import ResidualLayer
+from rlgraph.components.layers.nn.local_response_normalization_layer import LocalResponseNormalizationLayer
 
 NNLayer.__lookup_classes__ = dict(
     concat=ConcatLayer,
@@ -34,7 +35,8 @@ NNLayer.__lookup_classes__ = dict(
     #dueling=DuelingLayer,
     lstm=LSTMLayer,
     maxpool2d=MaxPool2DLayer,
-    residual=ResidualLayer
+    residual=ResidualLayer,
+    localresponsenormalization=LocalResponseNormalizationLayer
 )
 
 __all__ = ["NNLayer"] + list(set(map(lambda x: x.__name__, NNLayer.__lookup_classes__.values())))

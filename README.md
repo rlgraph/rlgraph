@@ -101,19 +101,21 @@ Agents can be imported and used as follows:
 
 ```python
 from rlgraph.agents import DQNAgent
-environment = OpenAIGymEnv("Cartpole-v0")
+from rlgraph.environments import OpenAIGymEnv
+
+environment = OpenAIGymEnv('CartPole-v0')
 
 # Create from .json file or dict, see agent API for all
 # possible configuration parameters.
-agent = DQNAgent(
-  "configs/config.json",
+agent = DQNAgent.from_file(
+  "configs/dqn_cartpole.json",
   state_space=environment.state_space, 
   action_space=environment.action_space
 )
 
 # Get an action, take a step, observe reward.
 state = environment.reset()
-action, preprocessed state = agent.get_action(
+preprocessed_state, action = agent.get_action(
   states=state,
   extra_returns="preprocessed_states"
 )
@@ -123,40 +125,16 @@ next_state, reward, terminal, info =  environment.step(action)
 
 # Observe result.
 agent.observe(
-  preprocessed_states=preprocessed_state,
-  actions=action,
-  internals=[],
-  next_states=next_state,
-  rewards=reward
+    preprocessed_states=preprocessed_state,
+    actions=action,
+    internals=[],
+    next_states=next_state,
+    rewards=reward,
+    terminals=terminal
 )
 
 # Call update when desired:
 loss = agent.update()
-```
-
-## Distributed execution
-
-RLgraph supports multiple distributed backends, as graph definition and execution are separate. For example, to use
-a high performance version of distributed DQN (Ape-X), a corresponding ApexExecutor can distribute execution via Ray:
-
-```python
-from rlgraph.execution.ray import ApexExecutor
-
-# See learning tests for example configurations e,g.
-# rlgraph/tests/execution/test_apex_executor.py
-env_spec = dict(type="openai", gym_env="CartPole-v0")
-
-# Ray executor creating Ray actors.
-exec = ApexExecutor(
-  environment_spec=env_spec,
-  agent_config=agent_config,
-)
-
-# Executes actual workload on distributed Ray cluster.
-result = exec.execute_workload(workload=dict(num_timesteps=10000, report_interval=1000))
-
-# Prints result metrics.
-print(result)
 ```
 
 Full examples can be found in the examples folder.

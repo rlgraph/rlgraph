@@ -96,7 +96,7 @@ class ContainerSplitter(Component):
         for i, name_or_index in enumerate(self.output_order):
             if self.type == Dict and name_or_index not in in_space:
                 raise RLGraphError(
-                    "Name #{} in `output_order` (value={}) of ContainerSplitter '{}'"
+                    "Name #{} in `output_order` ({}) of ContainerSplitter '{}'"
                     " is not part of the input Space "
                     "({})!".format(i, name_or_index, self.scope, in_space)
                 )
