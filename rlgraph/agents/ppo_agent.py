@@ -177,9 +177,7 @@ class PPOAgent(Agent):
             loss, loss_per_item, vf_loss, vf_loss_per_item = None, None, None, None
 
             policy = root.get_sub_component_by_name(agent.policy.scope)
-            policy_vars = policy._variables()
             value_function = root.get_sub_component_by_name(agent.value_function.scope)
-            value_function_vars = value_function._variables()
             optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
             loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
             value_function_optimizer = root.get_sub_component_by_name(agent.value_function_optimizer.scope)
@@ -237,7 +235,9 @@ class PPOAgent(Agent):
                             sample_terminals, sample_sequence_indices, entropy
                         )
 
-                    step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+                    step_op, loss, loss_per_item = optimizer.step(
+                        policy._variables(), loss, loss_per_item
+                    )
                     loss.set_shape([0])
                     loss_per_item.set_shape((agent.sample_size,))
 
@@ -249,8 +249,10 @@ class PPOAgent(Agent):
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
                         # TODO: This should only be necessary in the last iteration, correct?
-                        policy_grads_and_vars = optimizer.calculate_gradients(policy_vars, loss)
-                        vf_grads_and_vars = value_function_optimizer.calculate_gradients(value_function_vars, vf_loss)
+                        policy_grads_and_vars = optimizer.calculate_gradients(policy._variables(), loss)
+                        vf_grads_and_vars = value_function_optimizer.calculate_gradients(
+                            value_function._variables(), vf_loss
+                        )
                         grads_and_vars_by_component = vars_merger.merge(policy_grads_and_vars, vf_grads_and_vars)
                         return grads_and_vars_by_component, loss, loss_per_item, vf_loss, vf_loss_per_item
                     else:
