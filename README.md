@@ -101,19 +101,21 @@ Agents can be imported and used as follows:
 
 ```python
 from rlgraph.agents import DQNAgent
-environment = OpenAIGymEnv("Cartpole-v0")
+from rlgraph.environments import OpenAIGymEnv
+
+environment = OpenAIGymEnv('CartPole-v0')
 
 # Create from .json file or dict, see agent API for all
 # possible configuration parameters.
-agent = DQNAgent(
-  "configs/config.json",
+agent = DQNAgent.from_file(
+  "configs/dqn_cartpole.json",
   state_space=environment.state_space, 
   action_space=environment.action_space
 )
 
 # Get an action, take a step, observe reward.
 state = environment.reset()
-action, preprocessed state = agent.get_action(
+preprocessed_state, action = agent.get_action(
   states=state,
   extra_returns="preprocessed_states"
 )
@@ -123,11 +125,12 @@ next_state, reward, terminal, info =  environment.step(action)
 
 # Observe result.
 agent.observe(
-  preprocessed_states=preprocessed_state,
-  actions=action,
-  internals=[],
-  next_states=next_state,
-  rewards=reward
+    preprocessed_states=preprocessed_state,
+    actions=action,
+    internals=[],
+    next_states=next_state,
+    rewards=reward,
+    terminals=terminal
 )
 
 # Call update when desired:
