@@ -198,6 +198,7 @@ class PPOAgent(Agent):
                     sample_actions = tf.gather(params=actions, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
+                    sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -208,7 +209,7 @@ class PPOAgent(Agent):
                         # grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
                             all_vars,
-                            sample_states, sample_actions, sample_rewards, sample_terminals, indices
+                            sample_states, sample_actions, sample_rewards, sample_terminals, sample_sequence_indices
                         )
                         avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.split(
                             out["avg_grads_and_vars_by_component"]
@@ -222,8 +223,6 @@ class PPOAgent(Agent):
                         loss_vf, loss_per_item_vf = out["additional_return_0"], out["additional_return_1"]
                         with tf.control_dependencies([step_and_sync_op]):
                             return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
-
-                    sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
 
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = value_function.value_output(sample_states)
