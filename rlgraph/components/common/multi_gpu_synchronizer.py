@@ -208,7 +208,7 @@ class MultiGpuSynchronizer(Component):
             for i, tower in enumerate(self.towers):
                 # Sync weights to shards
                 sync_op = self.towers[i].set_weights(
-                    variables["policy"], value_function_weights=variables["vf"]
+                    variables["policy"], value_function_weights=variables.get("vf")
                 )
                 sync_ops.append(sync_op)
 

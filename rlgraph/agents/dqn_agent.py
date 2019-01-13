@@ -230,7 +230,7 @@ class DQNAgent(Agent):
                 avg_grads_and_vars = agent.vars_splitter.split(out["avg_grads_and_vars_by_component"])
                 step_op = agent.optimizer.apply_gradients(avg_grads_and_vars)
                 step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
-                    step_op, main_policy_vars
+                    step_op, all_vars
                 )
                 q_values_s = out["additional_return_0"]
                 return step_and_sync_op, out["loss"], out["loss_per_item"], q_values_s
