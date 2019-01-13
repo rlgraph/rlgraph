@@ -82,7 +82,7 @@ class RingBuffer(Memory):
             update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
             # Update indices and size.
-            with tf.control_dependencies([update_indices]):
+            with tf.control_dependencies([update_indices, index]):
                 index_updates = []
                 # Episodes before inserting these records.
                 prev_num_episodes = self.read_variable(self.num_episodes)
