@@ -554,15 +554,15 @@ class Agent(Specifiable):
         """
         return self.graph_executor.execute("get_weights")
 
-    def set_weights(self, weights):
+    def set_weights(self, policy_weights):
         """
         Sets policy weights of this agent, e.g. for external syncing purposes.
 
         Args:
-            weights (any): Weights and optionally meta data to update depending on the backend.
+            policy_weights (any): Weights and optionally meta data to update depending on the backend.
 
         Raises:
             ValueError if weights do not match graph weights in shapes and types.
         """
-        return self.graph_executor.execute(("set_weights", weights))
+        return self.graph_executor.execute(("set_weights", policy_weights))
 

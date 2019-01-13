@@ -45,10 +45,10 @@ class TestBaseAgentFunctionality(unittest.TestCase):
 
         weights = agent.get_weights()
         new_weights = {}
-        for key, weight in weights.items():
+        for key, weight in weights["policy_weights"].items():
             new_weights[key] = weight + 0.01
 
         agent.set_weights(new_weights)
         new_actual_weights = agent.get_weights()
 
-        recursive_assert_almost_equal(new_actual_weights, new_weights)
+        recursive_assert_almost_equal(new_actual_weights["policy_weights"], new_weights)
