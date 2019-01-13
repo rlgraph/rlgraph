@@ -50,9 +50,8 @@ class TestGpuStrategies(unittest.TestCase):
 
     def test_multi_gpu_dqn_agent_compilation(self):
         """
-        Tests if the multi gpu strategy can compile successfully on a multi gpu system.
-
-        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        Tests if the multi gpu strategy can compile successfully on a multi gpu system, but
+        also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         root_logger.setLevel(DEBUG)
         agent_config = config_from_path("configs/multi_gpu_dqn_for_random_env.json", root="../")
@@ -78,9 +77,8 @@ class TestGpuStrategies(unittest.TestCase):
 
     def test_multi_gpu_apex_agent_compilation(self):
         """
-        Tests if the multi gpu strategy can compile successfully on a multi gpu system.
-
-        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        Tests if the multi gpu strategy can compile successfully on a multi gpu system, but
+        also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         root_logger.setLevel(DEBUG)
         agent_config = config_from_path("configs/multi_gpu_ray_apex_for_pong.json")
@@ -94,9 +92,8 @@ class TestGpuStrategies(unittest.TestCase):
 
     def test_multi_gpu_dqn_agent_learning_test_gridworld_2x2(self):
         """
-        Tests if the multi gpu strategy can learn successfully on a multi gpu system.
-
-        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        Tests if the multi gpu strategy can learn successfully on a multi gpu system, but
+        also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         env_spec = dict(type="grid-world", world="2x2")
         dummy_env = GridWorld.from_spec(env_spec)
@@ -140,6 +137,7 @@ class TestGpuStrategies(unittest.TestCase):
     def test_apex_multi_gpu_update(self):
         """
         Tests if the multi GPU optimizer can perform successful updates, using the apex executor.
+        Also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         agent_config = config_from_path("configs/multi_gpu_ray_apex_for_pong.json")
         executor = ApexExecutor(
@@ -154,9 +152,8 @@ class TestGpuStrategies(unittest.TestCase):
 
     def test_multi_gpu_ppo_agent_learning_test_gridworld_2x2(self):
         """
-        Tests if the multi gpu strategy can learn successfully on a multi gpu system.
-
-        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        Tests if the multi gpu strategy can learn successfully on a multi gpu system, but
+        also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         env_spec = dict(type="grid-world", world="2x2")
         dummy_env = GridWorld.from_spec(env_spec)
