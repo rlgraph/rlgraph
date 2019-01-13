@@ -260,11 +260,13 @@ class PPOAgent(Agent):
                         step_op, loss, loss_per_item = optimizer.step(
                             policy._variables(), loss, loss_per_item
                         )
+                        loss.set_shape(())
                         loss_per_item.set_shape((agent.sample_size,))
 
                         vf_step_op, vf_loss, vf_loss_per_item = value_function_optimizer.step(
                             value_function._variables(), vf_loss, vf_loss_per_item
                         )
+                        vf_loss.set_shape(())
                         vf_loss_per_item.set_shape((agent.sample_size,))
 
                         with tf.control_dependencies([step_op, vf_step_op]):
