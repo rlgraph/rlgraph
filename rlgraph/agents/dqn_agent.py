@@ -65,6 +65,10 @@ class DQNAgent(Agent):
             policy_spec=policy_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
 
+        # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
+        # TODO: of return values when calling _graph_fn_calculate_update_from_external_batch.
+        #self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
+
         # Assert that the synch interval is a multiple of the update_interval.
         if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
                 self.update_spec["sync_interval"] // self.update_spec["update_interval"]:
