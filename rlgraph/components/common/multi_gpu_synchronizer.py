@@ -172,12 +172,10 @@ class MultiGpuSynchronizer(Component):
                 loss_per_item = return_values_to_be_averaged[2]
                 rest = return_values_to_be_averaged[3:]
                 if all_rest is None:
-                    all_rest = [list()] * len(rest)
+                    all_rest = [list() for _ in rest]
 
                 for component_key, value in grads_and_vars_by_component.items():
                     all_grads_and_vars_by_component[component_key].append(value)
-                #for value in grads_and_vars:
-                #    all_grads_and_vars_by_component[key].append(value)
                 all_loss.append(loss)
                 all_loss_per_item.append(loss_per_item)
                 for i, r in enumerate(rest):
@@ -192,7 +190,7 @@ class MultiGpuSynchronizer(Component):
         ret.append(tf.concat(all_loss_per_item, axis=0))
         # For the remaining return items, do like for loss-per-item (regenerate values for original, unsplit batch).
         for rest_list in all_rest:
-            ret.append(tf.concat(rest_list, axis=0))
+            ret.append(tf.stack(rest_list, axis=0))
 
         # Return averaged gradients.
         return tuple(ret)
@@ -209,7 +207,9 @@ class MultiGpuSynchronizer(Component):
             sync_ops = []
             for i, tower in enumerate(self.towers):
                 # Sync weights to shards
-                sync_op = self.towers[i].set_weights(variables)
+                sync_op = self.towers[i].set_weights(
+                    variables["policy"], value_function_weights=variables["vf"]
+                )
                 sync_ops.append(sync_op)
 
             return tf.group(*sync_ops)

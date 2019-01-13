@@ -704,6 +704,8 @@ class TensorFlowExecutor(GraphExecutor):
             # Setup and add MultiGpuSynchronizer to root.
             multi_gpu_optimizer = MultiGpuSynchronizer(batch_size=batch_size)
             root_component.add_components(multi_gpu_optimizer)
+            #multi_gpu_optimizer.graph_fn_num_outputs["_graph_fn_calculate_update_from_external_batch"] = \
+            #    root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"]
             multi_gpu_optimizer.setup_towers(sub_graphs, devices)
 
     def _sanity_check_devices(self):
