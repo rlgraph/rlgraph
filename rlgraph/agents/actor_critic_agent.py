@@ -57,7 +57,7 @@ class ActorCriticAgent(Agent):
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
-            weights="variables:{}".format(self.policy.scope),
+            policy_weights="variables:{}".format(self.policy.scope),
             deterministic=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
