@@ -19,6 +19,8 @@ from __future__ import print_function
 
 import unittest
 
+from rlgraph.tests.test_util import config_from_path
+
 
 class TestReadmeExample(unittest.TestCase):
     """
@@ -32,11 +34,12 @@ class TestReadmeExample(unittest.TestCase):
         from rlgraph.environments import OpenAIGymEnv
 
         environment = OpenAIGymEnv('CartPole-v0')
+        config = config_from_path("../../examples/configs/dqn_cartpole.json")
 
         # Create from .json file or dict, see agent API for all
         # possible configuration parameters.
-        agent = DQNAgent.from_file(
-            "../../../examples/configs/dqn_cartpole.json",
+        agent = DQNAgent.from_spec(
+            config,
             state_space=environment.state_space,
             action_space=environment.action_space
         )
