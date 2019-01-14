@@ -158,8 +158,8 @@ class RingBuffer(Memory):
             for index in update_indices:
                 episodes_in_insert_range += int(self.record_registry["terminals"][index])
             num_episode_update = self.num_episodes - episodes_in_insert_range + inserted_episodes
-            self.episode_indices[:self.num_episodes + 1 - episodes_in_insert_range] = \
-                self.episode_indices[episodes_in_insert_range:self.num_episodes + 1]
+            self.episode_indices[:self.num_episodes - episodes_in_insert_range] = \
+                self.episode_indices[episodes_in_insert_range:self.num_episodes]
 
             # Insert new episodes starting at previous count minus the ones we removed,
             # ending at previous count minus removed + inserted.
