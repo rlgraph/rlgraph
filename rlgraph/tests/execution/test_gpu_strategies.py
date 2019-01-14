@@ -54,7 +54,7 @@ class TestGpuStrategies(unittest.TestCase):
         also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         root_logger.setLevel(DEBUG)
-        agent_config = config_from_path("configs/multi_gpu_dqn_for_random_env.json", root="../")
+        agent_config = config_from_path("configs/multi_gpu_dqn_for_random_env.json")
         environment = RandomEnv.from_spec(self.random_env_spec)
 
         agent = DQNAgent.from_spec(
