@@ -79,32 +79,30 @@ class RingBuffer(Memory):
         if get_backend() == "tf":
             num_records = get_batch_size(records["terminals"])
             index = self.read_variable(self.index)
+
+            # Episodes before inserting these records.
+            prev_num_episodes = self.read_variable(self.num_episodes)
             update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
-            # Update indices and size.
-            with tf.control_dependencies([update_indices, index]):
+            # Episodes previously existing in the range we inserted to as indicated
+            # by count of terminals in the that slice.
+            insert_terminal_slice = self.read_variable(self.record_registry['terminals'], update_indices)
+
+            # Shift episode indices.
+            with tf.control_dependencies([update_indices, index, prev_num_episodes, insert_terminal_slice]):
                 index_updates = []
-                # Episodes before inserting these records.
-                prev_num_episodes = self.read_variable(self.num_episodes)
 
                 # Newly inserted episodes.
                 inserted_episodes = tf.reduce_sum(input_tensor=tf.cast(records['terminals'], dtype=tf.int32), axis=0)
-
-                # Episodes previously existing in the range we inserted to as indicated
-                # by count of terminals in the that slice.
-                insert_terminal_slice = self.read_variable(self.record_registry['terminals'], update_indices)
                 episodes_in_insert_range = tf.reduce_sum(
                     input_tensor=tf.cast(insert_terminal_slice, dtype=tf.int32), axis=0
                 )
-
                 num_episode_update = prev_num_episodes - episodes_in_insert_range + inserted_episodes
 
-                # prev_num_episodes = tf.Print(prev_num_episodes, [prev_num_episodes, episodes_in_insert_range],
-                #                             summarize=100, message='num eps, eps in insert range =')
-                # Remove previous episodes in inserted range.
+                # Shift contiguous episode indices.
                 index_updates.append(self.assign_variable(
-                        ref=self.episode_indices[:prev_num_episodes + 1 - episodes_in_insert_range],
-                        value=self.episode_indices[episodes_in_insert_range:prev_num_episodes + 1]
+                        ref=self.episode_indices[:prev_num_episodes - episodes_in_insert_range],
+                        value=self.episode_indices[episodes_in_insert_range:prev_num_episodes]
                 ))
 
                 # Insert new episodes starting at previous count minus the ones we removed,
@@ -113,24 +111,20 @@ class RingBuffer(Memory):
                 slice_end = num_episode_update
                 # update_indices = tf.Print(update_indices, [update_indices, tf.shape(update_indices)],
                 #                           summarize=100, message='\n update indices / shape = ')
-                # slice_start = tf.Print(
-                #     slice_start, [slice_start, slice_end, self.episode_indices],
-                #     summarize=100,
-                #     message='\n slice start/ slice end / episode indices before = '
-                # )
 
-                with tf.control_dependencies(index_updates):
-                    index_updates = []
-                    mask = tf.boolean_mask(tensor=update_indices, mask=records['terminals'])
-                    index_updates.append(self.assign_variable(
-                        ref=self.episode_indices[slice_start:slice_end],
-                        value=mask
-                    ))
-                    # num_episode_update = tf.Print(num_episode_update, [num_episode_update, self.episode_indices],
-                    #     summarize=100,  message='\n num episodes / episode indices after: ')
+            # Update indices and size.
+            with tf.control_dependencies(index_updates):
+                index_updates = []
 
-                    # Assign final new episode count.
-                    index_updates.append(self.assign_variable(self.num_episodes, num_episode_update))
+                # Actually update indices.
+                mask = tf.boolean_mask(tensor=update_indices, mask=records['terminals'])
+                index_updates.append(self.assign_variable(
+                    ref=self.episode_indices[slice_start:slice_end],
+                    value=mask
+                ))
+
+                # Assign final new episode count.
+                index_updates.append(self.assign_variable(self.num_episodes, num_episode_update))
 
                 index_updates.append(self.assign_variable(ref=self.index, value=(index + num_records) % self.capacity))
                 update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
@@ -248,4 +242,3 @@ class RingBuffer(Memory):
                 records[name] = self.read_variable(variable, indices,
                                                    dtype=util.convert_dtype(self.record_space[name].dtype, to="pytorch"))
             return records
-
