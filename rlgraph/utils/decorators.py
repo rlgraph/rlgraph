@@ -148,6 +148,10 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
                 # We are already in building phase (params may be coming from inside graph_fn).
                 if self.graph_builder is not None and self.graph_builder.phase == "building":
+                    # If Space not stored yet, determine it from op.
+                    assert in_op_column.op_records[i].op is not None
+                    if in_op_column.op_records[i].space is None:
+                        in_op_column.op_records[i].space = get_space_from_op(in_op_column.op_records[i].op)
                     self.api_method_inputs[param_name] = in_op_column.op_records[i].space
                     # Check input-completeness of Component (but not strict as we are only calling API, not a graph_fn).
                     if self.input_complete is False:
