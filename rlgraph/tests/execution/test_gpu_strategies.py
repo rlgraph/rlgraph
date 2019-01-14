@@ -114,6 +114,9 @@ class TestGpuStrategies(unittest.TestCase):
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
+        # Marge q-tables of all four GPUs:
+        agent.last_q_table["q_values"] = agent.last_q_table["q_values"].reshape((48, 4))
+
         print("STATES:\n{}".format(agent.last_q_table["states"]))
         print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
