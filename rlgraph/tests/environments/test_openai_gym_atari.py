@@ -46,3 +46,5 @@ class TestOpenAIAtariEnv(unittest.TestCase):
             accum_reward += r
 
         print("Accumulated Reward: ".format(accum_reward))
+
+        env.terminate()

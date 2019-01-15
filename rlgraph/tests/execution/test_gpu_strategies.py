@@ -168,7 +168,7 @@ class TestGpuStrategies(unittest.TestCase):
             action_space=dummy_env.action_space,
         )
 
-        time_steps = 1000
+        time_steps = 1500
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
@@ -177,26 +177,5 @@ class TestGpuStrategies(unittest.TestCase):
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        print("STATES:\n{}".format(agent.last_q_table["states"]))
-        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
-
-        #self.assertEqual(results["timesteps_executed"], time_steps)
-        #self.assertEqual(results["env_frames"], time_steps)
-        #self.assertGreaterEqual(results["mean_episode_reward"], -4.5)
-        #self.assertGreaterEqual(results["max_episode_reward"], 0.0)
-        #self.assertLessEqual(results["episodes_executed"], 250)
-
-        ## Check q-table for correct values.
-        #expected_q_values_per_state = {
-        #    (1.0, 0, 0, 0): (-1, -5, 0, -1),
-        #    (0, 1.0, 0, 0): (-1, 1, 0, 0)
-        #}
-        #for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
-        #    state, q_values = tuple(state), tuple(q_values)
-        #    assert state in expected_q_values_per_state, \
-        #        "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
-        #    recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
-
-    # TODO (Bart maybe): We should probably have some tests that simply test the update call
-    # This is just slightly annoying because we have to assemble a preprocessed batch manually
-    # It would be good to have a utility method for that to use in tests (e.g. sample atari batches).
+        # Assume we have learned something.
+        self.assertGreater(results["mean_episode_reward"], -0.3)
