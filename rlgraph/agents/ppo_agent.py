@@ -419,11 +419,18 @@ class PPOAgent(Agent):
                 sequence_indices = batch["terminals"]
 
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_external_batch"]
+            # Execute post-processing or already post-processed by workers?
+            if apply_postprocessing:
+                ret = self.graph_executor.execute(("post_process_and_update", batch_input, return_ops))
+                # Remove unnecessary return dicts (e.g. sync-op).
+                if isinstance(ret, dict):
+                    ret = ret["post_process_and_update"]
+            else:
+                ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
+                # Remove unnecessary return dicts (e.g. sync-op).
+                if isinstance(ret, dict):
+                    ret = ret["update_from_external_batch"]
 
         # [0] loss, [1] loss per item
         return ret[0], ret[1]
