@@ -42,7 +42,7 @@ class TestPPOAgentFunctionality(unittest.TestCase):
         """
         Tests external batch post-processing for the PPO agent.
         """
-        env = OpenAIGymEnv("CartPole-v0")
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
         agent_config = config_from_path("configs/ppo_agent_for_pong.json")
         agent = PPOAgent.from_spec(
             agent_config,
@@ -50,14 +50,17 @@ class TestPPOAgentFunctionality(unittest.TestCase):
             action_space=env.action_space
         )
         num_samples = 200
-        states = agent.preprocessed_state_space.sample(200)
-        actions = states = agent.action_space.sample(200)
+        states = agent.preprocessed_state_space.sample(num_samples)
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
+        sequence_indices_space = BoolBox(add_batch_rank=True)
 
         # GAE is separately tested, just testing if this API method returns results.
-        rewards = agent.post_process(dict(
-
+        pg_advantages = agent.post_process(dict(
+            states=states,
+            rewards=reward_space.sample(num_samples),
+            terminals=terminal_space.sample(num_samples, fill_value=0),
+            sequence_indices=sequence_indices_space.sample(num_samples, fill_value=0)
         ))
 
     def test_external_update(self):

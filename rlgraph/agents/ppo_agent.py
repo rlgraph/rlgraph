@@ -157,8 +157,8 @@ class PPOAgent(Agent):
             return agent.memory.insert_records(records)
 
         @rlgraph_api(component=self.root_component)
-        def post_process(root, states, rewards, terminals, sequence_indices):
-            baseline_values = agent.value_function.value_output(states)
+        def post_process(root, preprocessed_states, rewards, terminals, sequence_indices):
+            baseline_values = agent.value_function.value_output(preprocessed_states)
             pg_advantages = agent.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
             return pg_advantages
 
