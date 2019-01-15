@@ -213,7 +213,11 @@ class LSTMLayer(NNLayer):
 
             # Only return last value.
             if self.return_sequences is False:
-                lstm_out = lstm_out[-1]
+                if self.in_space.time_major is True:
+                    lstm_out = lstm_out[-1]
+                else:
+                    lstm_out = lstm_out[:,-1]
+                lstm_out._batch_rank = 0
             # Return entire sequence.
             else:
                 lstm_out._batch_rank = 0 if self.in_space.time_major is False else 1
