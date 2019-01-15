@@ -34,12 +34,10 @@ class PPOLossFunction(LossFunction):
 
     https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, discount=0.99, gae_lambda=1.0, clip_ratio=0.2, standardize_advantages=False, weight_entropy=None,
+    def __init__(self, clip_ratio=0.2, standardize_advantages=False, weight_entropy=None,
                  scope="ppo-loss-function", **kwargs):
         """
         Args:
-            discount (float): The discount factor (gamma) to use.
-            gae_lambda (float): Optional GAE discount factor.
             clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
             standardize_advantages (bool): If true, normalize advantage values in update.
             **kwargs:
@@ -47,11 +45,7 @@ class PPOLossFunction(LossFunction):
         self.clip_ratio = clip_ratio
         self.standardize_advantages = standardize_advantages
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
-
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
-
-        self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
-        self.add_components(self.gae_function)
 
     @rlgraph_api
     def loss(self, log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits):
@@ -73,13 +67,13 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals,
+    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, pg_advantages, terminals,
                                 sequence_indices, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
             actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
-            rewards (SingleDataOp): The batch of rewards that we received after having taken a in s (from a memory).
+            pg_advantages (SingleDataOp): The batch of post-processed advantages.
 
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
                 (from a memory).
@@ -96,11 +90,9 @@ class PPOLossFunction(LossFunction):
             # N.b.: Many implementations do the following:
             # Sample action -> return policy log probs with action -> feed both back in from memory/via placeholders.
             # This creates the same effect as just stopping the gradients on the log-probs.
+            # Saving them would however remove necessity for an extra forward pass.
             prev_log_probs = tf.stop_gradient(log_probs)
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
-
-            # Compute advantages.
-            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
 
             if self.standardize_advantages:
                 mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
@@ -128,9 +120,6 @@ class PPOLossFunction(LossFunction):
             # Detach grads.
             prev_log_probs = log_probs.detach()
             baseline_values = torch.squeeze(baseline_values, dim=-1)
-
-            # Compute advantages.
-            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
 
             if self.standardize_advantages:
                 pg_advantages = (pg_advantages - torch.mean(pg_advantages)) / torch.std(pg_advantages)

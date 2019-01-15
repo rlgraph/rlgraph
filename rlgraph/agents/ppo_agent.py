@@ -99,7 +99,7 @@ class PPOAgent(Agent):
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount)
-        self.loss_function = PPOLossFunction(discount=self.discount, gae_lambda=gae_lambda, clip_ratio=clip_ratio,
+        self.loss_function = PPOLossFunction(clip_ratio=clip_ratio,
                                              standardize_advantages=standardize_advantages,
                                              weight_entropy=weight_entropy)
 
@@ -171,10 +171,16 @@ class PPOAgent(Agent):
                 records = agent.memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = agent.splitter.split(records)
 
-            # Route to external update method.
+            # Route to post process and update method.
             # Use terminals as sequence indices.
             sequence_indices = terminals
-            return root.update_from_external_batch(preprocessed_s, actions, rewards, terminals, sequence_indices)
+            return root.post_process_and_update(preprocessed_s, actions, rewards, terminals, sequence_indices)
+
+        # First post-process, then update (so we can separately update already post-processed data).
+        @rlgraph_api(component=self.root_component)
+        def post_process_and_update(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
+            rewards = root.post_process(preprocessed_states, rewards, terminals, sequence_indices)
+            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals, sequence_indices)
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
