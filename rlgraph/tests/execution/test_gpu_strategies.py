@@ -168,7 +168,7 @@ class TestGpuStrategies(unittest.TestCase):
             action_space=dummy_env.action_space,
         )
 
-        time_steps = 1500
+        time_steps = 2000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
@@ -178,4 +178,4 @@ class TestGpuStrategies(unittest.TestCase):
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], -0.3)
+        self.assertGreater(results["mean_episode_reward"], -0.4)
