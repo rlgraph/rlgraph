@@ -211,6 +211,9 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             return_ops = False
             stack = inspect.stack()
             f_locals = stack[1][0].f_locals
+            # We may be in a list comprehension, try next frame.
+            if f_locals.get(".0"):
+                f_locals = stack[2][0].f_locals
             # Check whether the caller component is a parent of this one.
             caller_component = f_locals.get("root", f_locals.get("self_", f_locals.get("self")))
             if caller_component is None:
