@@ -554,17 +554,22 @@ class Agent(Specifiable):
         """
         return self.graph_executor.execute("get_weights")
 
-    def set_weights(self, policy_weights):
+    def set_weights(self, policy_weights, value_function_weights=None):
         """
         Sets policy weights of this agent, e.g. for external syncing purposes.
 
         Args:
             policy_weights (any): Weights and optionally meta data to update depending on the backend.
+            value_function_weights (Optional[any]): Optional value function weights.
 
         Raises:
             ValueError if weights do not match graph weights in shapes and types.
         """
-        return self.graph_executor.execute(("set_weights", policy_weights))
+        # TODO generic *args here and specific names in specific agents?
+        if value_function_weights is not None:
+            return self.graph_executor.execute(("set_weights", [policy_weights, value_function_weights]))
+        else:
+            return self.graph_executor.execute(("set_weights", policy_weights))
 
     def post_process(self, batch):
         """

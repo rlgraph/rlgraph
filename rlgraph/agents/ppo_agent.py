@@ -375,6 +375,8 @@ class PPOAgent(Agent):
 
     def update(self, batch=None, sequence_indices=None):
         """
+        Args:
+            batch (dict): Update batch.
             sequence_indices (Optional[np.ndarray, list]): Sequence indices are used in multi-env batches where
                 partial episode fragments may be concatenated within the trajectory. For a single env, these are equal
                 to terminals. If None are given, terminals will be used as sequence indices. A sequence index is True
@@ -424,7 +426,7 @@ class PPOAgent(Agent):
 
         # Remove unnecessary return dicts.
         if isinstance(ret, dict):
-            ret = ret["get_td_loss"]
+            ret = ret["get_gae_rewards"]
 
         # Return [0]=total loss, [1]=loss-per-item
         return ret[0], ret[1]
