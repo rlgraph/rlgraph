@@ -40,6 +40,11 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_base_agent_functionality.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_impala_agent_functionality.py';
 
+  # Test execution-related functionalities.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/execution/test_gpu_strategies.py::TestGpuStrategies::test_multi_gpu_dqn_agent_compilation';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/execution/test_gpu_strategies.py::TestGpuStrategies::test_multi_gpu_dqn_agent_learning_test_gridworld_2x2';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/execution/test_gpu_strategies.py::TestGpuStrategies::test_multi_gpu_ppo_agent_learning_test_gridworld_2x2';
+
   # Test the core lib.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core/test_api_methods.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/core/test_device_placements.py';

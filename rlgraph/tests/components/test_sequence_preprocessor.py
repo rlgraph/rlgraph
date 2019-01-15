@@ -61,6 +61,8 @@ class TestSequencePreprocessor(unittest.TestCase):
             index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
 
+        test.terminate()
+
     # TODO: Make it irrelevent whether we test a python or a tf Component (API and handling should be 100% identical)
     def test_python_sequence_preprocessor(self):
         seq_len = 3
@@ -147,6 +149,8 @@ class TestSequencePreprocessor(unittest.TestCase):
             index_value, buffer_value = test.read_variable_values(index, buffer)
             self.assertEqual(index_value, 1)
 
+        test.terminate()
+
     def test_sequence_preprocessor_with_container_space(self):
         # Test with no batch rank.
         space = Tuple(
@@ -175,3 +179,4 @@ class TestSequencePreprocessor(unittest.TestCase):
                                                                                   [0.8, 0.9, 0.8, 0.9,
                                                                                    1.1, 1.1, 2.2, 2.3]])))
 
+        test.terminate()

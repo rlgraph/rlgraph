@@ -4,7 +4,7 @@
   "n_step": 3,
   "memory_spec": {
     "type": "prioritized_replay",
-    "capacity": 100
+    "capacity": 3000
   },
   "saver_spec": null,
   "preprocessing_spec": [
@@ -99,6 +99,7 @@
     "gpu_spec": {
       "gpus_enabled" : true,
       "max_usable_gpus": 2,
+      "fake_gpus_if_necessary": true,
       "per_process_gpu_memory_fraction": 0.5,
       "allow_memory_growth": true
     },

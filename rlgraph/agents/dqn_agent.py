@@ -65,6 +65,10 @@ class DQNAgent(Agent):
             policy_spec=policy_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
         )
 
+        # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
+        # TODO: of return values when calling _graph_fn_calculate_update_from_external_batch.
+        #self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
+
         # Assert that the synch interval is a multiple of the update_interval.
         if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
                 self.update_spec["sync_interval"] // self.update_spec["update_interval"]:
@@ -93,7 +97,7 @@ class DQNAgent(Agent):
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             # weights will have a Space derived from the vars of policy.
-            weights="variables:{}".format(self.policy.scope),
+            policy_weights="variables:{}".format(self.policy.scope),
             time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
@@ -102,11 +106,9 @@ class DQNAgent(Agent):
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=weight_space,
-            # TODO: This is currently necessary for multi-GPU handling (as the update_from_external_batch
-            # TODO: gets overridden by a generic function with args=*inputs)
-            #inputs=[preprocessed_state_space, self.action_space.with_batch_rank(), reward_space, terminal_space,
-            #        preprocessed_state_space, weight_space]
         ))
+        if self.value_function is not None:
+            self.input_spaces["value_function_weights"] = "variables:{}".format(self.value_function.scope),
 
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "next_states", "terminals")
@@ -134,7 +136,8 @@ class DQNAgent(Agent):
 
         self.root_component.add_components(
             self.preprocessor, self.merger, self.memory, self.splitter, self.policy, self.target_policy,
-            self.exploration, self.loss_function, self.optimizer
+            self.value_function, self.value_function_optimizer,  # <- should both be None for DQN
+            self.exploration, self.loss_function, self.optimizer, self.vars_merger, self.vars_splitter
         )
 
         # Define the Agent's (root-Component's) API.
@@ -146,18 +149,6 @@ class DQNAgent(Agent):
             self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
-
-            # TODO: What should the external batch be? 0s.
-            #if "multi-gpu-sync-optimizer" in self.root_component.sub_components:
-            #    # Get 1st return op of API-method `calculate_update_from_external_batch`
-            #    # (which is the group of stage-ops).
-            #    stage_op = self.root_component.sub_components["multi-gpu-sync-optimizer"].\
-            #        api_methods["calculate_update_from_external_batch"].\
-            #        out_op_columns[0].op_records[0].op
-            #    # Initialize the stage.
-            #    self.graph_executor.monitored_session.run_step_fn(
-            #        lambda step_context: step_context.session.run(stage_op)
-            #    )
 
     def define_graph_api(self, *args, **kwargs):
         super(DQNAgent, self).define_graph_api()
@@ -195,8 +186,8 @@ class DQNAgent(Agent):
         def sync_target_qnet(root):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-sync-optimizer" in root.sub_components:
-                multi_gpu_syncer = root.sub_components["multi-gpu-sync-optimizer"]
+            if "multi-gpu-synchronizer" in root.sub_components:
+                multi_gpu_syncer = root.sub_components["multi-gpu-synchronizer"]
                 return multi_gpu_syncer.sync_target_qnets()
             # We could be the main root or a multi-GPU tower.
             else:
@@ -229,25 +220,27 @@ class DQNAgent(Agent):
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-sync-optimizer" in root.sub_components:
+            if "multi-gpu-synchronizer" in root.sub_components:
                 main_policy_vars = agent.policy._variables()
-                # TODO: This may be called differently in other agents (replace by root-policy).
-                grads_and_vars, loss, loss_per_item, q_values_s = \
-                    root.sub_components["multi-gpu-sync-optimizer"].calculate_update_from_external_batch(
-                        main_policy_vars, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                        importance_weights
-                    )
-                step_op = agent.optimizer.apply_gradients(grads_and_vars)
-                step_and_sync_op = root.sub_components["multi-gpu-sync-optimizer"].sync_policy_weights_to_towers(
-                    step_op, main_policy_vars
+                all_vars = agent.vars_merger.merge(main_policy_vars)
+                out = root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
+                    all_vars, preprocessed_states, actions, rewards, terminals,
+                    preprocessed_next_states, importance_weights
                 )
-                return step_and_sync_op, loss, loss_per_item, q_values_s
+                avg_grads_and_vars = agent.vars_splitter.split(out["avg_grads_and_vars_by_component"])
+                step_op = agent.optimizer.apply_gradients(avg_grads_and_vars)
+                step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
+                    step_op, all_vars
+                )
+                q_values_s = out["additional_return_0"]
+                return step_and_sync_op, out["loss"], out["loss_per_item"], q_values_s
 
             # Get sub-components relative to the root (could be multi-GPU setup where root=some-tower).
             policy = root.get_sub_component_by_name(agent.policy.scope)
             target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
             loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
             optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
+            vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
 
             # Get the different Q-values.
             q_values_s = policy.get_logits_probabilities_log_probs(preprocessed_states)["logits"]
@@ -269,7 +262,8 @@ class DQNAgent(Agent):
             # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
             if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
                 grads_and_vars = optimizer.calculate_gradients(policy_vars, loss)
-                return grads_and_vars, loss, loss_per_item, q_values_s
+                grads_and_vars_by_component = vars_merger.merge(grads_and_vars)
+                return grads_and_vars_by_component, loss, loss_per_item, q_values_s
             else:
                 step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
                 return step_op, loss, loss_per_item, q_values_s

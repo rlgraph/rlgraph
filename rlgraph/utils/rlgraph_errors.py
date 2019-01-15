@@ -39,3 +39,22 @@ class RLGraphBuildError(RLGraphError):
     components.
     """
     pass
+
+
+class RLGraphInputIncompleteError(RLGraphError):
+    """
+    Raised if the build of a model cannot
+    """
+    def __init__(self, msg, component):
+        super(RLGraphInputIncompleteError, self).__init__(msg)
+        self.component = component
+
+
+class RLGraphVariableIncompleteError(RLGraphError):
+    """
+
+    """
+    def __init__(self, msg, component):
+        super(RLGraphVariableIncompleteError, self).__init__(msg)
+        self.component = component
+

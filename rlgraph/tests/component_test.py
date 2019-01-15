@@ -77,6 +77,7 @@ class ComponentTest(object):
         # Create a GraphBuilder.
         self.graph_builder = GraphBuilder(action_space=action_space)
         self.component = component
+        self.component.nesting_level = 0
         self.input_spaces = input_spaces
 
         # Build the model.

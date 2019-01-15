@@ -24,13 +24,16 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
-    ValueFunction
+    ValueFunction, DictMerger, ContainerSplitter
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.utils.specifiable import Specifiable
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class Agent(Specifiable):
@@ -97,7 +100,7 @@ class Agent(Specifiable):
         self.discount = discount
 
         # The agent's root-Component.
-        self.root_component = Component(name=self.name)
+        self.root_component = Component(name=self.name, nesting_level=0)
 
         # Define the input-Spaces:
         # Tag the input-Space to `self.set_weights` as equal to whatever the variables-Space will be for
@@ -132,6 +135,12 @@ class Agent(Specifiable):
         self.value_function = None
         if value_function_spec is not None:
             self.value_function = ValueFunction(network_spec=value_function_spec)
+            self.value_function.add_components(Synchronizable(), expose_apis="sync")
+            self.vars_merger = DictMerger("policy", "vf", scope="variable-dict-merger")
+            self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
+        else:
+            self.vars_merger = DictMerger("policy", scope="variable-dict-merger")
+            self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
 
         self.internal_states_space = Space.from_spec(internal_states_space)
 
@@ -216,6 +225,8 @@ class Agent(Specifiable):
         agent = self
 
         if self.value_function is not None:
+            # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
+            # value-function never performs any forward pass (only used as variable storage).
             @rlgraph_api(component=self.root_component)
             def get_state_values(root, preprocessed_states):
                 vf = root.get_sub_component_by_name(agent.value_function.scope)
@@ -225,25 +236,31 @@ class Agent(Specifiable):
         @rlgraph_api(component=self.root_component)
         def get_weights(root):
             policy = root.get_sub_component_by_name(agent.policy.scope)
-            weights = policy._variables()
+            policy_weights = policy._variables()
+            value_function_weights = None
             if agent.value_function is not None:
                 value_func = root.get_sub_component_by_name(agent.value_function.scope)
-                value_function_variables = value_func._variables()
-                weights = root._graph_fn_merge(weights, value_function_variables)
-            return weights
+                value_function_weights = value_func._variables()
+            return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
+
+        @rlgraph_api(component=self.root_component, must_be_complete=False)
+        def set_weights(root, policy_weights, value_function_weights=None):
+            policy = root.get_sub_component_by_name(agent.policy.scope)
+            policy_sync_op = policy.sync(policy_weights)
+            if value_function_weights is not None:
+                assert agent.value_function is not None
+                vf = root.get_sub_component_by_name(agent.value_function.scope)
+                vf_sync_op = vf.sync(value_function_weights)
+                return root._graph_fn_group(policy_sync_op, vf_sync_op)
+            else:
+                return policy_sync_op
 
         # TODO: Replace this with future on-the-fly-API-components.
         @graph_fn(component=self.root_component)
-        def _graph_fn_merge(root, *dicts):
-            ret = {}
-            for d in dicts:
-                ret.update(d)
-            return ret
-
-        @rlgraph_api(component=self.root_component, must_be_complete=False)
-        def set_weights(root, weights):
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            return policy.sync(weights, strict=False)
+        def _graph_fn_group(root, *ops):
+            if get_backend() == "tf":
+                return tf.group(*ops)
+            return ops[0]
 
         # To pre-process external data if needed.
         @rlgraph_api(component=self.root_component)
@@ -535,19 +552,19 @@ class Agent(Specifiable):
         Returns:
             any: Weights and optionally weight meta data for this model.
         """
-        return dict(self.graph_executor.execute("get_weights"))
+        return self.graph_executor.execute("get_weights")
 
-    def set_weights(self, weights):
+    def set_weights(self, policy_weights):
         """
         Sets policy weights of this agent, e.g. for external syncing purposes.
 
         Args:
-            weights (any): Weights and optionally meta data to update depending on the backend.
+            policy_weights (any): Weights and optionally meta data to update depending on the backend.
 
         Raises:
             ValueError if weights do not match graph weights in shapes and types.
         """
-        return self.graph_executor.execute(("set_weights", weights))
+        return self.graph_executor.execute(("set_weights", policy_weights))
 
     def post_process(self, batch):
         """

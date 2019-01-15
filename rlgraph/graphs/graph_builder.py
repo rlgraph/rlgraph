@@ -35,8 +35,8 @@ from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalenc
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
 from rlgraph.utils.ops import is_constant, ContainerDataOp, flatten_op
-from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
-    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, get_call_param_name
+from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumn, DataOpRecordColumnIntoGraphFn, \
+    DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -201,7 +201,7 @@ class GraphBuilder(Specifiable):
             self.op_records_to_process.update(component.constant_op_records)
             self.build_component_when_input_complete(component)
 
-        op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
+        op_records_list = self._sort_op_recs(self.op_records_to_process)
 
         # Re-iterate until our bag of op-recs to process is empty.
         iterations = self._build(op_records_list)
@@ -490,7 +490,7 @@ class GraphBuilder(Specifiable):
         for api_method in api_methods:
             # Start with the input set for this method.
             api_input_records = self.root_component.api_methods[api_method].in_op_columns[0].op_records
-            op_records_list = sorted(api_input_records, key=lambda rec: rec.id)
+            op_records_list = self._sort_op_recs(api_input_records)
 
             # Re-iterate until our bag of op-recs to process is empty.
             loop_counter = 0
@@ -500,7 +500,7 @@ class GraphBuilder(Specifiable):
                     # There are next records:
                     if len(op_rec.next) > 0:
                         # Push the op-record forward one step.
-                        for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
+                        for next_op_rec in self._sort_op_recs(op_rec.next):  # type: DataOpRecord
                             # If not last op in this API-method ("done") -> continue.
                             # Otherwise, replace "done" with actual op.
                             if next_op_rec.op != "done":
@@ -523,7 +523,7 @@ class GraphBuilder(Specifiable):
                         new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
 
                 # No sanity checks because meta graph was already built successfully.
-                new_op_records_list = sorted(new_op_records_to_process, key=lambda rec: rec.id)
+                new_op_records_list = self._sort_op_recs(new_op_records_to_process)
                 op_records_list = new_op_records_list
                 loop_counter += 1
         return subgraph_container
@@ -640,13 +640,14 @@ class GraphBuilder(Specifiable):
             assert op_rec_column.out_graph_fn_column is not None,\
                 "ERROR: DataOpRecordColumnFromGraphFn for in-column {} is None!".format(op_rec_column)
             out_graph_fn_column = op_rec_column.out_graph_fn_column
-            # Make sure the number of returned ops matches the number of op-records in the next column.
-            assert len(ops) == len(out_graph_fn_column.op_records), \
-                "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match the number of op-records " \
-                "({}) reserved for the return values of the method!".format(
-                    op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
-                    len(out_graph_fn_column.op_records)
-                )
+
+        # Make sure the number of returned ops matches the number of op-records in the next column.
+        assert len(ops) == len(out_graph_fn_column.op_records), \
+            "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match the number of op-records " \
+            "({}) reserved for the return values of the method!".format(
+                op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
+                len(out_graph_fn_column.op_records)
+            )
 
         # Determine the Spaces for each out op and then move it into the respective op and Space slot of the
         # out_graph_fn_column.
@@ -1065,7 +1066,7 @@ class GraphBuilder(Specifiable):
             # Check whether the Component is input-complete (and build already if it is).
             self.build_component_when_input_complete(component)
 
-        op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
+        op_records_list = self._sort_op_recs(self.op_records_to_process)
         iterations = self._build(op_records_list)
 
         # Set execution mode in components to change `call` behaviour to direct function evaluation.
@@ -1092,6 +1093,21 @@ class GraphBuilder(Specifiable):
         """
         loop_counter = 0
         while len(op_records_list) > 0:
+            # In this iteration, do we still have API-method op-recs (which are part of columns that go into or come
+            # from API-methods).
+            have_api_method_recs = any(
+                isinstance(or_.column, (DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromAPIMethod)) for or_ in
+                op_records_list
+            )
+            highest_nesting_of_callable_graph_fn_column = -1
+            if have_api_method_recs is False:
+                for or_ in op_records_list:
+                    if isinstance(or_.column, DataOpRecordColumnIntoGraphFn):
+                        col = or_.column
+                        if col.is_complete() and col.already_sent is False and \
+                                col.component.nesting_level > highest_nesting_of_callable_graph_fn_column:
+                            highest_nesting_of_callable_graph_fn_column = col.component.nesting_level
+
             # Collect op-recs to process in the next iteration.
             self.op_records_to_process = set()
 
@@ -1102,7 +1118,7 @@ class GraphBuilder(Specifiable):
                 # There are next records:
                 if len(op_rec.next) > 0:
                     # Push actual op and Space forward one op-rec at a time.
-                    for next_op_rec in sorted(op_rec.next, key=lambda rec: rec.id):  # type: DataOpRecord
+                    for next_op_rec in self._sort_op_recs(op_rec.next):  # type: DataOpRecord
                         # Assert that next-record's `previous` field points back to op_rec.
                         assert next_op_rec.previous is op_rec, \
                             "ERROR: Op-rec {} in meta-graph has {} as next, but {}'s previous field points to {}!". \
@@ -1152,27 +1168,41 @@ class GraphBuilder(Specifiable):
                 # No next records:
                 # - Op belongs to a column going into a graph_fn.
                 elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
-                    # If column complete AND has not been sent through the graph_fn yet -> Call the graph_fn.
-                    if op_rec.column.is_complete() and op_rec.column.already_sent is False:
+                    # Only call the GraphFn iff:
+                    # There are no more DataOpRecordColumnIntoAPIMethod ops in our list: We would like to hold off
+                    # any graph fn calls for as long as possible.
+                    # We don't want to run through a graph_fn, then have to call an API-method from within that graph_fn
+                    # and the component of that API-method is not input-/variable-complete yet.
+                    if have_api_method_recs:
+                        # Recycle this op-rec.
+                        self.op_records_to_process.add(op_rec)
+                    # There are other graph_fn columns that have a higher Component nesting_level and are
+                    # actually callable -> Call those first.
+                    elif highest_nesting_of_callable_graph_fn_column > op_rec.column.component.nesting_level:
+                        # Recycle this op-rec.
+                        self.op_records_to_process.add(op_rec)
+                    # GraphFn column must be complete AND has not been sent through the graph_fn yet.
+                    elif op_rec.column.is_complete() and op_rec.column.already_sent is False:
                         # Only call the graph_fn if the Component is already input-complete.
                         if op_rec.column.component.input_complete:
                             # Call the graph_fn with the given column and call-options.
                             self.run_through_graph_fn_with_device_and_scope(op_rec.column)
                             # Store all resulting op_recs (returned by the graph_fn) to be processed next.
                             self.op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
-                        # Component not input-complete. Keep coming back with this op.
+                        # Component not input-complete. Recycle this op-rec.
                         else:
                             self.build_component_when_input_complete(op_rec.column.component)
                             self.op_records_to_process.add(op_rec)
                             if op_rec.column.component.input_complete is False:
                                 non_complete_components.add(op_rec.column.component.global_scope)
+                    # - There are still into-API-method-op-recs that should be handled first.
                     # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
                     # - Op column has already been sent (sibling ops may have arrived in same iteration).
-                # - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
+                # else: - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
                 # -> Ignore Op.
 
             # Sanity check, whether we are stuck.
-            new_op_records_list = sorted(self.op_records_to_process, key=lambda rec: rec.id)
+            new_op_records_list = self._sort_op_recs(self.op_records_to_process)
             if op_records_list == new_op_records_list:
                 # Probably deadlocked. Do a premature sanity check to report possible problems.
                 if loop_counter > self.max_build_iterations:
@@ -1212,3 +1242,32 @@ class GraphBuilder(Specifiable):
 
             loop_counter += 1
         return loop_counter
+
+    @staticmethod
+    def _sort_op_recs(recs):
+        """
+        Sorts op-recs according to:
+        - Give API-method calls priority over GraphFn calls (API-method call ops just have to be passed along without
+        worrying about input-/variable-completeness).
+        - Give deeper nested Components priority over shallower nested ones.
+        - Sort by op-rec ID to enforce determinism.
+
+        Note: We sort in reverse order, highest key-values first.
+
+        Args:
+            recs (Set[DataOpRecord]): The DataOpRecords to sort.
+
+        Returns:
+            list: The sorted op-recs.
+        """
+        def sorting_func(rec):
+            # Op-rec is a placeholder. Highest priority.
+            if rec.column is None:
+                return DataOpRecord.MAX_ID * 2 + rec.id
+            # API-methods have priority (over GraphFns).
+            elif isinstance(rec.column, DataOpRecordColumnIntoAPIMethod):
+                return DataOpRecord.MAX_ID + rec.id
+            # Deeper nested Components have priority. If same level, use op-rec's ID for determinism.
+            return rec.column.component.nesting_level + rec.id / DataOpRecord.MAX_ID
+
+        return sorted(recs, key=sorting_func, reverse=True)

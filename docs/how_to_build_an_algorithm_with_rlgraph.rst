@@ -134,8 +134,8 @@ We will now, one by one, define the root component's API-methods for use in the 
     def sync_target_qnet(self):
         # If we are a multi-GPU root:
         # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-        if "multi-gpu-sync-optimizer" in self.sub_components:
-            multi_gpu_syncer = self.sub_components["multi-gpu-sync-optimizer"]
+        if "multi-gpu-synchronizer" in self.sub_components:
+            multi_gpu_syncer = self.sub_components["multi-gpu-synchronizer"]
             return multi_gpu_syncer.sync_target_qnets()
         else:
             policy_vars = self.get_sub_component_by_name(policy_scope)._variables()

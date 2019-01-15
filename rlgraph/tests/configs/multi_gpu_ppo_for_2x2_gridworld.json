@@ -1,12 +1,16 @@
 {
-  "type": "dqn",
+  "type": "ppo",
 
-  "dueling_q": false,
-  "store_last_q_table": true,
+  "sample_episodes": false,
+  "standardize_advantages": false,
+
+  "clip_ratio": 0.2,
+  "discount": 0.99,
+  "gae_lambda": 1.0,
 
   "memory_spec":
   {
-    "type": "replay",
+    "type": "ring-buffer",
     "capacity": 32
   },
 
@@ -28,21 +32,18 @@
       "scope": "hidden-layer"
     }
   ],
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 10,
+      "activation": "linear",
+      "scope": "hidden-layer"
+    }
+  ],
 
   "observe_spec": {
     "buffer_size": 32
-  },
-
-  "exploration_spec": {
-    "epsilon_spec": {
-      "decay_spec": {
-        "type": "linear_decay",
-        "from": 1.0,
-        "to": 0.2,
-        "start_timestep": 0,
-        "num_timesteps": 1000
-      }
-    }
   },
 
   "execution_spec": {
@@ -67,13 +68,16 @@
   },
 
   "update_spec": {
-    "update_interval": 4,
-    "batch_size": 48,
-    "sync_interval": 32
+    "update_mode": "time_steps",
+    "do_updates": true,
+    "update_interval": 16,
+    "batch_size": 16,
+    "num_iterations": 6,
+    "sample_size": 8
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.15
+    "learning_rate": 0.015
   }
 }

@@ -77,6 +77,9 @@ class GraphExecutor(Specifiable):
 
         # Number of available GPUs and their names.
         self.gpus_enabled = None
+        # Whether to fake GPUs in case there are none available (in which case, we place everything on the CPU).
+        self.fake_gpus = None
+
         self.gpu_names = None
         self.used_devices = list()
         self.max_usable_gpus = 0
@@ -196,26 +199,26 @@ class GraphExecutor(Specifiable):
         """
         pass
 
-    def get_weights(self):
-        """
-        Returns all weights for computation graph of  this graph executor.
+    #def get_weights(self):
+    #    """
+    #    Returns all weights for computation graph of this graph executor.
 
-        Returns:
-            any: Weights for this graph..
-        """
-        return self.execute("_variables")
+    #    Returns:
+    #        any: Weights for this graph..
+    #    """
+    #    return self.execute("_variables")
 
-    def set_weights(self, weights):
-        """
-        Sets weights of the underlying computation graph..
+    #def set_weights(self, weights):
+    #    """
+    #    Sets weights of the underlying computation graph..
 
-        Args:
-            weights (any): Weights and optionally meta data to update depending on the backend.
+    #    Args:
+    #        weights (any): Weights and optionally meta data to update depending on the backend.
 
-        Raises:
-            ValueError if weights do not match graph weights in shapes and types.
-        """
-        self.execute(("sync", weights))
+    #    Raises:
+    #        ValueError if weights do not match graph weights in shapes and types.
+    #    """
+    #    self.execute(("sync", weights))
 
     def terminate(self):
         """

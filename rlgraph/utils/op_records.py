@@ -30,7 +30,11 @@ class DataOpRecord(object):
     """
     A simple wrapper class for a DataOp carrying the op itself and some additional information about it.
     """
+    # The current ID value.
     _ID = -1
+    # The highest allowed ID (can be changed to any higher value; used e.g. to compute sorting keys for
+    # build-prioritization).
+    MAX_ID = 1e6
 
     def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_record=None):
         """
@@ -38,10 +42,13 @@ class DataOpRecord(object):
             op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
             column (DataOpRecordColumn): The DataOpRecordColumn to which this op-rec belongs.
             position (Optional[int]): An optional position (index) for this op inside `column`.
+
             kwarg (Optional[str]): The keyword with which to call the API-method if this op-rec is not a positional
                 arg.
+
             space (Optional[Space]): The Space of `op` if already known at construction time. Will be poulated
                 later (during build phase) if not.
+
             next\_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
             previous (Optional(DataOpRecord)): The previous op-record.
         """
@@ -66,6 +73,8 @@ class DataOpRecord(object):
     @staticmethod
     def get_id():
         DataOpRecord._ID += 1
+        if DataOpRecord._ID >= DataOpRecord.MAX_ID:
+            raise RLGraphError("Maximum number of op-rec IDs reached! Simply hard-increase `DataOpRecord.MAX_ID`.")
         return DataOpRecord._ID
 
     @staticmethod

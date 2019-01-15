@@ -139,6 +139,8 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         print("Expected advantage:", advantage_expected)
         print("Got advantage:", advantage)
 
+        test.terminate()
+
     def test_multiple_sequences(self):
         gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
 
@@ -166,3 +168,5 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         advantage = test.test(("calc_gae_values", input_))
         print("Got advantage = ", advantage)
         recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)
+
+        test.terminate()

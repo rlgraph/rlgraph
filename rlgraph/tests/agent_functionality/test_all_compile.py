@@ -167,6 +167,7 @@ class TestAllCompile(unittest.TestCase):
                     log_device_placement=True,
                     auto_start=False
                 ),
+                disable_monitoring=True,
                 enable_timeline=True,
             )
         )

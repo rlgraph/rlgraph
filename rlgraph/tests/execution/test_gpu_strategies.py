@@ -22,7 +22,7 @@ import unittest
 from rlgraph.utils import root_logger
 from logging import DEBUG
 
-from rlgraph.agents import ApexAgent, DQNAgent
+from rlgraph.agents import ApexAgent, DQNAgent, PPOAgent
 from rlgraph.environments import OpenAIGymEnv, RandomEnv, GridWorld
 #from rlgraph.execution.ray import ApexExecutor
 from rlgraph.spaces import *
@@ -50,9 +50,8 @@ class TestGpuStrategies(unittest.TestCase):
 
     def test_multi_gpu_dqn_agent_compilation(self):
         """
-        Tests if the multi gpu strategy can compile successfully on a multi gpu system.
-
-        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        Tests if the multi gpu strategy can compile successfully on a multi gpu system, but
+        also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         root_logger.setLevel(DEBUG)
         agent_config = config_from_path("configs/multi_gpu_dqn_for_random_env.json")
@@ -64,7 +63,7 @@ class TestGpuStrategies(unittest.TestCase):
         print("Compiled DQN agent on multi-GPU system")
 
         # Do an update from external batch.
-        batch_size = 5
+        batch_size = agent_config["update_spec"]["batch_size"]
         external_batch = dict(
             states=environment.state_space.sample(size=batch_size),
             actions=environment.action_space.sample(size=batch_size),
@@ -78,9 +77,8 @@ class TestGpuStrategies(unittest.TestCase):
 
     def test_multi_gpu_apex_agent_compilation(self):
         """
-        Tests if the multi gpu strategy can compile successfully on a multi gpu system.
-
-        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        Tests if the multi gpu strategy can compile successfully on a multi gpu system, but
+        also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         root_logger.setLevel(DEBUG)
         agent_config = config_from_path("configs/multi_gpu_ray_apex_for_pong.json")
@@ -94,9 +92,8 @@ class TestGpuStrategies(unittest.TestCase):
 
     def test_multi_gpu_dqn_agent_learning_test_gridworld_2x2(self):
         """
-        Tests if the multi gpu strategy can learn successfully on a multi gpu system.
-
-        THIS TEST REQUIRES A MULTI GPU SYSTEM.
+        Tests if the multi gpu strategy can learn successfully on a multi gpu system, but
+        also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         env_spec = dict(type="grid-world", world="2x2")
         dummy_env = GridWorld.from_spec(env_spec)
@@ -108,7 +105,7 @@ class TestGpuStrategies(unittest.TestCase):
             action_space=dummy_env.action_space,
         )
 
-        time_steps = 400
+        time_steps = 1000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
@@ -117,6 +114,9 @@ class TestGpuStrategies(unittest.TestCase):
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
+        # Marge q-tables of all four GPUs:
+        agent.last_q_table["q_values"] = agent.last_q_table["q_values"].reshape((48, 4))
+
         print("STATES:\n{}".format(agent.last_q_table["states"]))
         print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
 
@@ -124,7 +124,7 @@ class TestGpuStrategies(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -4.5)
         self.assertGreaterEqual(results["max_episode_reward"], 0.0)
-        self.assertLessEqual(results["episodes_executed"], 250)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 2)
 
         # Check q-table for correct values.
         expected_q_values_per_state = {
@@ -140,6 +140,7 @@ class TestGpuStrategies(unittest.TestCase):
     def test_apex_multi_gpu_update(self):
         """
         Tests if the multi GPU optimizer can perform successful updates, using the apex executor.
+        Also runs on a CPU-only system using fake-GPU logic for testing purposes.
         """
         agent_config = config_from_path("configs/multi_gpu_ray_apex_for_pong.json")
         executor = ApexExecutor(
@@ -152,7 +153,29 @@ class TestGpuStrategies(unittest.TestCase):
             num_timesteps=100000, report_interval=10000, report_interval_min_seconds=10)
         )
 
+    def test_multi_gpu_ppo_agent_learning_test_gridworld_2x2(self):
+        """
+        Tests if the multi gpu strategy can learn successfully on a multi gpu system, but
+        also runs on a CPU-only system using fake-GPU logic for testing purposes.
+        """
+        env_spec = dict(type="grid-world", world="2x2")
+        dummy_env = GridWorld.from_spec(env_spec)
+        agent_config = config_from_path("configs/multi_gpu_ppo_for_2x2_gridworld.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
+        agent = PPOAgent.from_spec(
+            agent_config,
+            state_space=self.grid_world_2x2_flattened_state_space,
+            action_space=dummy_env.action_space,
+        )
 
-    # TODO (Bart maybe): We should probably have some tests that simply test the update call
-    # This is just slightly annoying because we have to assemble a preprocessed batch manually
-    # It would be good to have a utility method for that to use in tests (e.g. sample atari batches).
+        time_steps = 2000
+        worker = SingleThreadedWorker(
+            env_spec=env_spec,
+            agent=agent,
+            worker_executes_preprocessing=True,
+            preprocessing_spec=preprocessing_spec
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        # Assume we have learned something.
+        self.assertGreater(results["mean_episode_reward"], -0.4)
