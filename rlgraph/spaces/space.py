@@ -92,11 +92,12 @@ class Space(Specifiable):
             Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
         """
         ret = copy.deepcopy(self)
-        ret._add_batch_rank(add_batch_rank if add_batch_rank is not None else self.has_batch_rank)
-        ret._add_time_rank(
-            add_time_rank if add_time_rank is not None else self.has_time_rank,
-            time_major if time_major is not None else self.time_major
-        )
+        if add_batch_rank is not None:
+            ret._add_batch_rank(add_batch_rank)
+        if add_time_rank is not None:
+            ret._add_time_rank(
+                add_time_rank, time_major if time_major is not None else self.time_major
+            )
         return ret
 
     def with_batch_rank(self, add_batch_rank=True):
