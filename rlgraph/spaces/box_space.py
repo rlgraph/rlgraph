@@ -176,7 +176,7 @@ class BoxSpace(Space):
             # TODO: re-evaluate the cutting of a leading '/_?' (tf doesn't like it)
             name = re.sub(r'^/_?', "", name)
             if is_input_feed:
-                return tf.placeholder(dtype=convert_dtype(self.dtype), shape=shape, name=name)
+                variable = tf.placeholder(dtype=convert_dtype(self.dtype), shape=shape, name=name)
             else:
                 init_spec = kwargs.pop("initializer", None)
                 # Bools should be initializable via 0 or not 0.
@@ -188,11 +188,17 @@ class BoxSpace(Space):
                 else:
                     initializer = Initializer.from_spec(shape=shape, specification=init_spec).initializer
 
-                return tf.get_variable(
+                variable = tf.get_variable(
                     name, shape=shape, dtype=convert_dtype(self.dtype), initializer=initializer,
                     collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
                     **kwargs
                 )
+            # Add batch/time rank flags to the op.
+            if self.has_batch_rank:
+                variable._batch_rank = 0 if self.time_major is False else 1
+            if self.has_time_rank:
+                variable._time_rank = 1 if self.time_major is False else 0
+            return variable
 
     def zeros(self, size=None):
         return self.sample(size=size, fill_value=0)
