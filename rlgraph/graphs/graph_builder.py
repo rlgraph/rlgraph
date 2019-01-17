@@ -869,6 +869,12 @@ class GraphBuilder(Specifiable):
                         return_ops)
 
             for i, param in enumerate(params):
+                if param is None:
+                    assert len(self.api[api_method_call][0]) == i, \
+                        "ERROR: More input params given ({}) than expected ({}) for call to '{}'!". \
+                        format(len(params), len(self.api[api_method_call][0]), api_method_call)
+                    break
+
                 # TODO: What if len(params) < len(self.api[api_method][0])?
                 # Need to handle default API-method params also for the root-component (this one).
                 if len(self.api[api_method_call][0]) <= i:
