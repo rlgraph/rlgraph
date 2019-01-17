@@ -99,6 +99,9 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'jq '.BACKEND = "pytorch"' ~/.rlgraph/rlgraph.json > tmp.json && mv tmp.json ~/.rlgraph/rlgraph.json  && cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_all_compile.py::TestAllCompile::test_apex_compilation';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'jq '.BACKEND = "pytorch"' ~/.rlgraph/rlgraph.json > tmp.json && mv tmp.json ~/.rlgraph/rlgraph.json  && cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_all_compile.py::TestAllCompile::test_ppo_compilation';
 
+  # Test selected github-issues test cases.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'jq '.BACKEND = "pytorch"' ~/.rlgraph/rlgraph.json > tmp.json && mv tmp.json ~/.rlgraph/rlgraph.json  && cd /rlgraph && python -m pytest -s rlgraph/tests/github_issues/github_issues.py';
+
 
 notifications:
   email:
