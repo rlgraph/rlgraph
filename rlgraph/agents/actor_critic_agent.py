@@ -21,6 +21,7 @@ import numpy as np
 
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, DictMerger, ContainerSplitter, RingBuffer, ValueFunction, Optimizer
+from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.decorators import rlgraph_api
@@ -73,12 +74,13 @@ class ActorCriticAgent(Agent):
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
 
-        self.loss_function = ActorCriticLossFunction(discount=self.discount, gae_lambda=gae_lambda,
-                                                     weight_entropy=weight_entropy)
+        self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount)
+        self.loss_function = ActorCriticLossFunction(weight_entropy=weight_entropy)
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
-                          self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer]
+                          self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer,
+                          self.gae_function]
         self.root_component.add_components(*sub_components)
 
         # Define the Agent's (root-Component's) API.
@@ -122,6 +124,12 @@ class ActorCriticAgent(Agent):
             records = agent.merger.merge(preprocessed_states, actions, rewards, terminals)
             return agent.memory.insert_records(records)
 
+        @rlgraph_api(component=self.root_component)
+        def post_process(root, preprocessed_states, rewards, terminals, sequence_indices):
+            baseline_values = agent.value_function.value_output(preprocessed_states)
+            pg_advantages = agent.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
+            return pg_advantages
+
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
         def update_from_memory(root):
@@ -131,9 +139,15 @@ class ActorCriticAgent(Agent):
                 records = agent.memory.get_records(agent.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = agent.splitter.split(records)
             sequence_indices = terminals
-            return root.update_from_external_batch(
+            return root.post_process_and_update(
                 preprocessed_s, actions, rewards, terminals, sequence_indices
             )
+
+        # First post-process, then update (so we can separately update already post-processed data).
+        @rlgraph_api(component=self.root_component)
+        def post_process_and_update(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
+            rewards = root.post_process(preprocessed_states, rewards, terminals, sequence_indices)
+            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals, sequence_indices)
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
@@ -203,8 +217,10 @@ class ActorCriticAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
-    def update(self, batch=None, sequence_indices=None):
+    def update(self, batch=None, sequence_indices=None, apply_postprocessing=True):
         """
+        Args:
+            batch (dict): Update batch.
             sequence_indices (Optional[np.ndarray, list]): Sequence indices are used in multi-env batches where
                 partial episode fragments may be concatenated within the trajectory. For a single env, these are equal
                 to terminals. If None are given, terminals will be used as sequence indices. A sequence index is True
@@ -215,20 +231,41 @@ class ActorCriticAgent(Agent):
                 Example: If env_1 has terminals [0 0 0] for an episode fragment and env_2 terminals = [0 0 1],
                     we may pass them in as one combined array [0 0 0 0 0 1] with sequence indices showing where each
                     episode ends: [0 0 1 0 0 1].
+            apply_postprocessing (Optional[(bool]): If True, apply post-processing such as generalised
+                advantage estimation to collected batch in-graph. If False, update assumed post-processing has already
+                been applied. The purpose of internal versus external post-processing is to be able to off-load
+                post-processing in large scale distributed scenarios.
         """
-        # step, loss, loss per item, vf step, vf loss, vf loss per item
-        return_ops = [0, 1, 2, 3, 4, 5]
+
+        # [0] = the loss; [1] = loss-per-item, [2] = vf-loss, [3] = vf-loss- per item
+        return_ops = [0, 1, 2, 3]
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
+
+            # Remove unnecessary return dicts (e.g. sync-op).
+            if isinstance(ret, dict):
+                ret = ret["update_from_memory"]
         else:
             # No sequence indices means terminals are used in place.
             if sequence_indices is None:
                 sequence_indices = batch["terminals"]
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
-        # [0] no-op, [1] loss, [2] loss per item
-        return ret[1], ret[2]
+            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
+
+            # Execute post-processing or already post-processed by workers?
+            if apply_postprocessing:
+                ret = self.graph_executor.execute(("post_process_and_update", batch_input, return_ops))
+                # Remove unnecessary return dicts (e.g. sync-op).
+                if isinstance(ret, dict):
+                    ret = ret["post_process_and_update"]
+            else:
+                ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
+                # Remove unnecessary return dicts (e.g. sync-op).
+                if isinstance(ret, dict):
+                    ret = ret["update_from_external_batch"]
+
+        # [0] loss, [1] loss per item
+        return ret[0], ret[1]
 
     def reset(self):
         """
