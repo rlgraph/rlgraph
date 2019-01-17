@@ -235,6 +235,7 @@ class ReShape(PreprocessLayer):
                 )
                 if hasattr(preprocessing_inputs, "_batch_rank"):
                     preprocessing_inputs_._batch_rank = preprocessing_inputs._batch_rank
+                if hasattr(preprocessing_inputs, "_time_rank"):
                     preprocessing_inputs_._time_rank = preprocessing_inputs._time_rank
                 preprocessing_inputs = preprocessing_inputs_
 
