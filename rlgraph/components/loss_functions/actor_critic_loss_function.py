@@ -44,8 +44,7 @@ class ActorCriticLossFunction(LossFunction):
         L[E] = - SUM[all actions a] pi(a|s) * log pi(a|s)
 
     """
-    def __init__(self, discount=0.99, gae_lambda=1.0,
-                 weight_pg=None, weight_baseline=None, weight_entropy=None, **kwargs):
+    def __init__(self, weight_pg=None, weight_baseline=None, weight_entropy=None, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma) to use.
@@ -58,15 +57,10 @@ class ActorCriticLossFunction(LossFunction):
         """
         super(ActorCriticLossFunction, self).__init__(scope=kwargs.pop("scope", "actor-critic-loss-func"), **kwargs)
 
-        self.discount = discount
-        self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=discount)
-
         self.weight_pg = weight_pg if weight_pg is not None else 1.0
         self.weight_baseline = weight_baseline if weight_baseline is not None else 0.5
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
         self.action_space = None
-
-        self.add_components(self.gae_function)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         assert action_space is not None
@@ -97,7 +91,7 @@ class ActorCriticLossFunction(LossFunction):
 
     @rlgraph_api
     def _graph_fn_loss_per_item(self, log_probs, entropy, baseline_values, actions,
-                                rewards, terminals, sequence_indices):
+                                pg_advantages, terminals, sequence_indices):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
@@ -107,7 +101,7 @@ class ActorCriticLossFunction(LossFunction):
             entropy (DataOp): Policy entropy
             baseline_values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
             actions (DataOp): The actually taken (already one-hot flattened) actions.
-            rewards (DataOp): The received rewards.
+            pg_advantages (DataOp): The received rewards.
             terminals (DataOp): The observed terminal signals.
             sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
                 from multiple environments.
@@ -115,15 +109,8 @@ class ActorCriticLossFunction(LossFunction):
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
         if get_backend() == "tf":
-            last_sequence = tf.expand_dims(sequence_indices[-1], -1)
-
-            # Ensure the very last entry is 1 for sequence indices so we don't connect different episodes fragments
-            # when sampling sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
-            sequence_indices = tf.concat([sequence_indices[:-1], tf.ones_like(last_sequence)], axis=0)
-
             # # Let the gae-helper function calculate the pg-advantages.
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
-            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
             v_targets = pg_advantages + baseline_values
@@ -143,15 +130,8 @@ class ActorCriticLossFunction(LossFunction):
 
             return loss, baseline_loss
         elif get_backend() == "pytorch":
-            last_sequence = torch.unsqueeze(sequence_indices[-1], -1)
-
-            # Ensure the very last entry is 1 for sequence indices so we don't connect different episodes fragments
-            # when sampling sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
-            sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(last_sequence)), 0)
-
             # # Let the gae-helper function calculate the pg-advantages.
             baseline_values = torch.squeeze(baseline_values, -1)
-            pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
 
             # Make sure vs and advantage values are treated as constants for the gradient calculation.
             v_targets = pg_advantages + baseline_values
