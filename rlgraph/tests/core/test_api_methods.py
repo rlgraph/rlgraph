@@ -159,6 +159,33 @@ class TestAPIMethods(unittest.TestCase):
 
         test.test(("some_custom_api_method", 1.23456), expected_outputs=1.23456, decimals=5)
 
+    def test_call_in_comprehension(self):
+        """
+        Tests calling graph functions within list comprehensions.
+
+        https://github.com/rlgraph/rlgraph/issues/41
+        """
+        container = Component(scope="container")
+        sub_comps = [Dummy1To1(scope="dummy-{}".format(i)) for i in range(3)]
+        container.add_components(*sub_comps)
+
+        # Define container's API:
+        @rlgraph_api(name="test", component=container)
+        def container_test(self_, input_):
+            # results = []
+            # for i in range(len(sub_comps)):
+            #     results.append(sub_comps[i].run(input_))
+            results = [x.run(input_) for x in sub_comps]
+            return self_._graph_fn_sum(*results)
+
+        @graph_fn(component=container)
+        def _graph_fn_sum(self_, *inputs):
+            return sum(inputs)
+
+        test = ComponentTest(component=container, input_spaces=dict(input_=float))
+        test.test(("test", 1.23), expected_outputs=len(sub_comps) * (1.23 + 1), decimals=2)
+
+
     #def test_kwargs_in_api_call(self):
     #    core = Component(scope="container")
     #    sub_comp = Dummy2To2(scope="comp1")
