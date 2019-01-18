@@ -30,21 +30,20 @@ class GeneralizedAdvantageEstimation(Component):
     - 2015 (https://arxiv.org/abs/1506.02438)
     """
 
-    def __init__(self, gae_lambda=1.0, discount=1.0, device="/device:CPU:0",
-                 scope="generalized-advantage-estimation", **kwargs):
+    def __init__(self, gae_lambda=1.0, discount=1.0, scope="generalized-advantage-estimation", **kwargs):
         """
         Args:
             gae_lambda (float): GAE-lambda. See paper for details.
             discount (float): Discount gamma.
         """
-        super(GeneralizedAdvantageEstimation, self).__init__(device=device, scope=scope, **kwargs)
+        super(GeneralizedAdvantageEstimation, self).__init__(scope=scope, **kwargs)
         self.gae_lambda = gae_lambda
         self.discount = discount
         self.sequence_helper = SequenceHelper()
         self.add_components(self.sequence_helper)
 
-    @rlgraph_api(must_be_complete=False)
-    def _graph_fn_calc_gae_values(self, baseline_values, rewards, terminals, sequence_indices):
+    @rlgraph_api
+    def calc_gae_values(self, baseline_values, rewards, terminals, sequence_indices):
         """
         Returns advantage values based on GAE.
 
