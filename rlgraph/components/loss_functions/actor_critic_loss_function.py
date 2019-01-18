@@ -71,7 +71,7 @@ class ActorCriticLossFunction(LossFunction):
         )
 
     @rlgraph_api
-    def loss(self, logits_actions_pi, action_probs_mu, values, actions, rewards, terminals, sequence_indices):
+    def loss(self, logits_actions_pi, action_probs_mu, values, actions, rewards, terminals):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -82,7 +82,7 @@ class ActorCriticLossFunction(LossFunction):
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
         loss_per_item, vf_loss_per_item = self.loss_per_item(
-            logits_actions_pi, action_probs_mu, values, actions, rewards, terminals, sequence_indices
+            logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
         )
         total_loss = self.loss_average(loss_per_item)
         vf_total_loss = self.loss_average(vf_loss_per_item)
@@ -91,7 +91,7 @@ class ActorCriticLossFunction(LossFunction):
 
     @rlgraph_api
     def _graph_fn_loss_per_item(self, log_probs, entropy, baseline_values, actions,
-                                pg_advantages, terminals, sequence_indices):
+                                pg_advantages, terminals):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
@@ -103,8 +103,6 @@ class ActorCriticLossFunction(LossFunction):
             actions (DataOp): The actually taken (already one-hot flattened) actions.
             pg_advantages (DataOp): The received rewards.
             terminals (DataOp): The observed terminal signals.
-            sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
-                from multiple environments.
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """

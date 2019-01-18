@@ -147,17 +147,17 @@ class ActorCriticAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def post_process_and_update(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
             rewards = root.post_process(preprocessed_states, rewards, terminals, sequence_indices)
-            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals, sequence_indices)
+            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals)
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
-        def update_from_external_batch(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
+        def update_from_external_batch(root, preprocessed_states, actions, rewards, terminals):
 
             baseline_values = agent.value_function.value_output(preprocessed_states)
             log_probs = agent.policy.get_action_log_probs(preprocessed_states, actions)["action_log_probs"]
             entropy = agent.policy.get_entropy(preprocessed_states)["entropy"]
             loss, loss_per_item, vf_loss, vf_loss_per_item = agent.loss_function.loss(
-                log_probs, entropy, baseline_values, actions, rewards, terminals, sequence_indices
+                log_probs, entropy, baseline_values, actions, rewards, terminals
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
