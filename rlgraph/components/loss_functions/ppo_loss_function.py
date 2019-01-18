@@ -48,7 +48,7 @@ class PPOLossFunction(LossFunction):
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
     @rlgraph_api
-    def loss(self, log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits):
+    def loss(self, log_probs, baseline_values, actions, rewards, terminals, logits):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -59,7 +59,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, baseline_values, actions, rewards, terminals, sequence_indices, logits
+            log_probs, baseline_values, actions, rewards, terminals, logits
         )
         total_loss = self.loss_average(loss_per_item)
         total_baseline_loss = self.loss_average(baseline_loss_per_item)
@@ -68,7 +68,7 @@ class PPOLossFunction(LossFunction):
 
     @rlgraph_api
     def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, pg_advantages, terminals,
-                                sequence_indices, entropy):
+                                entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
@@ -77,9 +77,6 @@ class PPOLossFunction(LossFunction):
 
             terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
                 (from a memory).
-
-            sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
-                from multiple environments.
 
             entropy (SingleDataOp): Policy entropy.
 

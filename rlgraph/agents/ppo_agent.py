@@ -180,13 +180,13 @@ class PPOAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def post_process_and_update(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
             rewards = root.post_process(preprocessed_states, rewards, terminals, sequence_indices)
-            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals, sequence_indices)
+            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals)
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
         @rlgraph_api(component=self.root_component)
         def _graph_fn_update_from_external_batch(
-                root, preprocessed_states, actions, rewards, terminals, sequence_indices
+            root, preprocessed_states, actions, rewards, terminals
         ):
             """
             Calls iterative optimization by repeatedly sub-sampling.
@@ -205,11 +205,6 @@ class PPOAgent(Agent):
 
             if get_backend() == "tf":
                 batch_size = tf.shape(preprocessed_states)[0]
-                last_sequence = tf.expand_dims(sequence_indices[-1], -1)
-
-                # Ensure the very last entry is 1 for sequence indices so we don't connect different episodes fragments
-                # when sampling sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
-                sequence_indices = tf.concat([sequence_indices[:-1], tf.ones_like(last_sequence)], axis=0)
 
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
@@ -218,7 +213,6 @@ class PPOAgent(Agent):
                     sample_actions = tf.gather(params=actions, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
-                    sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -229,7 +223,7 @@ class PPOAgent(Agent):
                         # grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
                             all_vars,
-                            sample_states, sample_actions, sample_rewards, sample_terminals, sample_sequence_indices
+                            sample_states, sample_actions, sample_rewards, sample_terminals
                         )
                         avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.split(
                             out["avg_grads_and_vars_by_component"]
@@ -258,7 +252,7 @@ class PPOAgent(Agent):
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
                             policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                            sample_terminals, sample_sequence_indices, entropy
+                            sample_terminals, entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
@@ -308,10 +302,6 @@ class PPOAgent(Agent):
 
             elif get_backend() == "pytorch":
                 batch_size = preprocessed_states.shape[0]
-                if batch_size > 1:
-                    last_sequence = torch.unsqueeze(sequence_indices[-1], -1)
-                    sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(last_sequence)), 0)
-
                 sample_size = min(batch_size, agent.sample_size)
 
                 for _ in range(agent.iterations):
@@ -321,14 +311,13 @@ class PPOAgent(Agent):
                     sample_actions = torch.index_select(actions, 0, indices)
                     sample_rewards = torch.index_select(rewards, 0, indices)
                     sample_terminals = torch.index_select(terminals, 0, indices)
-                    sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
 
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = value_function.value_output(sample_states)
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
                         policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                        sample_terminals, sample_sequence_indices, entropy
+                        sample_terminals, entropy
                     )
 
                     # Do not need step op.
