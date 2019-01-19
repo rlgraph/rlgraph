@@ -48,6 +48,10 @@ class SyncBatchExecutor(RayExecutor):
         # Must specify an agent type.
         assert "type" in agent_config
         self.agent_config = agent_config
+        environment = RayExecutor.build_env_from_config(self.environment_spec)
+        self.agent_config["state_space"] = environment.state_space
+        self.agent_config["action_space"] = environment.action_space
+
         self.local_agent = self.build_agent_from_config(self.agent_config)
         self.update_batch_size = self.agent_config["update_spec"]["batch_size"]
 
