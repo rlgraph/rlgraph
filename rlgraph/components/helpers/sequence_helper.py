@@ -306,6 +306,7 @@ class SequenceHelper(Component):
             Sequence of deltas.
         """
         if get_backend() == "tf":
+            values = tf.squeeze(input=values)
             num_values = tf.shape(input=values)[0]
 
             # Again ensure last index is 1 for any sub-sample arriving here.
