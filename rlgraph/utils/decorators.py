@@ -241,7 +241,6 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 )
 
             # Update trace context.
-            print("Updating prev caller with = ", caller_component)
             TraceContext.PREV_CALLER = caller_component
 
             for stack_item in stack[1:]:  # skip current frame
