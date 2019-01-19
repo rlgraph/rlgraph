@@ -316,9 +316,14 @@ class PPOAgent(Agent):
                     sample_actions = torch.index_select(actions, 0, indices)
                     sample_rewards = torch.index_select(rewards, 0, indices)
                     sample_terminals = torch.index_select(terminals, 0, indices)
-
+                    sample_sequence_indices =  torch.index_select(sequence_indices, 0, indices)
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
+
                     baseline_values = value_function.value_output(sample_states)
+                    if apply_postprocessing:
+                        sample_rewards = gae_function.calc_gae_values(
+                            baseline_values, sample_rewards, sample_terminals, sample_sequence_indices)
+
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
                         policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
