@@ -116,6 +116,7 @@ class PPOAgent(Agent):
         )
         # Define the Agent's (root-Component's) API.
         self.define_graph_api()
+        self.build_options = dict(vf_optimizer=self.value_function_optimizer)
 
         if self.auto_build:
             self._build_graph(
@@ -123,7 +124,7 @@ class PPOAgent(Agent):
                 # Important: Use sample-size, not batch-size as the sub-samples (from a batch) are the ones that get
                 # multi-gpu-split.
                 batch_size=self.update_spec["sample_size"],
-                build_options=dict(vf_optimizer=self.value_function_optimizer)
+                build_options=self.build_options
             )
             self.graph_built = True
 

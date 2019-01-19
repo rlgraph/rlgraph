@@ -98,6 +98,7 @@ class Agent(Specifiable):
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
         self.discount = discount
+        self.build_options = {}
 
         # The agent's root-Component.
         self.root_component = Component(name=self.name, nesting_level=0)
@@ -282,6 +283,8 @@ class Agent(Specifiable):
         Args:
             build_options (Optional[dict]): Optional build options, see build doc.
         """
+        if build_options is not None:
+            self.build_options.update(build_options)
         assert not self.graph_built,\
             "ERROR: Attempting to build agent which has already been built. Ensure auto_build parameter is set to " \
             "False (was {}), and method has not been called twice".format(self.auto_build)
@@ -289,7 +292,7 @@ class Agent(Specifiable):
         # TODO let agent have a list of root-components
         return self._build_graph(
             [self.root_component], self.input_spaces, optimizer=self.optimizer,
-            build_options=build_options, batch_size=self.update_spec["batch_size"]
+            build_options=self.build_options, batch_size=self.update_spec["batch_size"]
         )
 
     def preprocess_states(self, states):
