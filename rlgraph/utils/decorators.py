@@ -25,6 +25,7 @@ import time
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
+from rlgraph.utils.ops import TraceContext
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 from rlgraph.utils import util
 
@@ -216,6 +217,16 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 f_locals = stack[2][0].f_locals
             # Check whether the caller component is a parent of this one.
             caller_component = f_locals.get("root", f_locals.get("self_", f_locals.get("self")))
+
+            # Potential call from a lambda.
+            if caller_component is None and "fn" in stack[2][0].f_locals:
+                # This is the ecomponent
+                prev_caller_component = TraceContext.PREV_CALLER
+                lambda_obj = stack[2][0].f_locals["fn"]
+                if "lambda" in inspect.getsource(lambda_obj):
+                    # Try to reconstruct caller by using parent of prior caller.
+                    caller_component = prev_caller_component.parent_component
+
             if caller_component is None:
                 raise RLGraphError(
                     "API-method '{}' must have as 1st parameter (the component) either `root` or `self`. Other names "
@@ -228,6 +239,11 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     "it as a sub-component via `add_components()`.".
                     format(self.global_scope, caller_component.global_scope)
                 )
+
+            # Update trace context.
+            print("Updating prev caller with = ", caller_component)
+            TraceContext.PREV_CALLER = caller_component
+
             for stack_item in stack[1:]:  # skip current frame
                 # If we hit an API-method call -> return op-recs.
                 if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):

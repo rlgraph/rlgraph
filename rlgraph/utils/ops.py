@@ -27,6 +27,17 @@ FLAT_TUPLE_OPEN = "_T"
 FLAT_TUPLE_CLOSE = "_"
 
 
+class TraceContext(object):
+    """
+    Contains static trace context. Used to reconstruct data-flow in cases where normal
+    stack-frame inspection fails, e.g. because when calling from within a lambda. To be expanded
+    with more runtime
+    """
+
+    # Prior caller.
+    PREV_CALLER = None
+
+
 class DataOp(object):
     """
     The basic class for any Socket-held operation or variable, or collection thereof.
