@@ -236,9 +236,8 @@ class ActorCriticAgent(Agent):
                 been applied. The purpose of internal versus external post-processing is to be able to off-load
                 post-processing in large scale distributed scenarios.
         """
-
-        # [0] = the loss; [1] = loss-per-item, [2] = vf-loss, [3] = vf-loss- per item
-        return_ops = [0, 1, 2, 3]
+        # [0] step_op, [1] loss, [2] loss_per_item, [3] vf_step_op, [4]vf_loss, [5]vf_loss_per_item
+        return_ops = [0, 1, 2, 3, 4, 5]
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
 
@@ -264,8 +263,8 @@ class ActorCriticAgent(Agent):
                 if isinstance(ret, dict):
                     ret = ret["update_from_external_batch"]
 
-        # [0] loss, [1] loss per item
-        return ret[0], ret[1]
+        # [1] loss, [2] loss per item
+        return ret[1], ret[2]
 
     def reset(self):
         """
