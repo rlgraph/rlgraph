@@ -19,19 +19,21 @@ from __future__ import print_function
 
 import unittest
 from time import sleep
+
+from rlgraph.execution.ray.ray_util import RayWeight
 from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
 import numpy as np
 
 from rlgraph import get_distributed_backend
 from rlgraph.agents import Agent
 from rlgraph.environments import Environment
-from rlgraph.execution.ray import RayValueWorker
+from rlgraph.execution.ray import RayWorker
 
 if get_distributed_backend() == "ray":
     import ray
 
 
-class TestRayValueWorker(unittest.TestCase):
+class TestRayWorker(unittest.TestCase):
 
     env_spec = dict(
       type="openai",
@@ -51,7 +53,7 @@ class TestRayValueWorker(unittest.TestCase):
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         ray_spec["worker_spec"]["worker_sample_size"] = 100
-        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec, auto_build=True)
+        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec,  auto_build=True)
 
         # Test when breaking on terminal.
         # Init remote task.
@@ -105,7 +107,7 @@ class TestRayValueWorker(unittest.TestCase):
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         ray_spec["worker_spec"]["worker_sample_size"] = 100
         worker_spec = ray_spec["worker_spec"]
-        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec, auto_build=True)
+        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec,  auto_build=True)
 
         print("Testing statistics for 1 environment:")
         # Run for a while:
@@ -133,7 +135,7 @@ class TestRayValueWorker(unittest.TestCase):
         print("Testing statistics for 4 environments:")
         worker_spec["num_worker_environments"] = 4
         worker_spec["num_background_environments"] = 2
-        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec, auto_build=True)
+        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec,  auto_build=True)
 
         task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
         sleep(1)
@@ -175,21 +177,21 @@ class TestRayValueWorker(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space
         )
+
         ray_spec["worker_spec"]["worker_sample_size"] = 50
         # Create a remote worker with the same agent config.
-        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"],
-                                                   self.env_spec, auto_build=True)
+        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], env_spec,  auto_build=True)
 
         # This imitates the initial executor sync without ray.put
-        weights = local_agent.get_weights()
+        weights = RayWeight(local_agent.get_weights())
         print('Weight type in init sync = {}'.format(type(weights)))
-        worker.set_weights.remote(weights)
+        ret = worker.set_weights.remote(weights)
+        ray.wait([ret])
         print('Init weight sync successful.')
 
         # Replicate worker syncing steps as done in e.g. Ape-X executor:
-        weights = ray.put(local_agent.get_weights())
+        weights = RayWeight(local_agent.get_weights())
         print('Weight type returned by ray put = {}'.format(type(weights)))
-        print(weights)
         ret = worker.set_weights.remote(weights)
         ray.wait([ret])
         print('Object store weight sync successful.')
