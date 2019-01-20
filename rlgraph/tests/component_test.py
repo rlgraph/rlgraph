@@ -46,7 +46,8 @@ class ComponentTest(object):
         device_strategy="default",
         device_map=None,
         backend=None,
-        auto_build=True
+        auto_build=True,
+        build_kwargs=None
     ):
         """
         Args:
@@ -79,6 +80,7 @@ class ComponentTest(object):
         self.component = component
         self.component.nesting_level = 0
         self.input_spaces = input_spaces
+        self.build_kwargs = build_kwargs or dict()
 
         # Build the model.
         execution_spec = parse_execution_spec(execution_spec or dict(
@@ -101,7 +103,7 @@ class ComponentTest(object):
             print("Auto-build false, did not build. Waiting for manual build.")
 
     def build(self):
-        return self.graph_executor.build([self.component], self.input_spaces)
+        return self.graph_executor.build([self.component], self.input_spaces, **self.build_kwargs)
 
     def test(self, *api_method_calls, **kwargs):
         """
