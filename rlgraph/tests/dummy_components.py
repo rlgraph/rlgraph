@@ -128,7 +128,7 @@ class Dummy0To1(Component):
         self.var = None
 
     def create_variables(self, input_spaces, action_space=None):
-        self.var = self.get_variable(initializer=self.var_value)
+        self.var = self.get_variable(name="var", initializer=self.var_value)
 
     @rlgraph_api(name="run", returns=1)
     def _graph_fn_0to1(self):

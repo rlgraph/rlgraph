@@ -41,3 +41,10 @@ if get_backend() == "tf":
 
         with tf.variable_scope('', custom_getter=getter) as vs:
             yield vs
+
+
+def ensure_batched(tensor):
+    if len(tensor.shape.as_list()) == 1:
+        return tf.expand_dims(tensor, axis=1)
+    else:
+        return tensor
