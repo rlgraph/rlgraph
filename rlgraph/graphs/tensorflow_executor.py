@@ -734,7 +734,7 @@ class TensorFlowExecutor(GraphExecutor):
 
         if gpu_spec is not None:
             self.gpus_enabled = gpu_spec.get("gpus_enabled", False)
-            self.max_usable_gpus = gpu_spec.get("max_usable_gpus", 0)
+            self.max_usable_gpus = gpu_spec.get("max_usable_gpus", 1)
 
             if self.gpus_enabled:
                 assert self.max_usable_gpus > 0, "ERROR: GPUs are enabled but max_usable_gpus are not >0 but {}".\

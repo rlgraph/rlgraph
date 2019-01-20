@@ -498,8 +498,8 @@ def get_call_param_name(op_rec):
             else:
                 if api_method_rec.kwargs_name is None:
                     raise RLGraphAPICallParamError(
-                        "ERROR: API-method '{}' has no **kwargs, but op-rec {} indicates that it does!".
-                        format(api_method_rec.name, op_rec.id)
+                        "ERROR: API-method '{}' has no **kwargs, but op-rec {} indicates that it has kwarg '{}'!".
+                        format(api_method_rec.name, op_rec.id, op_rec.kwarg)
                     )
                 param_name = api_method_rec.kwargs_name + "[{}]".format(op_rec.kwarg)
     # There are *kwargs in the signature.

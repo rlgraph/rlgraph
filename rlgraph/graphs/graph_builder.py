@@ -878,8 +878,10 @@ class GraphBuilder(Specifiable):
                 # TODO: What if len(params) < len(self.api[api_method][0])?
                 # Need to handle default API-method params also for the root-component (this one).
                 if len(self.api[api_method_call][0]) <= i:
-                    raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
-                                       "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params)))
+                    raise RLGraphError(
+                        "API-method with name '{}' only has {} input parameters! You passed in "
+                        "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params))
+                    )
 
                 placeholder = self.api[api_method_call][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, ContainerDataOp):
