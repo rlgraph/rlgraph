@@ -848,6 +848,10 @@ class GraphBuilder(Specifiable):
                                                                api_method_call[2] is not None else None
                 api_method_call = api_method_call[0]
 
+            if callable(api_method_call):
+                # Allow passing the function directly
+                api_method_call = api_method_call.__name__
+
             if api_method_call not in self.api:
                 raise RLGraphError("No API-method with name '{}' found!".format(api_method_call))
 
