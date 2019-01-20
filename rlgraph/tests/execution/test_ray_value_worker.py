@@ -175,7 +175,7 @@ class TestRayValueWorker(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space
         )
-
+        ray_spec["worker_spec"]["worker_sample_size"] = 50
         # Create a remote worker with the same agent config.
         worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"],
                                                    self.env_spec, auto_build=True)
@@ -190,6 +190,7 @@ class TestRayValueWorker(unittest.TestCase):
         weights = ray.put(local_agent.get_weights())
         print('Weight type returned by ray put = {}'.format(type(weights)))
         print(weights)
-        worker.set_weights.remote(weights)
+        ret = worker.set_weights.remote(weights)
+        ray.wait([ret])
         print('Object store weight sync successful.')
 
