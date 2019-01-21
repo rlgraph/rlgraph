@@ -120,8 +120,8 @@ class SyncBatchExecutor(RayExecutor):
         sample_batches = []
         num_samples = 0
         while num_samples < self.update_batch_size:
-            batches = ray.get(worker.execute_and_get_timesteps.remote(self.worker_sample_size)
-                              for worker in self.ray_env_sample_workers)
+            batches = ray.get([worker.execute_and_get_timesteps.remote(self.worker_sample_size)
+                              for worker in self.ray_env_sample_workers])
             # Each batch has exactly worker_sample_size length.
             num_samples += len(batches) * self.worker_sample_size
             sample_batches.extend(batches)
