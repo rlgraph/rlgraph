@@ -21,7 +21,7 @@ from rlgraph.execution.ray.ray_policy_worker import RayPolicyWorker
 
 from rlgraph import get_distributed_backend
 from rlgraph.execution.ray.ray_executor import RayExecutor
-from rlgraph.execution.ray.ray_util import merge_samples
+from rlgraph.execution.ray.ray_util import merge_samples, RayWeight
 
 if get_distributed_backend() == "ray":
     import ray
@@ -112,7 +112,7 @@ class SyncBatchExecutor(RayExecutor):
         update_steps = 0
 
         # 1. Sync local learners weights to remote workers.
-        weights = ray.put(self.local_agent.get_weights())
+        weights = ray.put(RayWeight(self.local_agent.get_weights()))
         for ray_worker in self.ray_env_sample_workers:
             ray_worker.set_weights.remote(weights)
 

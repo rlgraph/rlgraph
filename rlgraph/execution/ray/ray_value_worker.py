@@ -420,7 +420,7 @@ class RayValueWorker(RayActor):
         policy_weights = {k: v for k,v in zip(weights.policy_vars, weights.policy_values)}
         vf_weights = None
         if weights.has_vf:
-            vf_weights = {k: v for k, v in zip(weights.value_function_vars, weights.value_function_weights)}
+            vf_weights = {k: v for k, v in zip(weights.value_function_vars, weights.value_function_values)}
         self.agent.set_weights(policy_weights, value_function_weights=vf_weights)
 
     def get_workload_statistics(self):
