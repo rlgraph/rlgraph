@@ -19,6 +19,8 @@ from __future__ import print_function
 
 import unittest
 from time import sleep
+
+from rlgraph.execution.ray.ray_util import RayWeight
 from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
 import numpy as np
 
@@ -176,19 +178,21 @@ class TestRayWorker(unittest.TestCase):
             action_space=env.action_space
         )
 
+        ray_spec["worker_spec"]["worker_sample_size"] = 50
         # Create a remote worker with the same agent config.
-        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec,  auto_build=True)
+        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], env_spec,  auto_build=True)
 
         # This imitates the initial executor sync without ray.put
-        weights = local_agent.get_weights()
+        weights = RayWeight(local_agent.get_weights())
         print('Weight type in init sync = {}'.format(type(weights)))
-        worker.set_weights.remote(weights["policy_weights"], weights["value_function_weights"])
+        ret = worker.set_weights.remote(weights)
+        ray.wait([ret])
         print('Init weight sync successful.')
 
         # Replicate worker syncing steps as done in e.g. Ape-X executor:
-        weights = ray.put(local_agent.get_weights())
+        weights = RayWeight(local_agent.get_weights())
         print('Weight type returned by ray put = {}'.format(type(weights)))
-        print(weights)
-        worker.set_weights.remote(weights["policy_weights"], weights["value_function_weights"])
+        ret = worker.set_weights.remote(weights)
+        ray.wait([ret])
         print('Object store weight sync successful.')
 

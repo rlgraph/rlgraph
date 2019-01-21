@@ -30,6 +30,29 @@ if get_distributed_backend() == "ray":
 
 
 # Follows utils used in Ray RLlib.
+class RayWeight(object):
+    """
+    Wrapper to transport TF weights to deal with serialisation bugs in Ray/Arrow.
+
+    #TODO investigate serialisation bugs in Ray/flatten values.
+    """
+
+    def __init__(self, weights):
+        self.policy_vars = []
+        self.policy_values = []
+
+        for k, v in weights["policy_weights"].items():
+            self.policy_vars.append(k)
+            self.policy_values.append(v)
+
+        self.has_vf = False
+        if "value_function_weights" in weights:
+            self.value_function_vars = []
+            self.value_function_values = []
+            self.has_vf = True
+            for k, v in weights["value_function_weights"].items():
+                self.value_function_vars.append(k)
+                self.value_function_values.append(v)
 
 
 class RayTaskPool(object):
