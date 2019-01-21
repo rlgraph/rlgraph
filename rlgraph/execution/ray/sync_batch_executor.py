@@ -130,7 +130,7 @@ class SyncBatchExecutor(RayExecutor):
         batch = merge_samples(sample_batches, decompress=self.compress_states)
 
         # 4. Update from merged batch.
-        self.local_agent.update(batch=batch)
+        self.local_agent.update(batch, apply_postprocessing=False)
         return env_steps, update_steps, 0, 0
 
 

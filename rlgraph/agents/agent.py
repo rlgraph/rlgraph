@@ -454,7 +454,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def update(self, batch=None):
+    def update(self, batch=None, **kwargs):
         """
         Performs an update on the computation graph either via externally experience or
         by sampling from an internal memory.
