@@ -390,3 +390,23 @@ class TestPolicies(unittest.TestCase):
         self.assertTrue(out["entropy"].dtype == np.float32)
         self.assertTrue(out["entropy"].shape == (3,))
 
+    def test_policy_for_continuous_action_space(self):
+        """
+        https://github.com/rlgraph/rlgraph/issues/43
+        """
+        state_space = FloatBox(shape=(4,), add_batch_rank=True)
+        action_space = FloatBox(low=-1.0, high=1.0, add_batch_rank=True)
+
+        policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
+        test = ComponentTest(
+            component=policy,
+            input_spaces=dict(
+                nn_input=state_space,
+                actions=action_space,
+                logits=FloatBox(shape=(1, ), add_batch_rank=True),
+                probabilities=FloatBox(add_batch_rank=True)
+            ),
+            action_space=action_space
+        )
+
+        test.read_variable_values(policy.variables)
