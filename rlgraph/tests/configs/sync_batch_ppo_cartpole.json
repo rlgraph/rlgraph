@@ -78,13 +78,8 @@
         "redis_address": null,
         "num_cpus": 8,
         "num_gpus": 0,
-        "weight_sync_steps": 100,
-        "replay_sampling_task_depth": 1,
-        "env_interaction_task_depth": 1,
         "num_worker_samples": 50,
-        "learn_queue_size": 1,
-        "num_sample_workers": 2,
-        "num_replay_workers": 1
+        "num_sample_workers": 1
       },
       "worker_spec": {
         "num_worker_environments": 2,

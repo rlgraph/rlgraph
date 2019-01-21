@@ -359,7 +359,7 @@ class RayPolicyWorker(RayActor):
                 batch_terminals.extend(sample_terminals[env_id])
 
                 # Take terminals thus far - all zero.
-                batch_sequence_indices = sample_terminals[env_id].copy()
+                batch_sequence_indices.extend(sample_terminals[env_id].copy())
                 # Set final elem to true because sub-sequence ends here.
                 batch_sequence_indices[-1] = True
 
