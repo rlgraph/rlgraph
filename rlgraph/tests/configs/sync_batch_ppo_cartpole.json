@@ -79,7 +79,7 @@
         "num_cpus": 8,
         "num_gpus": 0,
         "num_worker_samples": 50,
-        "num_sample_workers": 1
+        "num_sample_workers": 2
       },
       "worker_spec": {
         "num_worker_environments": 2,
@@ -87,7 +87,6 @@
         "execution_spec": {
           "gpu_spec": { "gpus_enabled" : false}
         },
-        "n_step_adjustment": 1,
         "worker_computes_weights": true,
         "sample_exploration": false,
         "exploration_min_value": 0.5,

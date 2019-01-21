@@ -124,6 +124,7 @@ class SyncBatchExecutor(RayExecutor):
                               for worker in self.ray_env_sample_workers])
             # Each batch has exactly worker_sample_size length.
             num_samples += len(batches) * self.worker_sample_size
+            env_steps += num_samples
             sample_batches.extend(batches)
 
         # 3. Merge samples
