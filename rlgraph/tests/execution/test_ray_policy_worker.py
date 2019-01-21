@@ -20,6 +20,7 @@ from __future__ import print_function
 import unittest
 
 from rlgraph.execution.ray.ray_policy_worker import RayPolicyWorker
+from rlgraph.execution.ray.ray_util import RayWeight
 from rlgraph.tests.test_util import config_from_path
 
 from rlgraph import get_distributed_backend
@@ -67,14 +68,14 @@ class TestRayPolicyWorker(unittest.TestCase):
                                                    self.env_spec, auto_build=True)
 
         # This imitates the initial executor sync without ray.put
-        weights = local_agent.get_weights()
+        weights = RayWeight(local_agent.get_weights())
         print('Weight type in init sync = {}'.format(type(weights)))
         print("Weights = ", weights)
         worker.set_weights.remote(weights)
         print('Init weight sync successful.')
 
         # Replicate worker syncing steps as done in e.g. Ape-X executor:
-        weights = ray.put(local_agent.get_weights())
+        weights = RayWeight(local_agent.get_weights())
         print('Weight type returned by ray put = {}'.format(type(weights)))
         print(weights)
         ret = worker.set_weights.remote(weights)

@@ -20,6 +20,7 @@ from __future__ import print_function
 import unittest
 from time import sleep
 
+from rlgraph.execution.ray import RayValueWorker
 from rlgraph.execution.ray.ray_util import RayWeight
 from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
 import numpy as np
@@ -27,7 +28,6 @@ import numpy as np
 from rlgraph import get_distributed_backend
 from rlgraph.agents import Agent
 from rlgraph.environments import Environment
-from rlgraph.execution.ray import RayWorker
 
 if get_distributed_backend() == "ray":
     import ray
@@ -180,7 +180,7 @@ class TestRayWorker(unittest.TestCase):
 
         ray_spec["worker_spec"]["worker_sample_size"] = 50
         # Create a remote worker with the same agent config.
-        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], env_spec,  auto_build=True)
+        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], env_spec,  auto_build=True)
 
         # This imitates the initial executor sync without ray.put
         weights = RayWeight(local_agent.get_weights())
