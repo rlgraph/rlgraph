@@ -167,7 +167,7 @@ class DQNAgent(Agent):
         def action_from_preprocessed_state(root, preprocessed_states, time_step=0, use_exploration=True):
             sample_deterministic = agent.policy.get_deterministic_action(preprocessed_states)
             actions = agent.exploration.get_action(sample_deterministic["action"], time_step, use_exploration)
-            return preprocessed_states, actions
+            return actions, preprocessed_states
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
@@ -319,11 +319,10 @@ class DQNAgent(Agent):
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
+        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
             [batched_states, self.timesteps, use_exploration],
-            # 0=preprocessed_states, 1=action
             return_ops
         ))  #, flip_batch_with_dict_keys=isinstance(self.action_space, ContainerSpace))
         if remove_batch_rank:

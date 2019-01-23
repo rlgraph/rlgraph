@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.agents import Agent
-from rlgraph.components import DictMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction, ValueFunction,\
+from rlgraph.components import DictMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction, ValueFunction, \
     Optimizer
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
@@ -42,6 +42,7 @@ class PPOAgent(Agent):
 
     Paper: https://arxiv.org/abs/1707.06347
     """
+
     def __init__(self, clip_ratio=0.2, gae_lambda=1.0, standardize_advantages=False,
                  sample_episodes=True, weight_entropy=None, memory_spec=None, **kwargs):
         """
@@ -68,7 +69,7 @@ class PPOAgent(Agent):
 
         # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
         # TODO: of return values when calling _graph_fn_calculate_update_from_external_batch.
-        #self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
+        # self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
@@ -93,9 +94,9 @@ class PPOAgent(Agent):
         assert isinstance(self.memory, RingBuffer), "ERROR: PPO memory must be ring-buffer for episode-handling!"
 
         # Make sure the python buffer is not larger than our memory capacity.
-        assert self.observe_spec["buffer_size"] <= self.memory.capacity,\
-            "ERROR: Buffer's size ({}) in `observe_spec` must be smaller or equal to the memory's capacity ({})!".\
-            format(self.observe_spec["buffer_size"], self.memory.capacity)
+        assert self.observe_spec["buffer_size"] <= self.memory.capacity, \
+            "ERROR: Buffer's size ({}) in `observe_spec` must be smaller or equal to the memory's capacity ({})!". \
+                format(self.observe_spec["buffer_size"], self.memory.capacity)
 
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
@@ -144,7 +145,7 @@ class PPOAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(root, preprocessed_states, deterministic=False):
             out = agent.policy.get_action(preprocessed_states, deterministic=deterministic)
-            return preprocessed_states, out["action"]
+            return out["action"], preprocessed_states
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
@@ -177,13 +178,13 @@ class PPOAgent(Agent):
             # Use terminals as sequence indices.
             sequence_indices = terminals
             return root.update_from_external_batch(preprocessed_s, actions, rewards, terminals,
-                                                sequence_indices, apply_postprocessing)
+                                                   sequence_indices, apply_postprocessing)
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
         @rlgraph_api(component=self.root_component)
         def _graph_fn_update_from_external_batch(
-            root, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing
+                root, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing
         ):
             """
             Calls iterative optimization by repeatedly sub-sampling.
@@ -317,7 +318,7 @@ class PPOAgent(Agent):
                     sample_actions = torch.index_select(actions, 0, indices)
                     sample_rewards = torch.index_select(rewards, 0, indices)
                     sample_terminals = torch.index_select(terminals, 0, indices)
-                    sample_sequence_indices =  torch.index_select(sequence_indices, 0, indices)
+                    sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
 
                     baseline_values = value_function.value_output(sample_states)
@@ -369,7 +370,7 @@ class PPOAgent(Agent):
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
+        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
             [batched_states, not use_exploration],  # deterministic = not use_exploration
