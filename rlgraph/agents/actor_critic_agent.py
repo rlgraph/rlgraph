@@ -33,6 +33,7 @@ class ActorCriticAgent(Agent):
     Basic actor-critic policy gradient architecture with generalized advantage estimation,
     and entropy regularization. Suitable for execution with A2C, A3C.
     """
+
     def __init__(self, gae_lambda=1.0, sample_episodes=False, weight_entropy=None, memory_spec=None, **kwargs):
         """
         Args:
@@ -69,7 +70,7 @@ class ActorCriticAgent(Agent):
         # The merger to merge inputs into one record Dict going into the memory.
         self.merger = DictMerger("states", "actions", "rewards", "terminals")
         self.memory = Memory.from_spec(memory_spec)
-        assert isinstance(self.memory, RingBuffer),\
+        assert isinstance(self.memory, RingBuffer), \
             "ERROR: Actor-critic memory must be ring-buffer for episode-handling."
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
@@ -111,7 +112,7 @@ class ActorCriticAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(root, preprocessed_states, deterministic=False):
             out = agent.policy.get_action(preprocessed_states, deterministic=deterministic)
-            return preprocessed_states, out["action"]
+            return out["action"], preprocessed_states
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
@@ -202,11 +203,10 @@ class ActorCriticAgent(Agent):
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
+        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
             [batched_states, not use_exploration],  # deterministic = not use_exploration
-            # 0=preprocessed_states, 1=action
             return_ops
         ))
         if remove_batch_rank:
