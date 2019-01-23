@@ -217,7 +217,7 @@ class SingleThreadedWorker(Worker):
                 )
                 preprocessed_states = np.array(self.preprocessed_states_buffer)
             else:
-                preprocessed_states, actions = self.agent.get_action(
+                actions, preprocessed_states = self.agent.get_action(
                     states=np.array(env_states), use_exploration=use_exploration,
                     apply_preprocessing=True, extra_returns="preprocessed_states"
                 )
