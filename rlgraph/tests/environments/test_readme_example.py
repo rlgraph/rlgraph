@@ -26,6 +26,7 @@ class TestReadmeExample(unittest.TestCase):
     """
     Tests if the readme example runs.
     """
+
     def test_readme_example(self):
         """
         Tests deterministic functionality of RandomEnv.
@@ -46,7 +47,7 @@ class TestReadmeExample(unittest.TestCase):
 
         # Get an action, take a step, observe reward.
         state = environment.reset()
-        preprocessed_state, action = agent.get_action(
+        action, preprocessed_state = agent.get_action(
             states=state,
             extra_returns="preprocessed_states"
         )
