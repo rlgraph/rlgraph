@@ -158,22 +158,6 @@ class ActionAdapter(NeuralNetwork):
         return logits_out["output"]
 
     @rlgraph_api
-    def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
-        """
-        Args:
-            nn_output (DataOpRecord): The NN output of the preceding neural network.
-
-        Returns:
-            Tuple[SingleDataOp]:
-                - logits (raw nn_output, BUT reshaped)
-                - probabilities (softmaxed(logits))
-                - log(probabilities)
-        """
-        logits = self.get_logits(nn_output, nn_input)
-        probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(logits)
-        return dict(logits=logits, probabilities=probabilities, log_probs=log_probs)
-
-    @rlgraph_api
     def get_logits_parameters_log_probs(self, nn_output, nn_input=None):
         """
         Args:
@@ -192,75 +176,23 @@ class ActionAdapter(NeuralNetwork):
         parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
         return dict(logits=logits, parameters=parameters, log_probs=log_probs)
 
-    @graph_fn
-    def _graph_fn_get_probabilities_log_probs(self, logits):
+    @rlgraph_api
+    def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
         """
-        Creates properties/parameters and log-probs from some reshaped output.
-
         Args:
-            logits (SingleDataOp): The output of some layer that is already reshaped
-                according to our action Space.
+            nn_output (DataOpRecord): The NN output of the preceding neural network.
 
         Returns:
-            tuple (2x SingleDataOp):
-                parameters (DataOp): The parameters, ready to be passed to a Distribution object's
-                    get_distribution API-method (usually some probabilities or loc/scale pairs).
-                log_probs (DataOp): Simply the log(parameters).
+            Tuple[SingleDataOp]:
+                - logits (raw nn_output, BUT reshaped)
+                - probabilities (softmaxed(logits))
+                - log(probabilities)
         """
-        if get_backend() == "tf":
-            if isinstance(self.action_space, IntBox):
-                # Discrete actions.
-                parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
-                parameters._batch_rank = 0
-                # Log probs.
-                log_probs = tf.log(x=parameters)
-                log_probs._batch_rank = 0
-            elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
-                # Remove moments rank.
-                mean = tf.squeeze(input=mean, axis=1)
-                log_sd = tf.squeeze(input=log_sd, axis=1)
-
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
-
-                # Turn log sd into sd.
-                sd = tf.exp(x=log_sd)
-
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(tf.log(x=mean), log_sd)
-            else:
-                raise NotImplementedError
-
-            return parameters, log_probs
-
-        elif get_backend() == "pytorch":
-            if isinstance(self.action_space, IntBox):
-                # Discrete actions.
-                softmax_logits = torch.softmax(logits, dim=-1)
-                parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
-                # Log probs.
-                log_probs = torch.log(parameters)
-            elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
-                # Remove moments rank.
-                mean = torch.squeeze(mean, dim=1)
-                log_sd = torch.squeeze(log_sd, dim=1)
-
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
-
-                # Turn log sd into sd.
-                sd = torch.exp(log_sd)
-
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(torch.log(mean), log_sd)
-            else:
-                raise NotImplementedError
-
-            return parameters, log_probs
+        self.logger.warn("Deprecated API method `get_logits_probabilities_log_probs` used! "
+                         "Use `get_logits_parameters_log_probs` instead.")
+        logits = self.get_logits(nn_output, nn_input)
+        probabilities, log_probs = self._graph_fn_get_parameters_log_probs(logits)
+        return dict(logits=logits, probabilities=probabilities, log_probs=log_probs)
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
