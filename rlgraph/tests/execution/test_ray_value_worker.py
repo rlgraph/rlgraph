@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 from time import sleep
 
-from rlgraph.execution.ray import RayValueWorker
+from rlgraph.execution.ray.ray_value_worker import RayValueWorker
 from rlgraph.execution.ray.ray_util import RayWeight
 from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
 import numpy as np
@@ -53,7 +53,8 @@ class TestRayWorker(unittest.TestCase):
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         ray_spec["worker_spec"]["worker_sample_size"] = 100
-        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec,  auto_build=True)
+        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"],
+                                                   self.env_spec,  auto_build=True)
 
         # Test when breaking on terminal.
         # Init remote task.
@@ -107,7 +108,8 @@ class TestRayWorker(unittest.TestCase):
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         ray_spec["worker_spec"]["worker_sample_size"] = 100
         worker_spec = ray_spec["worker_spec"]
-        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec,  auto_build=True)
+        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"],
+                                                   self.env_spec,  auto_build=True)
 
         print("Testing statistics for 1 environment:")
         # Run for a while:
@@ -135,7 +137,8 @@ class TestRayWorker(unittest.TestCase):
         print("Testing statistics for 4 environments:")
         worker_spec["num_worker_environments"] = 4
         worker_spec["num_background_environments"] = 2
-        worker = RayWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], self.env_spec,  auto_build=True)
+        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"],
+                                                   self.env_spec,  auto_build=True)
 
         task = worker.execute_and_get_timesteps.remote(100, break_on_terminal=False)
         sleep(1)
