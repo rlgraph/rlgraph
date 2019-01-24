@@ -717,7 +717,7 @@ class GraphBuilder(Specifiable):
         # Step via `previous` through the graph backwards.
         while True:
             previous_op_rec = op_rec.previous
-            # Hit a graph_fn. Jump to incomign column.
+            # Hit a graph_fn. Jump to incoming column.
             if previous_op_rec is None:
                 assert isinstance(op_rec.column, DataOpRecordColumnFromGraphFn),\
                     "ERROR: If previous op-rec is None, column must be of type `DataOpRecordColumnFromGraphFn` " \
