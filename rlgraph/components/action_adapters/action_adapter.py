@@ -194,6 +194,93 @@ class ActionAdapter(NeuralNetwork):
         probabilities, log_probs = self._graph_fn_get_parameters_log_probs(logits)
         return dict(logits=logits, probabilities=probabilities, log_probs=log_probs)
 
+    @rlgraph_api
+    def get_logits_parameters_log_probs(self, nn_output, nn_input=None):
+        """
+        Args:
+            nn_output (DataOpRecord): The NN output of the preceding neural network.
+            nn_input (DataOpRecord): The NN input  of the preceding neural network (needed for optional time-rank
+                folding/unfolding purposes).
+
+        Returns:
+            Dict[str,SingleDataOp]:
+                - "logits": The raw nn_output, only reshaped according to the action_space.
+                - "parameters": The softmaxed(logits) for the discrete case and the mean/std values for the continuous
+                    case.
+                - "log_probs": log([action probabilities])
+        """
+        logits = self.get_logits(nn_output, nn_input)
+        parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
+        return dict(logits=logits, parameters=parameters, log_probs=log_probs)
+
+    @graph_fn
+    def _graph_fn_get_parameters_log_probs(self, logits):
+        """
+        Creates properties/parameters and log-probs from some reshaped output.
+
+        Args:
+            logits (SingleDataOp): The output of some layer that is already reshaped
+                according to our action Space.
+
+        Returns:
+            tuple (2x SingleDataOp):
+                parameters (DataOp): The parameters, ready to be passed to a Distribution object's
+                    get_distribution API-method (usually some probabilities or loc/scale pairs).
+                log_probs (DataOp): Simply the log(parameters).
+        """
+        if get_backend() == "tf":
+            if isinstance(self.action_space, IntBox):
+                # Discrete actions.
+                parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
+                parameters._batch_rank = 0
+                # Log probs.
+                log_probs = tf.log(x=parameters)
+                log_probs._batch_rank = 0
+            elif isinstance(self.action_space, FloatBox):
+                # Continuous actions.
+                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=-1)
+
+                # Clip log_sd. log(SMALL_NUMBER) is negative.
+                log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
+
+                # Turn log sd into sd.
+                sd = tf.exp(x=log_sd)
+
+                # Merge again.
+                parameters = tf.concat([mean, sd], axis=-1)
+                log_probs = tf.concat([tf.log(x=mean), log_sd], axis=-1)
+            else:
+                raise NotImplementedError
+
+            return parameters, log_probs
+
+        elif get_backend() == "pytorch":
+            if isinstance(self.action_space, IntBox):
+                # Discrete actions.
+                softmax_logits = torch.softmax(logits, dim=-1)
+                parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
+                # Log probs.
+                log_probs = torch.log(parameters)
+            elif isinstance(self.action_space, FloatBox):
+                # Continuous actions.
+                mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
+                # Remove moments rank.
+                mean = torch.squeeze(mean, dim=1)
+                log_sd = torch.squeeze(log_sd, dim=1)
+
+                # Clip log_sd. log(SMALL_NUMBER) is negative.
+                log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
+
+                # Turn log sd into sd.
+                sd = torch.exp(log_sd)
+
+                parameters = DataOpTuple(mean, sd)
+                log_probs = DataOpTuple(torch.log(mean), log_sd)
+            else:
+                raise NotImplementedError
+
+            return parameters, log_probs
+
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
     def _graph_fn_get_parameters_log_probs(self, logits):
