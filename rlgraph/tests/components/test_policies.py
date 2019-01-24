@@ -403,7 +403,7 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                logits=FloatBox(shape=(1, ), add_batch_rank=True),
+                logits=FloatBox(shape=(1,), add_batch_rank=True),
                 probabilities=FloatBox(add_batch_rank=True)
             ),
             action_space=action_space
