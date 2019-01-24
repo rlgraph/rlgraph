@@ -131,3 +131,4 @@ class Synchronizable(Component):
             # Assign parameters of layers.
             for (key_from, var_from), (key_to, ref_to) in zip(syncs_from, sync_to_ref):
                 ref_to.set_value(var_from)
+            return None
