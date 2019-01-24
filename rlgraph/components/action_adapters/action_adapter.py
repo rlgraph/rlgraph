@@ -288,10 +288,7 @@ class ActionAdapter(NeuralNetwork):
                 log_probs._batch_rank = 0
             elif isinstance(self.action_space, FloatBox):
                 # Continuous actions.
-                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
-                # Remove moments rank.
-                mean = tf.squeeze(input=mean, axis=1)
-                log_sd = tf.squeeze(input=log_sd, axis=1)
+                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=-1)
 
                 # Clip log_sd. log(SMALL_NUMBER) is negative.
                 log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
@@ -299,8 +296,9 @@ class ActionAdapter(NeuralNetwork):
                 # Turn log sd into sd.
                 sd = tf.exp(x=log_sd)
 
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(tf.log(x=mean), log_sd)
+                # Merge again.
+                parameters = tf.concat([mean, sd], axis=-1)
+                log_probs = tf.concat([tf.log(x=mean), log_sd], axis=-1)
             else:
                 raise NotImplementedError
 
