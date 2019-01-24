@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.spaces import Tuple
 from rlgraph.components.distributions.distribution import Distribution
+from rlgraph.utils.decorators import graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -43,11 +44,13 @@ class Normal(Distribution):
             "ERROR: API-method `get_distribution` of '{}' (type '') needs parameter arg to be a Tuple with " \
             "len=2!".format(self.name, type(self).__name__)
 
+    @graph_fn
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             return tf.distributions.Normal(loc=parameters[0], scale=parameters[1])
         elif get_backend() == "pytorch":
             return torch.distributions.Normal(parameters[0], parameters[1])
 
+    @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
             return distribution.mean()
