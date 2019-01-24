@@ -74,18 +74,22 @@ class Distribution(Component):
                     "(atm; may soon do)!".format(self.name)
 
     # Now use that API-method to get the distribution object to implement all other API-methods.
+    @rlgraph_api
     def sample_stochastic(self, parameters):
         distribution = self._graph_fn_get_distribution(parameters)
         return self._graph_fn_sample_stochastic(distribution)
 
+    @rlgraph_api
     def sample_deterministic(self, parameters):
         distribution = self._graph_fn_get_distribution(parameters)
         return self._graph_fn_sample_deterministic(distribution)
 
+    @rlgraph_api
     def draw(self, parameters, deterministic=True):
         distribution = self._graph_fn_get_distribution(parameters)
         return self._graph_fn_draw(distribution, deterministic)
 
+    @rlgraph_api
     def entropy(self, parameters):
         distribution = self._graph_fn_get_distribution(parameters)
         return self._graph_fn_entropy(distribution)
