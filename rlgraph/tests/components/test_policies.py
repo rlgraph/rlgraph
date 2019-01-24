@@ -44,7 +44,8 @@ class TestPolicies(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 logits=flat_float_action_space,
-                probabilities=flat_float_action_space
+                probabilities=flat_float_action_space,
+                parameters=flat_float_action_space
             ),
             action_space=action_space
         )
@@ -125,6 +126,7 @@ class TestPolicies(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
+                parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space,
@@ -211,6 +213,7 @@ class TestPolicies(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
+                parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space,
@@ -319,6 +322,7 @@ class TestPolicies(unittest.TestCase):
                 nn_input=nn_input_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
+                parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space
@@ -396,6 +400,7 @@ class TestPolicies(unittest.TestCase):
         """
         state_space = FloatBox(shape=(4,), add_batch_rank=True)
         action_space = FloatBox(low=-1.0, high=1.0, add_batch_rank=True)
+        action_space_parameters = FloatBox(low=-1.0, high=1.0, shape=(2,), add_batch_rank=True)
 
         policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
@@ -404,7 +409,8 @@ class TestPolicies(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 logits=FloatBox(shape=(1,), add_batch_rank=True),
-                probabilities=FloatBox(add_batch_rank=True)
+                probabilities=FloatBox(add_batch_rank=True),
+                parameters=action_space_parameters,
             ),
             action_space=action_space
         )
