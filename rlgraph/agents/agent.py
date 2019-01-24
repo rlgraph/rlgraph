@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,6 +98,7 @@ class Agent(Specifiable):
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
         self.discount = discount
+        self.build_options = {}
 
         # The agent's root-Component.
         self.root_component = Component(name=self.name, nesting_level=0)
@@ -282,6 +283,8 @@ class Agent(Specifiable):
         Args:
             build_options (Optional[dict]): Optional build options, see build doc.
         """
+        if build_options is not None:
+            self.build_options.update(build_options)
         assert not self.graph_built,\
             "ERROR: Attempting to build agent which has already been built. Ensure auto_build parameter is set to " \
             "False (was {}), and method has not been called twice".format(self.auto_build)
@@ -289,7 +292,7 @@ class Agent(Specifiable):
         # TODO let agent have a list of root-components
         return self._build_graph(
             [self.root_component], self.input_spaces, optimizer=self.optimizer,
-            build_options=build_options, batch_size=self.update_spec["batch_size"]
+            build_options=self.build_options, batch_size=self.update_spec["batch_size"]
         )
 
     def preprocess_states(self, states):
@@ -451,7 +454,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def update(self, batch=None):
+    def update(self, batch=None, **kwargs):
         """
         Performs an update on the computation graph either via externally experience or
         by sampling from an internal memory.
@@ -571,5 +574,21 @@ class Agent(Specifiable):
         else:
             return self.graph_executor.execute(("set_weights", policy_weights))
 
+    def post_process(self, batch):
+        """
+        Optional method to post-processes a batch if post-processing is off-loaded to workers instead of
+        executed by a central learner before computing the loss.
 
+        The post-processing function must be able to post-process batches of multiple environments
+        and episodes with non-terminated fragments via sequence-indices.
 
+        This enables efficient processing of multi-environment batches.
+
+        Args:
+            batch (dict): Batch to process. Must contain key 'sequence-indices' to describe where
+                environment fragments end (even if the corresponding episode has not terminated.
+
+        Returns:
+            any: Post-processed batch.
+        """
+        pass

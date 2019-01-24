@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +18,16 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.execution.ray.ray_executor import RayExecutor
-from rlgraph.execution.ray.ray_worker import RayWorker
+from rlgraph.execution.ray.ray_value_worker import RayValueWorker
 
 from rlgraph.execution.ray.apex import ApexExecutor, ApexMemory, RayMemoryActor
+from rlgraph.execution.ray.sync_batch_executor import SyncBatchExecutor
 
-__all__ = ["RayExecutor", "RayWorker", "ApexExecutor", "ApexMemory", "RayMemoryActor"]
+RayExecutor.__lookup_classes__ = dict(
+    apex=ApexExecutor,
+    apexecutor=ApexExecutor,
+    syncbatch=SyncBatchExecutor,
+    syncbatchexecutor=SyncBatchExecutor
+)
+
+__all__ = ["RayExecutor", "RayValueWorker", "ApexExecutor", "ApexMemory", "RayMemoryActor"]

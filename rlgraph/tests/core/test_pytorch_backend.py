@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -267,7 +267,7 @@ class TestPytorchBackend(unittest.TestCase):
         profile = Component.call_times
         print_call_chain(profile, False, 0.03)
 
-    def test_get_td_loss(self):
+    def test_post_processing(self):
         env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
         agent_config = config_from_path("configs/ray_apex_for_pong.json")
 
@@ -296,7 +296,7 @@ class TestPytorchBackend(unittest.TestCase):
 
         for _ in range(1):
             start = time.perf_counter()
-            _, loss_per_item = agent.get_td_loss(
+            _, loss_per_item = agent.post_process(
                 dict(
                     states=states,
                     actions=actions,

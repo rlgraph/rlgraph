@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,10 +35,10 @@ if get_distributed_backend() == "ray":
     import ray
 
 
-class RayWorker(RayActor):
+class RayValueWorker(RayActor):
     """
-    Ray wrapper for single threaded worker, provides further api methods to interact
-    with the agent used in the worker.
+    Ray worker for value-based algorithms, e.g. for distributed Q-learning variants
+    such as Ape-X.
     """
 
     def __init__(self, agent_config, worker_spec, env_spec, frameskip=1, auto_build=False):
@@ -420,7 +420,7 @@ class RayWorker(RayActor):
         policy_weights = {k: v for k,v in zip(weights.policy_vars, weights.policy_values)}
         vf_weights = None
         if weights.has_vf:
-            vf_weights = {k: v for k, v in zip(weights.value_function_vars, weights.value_function_weights)}
+            vf_weights = {k: v for k, v in zip(weights.value_function_vars, weights.value_function_values)}
         self.agent.set_weights(policy_weights, value_function_weights=vf_weights)
 
     def get_workload_statistics(self):
@@ -525,8 +525,7 @@ class RayWorker(RayActor):
         # Compute loss-per-item.
         if self.worker_computes_weights:
             # Next states were just collected, we batch process them here.
-            # TODO make generic agent method?
-            _, loss_per_item = self.agent.get_td_loss(
+            _, loss_per_item = self.agent.post_process(
                 dict(
                     states=states,
                     actions=actions,

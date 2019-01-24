@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -185,6 +185,12 @@ class TestAPIMethods(unittest.TestCase):
         test = ComponentTest(component=container, input_spaces=dict(input_=float))
         test.test(("test", 1.23), expected_outputs=len(sub_comps) * (1.23 + 1), decimals=2)
 
+    def test_providing_method_as_argument(self):
+        component = DummyWithVar()
+        test = ComponentTest(component=component, input_spaces=dict(input_=float))
+
+        test.test((component.run_plus, 1.23456), expected_outputs=3.23456, decimals=5)
+        test.test((component.run_minus, 1.23456), expected_outputs=-0.7654, decimals=4)
 
     #def test_kwargs_in_api_call(self):
     #    core = Component(scope="container")

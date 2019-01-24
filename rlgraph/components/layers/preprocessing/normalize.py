@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,9 @@ from rlgraph.spaces import Space
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import SMALL_NUMBER
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class Normalize(PreprocessLayer):
@@ -52,7 +55,6 @@ class Normalize(PreprocessLayer):
         max_value = preprocessing_inputs
 
         if get_backend() == "tf":
-            import tensorflow as tf
             # Iteratively reduce dimensionality across all axes to get the min/max values for each sample in the batch.
             for axis in self.axes:
                 min_value = tf.reduce_min(input_tensor=min_value, axis=axis, keep_dims=True)

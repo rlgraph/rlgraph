@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import time
 from rlgraph.agents import ApexAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution.ray.apex import ApexExecutor
-from rlgraph.execution.ray import RayWorker
+from rlgraph.execution.ray import RayValueWorker
 from rlgraph.tests.test_util import config_from_path
 
 
@@ -72,7 +72,7 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         ray.init()
         agent_config = config_from_path("configs/ray_apex_for_pong.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
-        worker_cls = RayWorker.as_remote().remote
+        worker_cls = RayValueWorker.as_remote().remote
         ray_spec["worker_spec"]["worker_sample_size"] = 198
         ray_spec["worker_spec"]["worker_executes_exploration"] = True
         ray_spec["worker_spec"]["ray_exploration"] = 0.4

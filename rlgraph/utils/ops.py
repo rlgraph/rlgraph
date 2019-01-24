@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,17 @@ import re
 # _T\d+_
 FLAT_TUPLE_OPEN = "_T"
 FLAT_TUPLE_CLOSE = "_"
+
+
+class TraceContext(object):
+    """
+    Contains static trace context. Used to reconstruct data-flow in cases where normal
+    stack-frame inspection fails, e.g. because when calling from within a lambda. To be expanded
+    with more runtime
+    """
+
+    # Prior caller.
+    PREV_CALLER = None
 
 
 class DataOp(object):

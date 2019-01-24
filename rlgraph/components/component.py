@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -724,7 +724,7 @@ class Component(Specifiable):
                             variables[name] = self.read_variable(self.variables[global_scope_name])
         return variables
 
-    def create_summary(self, name, values, type_="histogram"):
+    def create_summary(self, name, values, summary_type="histogram"):
         """
         Creates a summary op (and adds it to the graph).
         Skips those, whose full name does not match `self.summary_regexp`.
@@ -736,7 +736,7 @@ class Component(Specifiable):
 
             values (op): The op to summarize.
 
-            type\_ (str): The summary type to create. Currently supported are:
+            summary_type (str): The summary type to create. Currently supported are:
                 "histogram", "scalar" and "text".
         """
         # Prepend the "summaries/"-prefix.
@@ -749,35 +749,35 @@ class Component(Specifiable):
 
         summary = None
         if get_backend() == "tf":
-            ctor = getattr(tf.summary, type_)
+            ctor = getattr(tf.summary, summary_type)
             summary = ctor(name, values)
 
         # Registers the new summary with this Component.
         if global_name in self.summaries:
             raise RLGraphError("ERROR: Summary with name '{}' already exists in {}'s summary "
-                            "registry!".format(global_name, self.name))
+                               "registry!".format(global_name, self.name))
         self.summaries[global_name] = summary
         self.propagate_summary(global_name)
 
-    def propagate_summary(self, key_):
+    def propagate_summary(self, summary_key):
         """
         Propagates a single summary op of this Component to its parents' summaries registries.
 
         Args:
-            key\_ (str): The lookup key for the summary to propagate.
+            summary_key (str): The lookup key for the summary to propagate.
         """
         # Return if there is no parent.
         if self.parent_component is None:
             return
 
         # If already there -> Error.
-        if key_ in self.parent_component.summaries:
+        if summary_key in self.parent_component.summaries:
             raise RLGraphError("ERROR: Summary registry of '{}' already has a summary under key '{}'!".
-                format(self.parent_component.name, key_))
-        self.parent_component.summaries[key_] = self.summaries[key_]
+                               format(self.parent_component.name, summary_key))
+        self.parent_component.summaries[summary_key] = self.summaries[summary_key]
 
         # Recurse up the container hierarchy.
-        self.parent_component.propagate_summary(key_)
+        self.parent_component.propagate_summary(summary_key)
 
     def add_components(self, *components, **kwargs):
         """

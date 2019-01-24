@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -847,6 +847,10 @@ class GraphBuilder(Specifiable):
                 return_ops = force_list(api_method_call[2]) if len(api_method_call) > 2 and \
                                                                api_method_call[2] is not None else None
                 api_method_call = api_method_call[0]
+
+            if callable(api_method_call):
+                # Allow passing the function directly
+                api_method_call = api_method_call.__name__
 
             if api_method_call not in self.api:
                 raise RLGraphError("No API-method with name '{}' found!".format(api_method_call))

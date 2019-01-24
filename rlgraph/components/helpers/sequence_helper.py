@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -306,6 +306,7 @@ class SequenceHelper(Component):
             Sequence of deltas.
         """
         if get_backend() == "tf":
+            values = tf.squeeze(input=values)
             num_values = tf.shape(input=values)[0]
 
             # Again ensure last index is 1 for any sub-sample arriving here.

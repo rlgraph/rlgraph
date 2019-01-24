@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import DictMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction, ValueFunction,\
     Optimizer
+from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils.util import strip_list, default_dict
 from rlgraph.utils.decorators import rlgraph_api
@@ -82,7 +83,8 @@ class PPOAgent(Agent):
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
-            sequence_indices=BoolBox(add_batch_rank=True)
+            sequence_indices=BoolBox(add_batch_rank=True),
+            apply_postprocessing=bool
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
@@ -97,8 +99,8 @@ class PPOAgent(Agent):
 
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
-
-        self.loss_function = PPOLossFunction(discount=self.discount, gae_lambda=gae_lambda, clip_ratio=clip_ratio,
+        self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount)
+        self.loss_function = PPOLossFunction(clip_ratio=clip_ratio,
                                              standardize_advantages=standardize_advantages,
                                              weight_entropy=weight_entropy)
 
@@ -110,10 +112,11 @@ class PPOAgent(Agent):
         self.root_component.add_components(
             self.preprocessor, self.merger, self.memory, self.splitter, self.policy, self.exploration,
             self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer, self.vars_merger,
-            self.vars_splitter
+            self.vars_splitter, self.gae_function
         )
         # Define the Agent's (root-Component's) API.
         self.define_graph_api()
+        self.build_options = dict(vf_optimizer=self.value_function_optimizer)
 
         if self.auto_build:
             self._build_graph(
@@ -121,12 +124,11 @@ class PPOAgent(Agent):
                 # Important: Use sample-size, not batch-size as the sub-samples (from a batch) are the ones that get
                 # multi-gpu-split.
                 batch_size=self.update_spec["sample_size"],
-                build_options=dict(vf_optimizer=self.value_function_optimizer)
+                build_options=self.build_options
             )
             self.graph_built = True
 
     def define_graph_api(self):
-
         super(PPOAgent, self).define_graph_api()
 
         agent = self
@@ -156,25 +158,32 @@ class PPOAgent(Agent):
             records = agent.merger.merge(preprocessed_states, actions, rewards, terminals)
             return agent.memory.insert_records(records)
 
+        @rlgraph_api(component=self.root_component)
+        def post_process(root, preprocessed_states, rewards, terminals, sequence_indices):
+            baseline_values = agent.value_function.value_output(preprocessed_states)
+            pg_advantages = agent.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
+            return pg_advantages
+
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root):
+        def update_from_memory(root, apply_postprocessing):
             if agent.sample_episodes:
                 records = agent.memory.get_episodes(self.update_spec["batch_size"])
             else:
                 records = agent.memory.get_records(self.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals = agent.splitter.split(records)
 
-            # Route to external update method.
+            # Route to post process and update method.
             # Use terminals as sequence indices.
             sequence_indices = terminals
-            return root.update_from_external_batch(preprocessed_s, actions, rewards, terminals, sequence_indices)
+            return root.update_from_external_batch(preprocessed_s, actions, rewards, terminals,
+                                                sequence_indices, apply_postprocessing)
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
         @rlgraph_api(component=self.root_component)
         def _graph_fn_update_from_external_batch(
-                root, preprocessed_states, actions, rewards, terminals, sequence_indices
+            root, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing
         ):
             """
             Calls iterative optimization by repeatedly sub-sampling.
@@ -190,14 +199,10 @@ class PPOAgent(Agent):
             loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
             value_function_optimizer = root.get_sub_component_by_name(agent.value_function_optimizer.scope)
             vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
+            gae_function = root.get_sub_component_by_name(agent.gae_function.scope)
 
             if get_backend() == "tf":
                 batch_size = tf.shape(preprocessed_states)[0]
-                last_sequence = tf.expand_dims(sequence_indices[-1], -1)
-
-                # Ensure the very last entry is 1 for sequence indices so we don't connect different episodes fragments
-                # when sampling sub-episodes and wrapping, e.g. batch size 1000, sample 100, start 950: range [950, 50].
-                sequence_indices = tf.concat([sequence_indices[:-1], tf.ones_like(last_sequence)], axis=0)
 
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
@@ -217,7 +222,8 @@ class PPOAgent(Agent):
                         # grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
                             all_vars,
-                            sample_states, sample_actions, sample_rewards, sample_terminals, sample_sequence_indices
+                            sample_states, sample_actions, sample_rewards, sample_terminals, sample_sequence_indices,
+                            apply_postprocessing
                         )
                         avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.split(
                             out["avg_grads_and_vars_by_component"]
@@ -240,13 +246,19 @@ class PPOAgent(Agent):
                             return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
 
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
-                    baseline_values = value_function.value_output(sample_states)
+                    baseline_values = value_function.value_output(tf.stop_gradient(sample_states))
+                    sample_rewards = tf.cond(
+                        pred=apply_postprocessing,
+                        true_fn=lambda: gae_function.calc_gae_values(
+                            baseline_values, sample_rewards, sample_terminals, sample_sequence_indices),
+                        false_fn=lambda: sample_rewards
+                    )
                     entropy = policy.get_entropy(sample_states)["entropy"]
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
                             policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                            sample_terminals, sample_sequence_indices, entropy
+                            sample_terminals, entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
@@ -296,10 +308,6 @@ class PPOAgent(Agent):
 
             elif get_backend() == "pytorch":
                 batch_size = preprocessed_states.shape[0]
-                if batch_size > 1:
-                    last_sequence = torch.unsqueeze(sequence_indices[-1], -1)
-                    sequence_indices = torch.cat((sequence_indices[:-1], torch.ones_like(last_sequence)), 0)
-
                 sample_size = min(batch_size, agent.sample_size)
 
                 for _ in range(agent.iterations):
@@ -309,14 +317,18 @@ class PPOAgent(Agent):
                     sample_actions = torch.index_select(actions, 0, indices)
                     sample_rewards = torch.index_select(rewards, 0, indices)
                     sample_terminals = torch.index_select(terminals, 0, indices)
-                    sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
-
+                    sample_sequence_indices =  torch.index_select(sequence_indices, 0, indices)
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
+
                     baseline_values = value_function.value_output(sample_states)
+                    if apply_postprocessing:
+                        sample_rewards = gae_function.calc_gae_values(
+                            baseline_values, sample_rewards, sample_terminals, sample_sequence_indices)
+
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
                         policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                        sample_terminals, sample_sequence_indices, entropy
+                        sample_terminals, entropy
                     )
 
                     # Do not need step op.
@@ -373,8 +385,10 @@ class PPOAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
-    def update(self, batch=None, sequence_indices=None):
+    def update(self, batch=None, sequence_indices=None, apply_postprocessing=True):
         """
+        Args:
+            batch (dict): Update batch.
             sequence_indices (Optional[np.ndarray, list]): Sequence indices are used in multi-env batches where
                 partial episode fragments may be concatenated within the trajectory. For a single env, these are equal
                 to terminals. If None are given, terminals will be used as sequence indices. A sequence index is True
@@ -385,12 +399,16 @@ class PPOAgent(Agent):
                 Example: If env_1 has terminals [0 0 0] for an episode fragment and env_2 terminals = [0 0 1],
                     we may pass them in as one combined array [0 0 0 0 0 1] with sequence indices showing where each
                     episode ends: [0 0 1 0 0 1].
+            apply_postprocessing (Optional[(bool]): If True, apply post-processing such as generalised
+                advantage estimation to collected batch in-graph. If False, update assumed post-processing has already
+                been applied. The purpose of internal versus external post-processing is to be able to off-load
+                post-processing in large scale distributed scenarios.
         """
 
         # [0] = the loss; [1] = loss-per-item, [2] = vf-loss, [3] = vf-loss- per item
         return_ops = [0, 1, 2, 3]
         if batch is None:
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
+            ret = self.graph_executor.execute(("update_from_memory", [True], return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -400,12 +418,20 @@ class PPOAgent(Agent):
             if sequence_indices is None:
                 sequence_indices = batch["terminals"]
 
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
+            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+                           sequence_indices, apply_postprocessing]
 
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_external_batch"]
+            # Execute post-processing or already post-processed by workers?
+            if apply_postprocessing:
+                ret = self.graph_executor.execute(("post_process_and_update", batch_input, return_ops))
+                # Remove unnecessary return dicts (e.g. sync-op).
+                if isinstance(ret, dict):
+                    ret = ret["post_process_and_update"]
+            else:
+                ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
+                # Remove unnecessary return dicts (e.g. sync-op).
+                if isinstance(ret, dict):
+                    ret = ret["update_from_external_batch"]
 
         # [0] loss, [1] loss per item
         return ret[0], ret[1]
@@ -417,6 +443,11 @@ class PPOAgent(Agent):
         """
         if self.preprocessing_required and len(self.preprocessor.variables) > 0:
             self.graph_executor.execute("reset_preprocessor")
+
+    def post_process(self, batch):
+        batch_input = [batch["states"], batch["rewards"], batch["terminals"], batch["sequence_indices"]]
+        ret = self.graph_executor.execute(("post_process", batch_input))
+        return ret
 
     def __repr__(self):
         return "PPOAgent()"
