@@ -87,6 +87,40 @@ class DuelingPolicy(Policy):
         return dict(state_values=state_values, last_internal_states=nn_output.get("last_internal_states"))
 
     @rlgraph_api
+    def get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
+        """
+        Similar to `get_values_logits_probabilities_log_probs`, but also returns in the return dict under key
+        `state_value` the output of our state-value function node.
+
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            Dict:
+                state_values: The single (but batched) value function node output.
+                logits: The (reshaped) logits from the ActionAdapter.
+                parameters: The parameters for the distribution (gained from the softmaxed logits or interpreting
+                    logits as mean and stddev for a normal distribution).
+                log_probs: The log(probabilities) values.
+                last_internal_states: The last internal states (if network is RNN-based).
+        """
+        nn_output = self.get_nn_output(nn_input, internal_states)
+        advantages, _, _ = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
+            nn_output["output"], nn_input
+        )
+        state_values_tmp = self.dense_layer_state_value_stream.apply(nn_output["output"])
+        state_values = self.state_value_node.apply(state_values_tmp)
+
+        q_values = self._graph_fn_calculate_q_values(state_values, advantages)
+
+        parameters, log_probs = self._graph_fn_get_parameters_log_probs(q_values)
+
+        return dict(state_values=state_values, logits=q_values, parameters=parameters, log_probs=log_probs,
+                    last_internal_states=nn_output.get("last_internal_states"),
+                    advantages=advantages, q_values=q_values)
+
+    @rlgraph_api
     def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
         """
         Similar to `get_values_logits_probabilities_log_probs`, but also returns in the return dict under key
@@ -104,8 +138,11 @@ class DuelingPolicy(Policy):
                 log_probs: The log(probabilities) values.
                 last_internal_states: The last internal states (if network is RNN-based).
         """
+        self.logger.warn("Deprecated API method `get_state_values_logits_probabilities_log_probs` used!"
+                         "Use `get_state_values_logits_parameters_log_probs` instead.")
+
         nn_output = self.get_nn_output(nn_input, internal_states)
-        advantages, _, _ = self._graph_fn_get_action_adapter_logits_probabilities_log_probs(
+        advantages, _, _ = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
             nn_output["output"], nn_input
         )
         state_values_tmp = self.dense_layer_state_value_stream.apply(nn_output["output"])
@@ -113,11 +150,30 @@ class DuelingPolicy(Policy):
 
         q_values = self._graph_fn_calculate_q_values(state_values, advantages)
 
-        probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(q_values)
+        parameters, log_probs = self._graph_fn_get_parameters_log_probs(q_values)
 
-        return dict(state_values=state_values, logits=q_values, probabilities=probabilities, log_probs=log_probs,
-                    last_internal_states=nn_output.get("last_internal_states"),
+        return dict(state_values=state_values, logits=q_values, probabilities=parameters, parameters=parameters,
+                    log_probs=log_probs, last_internal_states=nn_output.get("last_internal_states"),
                     advantages=advantages, q_values=q_values)
+
+    @rlgraph_api
+    def get_logits_parameters_log_probs(self, nn_input, internal_states=None):
+        """
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            Dict:
+                logits: The q-values after adding advantages to state values (and subtracting the mean advantage).
+                parameters: The parameters for the distribution (gained from the softmaxed logits or interpreting
+                    logits as mean and stddev for a normal distribution).
+                log_probs: The log(probabilities) values.
+                last_internal_states: The final internal states after passing through a possible RNN.
+        """
+        out = self.get_state_values_logits_parameters_log_probs(nn_input, internal_states)
+        return dict(logits=out["logits"], parameters=out["parameters"], log_probs=out["log_probs"],
+                    last_internal_states=out.get("last_internal_states"))
 
     @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
@@ -133,9 +189,11 @@ class DuelingPolicy(Policy):
                 log_probs: The log(probabilities) values.
                 last_internal_states: The final internal states after passing through a possible RNN.
         """
-        out = self.get_state_values_logits_probabilities_log_probs(nn_input, internal_states)
-        return dict(logits=out["logits"], probabilities=out["probabilities"], log_probs=out["log_probs"],
-                    last_internal_states=out.get("last_internal_states"))
+        self.logger.warn("Deprecated API method `get_logits_probabilities_log_probs` used!"
+                         "Use `get_logits_parameters_log_probs` instead.")
+        out = self.get_state_values_logits_parameters_log_probs(nn_input, internal_states)
+        return dict(logits=out["logits"], probabilities=out["parameters"], parameters=out["parameters"],
+                    log_probs=out["log_probs"], last_internal_states=out.get("last_internal_states"))
 
     @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_calculate_q_values(self, state_value, advantage_values):
@@ -176,9 +234,9 @@ class DuelingPolicy(Policy):
             return q_values
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_probabilities_log_probs(self, key, logits):
+    def _graph_fn_get_parameters_log_probs(self, key, logits):
         """
-        Creates properties/parameters and log-probs from some reshaped output.
+        Creates parameters and log-probs from some reshaped output.
 
         Args:
             logits (SingleDataOp): The output of some layer that is already reshaped

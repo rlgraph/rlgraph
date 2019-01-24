@@ -62,6 +62,36 @@ class SharedValueFunctionPolicy(Policy):
 
         return dict(state_values=state_values["output"], last_internal_states=nn_output.get("last_internal_states"))
 
+    @rlgraph_api
+    def get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
+        """
+        Similar to `get_values_logits_probabilities_log_probs`, but also returns in the return dict under key
+        `state_value` the output of our state-value function node.
+
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            Dict:
+                state_values: The single (but batched) value function node output.
+                logits: The (reshaped) logits from the ActionAdapter.
+                parameters: The parameters for the distribution (gained from the softmaxed logits or interpreting
+                    logits as mean and stddev for a normal distribution).
+                log_probs: The log(probabilities) values.
+                last_internal_states: The last internal states (if network is RNN-based).
+        """
+        nn_output = self.get_nn_output(nn_input, internal_states)
+        logits, parameters, log_probs = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
+            nn_output["output"], nn_input
+        )
+        if self.value_unfold_time_rank is True:
+            state_values = self.value_network.apply(nn_output["output"], nn_input)
+        else:
+            state_values = self.value_network.apply(nn_output["output"])
+
+        return dict(state_values=state_values["output"], logits=logits, parameters=parameters, log_probs=log_probs,
+                    last_internal_states=nn_output.get("last_internal_states"))
 
     @rlgraph_api
     def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
@@ -81,8 +111,10 @@ class SharedValueFunctionPolicy(Policy):
                 log_probs: The log(probabilities) values.
                 last_internal_states: The last internal states (if network is RNN-based).
         """
+        self.logger.warn("Deprecated API method `get_state_values_logits_probabilities_log_probs` used!"
+                         "Use `get_state_values_logits_parameters_log_probs` instead.")
         nn_output = self.get_nn_output(nn_input, internal_states)
-        logits, probabilities, log_probs = self._graph_fn_get_action_adapter_logits_probabilities_log_probs(
+        logits, parameters, log_probs = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
             nn_output["output"], nn_input
         )
         if self.value_unfold_time_rank is True:
@@ -90,5 +122,6 @@ class SharedValueFunctionPolicy(Policy):
         else:
             state_values = self.value_network.apply(nn_output["output"])
 
-        return dict(state_values=state_values["output"], logits=logits, probabilities=probabilities, log_probs=log_probs,
+        return dict(state_values=state_values["output"], logits=logits, probabilities=parameters,
+                    parameters=parameters, log_probs=log_probs,
                     last_internal_states=nn_output.get("last_internal_states"))
