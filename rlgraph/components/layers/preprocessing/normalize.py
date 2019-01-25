@@ -25,6 +25,8 @@ from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class Normalize(PreprocessLayer):
@@ -59,6 +61,10 @@ class Normalize(PreprocessLayer):
             for axis in self.axes:
                 min_value = tf.reduce_min(input_tensor=min_value, axis=axis, keep_dims=True)
                 max_value = tf.reduce_max(input_tensor=max_value, axis=axis, keep_dims=True)
+        elif get_backend() == "pytorch":
+            for axis in self.axes:
+                min_value = torch.min(min_value, axis)
+                max_value = torch.max(max_value, axis)
 
         # Add some small constant to never let the range be zero.
         return (preprocessing_inputs - min_value) / (max_value - min_value + SMALL_NUMBER)
