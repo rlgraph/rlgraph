@@ -5,7 +5,7 @@
   "clip_ratio": 0.3,
   "discount": 0.95,
   "gae_lambda": 0.1,
-  "weight_entropy": 0.001,
+  "weight_entropy": 0.0,
 
   "memory_spec":
   {
@@ -25,13 +25,13 @@
     {
       "type": "dense",
       "units": 64,
-      "activation": "tanh",
+      "activation": "relu",
       "scope": "hidden1"
     },
     {
       "type": "dense",
       "units": 64,
-      "activation": "tanh",
+      "activation": "relu",
       "scope": "hidden2"
     }
   ],
@@ -40,13 +40,13 @@
     {
       "type": "dense",
       "units": 64,
-      "activation": "tanh",
+      "activation": "relu",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
       "units": 64,
-      "activation": "tanh",
+      "activation": "relu",
       "scope": "vf-hidden2"
     }
   ],
@@ -57,17 +57,17 @@
     "update_interval": 2048,
     "batch_size": 2048,
     "num_iterations": 10,
-    "sample_size": 128
+    "sample_size": 64
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.00025
+    "learning_rate": 0.0003
   },
 
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.00025
+    "learning_rate": 0.0003
   },
   "execution_spec": {
     "session_config": {

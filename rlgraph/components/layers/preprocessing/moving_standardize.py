@@ -118,7 +118,7 @@ class MovingStandardize(PreprocessLayer):
                 mean_update = tf.cond(
                     pred=self.sample_count > 1.0,
                     false_fn=lambda: self.mean_est,
-                    true_fn=lambda: tf.reduce_sum(update, axis=0)
+                    true_fn=lambda: update
                 )
                 var_update = update * update * (self.sample_count - 1) / self.sample_count
                 assignments.append(tf.assign_add(ref=self.mean_est, value=mean_update))
