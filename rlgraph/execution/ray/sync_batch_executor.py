@@ -109,7 +109,6 @@ class SyncBatchExecutor(RayExecutor):
         """
         # Env steps done during this rollout.
         env_steps = 0
-        update_steps = 0
 
         # 1. Sync local learners weights to remote workers.
         weights = ray.put(RayWeight(self.local_agent.get_weights()))
@@ -132,6 +131,6 @@ class SyncBatchExecutor(RayExecutor):
 
         # 4. Update from merged batch.
         self.local_agent.update(batch, apply_postprocessing=False)
-        return env_steps, update_steps, 0, 0
+        return env_steps, 1, 0, 0
 
 
