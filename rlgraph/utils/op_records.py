@@ -54,6 +54,9 @@ class DataOpRecord(object):
         """
         self.id = self.get_id()
         self.op = op
+        # Some instruction on how to derive the `op` property of this record (other than just: pass along).
+        # e.g. "key-lookup: [some key]" if previous op is a DataOpDict.
+        self.op_instructions = None
         # Whether the op in this record is one of the last in the graph (a core API-method returned op).
         self.is_terminal_op = False
 
@@ -80,6 +83,22 @@ class DataOpRecord(object):
     @staticmethod
     def reset():
         DataOpRecord._ID = -1
+
+    def __getitem__(self, key):
+        """
+        Returns new DataOpRecordColumn with
+
+        Args:
+            key (str): The lookup key
+
+        Returns:
+
+        """
+        column = DataOpRecordColumn(
+            self.column.component, args=[self]
+        )
+        column.op_records[0].op_instructions = "key-lookup:{}".format(key)
+        return column.op_records[0]
 
     def __str__(self):
         return "DataOpRec(id={} {}{})".format(
@@ -498,8 +517,8 @@ def get_call_param_name(op_rec):
             else:
                 if api_method_rec.kwargs_name is None:
                     raise RLGraphAPICallParamError(
-                        "ERROR: API-method '{}' has no **kwargs, but op-rec {} indicates that it does!".
-                        format(api_method_rec.name, op_rec.id)
+                        "ERROR: API-method '{}' has no **kwargs, but op-rec {} indicates that it has kwarg '{}'!".
+                        format(api_method_rec.name, op_rec.id, op_rec.kwarg)
                     )
                 param_name = api_method_rec.kwargs_name + "[{}]".format(op_rec.kwarg)
     # There are *kwargs in the signature.

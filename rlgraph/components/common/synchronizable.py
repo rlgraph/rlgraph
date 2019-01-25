@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,3 +131,4 @@ class Synchronizable(Component):
             # Assign parameters of layers.
             for (key_from, var_from), (key_to, ref_to) in zip(syncs_from, sync_to_ref):
                 ref_to.set_value(var_from)
+            return None

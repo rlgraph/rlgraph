@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -717,7 +717,7 @@ class GraphBuilder(Specifiable):
         # Step via `previous` through the graph backwards.
         while True:
             previous_op_rec = op_rec.previous
-            # Hit a graph_fn. Jump to incomign column.
+            # Hit a graph_fn. Jump to incoming column.
             if previous_op_rec is None:
                 assert isinstance(op_rec.column, DataOpRecordColumnFromGraphFn),\
                     "ERROR: If previous op-rec is None, column must be of type `DataOpRecordColumnFromGraphFn` " \
@@ -848,6 +848,10 @@ class GraphBuilder(Specifiable):
                                                                api_method_call[2] is not None else None
                 api_method_call = api_method_call[0]
 
+            if callable(api_method_call):
+                # Allow passing the function directly
+                api_method_call = api_method_call.__name__
+
             if api_method_call not in self.api:
                 raise RLGraphError("No API-method with name '{}' found!".format(api_method_call))
 
@@ -878,8 +882,10 @@ class GraphBuilder(Specifiable):
                 # TODO: What if len(params) < len(self.api[api_method][0])?
                 # Need to handle default API-method params also for the root-component (this one).
                 if len(self.api[api_method_call][0]) <= i:
-                    raise RLGraphError("API-method with name '{}' only has {} input parameters! You passed in "
-                                       "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params)))
+                    raise RLGraphError(
+                        "API-method with name '{}' only has {} input parameters! You passed in "
+                        "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params))
+                    )
 
                 placeholder = self.api[api_method_call][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, ContainerDataOp):
@@ -1134,33 +1140,42 @@ class GraphBuilder(Specifiable):
                             assert next_op_rec.op is None or is_constant(next_op_rec.op) or next_op_rec.op is op_rec.op
                             self.op_records_to_process.add(next_op_rec)
                         # Push op and Space into next op-record.
-                        next_op_rec.op = op_rec.op
-                        next_op_rec.space = op_rec.space
+                        # With op-instructions instructions?
+                        if next_op_rec.op_instructions is not None:
+                            mo = re.match(r'^key-lookup:(.+)$', next_op_rec.op_instructions)
+                            if mo:
+                                lookup_key = mo.group(1)
+                                next_op_rec.op = op_rec.op[lookup_key]
+                                next_op_rec.space = op_rec.space[lookup_key]
+                        # No instructions -> simply pass on.
+                        else:
+                            next_op_rec.op = op_rec.op
+                            next_op_rec.space = op_rec.space
 
-                        # Also push Space into possible API-method record if slot's Space is still None.
-                        if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
-                            param_name = get_call_param_name(op_rec)
-                            component = op_rec.column.api_method_rec.component
+                            # Also push Space into possible API-method record if slot's Space is still None.
+                            if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
+                                param_name = get_call_param_name(op_rec)
+                                component = op_rec.column.api_method_rec.component
 
-                            # Place Space for this input-param name (valid for all input params of same name even of
-                            # different API-method of the same Component).
-                            if component.api_method_inputs[param_name] is None or \
-                                    component.api_method_inputs[param_name] == "flex":
-                                component.api_method_inputs[param_name] = next_op_rec.space
-                            # For non-space agnostic Components: Sanity check, whether Spaces are equivalent.
-                            elif component.space_agnostic is False:
-                                generic_space = check_space_equivalence(
-                                    component.api_method_inputs[param_name], next_op_rec.space
-                                )
-                                # Spaces are not equivalent.
-                                if generic_space is False:
-                                    raise RLGraphError(
-                                        "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
-                                        "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
-                                                       component.api_method_inputs[param_name])
+                                # Place Space for this input-param name (valid for all input params of same name even of
+                                # different API-method of the same Component).
+                                if component.api_method_inputs[param_name] is None or \
+                                        component.api_method_inputs[param_name] == "flex":
+                                    component.api_method_inputs[param_name] = next_op_rec.space
+                                # For non-space agnostic Components: Sanity check, whether Spaces are equivalent.
+                                elif component.space_agnostic is False:
+                                    generic_space = check_space_equivalence(
+                                        component.api_method_inputs[param_name], next_op_rec.space
                                     )
-                                # Overwrite both entries with the more generic Space.
-                                next_op_rec.space = component.api_method_inputs[param_name] = generic_space
+                                    # Spaces are not equivalent.
+                                    if generic_space is False:
+                                        raise RLGraphError(
+                                            "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
+                                            "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
+                                                           component.api_method_inputs[param_name])
+                                        )
+                                    # Overwrite both entries with the more generic Space.
+                                    next_op_rec.space = component.api_method_inputs[param_name] = generic_space
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a

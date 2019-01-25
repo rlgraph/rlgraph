@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ class Agent(Specifiable):
     """
     Generic agent defining RLGraph-API operations and parses and sanitizes configuration specs.
     """
+
     def __init__(self, state_space, action_space, discount=0.98,
                  preprocessing_spec=None, network_spec=None, internal_states_space=None,
                  policy_spec=None, value_function_spec=None,
@@ -122,7 +123,7 @@ class Agent(Specifiable):
 
         # Construct the Policy network.
         policy_spec = policy_spec or dict()
-        if network_spec is not None:
+        if "network_spec" not in policy_spec:
             policy_spec["network_spec"] = network_spec
         if "action_space" not in policy_spec:
             policy_spec["action_space"] = self.action_space
@@ -162,11 +163,11 @@ class Agent(Specifiable):
                 return []
             return tuple([[] for _ in range(i)])
 
-        self.states_buffer = defaultdict(list)  #partial(fact_, len(self.flat_state_space)))
+        self.states_buffer = defaultdict(list)  # partial(fact_, len(self.flat_state_space)))
         self.actions_buffer = defaultdict(partial(factory_, len(self.flat_action_space or [])))
         self.internals_buffer = defaultdict(list)
         self.rewards_buffer = defaultdict(list)
-        self.next_states_buffer = defaultdict(list)  #partial(fact_, len(self.flat_state_space)))
+        self.next_states_buffer = defaultdict(list)  # partial(fact_, len(self.flat_state_space)))
         self.terminals_buffer = defaultdict(list)
 
         self.observe_spec = parse_observe_spec(observe_spec)
@@ -212,7 +213,7 @@ class Agent(Specifiable):
         if env_id is None:
             env_id = self.default_env
         del self.states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
-        del self.actions_buffer[env_id]   # = ([] for _ in range(len(self.flat_action_space)))
+        del self.actions_buffer[env_id]  # = ([] for _ in range(len(self.flat_action_space)))
         del self.internals_buffer[env_id]  # = []
         del self.rewards_buffer[env_id]  # = []
         del self.next_states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
@@ -285,7 +286,7 @@ class Agent(Specifiable):
         """
         if build_options is not None:
             self.build_options.update(build_options)
-        assert not self.graph_built,\
+        assert not self.graph_built, \
             "ERROR: Attempting to build agent which has already been built. Ensure auto_build parameter is set to " \
             "False (was {}), and method has not been called twice".format(self.auto_build)
 

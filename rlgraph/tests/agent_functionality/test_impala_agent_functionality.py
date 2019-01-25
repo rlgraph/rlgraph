@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         add_time_rank=True,
         time_major=False
     )
+    parameters_and_logits_space = FloatBox(shape=(9,), add_batch_rank=True)
     internal_states_space = Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=True)
     cluster_spec = dict(learner=["localhost:22222"], actor=["localhost:22223"])
     cluster_spec_single_actor = dict(actor=["localhost:22223"])
@@ -98,7 +99,12 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         )
         test = ComponentTest(
             policy,
-            input_spaces=dict(nn_input=self.input_space, internal_states=self.internal_states_space),
+            input_spaces=dict(
+                nn_input=self.input_space,
+                internal_states=self.internal_states_space,
+                parameters=self.parameters_and_logits_space,
+                logits=self.parameters_and_logits_space
+            ),
             action_space=self.action_space,
             execution_spec=dict(disable_monitoring=True)
         )

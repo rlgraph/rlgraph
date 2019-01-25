@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils import util
+from rlgraph.utils.util import convert_dtype
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components.distributions.distribution import Distribution
 
 if get_backend() == "tf":
@@ -34,16 +35,18 @@ class Bernoulli(Distribution):
     def __init__(self, scope="bernoulli", **kwargs):
         super(Bernoulli, self).__init__(scope=scope, **kwargs)
 
+    @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         """
         Args:
             parameters (DataOp): The p value (probability that distribution returns True).
         """
         if get_backend() == "tf":
-            return tf.distributions.Bernoulli(probs=parameters, dtype=util.convert_dtype("bool"))
+            return tf.distributions.Bernoulli(probs=parameters, dtype=convert_dtype("bool"))
         elif get_backend() == "pytorch":
             return torch.distributions.Bernoulli(probs=parameters)
 
+    @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
         return distribution.prob(True) >= 0.5
 

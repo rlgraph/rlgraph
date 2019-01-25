@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.utils import util
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -36,7 +36,7 @@ class Categorical(Distribution):
     def __init__(self, scope="categorical", **kwargs):
         super(Categorical, self).__init__(scope=scope, **kwargs)
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             return tf.distributions.Categorical(probs=parameters, dtype=util.convert_dtype("int"))

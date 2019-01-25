@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical
+from rlgraph.components.distributions import Normal, Categorical, Beta
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.spaces.space import Space
@@ -82,6 +82,25 @@ class Policy(Component):
 
         self.deterministic = deterministic
 
+        # Check for bounded FloatBoxes.
+        self.bounded_action_space = dict()
+        for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
+            if isinstance(action_component, FloatBox):
+                # Unbounded.
+                if action_component.low == float("-inf") and action_component.high == float("inf"):
+                    self.bounded_action_space[flat_key] = False
+                # Bounded.
+                elif action_component.low != float("-inf") and action_component.high != float("inf"):
+                    self.bounded_action_space[flat_key] = True
+                # TODO: Semi-bounded -> Exponential distribution.
+                else:
+                    raise RLGraphError(
+                        "Semi-bounded action spaces are not supported yet! You passed in low={} high={}.".\
+                        format(action_component.low, action_component.high)
+                    )
+            else:
+                self.bounded_action_space[flat_key] = None
+
         # Figure out our Distributions.
         self.distributions = dict()
         for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
@@ -89,7 +108,12 @@ class Policy(Component):
                 self.distributions[flat_key] = Categorical(scope="categorical-{}".format(i))
             # Continuous action space -> Normal distribution (each action needs mean and variance from network).
             elif isinstance(action_component, FloatBox):
-                self.distributions[flat_key] = Normal(scope="normal-{}".format(i))
+                # Unbounded -> Normal distribution.
+                if self.bounded_action_space is False:
+                    self.distributions[flat_key] = Normal(scope="normal-{}".format(i))
+                # Bounded -> Beta distribution.
+                else:
+                    self.distributions[flat_key] = Beta(scope="beta-{}".format(i))
             else:
                 raise RLGraphError("ERROR: `action_component` is of type {} and not allowed in {} Component!".
                                    format(type(action_space).__name__, self.name))
@@ -129,6 +153,30 @@ class Policy(Component):
         return dict(output=action_layer_outputs, last_internal_states=nn_output["last_internal_states"])
 
     @rlgraph_api
+    def get_logits_parameters_log_probs(self, nn_input, internal_states=None):
+        """
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            Dict:
+                logits: The (reshaped) logits from the ActionAdapter.
+                parameters: The parameters for the distribution (gained from the softmaxed logits or interpreting
+                    logits as mean and stddev for a normal distribution).
+                log_probs: The log(probabilities) values.
+        """
+        nn_output = self.get_nn_output(nn_input, internal_states)
+        logits, parameters, log_probs = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
+            nn_output["output"], nn_input
+        )
+
+        return dict(
+            logits=logits, parameters=parameters, log_probs=log_probs,
+            last_internal_states=nn_output["last_internal_states"]
+        )
+
+    @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
         """
         Args:
@@ -141,13 +189,15 @@ class Policy(Component):
                 probabilities: The probabilities gained from the softmaxed logits.
                 log_probs: The log(probabilities) values.
         """
+        self.logger.warn("Deprecated API method `get_logits_probabilities_log_probs` used!"
+                         "Use `get_logits_parameters_log_probs` instead.")
         nn_output = self.get_nn_output(nn_input, internal_states)
-        logits, probabilities, log_probs = self._graph_fn_get_action_adapter_logits_probabilities_log_probs(
+        logits, parameters, log_probs = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
             nn_output["output"], nn_input
         )
 
         return dict(
-            logits=logits, probabilities=probabilities, log_probs=log_probs,
+            logits=logits, probabilities=parameters, parameters=parameters, log_probs=log_probs,
             last_internal_states=nn_output["last_internal_states"]
         )
 
@@ -169,10 +219,31 @@ class Policy(Component):
         """
         deterministic = self.deterministic if deterministic is None else deterministic
 
-        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
-        action = self._graph_fn_get_action_components(out["logits"], out["probabilities"], deterministic)
+        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
+        action = self._graph_fn_get_action_components(out["logits"], out["parameters"], deterministic)
 
         return dict(action=action, last_internal_states=out["last_internal_states"])
+
+    @rlgraph_api
+    def get_action_from_logits_and_parameters(self, logits, parameters, deterministic=None):
+        """
+        Returns an action based on NN output, action adapter output and distribution sampling.
+
+        Args:
+            logits (any): The `logits` output from `self.get_logits_probabilities_log_probs`.
+            parameters (any): The `parameters` output from `self.get_logits_parameters_log_probs`. Not
+                really needed if action_space is all discrete.
+            deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
+                from the distribution in max-likelihood (deterministic) or stochastic fashion.
+
+        Returns:
+            any: The drawn action.
+        """
+        deterministic = self.deterministic if deterministic is None else deterministic
+
+        action = self._graph_fn_get_action_components(logits, parameters, deterministic)
+
+        return dict(action=action)
 
     @rlgraph_api
     def get_action_from_logits_and_probabilities(self, logits, probabilities, deterministic=None):
@@ -189,6 +260,9 @@ class Policy(Component):
         Returns:
             any: The drawn action.
         """
+        self.logger.warn("Deprecated API method `get_action_from_logits_and_probabilities` used!"
+                         "Use `get_action_from_logits_and_parameters` instead.")
+
         deterministic = self.deterministic if deterministic is None else deterministic
 
         action = self._graph_fn_get_action_components(logits, probabilities, deterministic)
@@ -203,16 +277,15 @@ class Policy(Component):
         Args:
             nn_input (any): The input to our neural network.
             actions (any): The actions for which to get log-probs returned.
-
             internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Log-probs of actions under current policy
         """
-        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
+        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
 
         # Probabilities under current action.
-        action_log_probs = self._graph_fn_get_distribution_log_probs(out["probabilities"], actions)
+        action_log_probs = self._graph_fn_get_distribution_log_probs(out["parameters"], actions)
 
         return dict(action_log_probs=action_log_probs, logits=out["logits"],
                     last_internal_states=out["last_internal_states"])
@@ -227,8 +300,8 @@ class Policy(Component):
         Returns:
             any: See `get_action`, but with deterministic force set to True.
         """
-        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
-        action = self._graph_fn_get_action_components(out["logits"], out["probabilities"], True)
+        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
+        action = self._graph_fn_get_action_components(out["logits"], out["parameters"], True)
 
         return dict(action=action, last_internal_states=out["last_internal_states"])
 
@@ -242,8 +315,8 @@ class Policy(Component):
         Returns:
             any: See `get_action`, but with deterministic force set to False.
         """
-        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
-        action = self._graph_fn_get_action_components(out["logits"], out["probabilities"], False)
+        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
+        action = self._graph_fn_get_action_components(out["logits"], out["parameters"], False)
 
         return dict(action=action, last_internal_states=out["last_internal_states"])
 
@@ -257,8 +330,8 @@ class Policy(Component):
         Returns:
             any: See Distribution component.
         """
-        out = self.get_logits_probabilities_log_probs(nn_input, internal_states)
-        entropy = self._graph_fn_get_distribution_entropies(out["probabilities"])
+        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
+        entropy = self._graph_fn_get_distribution_entropies(out["parameters"])
 
         return dict(entropy=entropy, last_internal_states=out["last_internal_states"])
 
@@ -284,9 +357,9 @@ class Policy(Component):
         return ret
 
     @graph_fn(flatten_ops={1})
-    def _graph_fn_get_action_adapter_logits_probabilities_log_probs(self, nn_output, nn_input):
+    def _graph_fn_get_action_adapter_logits_parameters_log_probs(self, nn_output, nn_input):
         """
-        Pushes the given nn_output through all our action adapters' get_logits_probabilities_log_probs API's and
+        Pushes the given nn_output through all our action adapters' get_logits_parameters_log_probs API's and
         returns a DataOpDict with the keys corresponding to our `action_space`.
 
         Args:
@@ -295,73 +368,76 @@ class Policy(Component):
         Returns:
             tuple:
                 - FlattenedDataOp: A DataOpDict with the different action adapters' logits outputs.
-                - FlattenedDataOp: A DataOpDict with the different action adapters' probabilities outputs.
+                - FlattenedDataOp: A DataOpDict with the different action adapters' parameters outputs.
                 - FlattenedDataOp: A DataOpDict with the different action adapters' log_probs outputs.
             Note: Keys always correspond to structure of `self.action_space`.
         """
         logits = FlattenedDataOp()
-        probabilities = FlattenedDataOp()
+        parameters = FlattenedDataOp()
         log_probs = FlattenedDataOp()
 
         if isinstance(nn_input, dict):
             nn_input = next(iter(nn_input.values()))
 
         for flat_key, action_adapter in self.action_adapters.items():
-            out = action_adapter.get_logits_probabilities_log_probs(nn_output, nn_input)
-            logits[flat_key], probabilities[flat_key], log_probs[flat_key] = \
-                out["logits"], out["probabilities"], out["log_probs"]
+            out = action_adapter.get_logits_parameters_log_probs(nn_output, nn_input)
+            logits[flat_key], parameters[flat_key], log_probs[flat_key] = \
+                out["logits"], out["parameters"], out["log_probs"]
 
-        return logits, probabilities, log_probs
+        return logits, parameters, log_probs
+
+    #@graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    #def _graph_fn_get_distribution_outputs(self, key, parameters, deterministic):
+    #    """
+    #    Pushes the given `probabilities` through all our distributions' `draw` API-methods and returns a DataOpDict with
+    #    the keys corresponding to our `action_space`.
+    #
+    #    Args:
+    #        parameters (DataOp): The parameters to define a distribution.
+    #        deterministic (DataOp): Passed on to the distributions. Whether to sample deterministically or not.
+    #
+    #    Returns:
+    #        FlattenedDataOp: A DataOpDict with the different distributions' `draw` outputs. Keys always correspond to
+    #            structure of `self.action_space`.
+    #    """
+    #    return self.distributions[key].draw(parameters, deterministic)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_distribution_outputs(self, key, probabilities, deterministic):
-        """
-        Pushes the given `probabilities` through all our distributions' `draw` API-methods and returns a DataOpDict with
-        the keys corresponding to our `action_space`.
-
-        Args:
-            probabilities (DataOp): The parameters to define a distribution.
-            deterministic (DataOp): Passed on to the distributions. Whether to sample deterministically or not.
-
-        Returns:
-            FlattenedDataOp: A DataOpDict with the different distributions' `draw` outputs. Keys always correspond to
-                structure of `self.action_space`.
-        """
-        return self.distributions[key].draw(probabilities, deterministic)
-
-    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_distribution_entropies(self, key, probabilities):
+    def _graph_fn_get_distribution_entropies(self, key, parameters):
         """
         Pushes the given `probabilities` through all our distributions' `entropy` API-methods and returns a
         DataOpDict with the keys corresponding to our `action_space`.
 
         Args:
-            probabilities (DataOp): The parameters to define a distribution.
+            parameters (DataOp): The parameters to define a distribution.
 
         Returns:
             FlattenedDataOp: A DataOpDict with the different distributions' `entropy` outputs. Keys always correspond to
                 structure of `self.action_space`.
         """
-        return self.distributions[key].entropy(probabilities)
+        return self.distributions[key].entropy(parameters)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_distribution_log_probs(self, key, probabilities, actions):
+    def _graph_fn_get_distribution_log_probs(self, key, parameters, actions):
         """
         Pushes the given `probabilities` and actions through all our distributions' `log_prob` API-methods and returns a
         DataOpDict with the keys corresponding to our `action_space`.
 
         Args:
-            probabilities (DataOp): The parameters to define a distribution.
+            parameters (DataOp): The parameters to define a distribution.
             actions (DataOp): The actions for which to return the log-probs.
 
         Returns:
             FlattenedDataOp: A DataOpDict with the different distributions' `log_prob` outputs. Keys always correspond
                 to structure of `self.action_space`.
         """
-        return self.distributions[key].log_prob(probabilities, actions)
+        # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
+        if self.bounded_action_space[key] is True:
+            actions = (actions - self.action_space.low) / (self.action_space.high - self.action_space.low)
+        return self.distributions[key].log_prob(parameters, actions)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_action_components(self, key, logits, probabilities, deterministic):
+    def _graph_fn_get_action_components(self, key, logits, parameters, deterministic):
         flat_action_space = self.action_space.flatten()
         action_space_component = flat_action_space[key]
 
@@ -370,11 +446,14 @@ class Policy(Component):
         # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
         if isinstance(action_space_component, IntBox) and \
                 (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
-            action = self._graph_fn_get_deterministic_action_wo_distribution(logits)
+            actions = self._graph_fn_get_deterministic_action_wo_distribution(logits)
         else:
-            action = self.distributions[key].draw(probabilities, deterministic)
+            actions = self.distributions[key].draw(parameters, deterministic)
+            # If a bounded space (Beta distribution output between 0.0 and 1.0) -> scale correctly.
+            if self.bounded_action_space[key] is True:
+                actions = actions * (self.action_space.high - self.action_space.low) + self.action_space.low
 
-        return action
+        return actions
 
     @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_get_deterministic_action_wo_distribution(self, logits):

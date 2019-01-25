@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ import numpy as np
 
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
-from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
+from rlgraph.spaces.containers import Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
-from rlgraph.utils.util import RLGraphError, convert_dtype, get_shape
+from rlgraph.utils.util import RLGraphError, convert_dtype, get_shape, LARGE_INTEGER
 
 if get_backend() == "pytorch":
     import torch
@@ -198,6 +198,7 @@ def sanity_check_space(
         space, allowed_types=None, allowed_sub_types=None, non_allowed_types=None, non_allowed_sub_types=None,
         must_have_batch_rank=None, must_have_time_rank=None, must_have_batch_or_time_rank=False,
         must_have_categories=None, num_categories=None,
+        must_have_lower_limit=None, must_have_upper_limit=None,
         rank=None
 ):
     """
@@ -230,6 +231,9 @@ def sanity_check_space(
         num_categories (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's
             `num_categories` rank must lie. Only valid for IntBoxes.
             None if it doesn't matter.
+
+        must_have_lower_limit (Optional[bool]): If not None, whether this Space must have a lower limit.
+        must_have_upper_limit (Optional[bool]): If not None, whether this Space must have an upper limit.
 
         rank (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's rank must lie.
             None if it doesn't matter.
@@ -299,6 +303,26 @@ def sanity_check_space(
             elif sub_space.global_bounds is False:
                 raise RLGraphError("ERROR: Space {}({}) must have categories (globally valid value bounds)!".
                                    format("" if flat_key == "" else "'{}' ".format(flat_key), space))
+
+    if must_have_lower_limit is not None:
+        for flat_key, sub_space in flattened_space.items():
+            low = sub_space.low
+            if must_have_lower_limit is True and (low == -LARGE_INTEGER or low == float("-inf")):
+                raise RLGraphError("ERROR: Space {}({}) must have a lower limit, but has none!".
+                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space))
+            elif must_have_lower_limit is False and (low != -LARGE_INTEGER and low != float("-inf")):
+                raise RLGraphError("ERROR: Space {}({}) must not have a lower limit, but has one ({})!".
+                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space, low))
+
+    if must_have_upper_limit is not None:
+        for flat_key, sub_space in flattened_space.items():
+            high = sub_space.high
+            if must_have_upper_limit is True and (high != LARGE_INTEGER and high != float("inf")):
+                raise RLGraphError("ERROR: Space {}({}) must have an upper limit, but has none!".
+                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space))
+            elif must_have_upper_limit is False and (high == LARGE_INTEGER or high == float("inf")):
+                raise RLGraphError("ERROR: Space {}({}) must not have a upper limit, but has one ({})!".
+                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space, high))
 
     if rank is not None:
         if isinstance(rank, int):

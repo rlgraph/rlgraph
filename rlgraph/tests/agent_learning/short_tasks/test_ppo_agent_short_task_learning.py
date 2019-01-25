@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,6 +74,34 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         )
 
         time_steps = 3000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env,
+            agent=agent,
+            worker_executes_preprocessing=False,
+            render=self.is_windows
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        print(results)
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        #self.assertGreaterEqual(results["mean_episode_reward"], 23)
+        #self.assertGreaterEqual(results["max_episode_reward"], 100.0)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 10)
+
+    def test_ppo_on_continuous_action_environment(self):
+        """
+        Creates a PPO Agent and runs it via a Runner on the CartPole Env.
+        """
+        env = OpenAIGymEnv("Pendulum-v0", seed=652)
+        agent = PPOAgent.from_spec(
+            config_from_path("configs/ppo_agent_for_pendulum.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+
+        time_steps = 100000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,

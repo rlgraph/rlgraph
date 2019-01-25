@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
+                parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space
@@ -154,6 +155,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
+                parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space,
@@ -282,6 +284,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
+                parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space,
@@ -451,7 +454,8 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
                 nn_input=nn_input_space,
                 actions=action_space,
                 logits=flat_float_action_space,
-                probabilities=flat_float_action_space
+                probabilities=flat_float_action_space,
+                parameters=flat_float_action_space
             ),
             action_space=action_space
         )

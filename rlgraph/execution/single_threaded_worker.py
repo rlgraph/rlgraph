@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -217,7 +217,7 @@ class SingleThreadedWorker(Worker):
                 )
                 preprocessed_states = np.array(self.preprocessed_states_buffer)
             else:
-                preprocessed_states, actions = self.agent.get_action(
+                actions, preprocessed_states = self.agent.get_action(
                     states=np.array(env_states), use_exploration=use_exploration,
                     apply_preprocessing=True, extra_returns="preprocessed_states"
                 )

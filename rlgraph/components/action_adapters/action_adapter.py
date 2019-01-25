@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
-from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
@@ -87,8 +87,11 @@ class ActionAdapter(NeuralNetwork):
         else:
             if units is None:
                 units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
-            # Manually add moments after batch/time ranks.
-            new_shape = tuple([2] + list(self.action_space.shape))
+            # Add moments (2x for each action item).
+            if self.action_space.shape == ():
+                new_shape = (2,)
+            else:
+                new_shape = tuple(list(self.action_space.shape[:-1]) + [self.action_space.shape[-1] * 2])
 
         assert units > 0, "ERROR: Number of nodes for action-layer calculated as {}! Must be larger 0.".format(units)
 
@@ -116,10 +119,9 @@ class ActionAdapter(NeuralNetwork):
 
         # Check the action Space.
         sanity_check_space(self.action_space, must_have_batch_rank=True)
+        # IntBoxes must have categories.
         if isinstance(self.action_space, IntBox):
             sanity_check_space(self.action_space, must_have_categories=True)
-        # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
-        #else:
 
 #    @rlgraph_api
 #    def get_raw_output(self, nn_output):
@@ -158,6 +160,25 @@ class ActionAdapter(NeuralNetwork):
         return logits_out["output"]
 
     @rlgraph_api
+    def get_logits_parameters_log_probs(self, nn_output, nn_input=None):
+        """
+        Args:
+            nn_output (DataOpRecord): The NN output of the preceding neural network.
+            nn_input (DataOpRecord): The NN input  of the preceding neural network (needed for optional time-rank
+                folding/unfolding purposes).
+
+        Returns:
+            Dict[str,SingleDataOp]:
+                - "logits": The raw nn_output, only reshaped according to the action_space.
+                - "parameters": The softmaxed(logits) for the discrete case and the mean/std values for the continuous
+                    case.
+                - "log_probs": log([action probabilities])
+        """
+        logits = self.get_logits(nn_output, nn_input)
+        parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
+        return dict(logits=logits, parameters=parameters, log_probs=log_probs)
+
+    @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
         """
         Args:
@@ -169,13 +190,34 @@ class ActionAdapter(NeuralNetwork):
                 - probabilities (softmaxed(logits))
                 - log(probabilities)
         """
+        self.logger.warn("Deprecated API method `get_logits_probabilities_log_probs` used! "
+                         "Use `get_logits_parameters_log_probs` instead.")
         logits = self.get_logits(nn_output, nn_input)
-        probabilities, log_probs = self._graph_fn_get_probabilities_log_probs(logits)
+        probabilities, log_probs = self._graph_fn_get_parameters_log_probs(logits)
         return dict(logits=logits, probabilities=probabilities, log_probs=log_probs)
+
+    @rlgraph_api
+    def get_logits_parameters_log_probs(self, nn_output, nn_input=None):
+        """
+        Args:
+            nn_output (DataOpRecord): The NN output of the preceding neural network.
+            nn_input (DataOpRecord): The NN input  of the preceding neural network (needed for optional time-rank
+                folding/unfolding purposes).
+
+        Returns:
+            Dict[str,SingleDataOp]:
+                - "logits": The raw nn_output, only reshaped according to the action_space.
+                - "parameters": The softmaxed(logits) for the discrete case and the mean/std values for the continuous
+                    case.
+                - "log_probs": log([action probabilities])
+        """
+        logits = self.get_logits(nn_output, nn_input)
+        parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
+        return dict(logits=logits, parameters=parameters, log_probs=log_probs)
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
-    def _graph_fn_get_probabilities_log_probs(self, logits):
+    def _graph_fn_get_parameters_log_probs(self, logits):
         """
         Creates properties/parameters and log-probs from some reshaped output.
 
@@ -189,33 +231,46 @@ class ActionAdapter(NeuralNetwork):
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
                 log_probs (DataOp): Simply the log(parameters).
         """
+        parameters = None
+        log_probs = None
+
         if get_backend() == "tf":
+            # Discrete actions.
             if isinstance(self.action_space, IntBox):
-                # Discrete actions.
                 parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
                 parameters._batch_rank = 0
                 # Log probs.
                 log_probs = tf.log(x=parameters)
                 log_probs._batch_rank = 0
+
+            # Continuous actions.
             elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
-                # Remove moments rank.
-                mean = tf.squeeze(input=mean, axis=1)
-                log_sd = tf.squeeze(input=log_sd, axis=1)
+                # Unbounded -> Normal distribution.
+                if self.action_space.unbounded:
+                    mean, log_sd = tf.split(logits, num_or_size_splits=2, axis=-1)
 
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
+                    # Clip log_sd. log(SMALL_NUMBER) is negative.
+                    log_sd = tf.clip_by_value(log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
 
-                # Turn log sd into sd.
-                sd = tf.exp(x=log_sd)
+                    # Turn log sd into sd.
+                    sd = tf.exp(log_sd)
 
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(tf.log(x=mean), log_sd)
-            else:
-                raise NotImplementedError
+                    # Merge again.
+                    parameters = tf.concat([mean, sd], axis=-1)
+                    log_probs = tf.concat([tf.log(mean), log_sd], axis=-1)
+                    parameters._batch_rank = 0
+                    log_probs._batch_rank = 0
 
-            return parameters, log_probs
+                # Bounded -> Beta distribution.
+                else:
+                    # Stabilize both alpha and beta (currently together in parameters).
+                    parameters = tf.clip_by_value(
+                        logits, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
+                    )
+                    parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
+                    parameters._batch_rank = 0
+                    log_probs = tf.log(parameters)
+                    log_probs._batch_rank = 0
 
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
@@ -225,21 +280,26 @@ class ActionAdapter(NeuralNetwork):
                 # Log probs.
                 log_probs = torch.log(parameters)
             elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
-                # Remove moments rank.
-                mean = torch.squeeze(mean, dim=1)
-                log_sd = torch.squeeze(log_sd, dim=1)
+                # Unbounded -> Normal distribution.
+                if self.action_space.unbounded:
+                    # Continuous actions.
+                    mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
 
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
+                    # Clip log_sd. log(SMALL_NUMBER) is negative.
+                    log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
 
-                # Turn log sd into sd.
-                sd = torch.exp(log_sd)
+                    # Turn log sd into sd.
+                    sd = torch.exp(log_sd)
 
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(torch.log(mean), log_sd)
-            else:
-                raise NotImplementedError
+                    parameters = torch.cat([mean, sd], -1)
+                    log_probs = torch.cat([torch.log(mean), log_sd], -1)
+                # Bounded -> Beta distribution.
+                else:
+                    # Stabilize both alpha and beta (currently together in parameters).
+                    parameters = torch.clamp(
+                        logits, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
+                    )
+                    parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
+                    log_probs = torch.log(parameters)
 
-            return parameters, log_probs
+        return parameters, log_probs
