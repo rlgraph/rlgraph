@@ -49,3 +49,26 @@ class TestSyncBatchExecutor(unittest.TestCase):
                                                          report_interval_min_seconds=1))
         print("Finished executing workload:")
         print(result)
+
+    def test_ppo_learning_pendulum(self):
+        """
+        Tests if sync-batch ppo can solve Pendulum.
+        """
+        env_spec = dict(
+            type="openai",
+            gym_env="Pendulum-v0"
+        )
+        agent_config = config_from_path("configs/sync_batch_ppo_pendulum.json")
+
+        executor = SyncBatchExecutor(
+            environment_spec=env_spec,
+            agent_config=agent_config,
+        )
+        # Define executor, test assembly.
+        print("Successfully created executor.")
+
+        # Executes actual workload.
+        result = executor.execute_workload(workload=dict(num_timesteps=20000, report_interval=1000,
+                                                         report_interval_min_seconds=1))
+        print("Finished executing workload:")
+        print(result)

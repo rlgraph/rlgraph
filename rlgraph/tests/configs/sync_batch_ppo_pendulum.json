@@ -64,9 +64,35 @@
     "type": "adam",
     "learning_rate": 0.0003
   },
-  
+
   "value_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0003
+  },
+  "execution_spec": {
+    "session_config": {
+      "log_device_placement": false,
+      "allow_soft_placement": true
+    },
+    "ray_spec": {
+      "executor_spec": {
+        "redis_address": null,
+        "num_cpus": 8,
+        "num_gpus": 0,
+        "num_worker_samples": 100,
+        "num_sample_workers": 4
+      },
+      "worker_spec": {
+        "num_worker_environments": 2,
+        "num_background_envs": 1,
+        "execution_spec": {
+          "gpu_spec": { "gpus_enabled" : false}
+        },
+        "worker_computes_weights": true,
+        "sample_exploration": false,
+        "exploration_min_value": 0.5,
+        "compress_states": false
+      }
+    }
   }
 }
