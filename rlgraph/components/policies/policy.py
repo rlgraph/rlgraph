@@ -82,6 +82,25 @@ class Policy(Component):
 
         self.deterministic = deterministic
 
+        # Check for bounded FloatBoxes.
+        self.bounded_action_space = dict()
+        for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
+            if isinstance(action_component, FloatBox):
+                # Unbounded.
+                if action_component.low == float("-inf") and action_component.high == float("inf"):
+                    self.bounded_action_space[flat_key] = False
+                # Bounded.
+                elif action_component.low != float("-inf") and action_component.high != float("inf"):
+                    self.bounded_action_space[flat_key] = True
+                # TODO: Semi-bounded -> Exponential distribution.
+                else:
+                    raise RLGraphError(
+                        "Semi-bounded action spaces are not supported yet! You passed in low={} high={}.".\
+                        format(action_component.low, action_component.high)
+                    )
+            else:
+                self.bounded_action_space[flat_key] = None
+
         # Figure out our Distributions.
         self.distributions = dict()
         for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
@@ -102,24 +121,6 @@ class Policy(Component):
         self.add_components(
             *[self.neural_network] + list(self.action_adapters.values()) + list(self.distributions.values())
         )
-
-        self.bounded_action_space = None
-
-    def check_input_spaces(self, input_spaces, action_space=None):
-        # Check for bounded FloatBoxes.
-        if isinstance(action_space, FloatBox):
-            # Unbounded.
-            if action_space.low == float("-inf") and action_space.high == float("inf"):
-                self.bounded_action_space = True
-            # Bounded.
-            elif action_space.low != float("-inf") and action_space.high != float("inf"):
-                self.bounded_action_space = False
-            # TODO: Semi-bounded -> Exponential distribution.
-            else:
-                raise RLGraphError(
-                    "Semi-bounded action spaces are not supported yet! You passed in low={} high={}.".\
-                    format(action_space.low, action_space.high)
-                )
 
     # Define our interface.
     @rlgraph_api
@@ -276,7 +277,6 @@ class Policy(Component):
         Args:
             nn_input (any): The input to our neural network.
             actions (any): The actions for which to get log-probs returned.
-
             internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
@@ -432,7 +432,7 @@ class Policy(Component):
                 to structure of `self.action_space`.
         """
         # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
-        if self.bounded_action_space is True:
+        if self.bounded_action_space[key] is True:
             actions = (actions - self.action_space.low) / (self.action_space.high - self.action_space.low)
         return self.distributions[key].log_prob(parameters, actions)
 
@@ -450,7 +450,7 @@ class Policy(Component):
         else:
             actions = self.distributions[key].draw(parameters, deterministic)
             # If a bounded space (Beta distribution output between 0.0 and 1.0) -> scale correctly.
-            if self.bounded_action_space is True:
+            if self.bounded_action_space[key] is True:
                 actions = actions * (self.action_space.high - self.action_space.low) + self.action_space.low
 
         return actions
