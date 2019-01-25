@@ -185,3 +185,36 @@ class TestDistributions(unittest.TestCase):
             outs.append(out)
 
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+
+    def test_beta(self):
+        # Create 5 beta distributions (2 parameters (alpha and beta) each).
+        param_space = FloatBox(shape=(10,), add_batch_rank=True)
+        input_spaces = dict(
+            parameters=param_space,
+            deterministic=bool,
+        )
+
+        # The Component to test.
+        beta_distribution = Beta(switched_off_apis={"log_prob", "kl_divergence"})
+        test = ComponentTest(component=beta_distribution, input_spaces=input_spaces)
+
+        # Batch of size=2 and deterministic (True).
+        input_ = [input_spaces["parameters"].sample(1), True]
+        # Mean for a Beta distribution: 1 / [1 + (beta/alpha)]
+        expected = 1.0 / (1.0 + input_[0][:, :5] / input_[0][:, 5:])
+        # Sample n times, expect always mean value (deterministic draw).
+        for _ in range(50):
+            test.test(("draw", input_), expected_outputs=expected)
+            test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+
+        # Batch of size=1 and non-deterministic -> expect roughly the mean.
+        input_ = [input_spaces["parameters"].sample(1), False]
+        expected = 1.0 / (1.0 + input_[0][:, :5] / input_[0][:, 5:])
+        outs = []
+        for _ in range(50):
+            out = test.test(("draw", input_))
+            outs.append(out)
+            out = test.test(("sample_stochastic", input_[0]))
+            outs.append(out)
+
+        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
