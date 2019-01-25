@@ -237,7 +237,8 @@ class TestPreprocessLayers(unittest.TestCase):
 
     def test_moving_standardize_python(self):
         env = OpenAIGymEnv("Pong-v0")
-        space = env.state_space.with_batch_rank()
+        space = env.state_space
+
         moving_standardize = MovingStandardize(backend="python")
         moving_standardize.create_variables(input_spaces=dict(
                     preprocessing_inputs=space
@@ -248,14 +249,15 @@ class TestPreprocessLayers(unittest.TestCase):
             out = moving_standardize._graph_fn_apply(sample)
 
         # Assert shape remains intact.
-        self.assertEqual(space.shape,  moving_standardize.mean_est.shape)
+        expected_shape = (1, ) + space.shape
+        self.assertEqual(expected_shape,  moving_standardize.mean_est.shape)
         # Assert mean estimate.
         expected_mean = np.mean(samples, axis=0)
-        recursive_assert_almost_equal(moving_standardize.mean_est, expected_mean, decimals=3)
+        self.assertTrue(np.allclose(moving_standardize.mean_est, expected_mean))
 
         expected_variance = np.var(samples, ddof=1, axis=0)
         variance_estimate = moving_standardize.std_sum_est / (moving_standardize.sample_count - 1.0)
-        self.assertEqual(space.shape,  variance_estimate.shape)
+        self.assertEqual(expected_shape,  variance_estimate.shape)
         self.assertTrue(np.allclose(variance_estimate, expected_variance))
 
         std = np.sqrt(variance_estimate) + SMALL_NUMBER
