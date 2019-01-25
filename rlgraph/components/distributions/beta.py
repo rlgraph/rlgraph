@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.spaces import Tuple
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -44,7 +44,7 @@ class Beta(Distribution):
             "ERROR: {} (Distribution) ({}) needs an incoming Tuple with len=2!".format(type(self).__name__,
                                                                                        self.name)
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             concentration0, concentration1 = tf.split(parameters, num_or_size_splits=2, axis=-1)

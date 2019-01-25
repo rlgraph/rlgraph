@@ -76,43 +76,43 @@ class Distribution(Component):
     # Now use that API-method to get the distribution object to implement all other API-methods.
     @rlgraph_api
     def sample_stochastic(self, parameters):
-        distribution = self._graph_fn_get_distribution(parameters)
+        distribution = self.get_distribution(parameters)
         return self._graph_fn_sample_stochastic(distribution)
 
     @rlgraph_api
     def sample_deterministic(self, parameters):
-        distribution = self._graph_fn_get_distribution(parameters)
+        distribution = self.get_distribution(parameters)
         return self._graph_fn_sample_deterministic(distribution)
 
     @rlgraph_api
     def draw(self, parameters, deterministic=True):
-        distribution = self._graph_fn_get_distribution(parameters)
+        distribution = self.get_distribution(parameters)
         return self._graph_fn_draw(distribution, deterministic)
 
     @rlgraph_api
     def entropy(self, parameters):
-        distribution = self._graph_fn_get_distribution(parameters)
+        distribution = self.get_distribution(parameters)
         return self._graph_fn_entropy(distribution)
 
     @rlgraph_api(must_be_complete=False)
     def log_prob(self, parameters, values):
-        distribution = self._graph_fn_get_distribution(parameters)
+        distribution = self.get_distribution(parameters)
         return self._graph_fn_log_prob(distribution, values)
 
     @rlgraph_api(must_be_complete=False)
     def kl_divergence(self, parameters, other_parameters):
-        distribution = self._graph_fn_get_distribution(parameters)
+        distribution = self.get_distribution(parameters)
         other_distribution = self._graph_fn_get_distribution(other_parameters)
         return self._graph_fn_kl_divergence(distribution, other_distribution)
 
     @rlgraph_api
-    def _graph_fn_get_distribution(self, *parameters):
+    def _graph_fn_get_distribution(self, parameters):
         """
         Parameterizes this distribution (normally from an NN-output vector). Returns
         the backend-distribution object (a DataOp).
 
         Args:
-            *parameters (DataOp): The input(s) used to parameterize this distribution. This is normally a cleaned up
+            parameters (DataOp): The input(s) used to parameterize this distribution. This is normally a cleaned up
                 single NN-output that (e.g.: the two values for mean and variance for a univariate Gaussian
                 distribution).
 

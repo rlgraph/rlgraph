@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.spaces import Tuple
 from rlgraph.components.distributions.distribution import Distribution
-from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -44,7 +44,7 @@ class Normal(Distribution):
             "ERROR: API-method `get_distribution` of '{}' (type '') needs parameter arg to be a Tuple with " \
             "len=2!".format(self.name, type(self).__name__)
 
-    @graph_fn
+    @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             mean, stddev = tf.split(parameters, num_or_size_splits=2, axis=-1)
