@@ -63,6 +63,7 @@ class MovingStandardize(PreprocessLayer):
     @rlgraph_api
     def _graph_fn_apply(self, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+            # https: // www.johndcook.com / blog / standard_deviation /
             preprocessing_inputs = np.asarray(preprocessing_inputs)
             prev_count = self.sample_count
             self.sample_count += 1
@@ -78,7 +79,7 @@ class MovingStandardize(PreprocessLayer):
 
             # Estimate variance via sum of variance.
             if self.sample_count > 1:
-                var_estimate = self.std_sum_est (self.sample_count - 1)
+                var_estimate = self.std_sum_est / (self.sample_count - 1)
             else:
                 var_estimate = np.square(self.mean_est)
             std = np.sqrt(var_estimate) + SMALL_NUMBER
@@ -86,4 +87,11 @@ class MovingStandardize(PreprocessLayer):
             return standardized / std
 
         elif get_backend() == "tf":
-            pass
+            updates = []
+            # 1. Update vars
+
+            # 2. Compute var estimate after update.
+            with tf.control_dependencies(updates):
+                pass
+
+
