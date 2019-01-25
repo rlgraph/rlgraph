@@ -2,10 +2,10 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": false,
-  "clip_ratio": 0.2,
+  "clip_ratio": 0.3,
   "discount": 0.95,
   "gae_lambda": 0.1,
-  "weight_entropy": 0.01,
+  "weight_entropy": 0.001,
 
   "memory_spec":
   {
@@ -13,12 +13,12 @@
     "capacity": 4096
   },
 
-  "preprocessing_spec":
-  [],
-
-  "observe_spec": {
-    "buffer_size": 4096
-  },
+  "preprocessing_spec": [
+    {
+      "type": "moving_standardize",
+      "scope": "moving-standardize"
+    }
+  ],
 
   "network_spec":
   [
@@ -39,13 +39,13 @@
   [
     {
       "type": "dense",
-      "units": 32,
+      "units": 64,
       "activation": "tanh",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
-      "units": 32,
+      "units": 64,
       "activation": "tanh",
       "scope": "vf-hidden2"
     }
@@ -57,17 +57,17 @@
     "update_interval": 2048,
     "batch_size": 2048,
     "num_iterations": 10,
-    "sample_size": 64
+    "sample_size": 128
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001
+    "learning_rate": 0.00025
   },
 
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001
+    "learning_rate": 0.00025
   },
   "execution_spec": {
     "session_config": {
@@ -88,9 +88,6 @@
         "execution_spec": {
           "gpu_spec": { "gpus_enabled" : false}
         },
-        "worker_computes_weights": true,
-        "sample_exploration": false,
-        "exploration_min_value": 0.5,
         "compress_states": false
       }
     }

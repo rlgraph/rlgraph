@@ -2,7 +2,7 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": false,
-  "clip_ratio": 0.2,
+  "clip_ratio": 0.3,
   "discount": 0.95,
   "gae_lambda": 0.1,
   "weight_entropy": 0.01,
@@ -13,9 +13,12 @@
     "capacity": 4096
   },
 
-  "preprocessing_spec":
-  [],
-
+   "preprocessing_spec": [
+    {
+      "type": "moving_standardize",
+      "scope": "moving-standardize"
+    }
+  ],
   "observe_spec": {
     "buffer_size": 4096
   },
@@ -39,13 +42,13 @@
   [
     {
       "type": "dense",
-      "units": 32,
+      "units": 64,
       "activation": "tanh",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
-      "units": 32,
+      "units": 64,
       "activation": "tanh",
       "scope": "vf-hidden2"
     }
