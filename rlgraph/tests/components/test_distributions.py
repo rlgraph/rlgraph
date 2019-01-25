@@ -94,47 +94,6 @@ class TestDistributions(unittest.TestCase):
 
         recursive_assert_almost_equal(np.mean(outs), 1.0, decimals=1)
 
-    # def test_categorical_on_different_space(self):
-    #     # Create 5 categorical distributions of 2 categories each.
-    #     param_space = FloatBox(shape=(5, 2), add_batch_rank=True)
-    #     input_spaces = dict(
-    #         parameters=param_space,
-    #         deterministic=bool
-    #     )
-    #
-    #     # The Component to test.
-    #     categorical = Categorical(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
-    #     test = ComponentTest(component=categorical, input_spaces=input_spaces)
-    #
-    #     # Batch of size=1 and deterministic.
-    #     input_ = np.array([[[0.5, 0.5],
-    #                         [0.98, 0.02],
-    #                         [0.0, 1.0],
-    #                         [0.2, 0.8],
-    #                         [0.3, 0.6]
-    #                         ]])
-    #     expected = np.array([[0, 0, 1, 1, 1]])
-    #     test.test(("sample_deterministic", input_), expected_outputs=expected)
-    #
-    #     # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
-    #     # by the ComponentTest object).
-    #     input_ = np.array([[[0.25, 0.75],
-    #                         [0.96, 0.04],
-    #                         [0.5, 0.5],
-    #                         [0.05, 0.95],
-    #                         [0.6, 0.4]
-    #                         ],
-    #                        [[0.65, 0.35],
-    #                         [0.0002, 0.9998],
-    #                         [0.82, 0.18],
-    #                         [0.5001, 0.4999],
-    #                         [0.333, 0.667]
-    #                         ]
-    #                        ])
-    #     expected = np.array([[1, 0, 0, 1, 0], [0, 1, 0, 0, 1]])
-    #     test.test(("sample_stochastic", input_), expected_outputs=expected)
-    #
-
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
         param_space = FloatBox(shape=(10,), add_batch_rank=True)
