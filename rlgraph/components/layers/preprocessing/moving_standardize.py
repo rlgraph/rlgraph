@@ -50,22 +50,22 @@ class MovingStandardize(PreprocessLayer):
         self.in_space = in_space
 
         if self.backend == "python" or get_backend() == "python":
-            self.sample_count = 0
-            self.mean_est = np.zeros(in_space.shape)
-            self.std_sum_est = np.zeros(in_space.shape)
+            self.sample_count = 0.0
+            self.mean_est = np.zeros(in_space.shape, dtype=np.float32)
+            self.std_sum_est = np.zeros(in_space.shape, dtype=np.float32)
         elif get_backend() == "tf":
             self.sample_count = self.get_variable(name="sample-count", dtype="float", initializer=0.0, trainable=False)
             self.mean_est = self.get_variable(
-                name="mean-est", trainable=False, from_space=in_space,
+                name="mean-est", shape=in_space.shape, dtype=tf.float32, trainable=False,
                 add_batch_rank=in_space.has_batch_rank)
             self.std_sum_est = self.get_variable(
-                name="std-sum-est", trainable=False, from_space=in_space,
+                name="std-sum-est", shape=in_space.shape, dtype=tf.float32, trainable=False,
                 add_batch_rank=in_space.has_batch_rank)
 
     @rlgraph_api
     def _graph_fn_reset(self):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
-            self.sample_count = 0
+            self.sample_count = 0.0
             self.mean_est = np.zeros(self.in_space.shape)
             self.std_sum_est = np.zeros(self.in_space.shape)
         elif get_backend() == "tf":
@@ -75,21 +75,21 @@ class MovingStandardize(PreprocessLayer):
     def _graph_fn_apply(self, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             # https://www.johndcook.com/blog/standard_deviation/
-            preprocessing_inputs = np.asarray(preprocessing_inputs)
-            self.sample_count += 1
-            if self.sample_count == 1:
-                self.mean_est = preprocessing_inputs
+            preprocessing_inputs = np.asarray(preprocessing_inputs, dtype=np.float32)
+            self.sample_count += 1.0
+            if self.sample_count == 1.0:
+                self.mean_est[...] = preprocessing_inputs
             else:
                 update = preprocessing_inputs - self.mean_est
-                self.mean_est += update / self.sample_count
-                self.std_sum_est += update * update * (self.sample_count - 1) / self.sample_count
+                self.mean_est[...] += update / self.sample_count
+                self.std_sum_est[...] += update * update * (self.sample_count - 1.0) / self.sample_count
 
             # Subtract mean.
             result = preprocessing_inputs - self.mean_est
 
             # Estimate variance via sum of variance.
-            if self.sample_count > 1:
-                var_estimate = self.std_sum_est / (self.sample_count - 1)
+            if self.sample_count > 1.0:
+                var_estimate = self.std_sum_est / (self.sample_count - 1.0)
             else:
                 var_estimate = np.square(self.mean_est)
             std = np.sqrt(var_estimate) + SMALL_NUMBER
