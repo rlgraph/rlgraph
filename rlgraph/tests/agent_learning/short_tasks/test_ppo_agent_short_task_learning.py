@@ -101,7 +101,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        time_steps = 10000
+        time_steps = 100000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,

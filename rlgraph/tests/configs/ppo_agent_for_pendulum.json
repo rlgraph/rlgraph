@@ -10,14 +10,14 @@
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 1000
+    "capacity": 4096
   },
 
   "preprocessing_spec":
   [],
 
   "observe_spec": {
-    "buffer_size": 512
+    "buffer_size": 4096
   },
   
   "execution_spec": {
@@ -59,9 +59,9 @@
     "update_mode": "time_steps",
     "do_updates": true,
     "update_interval": 200,
-    "batch_size": 256,
+    "batch_size": 2048,
     "num_iterations": 10,
-    "sample_size": 50
+    "sample_size": 256
   },
 
   "optimizer_spec": {
