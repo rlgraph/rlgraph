@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical
+from rlgraph.components.distributions import Normal, Categorical, Beta
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.spaces.space import Space
@@ -89,7 +89,12 @@ class Policy(Component):
                 self.distributions[flat_key] = Categorical(scope="categorical-{}".format(i))
             # Continuous action space -> Normal distribution (each action needs mean and variance from network).
             elif isinstance(action_component, FloatBox):
-                self.distributions[flat_key] = Normal(scope="normal-{}".format(i))
+                # Unbounded -> Normal distribution.
+                if self.bounded_action_space is False:
+                    self.distributions[flat_key] = Normal(scope="normal-{}".format(i))
+                # Bounded -> Beta distribution.
+                else:
+                    self.distributions[flat_key] = Beta(scope="beta-{}".format(i))
             else:
                 raise RLGraphError("ERROR: `action_component` is of type {} and not allowed in {} Component!".
                                    format(type(action_space).__name__, self.name))
@@ -97,6 +102,24 @@ class Policy(Component):
         self.add_components(
             *[self.neural_network] + list(self.action_adapters.values()) + list(self.distributions.values())
         )
+
+        self.bounded_action_space = None
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        # Check for bounded FloatBoxes.
+        if isinstance(action_space, FloatBox):
+            # Unbounded.
+            if action_space.low == float("-inf") and action_space.high == float("inf"):
+                self.bounded_action_space = True
+            # Bounded.
+            elif action_space.low != float("-inf") and action_space.high != float("inf"):
+                self.bounded_action_space = False
+            # TODO: Semi-bounded -> Exponential distribution.
+            else:
+                raise RLGraphError(
+                    "Semi-bounded action spaces are not supported yet! You passed in low={} high={}.".\
+                    format(action_space.low, action_space.high)
+                )
 
     # Define our interface.
     @rlgraph_api
@@ -363,21 +386,21 @@ class Policy(Component):
 
         return logits, parameters, log_probs
 
-    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_distribution_outputs(self, key, parameters, deterministic):
-        """
-        Pushes the given `probabilities` through all our distributions' `draw` API-methods and returns a DataOpDict with
-        the keys corresponding to our `action_space`.
-
-        Args:
-            parameters (DataOp): The parameters to define a distribution.
-            deterministic (DataOp): Passed on to the distributions. Whether to sample deterministically or not.
-
-        Returns:
-            FlattenedDataOp: A DataOpDict with the different distributions' `draw` outputs. Keys always correspond to
-                structure of `self.action_space`.
-        """
-        return self.distributions[key].draw(parameters, deterministic)
+    #@graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    #def _graph_fn_get_distribution_outputs(self, key, parameters, deterministic):
+    #    """
+    #    Pushes the given `probabilities` through all our distributions' `draw` API-methods and returns a DataOpDict with
+    #    the keys corresponding to our `action_space`.
+    #
+    #    Args:
+    #        parameters (DataOp): The parameters to define a distribution.
+    #        deterministic (DataOp): Passed on to the distributions. Whether to sample deterministically or not.
+    #
+    #    Returns:
+    #        FlattenedDataOp: A DataOpDict with the different distributions' `draw` outputs. Keys always correspond to
+    #            structure of `self.action_space`.
+    #    """
+    #    return self.distributions[key].draw(parameters, deterministic)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_get_distribution_entropies(self, key, parameters):
@@ -408,6 +431,9 @@ class Policy(Component):
             FlattenedDataOp: A DataOpDict with the different distributions' `log_prob` outputs. Keys always correspond
                 to structure of `self.action_space`.
         """
+        # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
+        if self.bounded_action_space is True:
+            actions = (actions - self.action_space.low) / (self.action_space.high - self.action_space.low)
         return self.distributions[key].log_prob(parameters, actions)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
@@ -420,11 +446,14 @@ class Policy(Component):
         # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
         if isinstance(action_space_component, IntBox) and \
                 (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
-            action = self._graph_fn_get_deterministic_action_wo_distribution(logits)
+            actions = self._graph_fn_get_deterministic_action_wo_distribution(logits)
         else:
-            action = self.distributions[key].draw(parameters, deterministic)
+            actions = self.distributions[key].draw(parameters, deterministic)
+            # If a bounded space (Beta distribution output between 0.0 and 1.0) -> scale correctly.
+            if self.bounded_action_space is True:
+                actions = actions * (self.action_space.high - self.action_space.low) + self.action_space.low
 
-        return action
+        return actions
 
     @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_get_deterministic_action_wo_distribution(self, logits):
