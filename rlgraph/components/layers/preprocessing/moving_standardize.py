@@ -32,7 +32,7 @@ class MovingStandardize(PreprocessLayer):
     """
     Standardizes inputs using a moving estimate of mean and std.
     """
-    def __init__(self, scope=", moving-standardize", **kwargs):
+    def __init__(self, scope="moving-standardize", **kwargs):
         super(MovingStandardize, self).__init__(scope=scope, **kwargs)
         self.sample_count = None
 
@@ -42,10 +42,12 @@ class MovingStandardize(PreprocessLayer):
         # Current estimate of sum of stds.
         self.std_sum_est = None
         self.output_spaces = None
+        self.in_space = None
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["preprocessing_inputs"]
         self.output_spaces = in_space
+        self.in_space = in_space
 
         if self.backend == "python" or get_backend() == "python":
             self.sample_count = 0
@@ -59,6 +61,15 @@ class MovingStandardize(PreprocessLayer):
             self.std_sum_est = self.get_variable(
                 name="std-sum-est", trainable=False, from_space=in_space,
                 add_batch_rank=in_space.has_batch_rank)
+
+    @rlgraph_api
+    def _graph_fn_reset(self):
+        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+            self.sample_count = 0
+            self.mean_est = np.zeros(self.in_space.shape)
+            self.std_sum_est = np.zeros(self.in_space.shape)
+        elif get_backend() == "tf":
+            return tf.variables_initializer([self.sample_count, self.mean_est, self.std_sum_est])
 
     @rlgraph_api
     def _graph_fn_apply(self, preprocessing_inputs):

@@ -26,6 +26,7 @@ from rlgraph.components.layers.preprocessing.image_binary import ImageBinary
 from rlgraph.components.layers.preprocessing.convert_type import ConvertType
 from rlgraph.components.layers.preprocessing.image_crop import ImageCrop
 from rlgraph.components.layers.preprocessing.image_resize import ImageResize
+from rlgraph.components.layers.preprocessing.moving_standardize import MovingStandardize
 from rlgraph.components.layers.preprocessing.normalize import Normalize
 from rlgraph.components.layers.preprocessing.multiply_divide import Multiply, Divide
 from rlgraph.components.layers.preprocessing.rank_reinterpreter import RankReinterpreter
@@ -45,6 +46,7 @@ PreprocessLayer.__lookup_classes__ = dict(
     multiply=Multiply,
     normalize=Normalize,
     rankreinterpreter=RankReinterpreter,
+    movingstandardize=MovingStandardize,
     reshape=ReShape,
     sequence=Sequence,
     transpose=Transpose,
