@@ -440,7 +440,6 @@ class TestPolicies(unittest.TestCase):
 
         print("Params: {}".format(expected_parameters_output))
 
-        #expected_actions = np.argmax(expected_q_values_output, axis=-1)
         actions = test.test(("get_action", nn_input))["action"]
         self.assertTrue(actions.dtype == np.float32)
         self.assertGreaterEqual(actions.min(), -1.0)

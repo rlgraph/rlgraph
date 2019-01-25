@@ -32,87 +32,86 @@ class TestDistributions(unittest.TestCase):
 
     # TODO also not portable to PyTorch due to batch shapes.
 
-    # def test_bernoulli(self):
-    #     # Create 5 bernoulli distributions (or a multiple thereof if we use batch-size > 1).
-    #     param_space = FloatBox(shape=(5,), add_batch_rank=True)
-    #
-    #     # The Component to test.
-    #     bernoulli = Bernoulli(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
-    #     input_spaces = dict(
-    #         parameters=param_space,
-    #         deterministic=bool,
-    #     )
-    #     test = ComponentTest(component=bernoulli, input_spaces=input_spaces)
-    #
-    #     # Batch of size=1 and deterministic.
-    #     input_ = [
-    #         np.array([[0.5, 0.99, 0.0, 0.2, 0.3]]),
-    #         True
-    #     ]
-    #     expected = np.array([[True, True, False, False, False]])
-    #     test.test(("draw", input_), expected_outputs=expected)
-    #     # Try the same on the sample_deterministic out-Socket without the deterministic input..
-    #     test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
-    #
-    #     # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
-    #     # by the ComponentTest object).
-    #     input_ = [
-    #         np.array([[0.1, 0.3, 0.6, 0.71, 0.001], [0.9, 0.998, 0.9999, 0.0001, 0.345678]]),
-    #         False
-    #     ]
-    #     # Try the same on the sample_stochastic out-Socket without the deterministic input..
-    #     expected = np.array([[False, True, True, True, False], [True, True, True, False, True]])
-    #     test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
-    #
-    # def test_categorical(self):
-    #     # Create 5 categorical distributions of 3 categories each.
-    #     param_space = FloatBox(shape=(5, 3), add_batch_rank=True)
-    #
-    #     # The Component to test.
-    #     categorical = Categorical(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
-    #     input_spaces = dict(
-    #         parameters=param_space,
-    #         deterministic=bool,
-    #     )
-    #     test = ComponentTest(component=categorical, input_spaces=input_spaces)
-    #
-    #     # Batch of size=1 and deterministic.
-    #     input_ = [
-    #         np.array([[[0.5, 0.25, 0.25],
-    #                    [0.98, 0.01, 0.01],
-    #                    [0.0, 0.6, 0.4],
-    #                    [0.2, 0.25, 0.55],
-    #                    [0.3, 0.3, 0.4]
-    #                    ]]),
-    #         True
-    #     ]
-    #     expected = np.array([[0, 0, 1, 2, 2]])
-    #     test.test(("draw", input_), expected_outputs=expected)
-    #     test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
-    #
-    #     # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
-    #     # by the ComponentTest object).
-    #     input_ = [
-    #         np.array([[[0.3, 0.25, 0.45],
-    #                    [0.96, 0.02, 0.02],
-    #                    [0.0, 0.5, 0.5],
-    #                    [0.1, 0.85, 0.05],
-    #                    [0.6, 0.1, 0.3]
-    #                    ],
-    #                   [[0.65, 0.05, 0.3],
-    #                    [0.0001, 0.0001, 0.9998],
-    #                    [0.82, 0.12, 0.06],
-    #                    [0.5, 0.0001, 0.4999],
-    #                    [0.333, 0.333, 0.334]
-    #                    ]
-    #                   ]),
-    #         False
-    #     ]
-    #     expected = np.array([[0, 0, 1, 1, 1], [2, 2, 0, 0, 0]])
-    #     test.test(("draw", input_), expected_outputs=expected)
-    #     expected = np.array([[1, 0, 1, 1, 0], [0, 2, 0, 0, 1]])
-    #     test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
-    #
+    def test_bernoulli(self):
+        # Create 5 bernoulli distributions (or a multiple thereof if we use batch-size > 1).
+        param_space = FloatBox(shape=(5,), add_batch_rank=True)
+
+        # The Component to test.
+        bernoulli = Bernoulli(switched_off_apis={"log_prob", "kl_divergence"})
+        input_spaces = dict(
+            parameters=param_space,
+            deterministic=bool,
+        )
+        test = ComponentTest(component=bernoulli, input_spaces=input_spaces)
+
+        # Batch of size=6 and deterministic (True).
+        input_ = [input_spaces["parameters"].sample(6), True]
+        expected = input_[0] > 0.5
+        # Sample n times, expect always max value (max likelihood for deterministic draw).
+        for _ in range(10):
+            test.test(("draw", input_), expected_outputs=expected)
+            test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+
+        # Batch of size=1 and non-deterministic -> expect roughly the mean.
+        input_ = [input_spaces["parameters"].sample(6), False]
+        outs = []
+        for _ in range(20):
+            out = test.test(("draw", input_))
+            outs.append(out)
+            out = test.test(("sample_stochastic", input_[0]))
+            outs.append(out)
+
+        recursive_assert_almost_equal(np.mean(outs), 0.5, decimals=1)
+
+    def test_categorical(self):
+        # Create 5 categorical distributions of 3 categories each.
+        param_space = FloatBox(shape=(5, 3), add_batch_rank=True)
+
+        # The Component to test.
+        categorical = Categorical(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
+        input_spaces = dict(
+            parameters=param_space,
+            deterministic=bool,
+        )
+        test = ComponentTest(component=categorical, input_spaces=input_spaces)
+
+        # Batch of size=1 and deterministic.
+        input_ = [
+            np.array([[[0.5, 0.25, 0.25],
+                       [0.98, 0.01, 0.01],
+                       [0.0, 0.6, 0.4],
+                       [0.2, 0.25, 0.55],
+                       [0.3, 0.3, 0.4]
+                       ]]),
+            True
+        ]
+        expected = np.array([[0, 0, 1, 2, 2]])
+        test.test(("draw", input_), expected_outputs=expected)
+        test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+
+        # Batch of size=2 and non-deterministic -> expect always the same result when we seed tf (done automatically
+        # by the ComponentTest object).
+        input_ = [
+            np.array([[[0.3, 0.25, 0.45],
+                       [0.96, 0.02, 0.02],
+                       [0.0, 0.5, 0.5],
+                       [0.1, 0.85, 0.05],
+                       [0.6, 0.1, 0.3]
+                       ],
+                      [[0.65, 0.05, 0.3],
+                       [0.0001, 0.0001, 0.9998],
+                       [0.82, 0.12, 0.06],
+                       [0.5, 0.0001, 0.4999],
+                       [0.333, 0.333, 0.334]
+                       ]
+                      ]),
+            False
+        ]
+        expected = np.array([[0, 0, 1, 1, 1], [2, 2, 0, 0, 0]])
+        test.test(("draw", input_), expected_outputs=expected)
+        expected = np.array([[1, 0, 1, 1, 0], [0, 2, 0, 0, 1]])
+        test.test(("sample_stochastic", input_[0]), expected_outputs=expected)
+
     # def test_categorical_on_different_space(self):
     #     # Create 5 categorical distributions of 2 categories each.
     #     param_space = FloatBox(shape=(5, 2), add_batch_rank=True)
