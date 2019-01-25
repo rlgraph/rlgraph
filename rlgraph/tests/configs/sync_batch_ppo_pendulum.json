@@ -54,7 +54,7 @@
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 200,
+    "update_interval": 2048,
     "batch_size": 2048,
     "num_iterations": 10,
     "sample_size": 64
@@ -62,12 +62,12 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0003
+    "learning_rate": 0.0001
   },
 
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0003
+    "learning_rate": 0.0001
   },
   "execution_spec": {
     "session_config": {
@@ -77,7 +77,7 @@
     "ray_spec": {
       "executor_spec": {
         "redis_address": null,
-        "num_cpus": 8,
+        "num_cpus": 4,
         "num_gpus": 0,
         "num_worker_samples": 100,
         "num_sample_workers": 4

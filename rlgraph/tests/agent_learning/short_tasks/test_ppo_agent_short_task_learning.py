@@ -94,14 +94,14 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         """
         Creates a PPO Agent and runs it via a Runner on the CartPole Env.
         """
-        env = OpenAIGymEnv("Pendulum-v0", seed=652)
+        env = OpenAIGymEnv("Pendulum-v0")
         agent = PPOAgent.from_spec(
             config_from_path("configs/ppo_agent_for_pendulum.json"),
             state_space=env.state_space,
             action_space=env.action_space
         )
 
-        time_steps = 100000
+        time_steps = 500000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
