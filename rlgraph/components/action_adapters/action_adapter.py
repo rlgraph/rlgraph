@@ -272,8 +272,6 @@ class ActionAdapter(NeuralNetwork):
                     log_probs = tf.log(parameters)
                     log_probs._batch_rank = 0
 
-                return parameters, log_probs
-
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
                 # Discrete actions.
@@ -304,4 +302,4 @@ class ActionAdapter(NeuralNetwork):
                     parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
                     log_probs = torch.log(parameters)
 
-            return parameters, log_probs
+        return parameters, log_probs
