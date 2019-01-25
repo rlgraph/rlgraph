@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+from scipy.stats import beta
 import unittest
 
 from rlgraph.components.policies import Policy, SharedValueFunctionPolicy, DuelingPolicy
@@ -394,19 +395,20 @@ class TestPolicies(unittest.TestCase):
         self.assertTrue(out["entropy"].dtype == np.float32)
         self.assertTrue(out["entropy"].shape == (3,))
 
-    def test_policy_for_continuous_action_space(self):
+    def test_policy_for_bounded_continuous_action_space(self):
         """
         https://github.com/rlgraph/rlgraph/issues/43
         """
-        state_space = FloatBox(shape=(4,), add_batch_rank=True)
-        action_space = FloatBox(low=-1.0, high=1.0, add_batch_rank=True)
-        action_space_parameters = FloatBox(low=-1.0, high=1.0, shape=(2,), add_batch_rank=True)
+        nn_input_space = FloatBox(shape=(4,), add_batch_rank=True)
+        action_space = FloatBox(low=-1.0, high=1.0, shape=(1,), add_batch_rank=True)
+        # Double the shape for alpha/beta params.
+        action_space_parameters = FloatBox(shape=(2,), add_batch_rank=True)
 
         policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
             component=policy,
             input_spaces=dict(
-                nn_input=state_space,
+                nn_input=nn_input_space,
                 actions=action_space,
                 logits=FloatBox(shape=(1,), add_batch_rank=True),
                 probabilities=FloatBox(add_batch_rank=True),
@@ -415,4 +417,59 @@ class TestPolicies(unittest.TestCase):
             action_space=action_space
         )
 
-        test.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variables)
+
+        # Some NN inputs.
+        nn_input = nn_input_space.sample(size=3)
+        # Raw NN-output.
+        expected_nn_output = np.matmul(nn_input, policy_params["policy/test-network/hidden-layer/dense/kernel"])
+        test.test(("get_nn_output", nn_input), expected_outputs=dict(output=expected_nn_output))
+
+        # Raw action layer output.
+        expected_raw_logits = np.matmul(
+            expected_nn_output, policy_params["policy/action-adapter-0/action-network/action-layer/dense/kernel"]
+        )
+        test.test(("get_action_layer_output", nn_input), expected_outputs=dict(output=expected_raw_logits),
+                  decimals=5)
+
+        # Parameter (alpha/betas).
+        expected_parameters_output = np.log(np.exp(expected_raw_logits) + 1.0) + 1.0
+        test.test(("get_logits_parameters_log_probs", nn_input, ["logits", "parameters"]), expected_outputs=dict(
+            logits=expected_raw_logits, parameters=expected_parameters_output
+        ), decimals=5)
+
+        print("Params: {}".format(expected_parameters_output))
+
+        #expected_actions = np.argmax(expected_q_values_output, axis=-1)
+        actions = test.test(("get_action", nn_input))["action"]
+        self.assertTrue(actions.dtype == np.float32)
+        self.assertGreaterEqual(actions.min(), -1.0)
+        self.assertLessEqual(actions.max(), 1.0)
+        self.assertTrue(actions.shape == (3, 1))
+
+        # Action log-probs.
+        actions_scaled_back = (actions + 1.0) / 2.0
+        expected_action_log_prob_output = np.log(beta.pdf(actions_scaled_back, expected_parameters_output[:, 1], expected_parameters_output[:, 0]))
+        expected_action_log_prob_output = np.array([[expected_action_log_prob_output[0][0]], [expected_action_log_prob_output[1][1]], [expected_action_log_prob_output[2][2]]])
+        test.test(("get_action_log_probs", [nn_input, actions]),
+                  expected_outputs=dict(action_log_probs=expected_action_log_prob_output,
+                                        logits=expected_raw_logits), decimals=5)
+
+        # Stochastic sample.
+        actions = test.test(("get_stochastic_action", nn_input))["action"]
+        self.assertTrue(actions.dtype == np.float32)
+        self.assertGreaterEqual(actions.min(), -1.0)
+        self.assertLessEqual(actions.max(), 1.0)
+        self.assertTrue(actions.shape == (3, 1))
+
+        # Deterministic sample.
+        actions = test.test(("get_deterministic_action", nn_input))["action"]
+        self.assertTrue(actions.dtype == np.float32)
+        self.assertGreaterEqual(actions.min(), -1.0)
+        self.assertLessEqual(actions.max(), 1.0)
+        self.assertTrue(actions.shape == (3, 1))
+
+        # Distribution's entropy.
+        entropy = test.test(("get_entropy", nn_input))["entropy"]
+        self.assertTrue(entropy.dtype == np.float32)
+        self.assertTrue(entropy.shape == (3, 1))

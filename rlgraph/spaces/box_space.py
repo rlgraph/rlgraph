@@ -70,12 +70,10 @@ class BoxSpace(Space):
             assert isinstance(shape, (tuple, list)), "ERROR: `shape` must be None or a tuple/list."
             self._shape = tuple(shape)
 
+        # Determine the bounds.
         # False if bounds are individualized (each dimension has its own lower and upper bounds and we can get
         # the single values from self.low and self.high), or a tuple of the globally valid low/high values that apply
         # to all values in all dimensions.
-        self.global_bounds = None
-
-        # Determine the bounds.
         # 0D Space.
         if self._shape == ():
             assert isinstance(low, (int, float, bool))

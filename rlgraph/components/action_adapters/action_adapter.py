@@ -26,7 +26,7 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
-from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
@@ -87,8 +87,11 @@ class ActionAdapter(NeuralNetwork):
         else:
             if units is None:
                 units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
-            # Manually add moments after batch/time ranks.
-            new_shape = tuple([2] + list(self.action_space.shape))
+            # Add moments (2x for each action item).
+            if self.action_space.shape == ():
+                new_shape = (2,)
+            else:
+                new_shape = tuple(list(self.action_space.shape[:-1]) + [self.action_space.shape[-1] * 2])
 
         assert units > 0, "ERROR: Number of nodes for action-layer calculated as {}! Must be larger 0.".format(units)
 
@@ -116,10 +119,9 @@ class ActionAdapter(NeuralNetwork):
 
         # Check the action Space.
         sanity_check_space(self.action_space, must_have_batch_rank=True)
+        # IntBoxes must have categories.
         if isinstance(self.action_space, IntBox):
             sanity_check_space(self.action_space, must_have_categories=True)
-        # Fixme: Are there other restraints on continuous action spaces? E.g. no dueling layers?
-        #else:
 
 #    @rlgraph_api
 #    def get_raw_output(self, nn_output):
@@ -213,74 +215,6 @@ class ActionAdapter(NeuralNetwork):
         parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
         return dict(logits=logits, parameters=parameters, log_probs=log_probs)
 
-    @graph_fn
-    def _graph_fn_get_parameters_log_probs(self, logits):
-        """
-        Creates properties/parameters and log-probs from some reshaped output.
-
-        Args:
-            logits (SingleDataOp): The output of some layer that is already reshaped
-                according to our action Space.
-
-        Returns:
-            tuple (2x SingleDataOp):
-                parameters (DataOp): The parameters, ready to be passed to a Distribution object's
-                    get_distribution API-method (usually some probabilities or loc/scale pairs).
-                log_probs (DataOp): Simply the log(parameters).
-        """
-        if get_backend() == "tf":
-            if isinstance(self.action_space, IntBox):
-                # Discrete actions.
-                parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
-                parameters._batch_rank = 0
-                # Log probs.
-                log_probs = tf.log(x=parameters)
-                log_probs._batch_rank = 0
-            elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=-1)
-
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
-
-                # Turn log sd into sd.
-                sd = tf.exp(x=log_sd)
-
-                # Merge again.
-                parameters = tf.concat([mean, sd], axis=-1)
-                log_probs = tf.concat([tf.log(x=mean), log_sd], axis=-1)
-            else:
-                raise NotImplementedError
-
-            return parameters, log_probs
-
-        elif get_backend() == "pytorch":
-            if isinstance(self.action_space, IntBox):
-                # Discrete actions.
-                softmax_logits = torch.softmax(logits, dim=-1)
-                parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
-                # Log probs.
-                log_probs = torch.log(parameters)
-            elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
-                # Remove moments rank.
-                mean = torch.squeeze(mean, dim=1)
-                log_sd = torch.squeeze(log_sd, dim=1)
-
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
-
-                # Turn log sd into sd.
-                sd = torch.exp(log_sd)
-
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(torch.log(mean), log_sd)
-            else:
-                raise NotImplementedError
-
-            return parameters, log_probs
-
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
     def _graph_fn_get_parameters_log_probs(self, logits):
@@ -297,31 +231,48 @@ class ActionAdapter(NeuralNetwork):
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
                 log_probs (DataOp): Simply the log(parameters).
         """
+        parameters = None
+        log_probs = None
+
         if get_backend() == "tf":
+            # Discrete actions.
             if isinstance(self.action_space, IntBox):
-                # Discrete actions.
                 parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
                 parameters._batch_rank = 0
                 # Log probs.
                 log_probs = tf.log(x=parameters)
                 log_probs._batch_rank = 0
+
+            # Continuous actions.
             elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=-1)
+                # Unbounded -> Normal distribution.
+                if self.action_space.unbounded:
+                    mean, log_sd = tf.split(logits, num_or_size_splits=2, axis=-1)
 
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = tf.clip_by_value(t=log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
+                    # Clip log_sd. log(SMALL_NUMBER) is negative.
+                    log_sd = tf.clip_by_value(log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
 
-                # Turn log sd into sd.
-                sd = tf.exp(x=log_sd)
+                    # Turn log sd into sd.
+                    sd = tf.exp(log_sd)
 
-                # Merge again.
-                parameters = tf.concat([mean, sd], axis=-1)
-                log_probs = tf.concat([tf.log(x=mean), log_sd], axis=-1)
-            else:
-                raise NotImplementedError
+                    # Merge again.
+                    parameters = tf.concat([mean, sd], axis=-1)
+                    log_probs = tf.concat([tf.log(mean), log_sd], axis=-1)
+                    parameters._batch_rank = 0
+                    log_probs._batch_rank = 0
 
-            return parameters, log_probs
+                # Bounded -> Beta distribution.
+                else:
+                    # Stabilize both alpha and beta (currently together in parameters).
+                    parameters = tf.clip_by_value(
+                        logits, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
+                    )
+                    parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
+                    parameters._batch_rank = 0
+                    log_probs = tf.log(parameters)
+                    log_probs._batch_rank = 0
+
+                return parameters, log_probs
 
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
@@ -331,21 +282,26 @@ class ActionAdapter(NeuralNetwork):
                 # Log probs.
                 log_probs = torch.log(parameters)
             elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
-                # Remove moments rank.
-                mean = torch.squeeze(mean, dim=1)
-                log_sd = torch.squeeze(log_sd, dim=1)
+                # Unbounded -> Normal distribution.
+                if self.action_space.unbounded:
+                    # Continuous actions.
+                    mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
 
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
+                    # Clip log_sd. log(SMALL_NUMBER) is negative.
+                    log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
 
-                # Turn log sd into sd.
-                sd = torch.exp(log_sd)
+                    # Turn log sd into sd.
+                    sd = torch.exp(log_sd)
 
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(torch.log(mean), log_sd)
-            else:
-                raise NotImplementedError
+                    parameters = torch.cat([mean, sd], -1)
+                    log_probs = torch.cat([torch.log(mean), log_sd], -1)
+                # Bounded -> Beta distribution.
+                else:
+                    # Stabilize both alpha and beta (currently together in parameters).
+                    parameters = torch.clamp(
+                        logits, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
+                    )
+                    parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
+                    log_probs = torch.log(parameters)
 
             return parameters, log_probs
