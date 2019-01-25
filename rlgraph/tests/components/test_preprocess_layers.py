@@ -22,9 +22,12 @@ import numpy as np
 import os
 import unittest
 
-from rlgraph.components.layers import GrayScale, ReShape, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop
+from rlgraph.components.layers import GrayScale, ReShape, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop, \
+    MovingStandardize
+from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
+from rlgraph.utils import SMALL_NUMBER
 
 
 class TestPreprocessLayers(unittest.TestCase):
@@ -43,7 +46,8 @@ class TestPreprocessLayers(unittest.TestCase):
 
     def test_divide(self):
         divide = Divide(divisor=10.0)
-        test = ComponentTest(component=divide, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(1, 2), add_batch_rank=False)))
+        test = ComponentTest(component=divide, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(1, 2),
+                                                                                               add_batch_rank=False)))
 
         test.test("reset")
 
@@ -230,3 +234,32 @@ class TestPreprocessLayers(unittest.TestCase):
             [[1, 0], [0, 1]]
         ])
         test.test(("apply", input_images), expected_outputs=expected)
+
+    def test_moving_standardize_python(self):
+        env = OpenAIGymEnv("Pong-v0")
+        space = env.state_space.with_batch_rank()
+        moving_standardize = MovingStandardize(backend="python")
+        moving_standardize.create_variables(input_spaces=dict(
+                    preprocessing_inputs=space
+                ), action_space=None)
+        samples = [space.sample() for _ in range(100)]
+        out = None
+        for sample in samples:
+            out = moving_standardize._graph_fn_apply(sample)
+
+        # Assert shape remains intact.
+        self.assertEqual(space.shape,  moving_standardize.mean_est.shape)
+        # Assert mean estimate.
+        expected_mean = np.mean(samples, axis=0)
+        recursive_assert_almost_equal(moving_standardize.mean_est, expected_mean, decimals=3)
+
+        expected_variance = np.var(samples, ddof=1, axis=0)
+        variance_estimate = moving_standardize.std_sum_est / (moving_standardize.sample_count - 1.0)
+        self.assertEqual(space.shape,  variance_estimate.shape)
+        self.assertTrue(np.allclose(variance_estimate, expected_variance))
+
+        std = np.sqrt(variance_estimate) + SMALL_NUMBER
+
+        # Final output.
+        expected_out = (samples[-1] - moving_standardize.mean_est) / std
+        self.assertTrue(np.allclose(out, expected_out))
