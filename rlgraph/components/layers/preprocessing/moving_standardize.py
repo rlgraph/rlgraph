@@ -52,7 +52,7 @@ class MovingStandardize(PreprocessLayer):
             self.mean_est = np.zeros(in_space.shape)
             self.std_sum_est = np.zeros(in_space.shape)
         elif get_backend() == "tf":
-            self.sample_count = self.get_variable(name="sample-count", dtype="int", initializer=0, trainable=False)
+            self.sample_count = self.get_variable(name="sample-count", dtype="float", initializer=0.0, trainable=False)
             self.mean_est = self.get_variable(
                 name="mean-est", trainable=False, from_space=in_space,
                 add_batch_rank=in_space.has_batch_rank)
@@ -63,19 +63,18 @@ class MovingStandardize(PreprocessLayer):
     @rlgraph_api
     def _graph_fn_apply(self, preprocessing_inputs):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
-            # https: // www.johndcook.com / blog / standard_deviation /
+            # https://www.johndcook.com/blog/standard_deviation/
             preprocessing_inputs = np.asarray(preprocessing_inputs)
-            prev_count = self.sample_count
             self.sample_count += 1
             if self.sample_count == 1:
                 self.mean_est = preprocessing_inputs
             else:
                 update = preprocessing_inputs - self.mean_est
                 self.mean_est += update / self.sample_count
-                self.std_sum_est += update * update * prev_count / self.sample_count
+                self.std_sum_est += update * update * (self.sample_count - 1) / self.sample_count
 
             # Subtract mean.
-            standardized = preprocessing_inputs - self.mean_est
+            result = preprocessing_inputs - self.mean_est
 
             # Estimate variance via sum of variance.
             if self.sample_count > 1:
@@ -84,14 +83,31 @@ class MovingStandardize(PreprocessLayer):
                 var_estimate = np.square(self.mean_est)
             std = np.sqrt(var_estimate) + SMALL_NUMBER
 
-            return standardized / std
+            return result / std
 
         elif get_backend() == "tf":
-            updates = []
-            # 1. Update vars
+            assignments = [tf.assign_add(ref=self.sample_count, value=1.0)]
+            with tf.control_dependencies(assignments):
+                # 1. Update vars
+                assignments = []
+                update = preprocessing_inputs - self.mean_est
+                mean_update = tf.cond(
+                    pred=self.sample_count > 1.0,
+                    false_fn=lambda: self.mean_est,
+                    true_fn=lambda: tf.reduce_sum(update, axis=0)
+                )
+                var_update = update * update * (self.sample_count - 1) / self.sample_count
+                assignments.append(tf.assign_add(ref=self.mean_est, value=mean_update))
+                assignments.append(tf.assign_add(ref=self.std_sum_est, value=var_update))
 
-            # 2. Compute var estimate after update.
-            with tf.control_dependencies(updates):
-                pass
+            with tf.control_dependencies(assignments):
+                # 2. Compute var estimate after update.
+                var_estimate = tf.cond(
+                    pred=self.sample_count > 1,
+                    false_fn=lambda: tf.square(x=self.mean_est),
+                    true_fn=lambda: self.std_sum_est / (self.sample_count - 1)
+                )
+                result = preprocessing_inputs - self.mean_est
+                std = tf.sqrt(x=var_estimate) + SMALL_NUMBER
 
-
+                return result / std
