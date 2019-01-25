@@ -21,18 +21,16 @@ import unittest
 
 from rlgraph.components.distributions import *
 from rlgraph.spaces import *
-from rlgraph.tests import ComponentTest
+from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 import numpy as np
 
 
 class TestDistributions(unittest.TestCase):
 
-    # TODO these are all not portable to CI.
+    # TODO make these portable to CI.
 
     # TODO also not portable to PyTorch due to batch shapes.
-
-    pass
 
     # def test_bernoulli(self):
     #     # Create 5 bernoulli distributions (or a multiple thereof if we use batch-size > 1).
@@ -155,41 +153,35 @@ class TestDistributions(unittest.TestCase):
     #     expected = np.array([[1, 0, 0, 1, 0], [0, 1, 0, 0, 1]])
     #     test.test(("sample_stochastic", input_), expected_outputs=expected)
     #
-    # def test_normal(self):
-    #     # Create 5 normal distributions (2 parameters (mean and stddev) each).
-    #     param_space = Tuple(FloatBox(shape=(5,)), FloatBox(shape=(5,)), add_batch_rank=True)
-    #     input_spaces = dict(
-    #         parameters=param_space,
-    #         deterministic=bool,
-    #     )
-    #
-    #     # The Component to test.
-    #     normal = Normal(switched_off_apis={"entropy", "log_prob", "kl_divergence"})
-    #     test = ComponentTest(component=normal, input_spaces=input_spaces)
-    #
-    #     # Batch of size=2 and deterministic.
-    #     input_ = [
-    #         np.array([
-    #             np.array([[1.0, 0.0001, 2.25632, 100, 30.0], [1000.65, 999.0001, 23.2, 45.5, 1.233434545]]),
-    #             np.array([[1.0, 0.01, 0.6, 0.25, 0.3], [5, 100.1, 0.12, 0.0001, 30.2]])
-    #         ]),
-    #         True
-    #     ]
-    #     expected = np.array([[1.0, 0.000099999997, 2.25632, 100.0, 30.0],
-    #                          [1000.65, 999.00012, 23.200001, 45.5, 1.2334346]], dtype=np.float32)
-    #     test.test(("draw", input_), expected_outputs=expected)
-    #     test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
-    #
-    #     # Batch of size=1 and non-deterministic -> expect always the same result when we seed tf (done automatically
-    #     # by the ComponentTest object).
-    #     input_ = [
-    #         np.array([
-    #             np.array([[2.0, 1.0001, 45.252, 150.5, 33.0]]),
-    #             np.array([[2.0, 0.01, 0.698, 0.2, 33.00]])
-    #         ]),
-    #         False
-    #     ]
-    #     expected = np.array([[3.3263674, 0.9853691, 44.54286, 150.6718, -4.2711906]], dtype=np.float32)
-    #     test.test(("draw", input_), expected_outputs=expected)
-    #     expected = np.array([[0.417, 1.014, 45.2043, 150.8022, -16.7299]], dtype=np.float32)
-    #     test.test(("sample_stochastic", input_[0]), expected_outputs=expected, decimals=4)
+
+    def test_normal(self):
+        # Create 5 normal distributions (2 parameters (mean and stddev) each).
+        param_space = FloatBox(shape=(10,), add_batch_rank=True)
+        input_spaces = dict(
+            parameters=param_space,
+            deterministic=bool,
+        )
+
+        # The Component to test.
+        normal = Normal(switched_off_apis={"log_prob", "kl_divergence"})
+        test = ComponentTest(component=normal, input_spaces=input_spaces)
+
+        # Batch of size=2 and deterministic (True).
+        input_ = [input_spaces["parameters"].sample(1), True]
+        expected = input_[0][:, :5]
+        # Sample n times, expect always mean value (deterministic draw).
+        for _ in range(50):
+            test.test(("draw", input_), expected_outputs=expected)
+            test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+
+        # Batch of size=1 and non-deterministic -> expect roughly the mean.
+        input_ = [input_spaces["parameters"].sample(1), False]
+        expected = input_[0][:, :5]
+        outs = []
+        for _ in range(50):
+            out = test.test(("draw", input_))
+            outs.append(out)
+            out = test.test(("sample_stochastic", input_[0]))
+            outs.append(out)
+
+        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
