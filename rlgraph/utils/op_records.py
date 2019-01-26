@@ -448,6 +448,9 @@ class APIMethodRecord(object):
         self.kwargs_name = None
         # List of the names of all non-arg/non-kwarg arguments (the ones that come first in the signature).
         self.non_args_kwargs = []
+        # List of the names of all keyword-only arguments (ones that come after *args, but have a default value and
+        # must be set via a keyword).
+        self.keyword_only = []
         # List of args that have a default value.
         self.default_args = []
 
@@ -462,7 +465,10 @@ class APIMethodRecord(object):
         for param in param_list:
             # This param has a default value.
             if param.default != inspect.Parameter.empty:
-                self.non_args_kwargs.append(param.name)
+                if self.args_name is not None:
+                    self.keyword_only.append(param.name)
+                else:
+                    self.non_args_kwargs.append(param.name)
                 self.default_args.append(param.name)
             # *args
             elif param.kind == inspect.Parameter.VAR_POSITIONAL:
@@ -512,7 +518,7 @@ def get_call_param_name(op_rec):
                 param_name = api_method_rec.input_names[op_rec.position]
         # op_rec has name -> Can only be normal arg of one of **kwargs (if any).
         else:
-            if op_rec.kwarg in api_method_rec.non_args_kwargs:
+            if op_rec.kwarg in api_method_rec.non_args_kwargs + api_method_rec.keyword_only:
                 param_name = op_rec.kwarg
             else:
                 if api_method_rec.kwargs_name is None:
