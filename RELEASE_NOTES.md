@@ -1,5 +1,17 @@
 ## Release notes
-Summarizes updates in release starting at 0.2.0
+Summarizes updates in recent releases.
+
+## RLgraph 0.3.0 - 25.1.2019
+
+- Added Ray executor for distributed policy optimization, e.g. distributed PPO on Ray.
+- Allow use of api and graph functions from list comprehensions and lambdas
+- Improved agent api to define graph functions 
+- Fixed various build instabilities related to build order
+- Fixed a bug for container actions where huber loss was applied to each action instead to the aggregate loss
+- Fixed a number of bugs around space inference for PyTorch when using lists and numpy arrays to store internal state
+- Simplified multi-gpu semantics for iterative in-graph multi gpu updates (e.g. on PPO).
+- Allow for in-graph and external post-processing via extra flag
+- Fixed bug in continuous action policies which made distribution parameters to be parsed incorrectly
 
 ## RLgraph 0.2.3 - 15.12.2018
 
