@@ -411,7 +411,7 @@ class TestPolicies(unittest.TestCase):
                 nn_input=nn_input_space,
                 actions=action_space,
                 logits=FloatBox(shape=(1,), add_batch_rank=True),
-                probabilities=FloatBox(add_batch_rank=True),
+                probabilities=action_space_parameters,
                 parameters=action_space_parameters,
             ),
             action_space=action_space
