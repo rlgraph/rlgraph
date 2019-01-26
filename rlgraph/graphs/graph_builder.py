@@ -102,7 +102,7 @@ class GraphBuilder(Specifiable):
         self.api = {}
 
         self.op_records_to_process = set()
-        self.op_records_to_process_later = set()
+        self.op_recs_depending_on_variables = set()
 
         # Dict of unprocessed (and complete) op-record columns by key=op-column ID.
         # Columns that have been forwarded will be erased again from this collection.
@@ -187,7 +187,7 @@ class GraphBuilder(Specifiable):
         self.device_map = device_map or {}
 
         # Create the first actual ops based on the input-spaces.
-        # Some ops can only be created later when variable-based-Spaces are known (op_records_to_process_later).
+        # Some ops can only be created later when variable-based-Spaces are known (op_recs_depending_on_variables).
         self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
@@ -270,10 +270,10 @@ class GraphBuilder(Specifiable):
             # Create the placeholders and store them in the given DataOpRecords.
             for i, space in enumerate(spaces):
                 # Space is dependent on the variables of some sub-component (wait with the construction of the
-                # placeholder until after the build).
+                # placeholder until the component is variable-complete).
                 if isinstance(space, str) and re.match(r'^variables:', space):
                     in_op_records[i].space = space
-                    self.op_records_to_process_later.add(in_op_records[i])
+                    self.op_recs_depending_on_variables.add(in_op_records[i])
                     continue
 
                 # Construct Space from a spec.
@@ -314,7 +314,7 @@ class GraphBuilder(Specifiable):
 
     def build_component_when_input_complete(self, component):
         # Not input complete yet -> Check now.
-        if component.input_complete is False:
+        if component.input_complete is False or component.built is False:
             component.check_input_completeness()
             # Call `when_input_complete` once on that Component.
             if component.input_complete is True:
@@ -332,10 +332,6 @@ class GraphBuilder(Specifiable):
                         self.run_through_graph_fn_with_device_and_scope(no_in_col)
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
-
-                # Now that the component is built, the parent may have become variable-complete.
-                #if component.parent_component is not None:
-                #    self.build_component_when_input_complete(component.parent_component)
 
         # Check variable-completeness and actually call the _variable graph_fn if not already done so.
         # Collect sub-components and build them as well if they just became variable-complete.
@@ -714,34 +710,41 @@ class GraphBuilder(Specifiable):
         Raises:
             RLGraphError: After the problem has been identified.
         """
+        initial_op_rec = op_rec  # For debugging purposes.
         # Step via `previous` through the graph backwards.
         while True:
             previous_op_rec = op_rec.previous
             # Hit a graph_fn. Jump to incoming column.
             if previous_op_rec is None:
-                assert isinstance(op_rec.column, DataOpRecordColumnFromGraphFn),\
-                    "ERROR: If previous op-rec is None, column must be of type `DataOpRecordColumnFromGraphFn` " \
-                    "(but is type={})!".format(type(op_rec.column).__name__)
-                # All op-recs going into this graph_fn have actual ops.
-                # -> We know now that this graph_fn is only not called because the Component is either input-incomplete
-                # or variable-incomplete.
-                if op_rec.column.in_graph_fn_column.is_complete():
-                    if op_rec.column.component.input_complete is False:
-                        self._analyze_input_incomplete_component(op_rec.column.component)
-                    else:
-                        assert op_rec.column.component.variable_complete is False and \
-                               op_rec.column.graph_fn_name == "_graph_fn__variables", \
-                               "ERROR: Component '{}' was expected to be either input-incomplete or " \
-                               "variable-incomplete!".format(op_rec.column.component.global_scope)
-                        self._analyze_variable_incomplete_component(op_rec.column.component)
+                # We have reached the beginning of the graph with a "variables:.."-dependent Space, so no op expected
+                # yet.
+                if isinstance(op_rec.space, str) and re.match(r'^variables:.+', op_rec.space):
+                    assert True, "  Needs error message here!"
+
                 else:
-                    # Take as an example None op the first incoming one that's None as well.
-                    empty_in_op_recs = list(or_ for or_ in op_rec.column.in_graph_fn_column.op_records if or_.op is None)
-                    if len(empty_in_op_recs) > 0:
-                        previous_op_rec = empty_in_op_recs[0]
-                    # All op-recs have actual ops -> .
+                    assert isinstance(op_rec.column, DataOpRecordColumnFromGraphFn),\
+                        "ERROR: If previous op-rec is None, column must be of type `DataOpRecordColumnFromGraphFn` " \
+                        "(but is type={})!".format(type(op_rec.column).__name__)
+                    # All op-recs going into this graph_fn have actual ops.
+                    # -> We know now that this graph_fn is only not called because the Component is either
+                    # input-incomplete or variable-incomplete.
+                    if op_rec.column.in_graph_fn_column.is_complete():
+                        if op_rec.column.component.input_complete is False:
+                            self._analyze_input_incomplete_component(op_rec.column.component)
+                        else:
+                            assert op_rec.column.component.variable_complete is False and \
+                                   op_rec.column.graph_fn_name == "_graph_fn__variables", \
+                                   "ERROR: Component '{}' was expected to be either input-incomplete or " \
+                                   "variable-incomplete!".format(op_rec.column.component.global_scope)
+                            self._analyze_variable_incomplete_component(op_rec.column.component)
                     else:
-                        pass  # TODO: complete logic
+                        # Take as an example None op the first incoming one that's None as well.
+                        empty_in_op_recs = list(or_ for or_ in op_rec.column.in_graph_fn_column.op_records if or_.op is None)
+                        if len(empty_in_op_recs) > 0:
+                            previous_op_rec = empty_in_op_recs[0]
+                        # All op-recs have actual ops -> .
+                        else:
+                            pass  # TODO: complete logic
             # Continue with new op-record.
             op_rec = previous_op_rec
 
@@ -1067,7 +1070,7 @@ class GraphBuilder(Specifiable):
                 self.root_component.api_fn_by_name[name] = method
 
         # Create the first actual ops based on the input-spaces.
-        # Some ops can only be created later when variable-based-Spaces are known (op_records_to_process_later).
+        # Some ops can only be created later when variable-based-Spaces are known (op_recs_depending_on_variables).
         self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
@@ -1222,6 +1225,39 @@ class GraphBuilder(Specifiable):
                 # else: - Op belongs to a column coming from a graph_fn or an API-method, but the op is no longer used.
                 # -> Ignore Op.
 
+            # If we are done with the build, check for API-methods' ops that are dependent on variables
+            # generated during the build and build these now.
+            # TODO is this loop necessary for define by run?
+            if get_backend() == "tf":
+                if len(self.op_recs_depending_on_variables) > 0:
+                    op_records_list = list(self.op_recs_depending_on_variables)
+                    self.op_recs_depending_on_variables = set()
+
+                    # Loop through the op_records list and sanity check for "variables"-dependent Spaces, then get these
+                    # Spaces (iff respective component is input-complete), create the placeholders and keep building.
+                    for op_rec in op_records_list:
+                        space_desc = op_rec.space  # type: str
+                        mo = re.search(r'^variables:(.+)', space_desc)
+                        assert mo
+                        component_path = mo.group(1).split("/")
+                        component = self.root_component
+                        for level in component_path:
+                            assert level in component.sub_components, \
+                                "ERROR: `component_path` ('{}') contains non-existent Components!".format(
+                                    component_path)
+                            component = component.sub_components[level]
+                        if component.variable_complete is True:
+                            var_space = Dict({key: get_space_from_op(value) for key, value in sorted(
+                                component.get_variables(custom_scope_separator="-").items()
+                            )})
+                            op_rec.space = var_space
+                            op_rec.op = self.get_placeholder(
+                                "api-var-input", space=var_space, component=self.root_component
+                            )
+                            self.op_records_to_process.add(op_rec)
+                        else:
+                            self.op_recs_depending_on_variables.add(op_rec)
+
             # Sanity check, whether we are stuck.
             new_op_records_list = self._sort_op_recs(self.op_records_to_process)
             if op_records_list == new_op_records_list:
@@ -1231,35 +1267,6 @@ class GraphBuilder(Specifiable):
                     return
 
             op_records_list = new_op_records_list
-
-            # If we are done with the build, check for API-methods' ops that are dependent on variables
-            # generated during the build and build these now.
-            # TODO is this loop necessary for define by run?
-            if get_backend() == "tf":
-                if len(op_records_list) == 0 and self.op_records_to_process_later is not None and \
-                        len(self.op_records_to_process_later) > 0:
-                    op_records_list = list(self.op_records_to_process_later)
-                    # Invalidate later-set.
-                    self.op_records_to_process_later = None  # type: set
-
-                    # Loop through the op_records list and sanity check for "variables"-dependent Spaces, then get these
-                    # Spaces, create the placeholders and keep building.
-                    for op_rec in op_records_list:
-                        space_desc = op_rec.space  # type: str
-                        mo = re.search(r'^variables:(.+)', space_desc)
-                        assert mo
-                        component_path = mo.group(1).split("/")
-                        component = self.root_component
-                        for level in component_path:
-                            assert level in component.sub_components, \
-                                "ERROR: `component_path` ('{}') contains non-existent Components!".format(component_path)
-                            component = component.sub_components[level]
-                        var_spaces = {key: get_space_from_op(value) for key, value in sorted(
-                            component.get_variables(custom_scope_separator="-").items()
-                        )}
-                        var_space = Dict(var_spaces)
-                        op_rec.space = var_space
-                        op_rec.op = self.get_placeholder("api-var-input", space=var_space, component=self.root_component)
 
             loop_counter += 1
         return loop_counter
