@@ -46,8 +46,14 @@ class ActorCriticAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
         """
+        # Set policy to stochastic.
+        if "policy_spec" in kwargs:
+            policy_spec = kwargs.pop("policy_spec")
+            policy_spec["deterministic"] = False
+        else:
+            policy_spec = dict(deterministic=False)
         super(ActorCriticAgent, self).__init__(
-            policy_spec=dict(deterministic=False),  # Set policy to stochastic.
+            policy_spec=policy_spec,
             name=kwargs.pop("name", "actor-critic-agent"), **kwargs
         )
         self.sample_episodes = sample_episodes
