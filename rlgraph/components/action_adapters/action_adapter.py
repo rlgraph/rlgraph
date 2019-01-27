@@ -249,9 +249,6 @@ class ActionAdapter(NeuralNetwork):
                 if self.action_space.unbounded:
                     mean, log_sd = tf.split(logits, num_or_size_splits=2, axis=-1)
 
-                    # Clip log_sd. log(SMALL_NUMBER) is negative.
-                    log_sd = tf.clip_by_value(log_sd, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER))
-
                     # Turn log sd into sd.
                     sd = tf.exp(log_sd)
 
@@ -284,9 +281,6 @@ class ActionAdapter(NeuralNetwork):
                 if self.action_space.unbounded:
                     # Continuous actions.
                     mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
-
-                    # Clip log_sd. log(SMALL_NUMBER) is negative.
-                    log_sd = torch.clamp(log_sd, min=LOG_SMALL_NUMBER, max=-LOG_SMALL_NUMBER)
 
                     # Turn log sd into sd.
                     sd = torch.exp(log_sd)
