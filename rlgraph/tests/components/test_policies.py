@@ -45,8 +45,8 @@ class TestPolicies(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 logits=flat_float_action_space,
-                probabilities=flat_float_action_space,
-                parameters=flat_float_action_space
+                probabilities=flat_float_action_space
+                #parameters=flat_float_action_space
             ),
             action_space=action_space
         )
@@ -127,7 +127,7 @@ class TestPolicies(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
-                parameters=flat_float_action_space,
+                #parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space,
@@ -214,7 +214,7 @@ class TestPolicies(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
-                parameters=flat_float_action_space,
+                #parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space,
@@ -323,7 +323,7 @@ class TestPolicies(unittest.TestCase):
                 nn_input=nn_input_space,
                 actions=action_space,
                 probabilities=flat_float_action_space,
-                parameters=flat_float_action_space,
+                #parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space
@@ -410,9 +410,9 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=nn_input_space,
                 actions=action_space,
-                logits=FloatBox(shape=(1,), add_batch_rank=True),
                 probabilities=action_space_parameters,
-                parameters=action_space_parameters,
+                #parameters=action_space_parameters,
+                logits=FloatBox(shape=(1,), add_batch_rank=True)
             ),
             action_space=action_space
         )

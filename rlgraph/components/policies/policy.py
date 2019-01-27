@@ -246,13 +246,13 @@ class Policy(Component):
         return dict(action=action)
 
     @rlgraph_api
-    def get_action_from_logits_and_probabilities(self, logits, probabilities, deterministic=None):
+    def get_action_from_logits_and_probabilities(self, logits, parameters, deterministic=None):
         """
         Returns an action based on NN output, action adapter output and distribution sampling.
 
         Args:
             logits (any): The `logits` output from `self.get_logits_probabilities_log_probs`.
-            probabilities (any): The `probabilities` output from `self.get_logits_probabilities_log_probs`. Not
+            parameters (any): The `probabilities` output from `self.get_logits_probabilities_log_probs`. Not
                 really needed if action_space is all discrete.
             deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
                 from the distribution in max-likelihood (deterministic) or stochastic fashion.
@@ -265,7 +265,7 @@ class Policy(Component):
 
         deterministic = self.deterministic if deterministic is None else deterministic
 
-        action = self._graph_fn_get_action_components(logits, probabilities, deterministic)
+        action = self._graph_fn_get_action_components(logits, parameters, deterministic)
 
         return dict(action=action)
 
