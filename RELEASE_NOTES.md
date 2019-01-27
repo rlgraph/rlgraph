@@ -1,6 +1,14 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.3.1 - 27.1.2019
+
+- Fixed count bug in synchronous Ray executor
+- Fixed bugs related to episode-fetching in the ring-buffer 
+  (only occurring when using episode update mode)
+- Added reward-clipping option to GAE
+- Added post-processing flag to DQN multi-gpu mode
+
 ## RLgraph 0.3.0 - 25.1.2019
 
 - Added Ray executor for distributed policy optimization, e.g. distributed PPO on Ray.

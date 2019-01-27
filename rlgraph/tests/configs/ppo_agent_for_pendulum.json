@@ -4,13 +4,14 @@
   "standardize_advantages": false,
   "clip_ratio": 0.2,
   "discount": 0.9,
-  "gae_lambda": 1.0,
+  "clip_rewards": 1.0,
+  "gae_lambda": 0.8,
   "weight_entropy": 0.0,
 
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 2000
+    "capacity": 1000
   },
    "preprocessing_spec": [
     {
@@ -19,7 +20,7 @@
     }
   ],
   "observe_spec": {
-    "buffer_size": 500
+    "buffer_size": 200
   },
 
   "network_spec":
@@ -48,17 +49,17 @@
   ],
 
   "update_spec": {
-    "update_mode": "episodes",
+    "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 2000,
-    "batch_size": 1,
+    "update_interval": 1000,
+    "batch_size": 1000,
     "num_iterations": 10,
     "sample_size": 128
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0002
+    "learning_rate": 0.0001
   },
   
   "value_function_optimizer_spec": {
