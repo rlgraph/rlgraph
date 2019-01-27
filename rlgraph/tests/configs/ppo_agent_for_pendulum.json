@@ -2,15 +2,15 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": false,
-  "clip_ratio": 0.3,
-  "discount": 0.95,
-  "gae_lambda": 0.1,
-  "weight_entropy": 0.01,
+  "clip_ratio": 0.2,
+  "discount": 0.9,
+  "gae_lambda": 1.0,
+  "weight_entropy": 0.0,
 
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 4096
+    "capacity": 512
   },
 
    "preprocessing_spec": [
@@ -20,56 +20,44 @@
     }
   ],
   "observe_spec": {
-    "buffer_size": 4096
+    "buffer_size": 32
   },
 
   "network_spec":
   [
     {
       "type": "dense",
-      "units": 64,
-      "activation": "tanh",
+      "units": 200,
+      "activation": "relu",
       "scope": "hidden1"
-    },
-    {
-      "type": "dense",
-      "units": 64,
-      "activation": "tanh",
-      "scope": "hidden2"
     }
   ],
   "value_function_spec":
   [
     {
       "type": "dense",
-      "units": 64,
-      "activation": "tanh",
+      "units": 100,
+      "activation": "relu",
       "scope": "vf-hidden1"
-    },
-    {
-      "type": "dense",
-      "units": 64,
-      "activation": "tanh",
-      "scope": "vf-hidden2"
     }
   ],
 
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 2048,
-    "batch_size": 2048,
+    "update_interval": 512,
+    "batch_size": 512,
     "num_iterations": 10,
     "sample_size": 64
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0003
+    "learning_rate": 0.0001
   },
   
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0003
+    "learning_rate": 0.0002
   }
 }

@@ -38,7 +38,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
     def test_ppo_on_2x2_grid_world(self):
         """
-        Creates a PPO Agent and runs it via a Runner on the 2x2 Grid World Env.
+        Creates a PPO Agent and runs it via a Runner on the 2x2 Grid World env.
         """
         env = GridWorld(world="2x2")
         agent = PPOAgent.from_spec(
@@ -64,7 +64,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
     def test_ppo_on_cart_pole(self):
         """
-        Creates a PPO Agent and runs it via a Runner on the CartPole Env.
+        Creates a PPO Agent and runs it via a Runner on the CartPole env.
         """
         env = OpenAIGymEnv("CartPole-v0", seed=36)
         agent = PPOAgent.from_spec(
@@ -90,9 +90,9 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         #self.assertGreaterEqual(results["max_episode_reward"], 100.0)
         self.assertLessEqual(results["episodes_executed"], time_steps / 10)
 
-    def test_ppo_on_continuous_action_environment(self):
+    def test_ppo_on_pendulum(self):
         """
-        Creates a PPO Agent and runs it via a Runner on the CartPole Env.
+        Creates a PPO Agent and runs it via a Runner on the Pendulum env.
         """
         env = OpenAIGymEnv("Pendulum-v0")
         agent = PPOAgent.from_spec(
@@ -101,20 +101,14 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        time_steps = 500000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
             render=self.is_windows
         )
-        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        results = worker.execute_episodes(250, use_exploration=True)
 
         print(results)
 
-        self.assertEqual(results["timesteps_executed"], time_steps)
-        self.assertEqual(results["env_frames"], time_steps)
-        #self.assertGreaterEqual(results["mean_episode_reward"], 23)
-        #self.assertGreaterEqual(results["max_episode_reward"], 100.0)
-        self.assertLessEqual(results["episodes_executed"], time_steps / 10)
 
