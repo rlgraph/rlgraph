@@ -45,8 +45,7 @@ class TestPolicies(unittest.TestCase):
                 nn_input=state_space,
                 actions=action_space,
                 logits=flat_float_action_space,
-                probabilities=flat_float_action_space
-                #parameters=flat_float_action_space
+                parameters=flat_float_action_space
             ),
             action_space=action_space
         )
@@ -66,20 +65,20 @@ class TestPolicies(unittest.TestCase):
                   decimals=5)
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
-        expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
+        expected_parameters_output = softmax(expected_action_layer_output, axis=-1)
         test.test(("get_logits_parameters_log_probs", states, ["logits", "parameters"]), expected_outputs=dict(
-            logits=expected_action_layer_output, parameters=np.array(expected_probabilities_output, dtype=np.float32)
+            logits=expected_action_layer_output, parameters=np.array(expected_parameters_output, dtype=np.float32)
         ), decimals=5)
 
-        print("Probs: {}".format(expected_probabilities_output))
+        print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
         test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([
-            expected_probabilities_output[0][expected_actions[0]],
-            expected_probabilities_output[1][expected_actions[1]],
+            expected_parameters_output[0][expected_actions[0]],
+            expected_parameters_output[1][expected_actions[1]],
         ]))
         test.test(("get_action_log_probs", [states, expected_actions]),
                   expected_outputs=dict(action_log_probs=expected_action_log_prob_output,
@@ -102,8 +101,8 @@ class TestPolicies(unittest.TestCase):
 
         # Action log-probs.
         expected_action_log_prob_output = dict(action_log_probs=np.log(np.array([
-            expected_probabilities_output[0][expected_actions[0]],
-            expected_probabilities_output[1][expected_actions[1]]
+            expected_parameters_output[0][expected_actions[0]],
+            expected_parameters_output[1][expected_actions[1]]
         ])), logits=expected_action_layer_output)
         test.test(("get_action_log_probs", [states, expected_actions]),
                   expected_outputs=expected_action_log_prob_output, decimals=5)
@@ -126,8 +125,7 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                probabilities=flat_float_action_space,
-                #parameters=flat_float_action_space,
+                parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space,
@@ -159,18 +157,18 @@ class TestPolicies(unittest.TestCase):
                   decimals=5)
 
         # Logits-values.
-        test.test(("get_state_values_logits_probabilities_log_probs", states, ["state_values", "logits"]),
+        test.test(("get_state_values_logits_parameters_log_probs", states, ["state_values", "logits"]),
                   expected_outputs=dict(state_values=expected_state_value_output, logits=expected_action_layer_output),
                   decimals=5)
 
         # Parameter (probabilities). Softmaxed logits.
-        expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
+        expected_parameters_output = softmax(expected_action_layer_output, axis=-1)
         test.test(("get_logits_parameters_log_probs", states, ["logits", "parameters"]), expected_outputs=dict(
             logits=expected_action_layer_output,
-            parameters=expected_probabilities_output
+            parameters=expected_parameters_output
         ), decimals=5)
 
-        print("Probs: {}".format(expected_probabilities_output))
+        print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
         test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
@@ -213,9 +211,8 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                probabilities=flat_float_action_space,
-                #parameters=flat_float_action_space,
-                logits=flat_float_action_space
+                logits=flat_float_action_space,
+                parameters=flat_float_action_space
             ),
             action_space=action_space,
         )
@@ -250,33 +247,33 @@ class TestPolicies(unittest.TestCase):
 
         expected_action_layer_output_unfolded = np.reshape(expected_action_layer_output, newshape=(2, 3, 4))
         test.test(
-            ("get_state_values_logits_probabilities_log_probs", states, ["state_values", "logits"]),
+            ("get_state_values_logits_parameters_log_probs", states, ["state_values", "logits"]),
             expected_outputs=dict(
                 state_values=expected_state_value_output_unfolded, logits=expected_action_layer_output_unfolded
             ), decimals=5
         )
 
         # Parameter (probabilities). Softmaxed logits.
-        expected_probabilities_output = softmax(expected_action_layer_output_unfolded, axis=-1)
+        expected_parameters_output = softmax(expected_action_layer_output_unfolded, axis=-1)
         test.test(("get_logits_parameters_log_probs", states, ["logits", "parameters"]), expected_outputs=dict(
             logits=expected_action_layer_output_unfolded,
-            parameters=expected_probabilities_output
+            parameters=expected_parameters_output
         ), decimals=5)
 
-        print("Probs: {}".format(expected_probabilities_output))
+        print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output_unfolded, axis=-1)
         test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([[
-            expected_probabilities_output[0][0][expected_actions[0][0]],
-            expected_probabilities_output[0][1][expected_actions[0][1]],
-            expected_probabilities_output[0][2][expected_actions[0][2]],
+            expected_parameters_output[0][0][expected_actions[0][0]],
+            expected_parameters_output[0][1][expected_actions[0][1]],
+            expected_parameters_output[0][2][expected_actions[0][2]],
         ], [
-            expected_probabilities_output[1][0][expected_actions[1][0]],
-            expected_probabilities_output[1][1][expected_actions[1][1]],
-            expected_probabilities_output[1][2][expected_actions[1][2]],
+            expected_parameters_output[1][0][expected_actions[1][0]],
+            expected_parameters_output[1][1][expected_actions[1][1]],
+            expected_parameters_output[1][2][expected_actions[1][2]],
         ]]))
         test.test(("get_action_log_probs", [states, expected_actions]), expected_outputs=dict(
             action_log_probs=expected_action_log_prob_output, logits=expected_action_layer_output_unfolded
@@ -322,8 +319,7 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=nn_input_space,
                 actions=action_space,
-                probabilities=flat_float_action_space,
-                #parameters=flat_float_action_space,
+                parameters=flat_float_action_space,
                 logits=flat_float_action_space
             ),
             action_space=action_space
@@ -361,21 +357,21 @@ class TestPolicies(unittest.TestCase):
         ), decimals=5)
 
         # Parameter (probabilities). Softmaxed q_values.
-        expected_probabilities_output = softmax(expected_q_values_output, axis=-1)
+        expected_parameters_output = softmax(expected_q_values_output, axis=-1)
         test.test(("get_logits_parameters_log_probs", nn_input, ["logits", "parameters"]), expected_outputs=dict(
-            logits=expected_q_values_output, parameters=expected_probabilities_output
+            logits=expected_q_values_output, parameters=expected_parameters_output
         ), decimals=5)
 
-        print("Probs: {}".format(expected_probabilities_output))
+        print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_q_values_output, axis=-1)
         test.test(("get_action", nn_input), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([
-            expected_probabilities_output[0][expected_actions[0]],
-            expected_probabilities_output[1][expected_actions[1]],
-            expected_probabilities_output[2][expected_actions[2]],
+            expected_parameters_output[0][expected_actions[0]],
+            expected_parameters_output[1][expected_actions[1]],
+            expected_parameters_output[2][expected_actions[2]],
         ]))
         test.test(("get_action_log_probs", [nn_input, expected_actions]),
                   expected_outputs=dict(action_log_probs=expected_action_log_prob_output, logits=expected_q_values_output), decimals=5)
@@ -410,8 +406,7 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=nn_input_space,
                 actions=action_space,
-                probabilities=action_space_parameters,
-                #parameters=action_space_parameters,
+                parameters=action_space_parameters,
                 logits=FloatBox(shape=(1,), add_batch_rank=True)
             ),
             action_space=action_space
