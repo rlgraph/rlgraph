@@ -56,10 +56,10 @@ class TestActionAdapters(unittest.TestCase):
         test.test(("apply", inputs), expected_outputs=dict(output=expected_logits))
         test.test(("get_logits", inputs), expected_outputs=expected_logits)  # w/o the dict
 
-        expected_probabilities = softmax(expected_logits)
-        expected_log_probs = np.log(expected_probabilities)
-        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=dict(
-            logits=expected_logits, probabilities=expected_probabilities, log_probs=expected_log_probs
+        expected_parameters = softmax(expected_logits)
+        expected_log_probs = np.log(expected_parameters)
+        test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=dict(
+            logits=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
         ))
 
     def test_simple_action_adapter_with_batch_apply(self):
@@ -100,10 +100,10 @@ class TestActionAdapters(unittest.TestCase):
             decimals=4
         )
 
-        expected_probabilities = softmax(expected_logits)
-        expected_log_probs = np.log(expected_probabilities)
-        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=dict(
-            logits=expected_logits, probabilities=expected_probabilities, log_probs=expected_log_probs
+        expected_parameters = softmax(expected_logits)
+        expected_log_probs = np.log(expected_parameters)
+        test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=dict(
+            logits=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
         ), decimals=4)
 
     def test_action_adapter_with_complex_lstm_output(self):
@@ -135,10 +135,10 @@ class TestActionAdapters(unittest.TestCase):
         test.test(("get_logits", inputs), expected_outputs=expected_logits)
 
         # Softmax (probs).
-        expected_probabilities = softmax(expected_logits)
+        expected_parameters = softmax(expected_logits)
         # Log probs.
-        expected_log_probs = np.log(expected_probabilities)
-        test.test(("get_logits_probabilities_log_probs", inputs), expected_outputs=dict(
-            logits=expected_logits, probabilities=expected_probabilities, log_probs=expected_log_probs
+        expected_log_probs = np.log(expected_parameters)
+        test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=dict(
+            logits=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
         ), decimals=5)
 

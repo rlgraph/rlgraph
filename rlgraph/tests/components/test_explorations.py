@@ -59,7 +59,7 @@ class TestExplorations(unittest.TestCase):
 
         @rlgraph_api(component=exploration_pipeline)
         def get_action(self_, nn_output, time_step):
-            out = action_adapter.get_logits_probabilities_log_probs(nn_output)
+            out = action_adapter.get_logits_parameters_log_probs(nn_output)
             sample = distribution.sample_deterministic(out["probabilities"])
             action = exploration.get_action(sample, time_step)
             return action
@@ -139,12 +139,12 @@ class TestExplorations(unittest.TestCase):
 
         @rlgraph_api(component=exploration_pipeline)
         def get_action(self_, nn_output, time_step):
-            out_a = action_adapter_a.get_logits_probabilities_log_probs(nn_output)
-            out_b = action_adapter_b.get_logits_probabilities_log_probs(nn_output)
-            out_c = action_adapter_c.get_logits_probabilities_log_probs(nn_output)
-            sample_a = distribution_a.sample_deterministic(out_a["probabilities"])
-            sample_b = distribution_b.sample_deterministic(out_b["probabilities"])
-            sample_c = distribution_c.sample_deterministic(out_c["probabilities"])
+            out_a = action_adapter_a.get_logits_parameters_log_probs(nn_output)
+            out_b = action_adapter_b.get_logits_parameters_log_probs(nn_output)
+            out_c = action_adapter_c.get_logits_parameters_log_probs(nn_output)
+            sample_a = distribution_a.sample_deterministic(out_a["parameters"])
+            sample_b = distribution_b.sample_deterministic(out_b["parameters"])
+            sample_c = distribution_c.sample_deterministic(out_c["parameters"])
             sample = self_._graph_fn_merge_actions(sample_a, sample_b, sample_c)
             action = exploration.get_action(sample, time_step)
             return action
@@ -238,7 +238,7 @@ class TestExplorations(unittest.TestCase):
 
         @rlgraph_api(component=exploration_pipeline)
         def get_action(self_, nn_output):
-            _, parameters, _ = action_adapter.get_logits_probabilities_log_probs(nn_output)
+            _, parameters, _ = action_adapter.get_logits_parameters_log_probs(nn_output)
             sample_stochastic = distribution.sample_stochastic(parameters)
             sample_deterministic = distribution.sample_deterministic(parameters)
             action = exploration.get_action(sample_stochastic, sample_deterministic)
