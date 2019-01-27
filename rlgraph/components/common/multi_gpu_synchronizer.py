@@ -123,15 +123,16 @@ class MultiGpuSynchronizer(Component):
         return group_op
 
     @rlgraph_api
-    def calculate_update_from_external_batch(self, variables, *inputs):
-        out = self._graph_fn_calculate_update_from_external_batch(variables, *inputs)
+    def calculate_update_from_external_batch(self, variables, *inputs, apply_postprocessing=True):
+        out = self._graph_fn_calculate_update_from_external_batch(variables, *inputs,
+                                                                  apply_postprocessing=apply_postprocessing)
         ret = dict(avg_grads_and_vars_by_component=out[0], loss=out[1], loss_per_item=out[2])
         for i in range(3, len(out)):
             ret["additional_return_{}".format(i - 3)] = out[i]
         return ret
 
     @graph_fn
-    def _graph_fn_calculate_update_from_external_batch(self, variables_by_component, *inputs):
+    def _graph_fn_calculate_update_from_external_batch(self, variables_by_component, *inputs, apply_postprocessing):
         """
 
         Args:
@@ -165,7 +166,8 @@ class MultiGpuSynchronizer(Component):
         for gpu, shard_data in enumerate(loaded_input_batches):
             with tf.control_dependencies([per_device_assign_ops[gpu]]):
                 shard_data_stopped = tuple([tf.stop_gradient(datum.read_value()) for datum in shard_data])
-                return_values_to_be_averaged = self.towers[gpu].update_from_external_batch(*shard_data_stopped)
+                return_values_to_be_averaged = self.towers[gpu].update_from_external_batch(*shard_data_stopped,
+                                                                                           apply_postprocessing)
 
                 grads_and_vars_by_component = return_values_to_be_averaged[0]
                 loss = return_values_to_be_averaged[1]

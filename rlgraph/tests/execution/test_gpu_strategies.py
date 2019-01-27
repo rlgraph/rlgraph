@@ -168,7 +168,7 @@ class TestGpuStrategies(unittest.TestCase):
             action_space=dummy_env.action_space,
         )
 
-        time_steps = 2000
+        time_steps = 10000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,

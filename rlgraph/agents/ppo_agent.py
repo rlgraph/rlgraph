@@ -232,7 +232,7 @@ class PPOAgent(Agent):
                         out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
                             all_vars,
                             sample_states, sample_actions, sample_rewards, sample_terminals, sample_sequence_indices,
-                            apply_postprocessing
+                            apply_postprocessing=apply_postprocessing
                         )
                         avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.split(
                             out["avg_grads_and_vars_by_component"]

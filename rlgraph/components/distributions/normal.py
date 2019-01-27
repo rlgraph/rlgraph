@@ -39,10 +39,9 @@ class Normal(Distribution):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # Must be a Tuple of len 2 (loc and scale).
-        parameter_space = input_spaces["parameters"]
-        assert isinstance(parameter_space, Tuple) and len(parameter_space) == 2,\
-            "ERROR: API-method `get_distribution` of '{}' (type '') needs parameter arg to be a Tuple with " \
-            "len=2!".format(self.name, type(self).__name__)
+        in_space = input_spaces["parameters"]
+        # Make sure input parameters has an even last rank for splitting into mean/stddev parameter values.
+        assert in_space.shape[-1] % 2 == 0, "ERROR: `parameters` in_space must have an even numbered last rank!"
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):

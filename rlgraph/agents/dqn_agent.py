@@ -106,6 +106,7 @@ class DQNAgent(Agent):
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=weight_space,
+            apply_postprocessing=bool
         ))
         if self.value_function is not None:
             self.input_spaces["value_function_weights"] = "variables:{}".format(self.value_function.scope),
@@ -196,13 +197,14 @@ class DQNAgent(Agent):
 
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root):
+        def update_from_memory(root, apply_postprocessing):
             # Non prioritized memory will just return weight 1.0 for all samples.
             records, sample_indices, importance_weights = agent.memory.get_records(agent.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.split(records)
 
             step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights,
+                apply_postprocessing
             )
 
             # TODO this is really annoying.. will be solved once we have dict returns.
@@ -216,7 +218,7 @@ class DQNAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
                 root, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                importance_weights
+                importance_weights, apply_postprocessing
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -225,7 +227,7 @@ class DQNAgent(Agent):
                 all_vars = agent.vars_merger.merge(main_policy_vars)
                 out = root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                     all_vars, preprocessed_states, actions, rewards, terminals,
-                    preprocessed_next_states, importance_weights
+                    preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing
                 )
                 avg_grads_and_vars = agent.vars_splitter.split(out["avg_grads_and_vars_by_component"])
                 step_op = agent.optimizer.apply_gradients(avg_grads_and_vars)
@@ -243,12 +245,12 @@ class DQNAgent(Agent):
             vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
 
             # Get the different Q-values.
-            q_values_s = policy.get_logits_probabilities_log_probs(preprocessed_states)["logits"]
-            qt_values_sp = target_policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
+            q_values_s = policy.get_logits_parameters_log_probs(preprocessed_states)["logits"]
+            qt_values_sp = target_policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
+                q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
@@ -277,12 +279,12 @@ class DQNAgent(Agent):
             loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
 
             # Get the different Q-values.
-            q_values_s = policy.get_logits_probabilities_log_probs(preprocessed_states)["logits"]
-            qt_values_sp = target_policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
+            q_values_s = policy.get_logits_parameters_log_probs(preprocessed_states)["logits"]
+            qt_values_sp = target_policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
+                q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
@@ -365,8 +367,9 @@ class DQNAgent(Agent):
             if self.store_last_q_table is True:
                 return_ops += [3]  # 3=q-values
 
+            # TODO apply postprocessing always true atm.
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"]]
+                           batch["next_states"], batch["importance_weights"], True]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Store the last Q-table?

@@ -53,25 +53,20 @@ class Distribution(Component):
         self.seed = kwargs.pop("seed", None)
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
-        # TEST: Try setting components that don't have variables to input_complete AND variable_complete right away.
-        self.input_complete = True
-        self.variable_complete = True
-        # END: TEST
-
         # For define-by-run to avoid creating new objects when calling `get_distribution`.
         self.dist_object = None
 
-    def check_input_spaces(self, input_spaces, action_space=None):
-        ## The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
-        #for key in ["sample_stochastic", "sample_deterministic", "draw",
-        #            "entropy", "log_prob", "kl_divergence"]:
-        for key in ["distribution", "distribution_b"]:
-            if key in input_spaces:
-                parameter_space = input_spaces[key]
-                # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
-                assert not isinstance(parameter_space, ContainerSpace),\
-                    "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
-                    "(atm; may soon do)!".format(self.name)
+    #def check_input_spaces(self, input_spaces, action_space=None):
+    #    ## The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
+    #    #for key in ["sample_stochastic", "sample_deterministic", "draw",
+    #    #            "entropy", "log_prob", "kl_divergence"]:
+    #    for key in ["distribution", "distribution_b"]:
+    #        if key in input_spaces:
+    #            parameter_space = input_spaces[key]
+    #            # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
+    #            assert not isinstance(parameter_space, ContainerSpace),\
+    #                "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
+    #                "(atm; may soon do)!".format(self.name)
 
     # Now use that API-method to get the distribution object to implement all other API-methods.
     @rlgraph_api

@@ -71,7 +71,7 @@ class ApexAgent(DQNAgent):
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"]]
+                           batch["next_states"], batch["importance_weights"], True]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):

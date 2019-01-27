@@ -208,9 +208,9 @@ class TestPytorchBackend(unittest.TestCase):
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        test.test(("get_logits_probabilities_log_probs", states, [0, 1, 2]), expected_outputs=dict(
+        test.test(("get_logits_parameters_log_probs", states, [0, 1, 2]), expected_outputs=dict(
             logits=expected_action_layer_output,
-            probabilities=expected_probabilities_output,
+            parameters=expected_probabilities_output,
             log_probs=np.log(expected_probabilities_output)
         ), decimals=5)
 
