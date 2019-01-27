@@ -86,8 +86,6 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        #self.assertGreaterEqual(results["mean_episode_reward"], 23)
-        #self.assertGreaterEqual(results["max_episode_reward"], 100.0)
         self.assertLessEqual(results["episodes_executed"], time_steps / 10)
 
     def test_ppo_on_pendulum(self):
@@ -107,7 +105,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=False,
             render=self.is_windows
         )
-        results = worker.execute_episodes(250, use_exploration=True)
+        results = worker.execute_episodes(500, use_exploration=True)
 
         print(results)
 

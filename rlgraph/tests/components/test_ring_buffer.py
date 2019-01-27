@@ -24,7 +24,7 @@ from six.moves import xrange as range_
 from rlgraph.components.memories.ring_buffer import RingBuffer
 from rlgraph.spaces import Dict, BoolBox
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import non_terminal_records, terminal_records
+from rlgraph.tests.test_util import non_terminal_records, terminal_records, recursive_assert_almost_equal
 
 
 class TestRingBufferMemory(unittest.TestCase):
@@ -37,7 +37,7 @@ class TestRingBufferMemory(unittest.TestCase):
     record_space = Dict(
         states=dict(state1=float, state2=float),
         actions=dict(action1=float),
-        reward=float,
+        rewards=float,
         terminals=BoolBox(),
         add_batch_rank=True
     )
@@ -166,34 +166,63 @@ class TestRingBufferMemory(unittest.TestCase):
         """
         ring_buffer = RingBuffer(capacity=self.capacity)
         test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
+
         # Insert 2 non-terminals, 1 terminal
         observation = non_terminal_records(self.record_space, 2)
         test.test(("insert_records", observation), expected_outputs=None)
         observation = terminal_records(self.record_space, 1)
         test.test(("insert_records", observation), expected_outputs=None)
 
+        ring_buffer_variables = ring_buffer.get_variables(self.ring_buffer_variables, global_scope=False)
+        num_episodes = ring_buffer_variables["num-episodes"]
+        episode_indices = ring_buffer_variables["episode-indices"]
+        buffer_index = ring_buffer_variables["index"]
+
+        num_episodes_value, episode_index_values = test.read_variable_values(num_episodes, episode_indices)
+
+        # One episode.
+        self.assertEqual(num_episodes_value, 1)
+        expected_indices = [0] * self.capacity
+        expected_indices[0] = 2
+        recursive_assert_almost_equal(episode_index_values, expected_indices)
+
         # We should now be able to retrieve one episode of length 3.
         episode = test.test(("get_episodes", 1), expected_outputs=None)
-        self.assertTrue(len(episode['reward']) == 2)
+        expected_terminals = [0, 0, 1]
+        recursive_assert_almost_equal(episode["terminals"], expected_terminals)
 
         # We should not be able to retrieve two episodes, and still return just one.
         episode = test.test(("get_episodes", 2), expected_outputs=None)
-        self.assertTrue(len(episode['reward']) == 2)
+        expected_terminals = [0, 0, 1]
+        recursive_assert_almost_equal(episode["terminals"], expected_terminals)
 
-        # Insert 7 non-terminals, 1 terminal -> last terminal is now at buffer index 0 as
-        # we inserted 3 + 8 = 11 elements in total.
+        # Insert 7 non-terminals.
         observation = non_terminal_records(self.record_space, 7)
         test.test(("insert_records", observation), expected_outputs=None)
+
+        num_episodes_value, episode_index_values, buffer_val = test.read_variable_values(num_episodes, episode_indices,
+                                                                                         buffer_index)
+        # Episode indices should not have changed.
+        expected_indices[0] = 2
+        recursive_assert_almost_equal(episode_index_values, expected_indices)
+        # Inserted 2 non-terminal, 1 terminal, 7 non-terminal at capacity 10 -> should be at 0 again.
+        self.assertEqual(buffer_val, 0)
+
+        # Now inserting one terminal so the terminal buffer has layout [1 0 1 0 0 0 0 0 0 0]
         observation = terminal_records(self.record_space, 1)
         test.test(("insert_records", observation), expected_outputs=None)
 
-        # Check if we can fetch 2 episodes:
-        episodes = test.test(("get_episodes", 2), expected_outputs=None)
+        # Episode indices:
+        num_episodes_value, episode_index_values = test.read_variable_values(num_episodes, episode_indices)
+        recursive_assert_almost_equal(num_episodes_value, 2)
 
-        # We now expect to have retrieved:
-        # - 10 time steps
-        # - 2 terminal values 1
-        # - Terminal values spaced apart 1 index due to the insertion order
+        # # Check if we can fetch 2 episodes:
+        episodes = test.test(("get_episodes", 2), expected_outputs=None)
+        #
+        # # We now expect to have retrieved:
+        # # - 10 time steps
+        # # - 2 terminal values 1
+        # # - Terminal values spaced apart 1 index due to the insertion order
         self.assertEqual(len(episodes['terminals']), self.capacity)
         self.assertEqual(episodes['terminals'][0], True)
         self.assertEqual(episodes['terminals'][2], True)

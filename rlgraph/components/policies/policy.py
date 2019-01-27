@@ -63,7 +63,7 @@ class Policy(Component):
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
 
         # Create the necessary action adapters for this Policy. One for each action space component.
-        self.action_adapters = dict()
+        self.action_adapters = {}
         if action_space is None:
             self.action_adapters[""] = ActionAdapter.from_spec(action_adapter_spec)
             self.action_space = self.action_adapters[""].action_space
@@ -83,7 +83,7 @@ class Policy(Component):
         self.deterministic = deterministic
 
         # Check for bounded FloatBoxes.
-        self.bounded_action_space = dict()
+        self.bounded_action_space = {}
         for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
             if isinstance(action_component, FloatBox):
                 # Unbounded.
@@ -102,7 +102,7 @@ class Policy(Component):
                 self.bounded_action_space[flat_key] = None
 
         # Figure out our Distributions.
-        self.distributions = dict()
+        self.distributions = {}
         for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
             if isinstance(action_component, IntBox):
                 self.distributions[flat_key] = Categorical(scope="categorical-{}".format(i))
