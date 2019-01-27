@@ -100,6 +100,8 @@ class RingBuffer(Memory):
                 num_episode_update = prev_num_episodes - episodes_in_insert_range + inserted_episodes
 
                 # Shift contiguous episode indices.
+                # prev_num_episodes = tf.Print(prev_num_episodes, [inserted_episodes, episodes_in_insert_range], summarize=100,
+                #                              message="inserted_episodes, episodes in range = ")
                 index_updates.append(self.assign_variable(
                         ref=self.episode_indices[:prev_num_episodes - episodes_in_insert_range],
                         value=self.episode_indices[episodes_in_insert_range:prev_num_episodes]
@@ -109,8 +111,6 @@ class RingBuffer(Memory):
                 # ending at previous count minus removed + inserted.
                 slice_start = prev_num_episodes - episodes_in_insert_range
                 slice_end = num_episode_update
-                # update_indices = tf.Print(update_indices, [update_indices, tf.shape(update_indices)],
-                #                           summarize=100, message='\n update indices / shape = ')
 
             # Update indices and size.
             with tf.control_dependencies(index_updates):
@@ -118,6 +118,8 @@ class RingBuffer(Memory):
 
                 # Actually update indices.
                 mask = tf.boolean_mask(tensor=update_indices, mask=records['terminals'])
+                # mask = tf.Print(mask, [self.episode_indices, update_indices, mask, slice_start, slice_end],
+                #                 summarize=100, message="update, mask, start, end")
                 index_updates.append(self.assign_variable(
                     ref=self.episode_indices[slice_start:slice_end],
                     value=mask
@@ -218,9 +220,10 @@ class RingBuffer(Memory):
             )
             # End index is just the pointer to the most recent episode.
             limit = self.episode_indices[stored_episodes - 1]
-            limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
 
-            indices = tf.range(start=start, limit=limit) % self.capacity
+            limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
+            # limit = tf.Print(limit, [stored_episodes, start, limit], summarize=100, message="start | limit")
+            indices = tf.range(start=start, limit=limit + 1) % self.capacity
             return self._read_records(indices=indices)
         elif get_backend() == "pytorch":
             stored_episodes = self.num_episodes
@@ -235,10 +238,10 @@ class RingBuffer(Memory):
             limit = self.episode_indices[stored_episodes - 1]
             if start >= limit:
                 limit += self.capacity
-            indices = torch.arange(start, limit) % self.capacity
+            indices = torch.arange(start, limit + 1) % self.capacity
 
             records = OrderedDict()
             for name, variable in self.record_registry.items():
                 records[name] = self.read_variable(variable, indices,
-                                                   dtype=util.convert_dtype(self.record_space[name].dtype, to="pytorch"))
+                                dtype=util.convert_dtype(self.record_space[name].dtype, to="pytorch"))
             return records
