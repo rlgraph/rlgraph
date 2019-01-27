@@ -106,7 +106,7 @@ class ActorComponent(Component):
         # if isinstance(self.policy, SharedValueFunctionPolicy):
         #    out = self.policy.get_state_values_logits_probabilities_log_probs(preprocessed_states, internal_states)
         # else:
-        out = self.policy.get_logits_probabilities_log_probs(preprocessed_states, internal_states)
+        out = self.policy.get_logits_parameters_log_probs(preprocessed_states, internal_states)
 
         action_sample = self.policy.get_action_from_logits_and_probabilities(out["logits"], out["probabilities"])
 
