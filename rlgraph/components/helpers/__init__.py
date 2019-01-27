@@ -22,9 +22,9 @@ from rlgraph.components.helpers.segment_tree import SegmentTree
 from rlgraph.components.helpers.softmax import SoftMax
 from rlgraph.components.helpers.v_trace_function import VTraceFunction
 from rlgraph.components.helpers.sequence_helper import SequenceHelper
-
+from rlgraph.components.helpers.clipping import Clipping
 from rlgraph.components.helpers.generalized_advantage_estimation import GeneralizedAdvantageEstimation
 
 
 __all__ = ["MemSegmentTree", "SegmentTree", "SoftMax", "VTraceFunction", "SequenceHelper",
-           "GeneralizedAdvantageEstimation"]
+           "GeneralizedAdvantageEstimation", "Clipping"]

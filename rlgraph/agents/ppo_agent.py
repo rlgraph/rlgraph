@@ -24,6 +24,7 @@ from rlgraph.agents import Agent
 from rlgraph.components import DictMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction, ValueFunction, \
     Optimizer
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
+from rlgraph.components.helpers.clipping import Clipping
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils.util import strip_list, default_dict
 from rlgraph.utils.decorators import rlgraph_api
@@ -43,12 +44,13 @@ class PPOAgent(Agent):
     Paper: https://arxiv.org/abs/1707.06347
     """
 
-    def __init__(self, clip_ratio=0.2, gae_lambda=1.0, standardize_advantages=False,
+    def __init__(self, clip_ratio=0.2, gae_lambda=1.0, clip_rewards=0.0, standardize_advantages=False,
                  sample_episodes=True, weight_entropy=None, memory_spec=None, **kwargs):
         """
         Args:
             clip_ratio (float): Clipping parameter for likelihood ratio.
             gae_lambda (float): Lambda for generalized advantage estimation.
+            clip_rewards (float): Reward clip value. If not 0, rewards will be clipped into this range.
             standardize_advantages (bool): If true, standardize advantage values in update.
 
             sample_episodes (bool): If True, the update method interprets the batch_size as the number of
@@ -105,7 +107,8 @@ class PPOAgent(Agent):
 
         # The splitter for splitting up the records coming from the memory.
         self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
-        self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount)
+        self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount,
+                                                           clip_rewards=clip_rewards)
         self.loss_function = PPOLossFunction(clip_ratio=clip_ratio,
                                              standardize_advantages=standardize_advantages,
                                              weight_entropy=weight_entropy)

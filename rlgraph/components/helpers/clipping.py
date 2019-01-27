@@ -18,41 +18,41 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.util import SMALL_NUMBER
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
-class SoftMax(Component):
+class Clipping(Component):
     """
-    A simple softmax component that translates logits into probabilities (and log-probabilities).
+    Clipping utility (e.g. to clip rewards).
 
     API:
-        apply(logits) -> returns probabilities (softmaxed) and log-probabilities.
+        clip(values) -> returns clipped values.
     """
-    def __init__(self, scope="softmax", **kwargs):
-        super(SoftMax, self).__init__(scope=scope, **kwargs)
+    def __init__(self, clip_value=0.0, scope="clipping", **kwargs):
+        super(Clipping, self).__init__(scope=scope, **kwargs)
+        self.clip_value = clip_value
 
     @rlgraph_api(must_be_complete=False)
-    def _graph_fn_get_probabilities_and_log_probs(self, logits):
+    def _graph_fn_clip_if_needed(self, values):
         """
-        Creates properties/parameters and log-probs from some reshaped output.
-
+        Clips values if cli pvalue specified, otherwise passes through.
         Args:
-            logits (SingleDataOp): The (already reshaped) logits.
+            values (SingleDataOp): Values to clip.
 
         Returns:
-            tuple (2x SingleDataOp):
-                probabilities (DataOp): The probabilities after softmaxing the logits.
-                log_probs (DataOp): Simply the log(probabilities).
-        """
-        if get_backend() == "tf":
-            # Translate logits into probabilities in a save way (SMALL_NUMBER trick).
-            probabilities = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
-            # Log probs.
-            log_probs = tf.log(x=probabilities)
+            SingleDataOp: Clipped values.
 
-            return probabilities, log_probs
+        """
+        if self.clip_value == 0.0:
+            return values
+        elif get_backend() == "tf":
+            return tf.clip_by_value(t=values, clip_value_min=-self.clip_value, clip_value_max=self.clip_value)
+        elif get_backend() == "pytorch":
+            torch.clamp(values, min=-self.clip_value, max=-self.clip_value)
+

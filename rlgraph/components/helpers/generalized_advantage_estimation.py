@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph.components import Component
 from rlgraph.components.helpers import SequenceHelper
+from rlgraph.components.helpers.clipping import Clipping
 from rlgraph.utils.decorators import rlgraph_api
 
 
@@ -30,7 +31,8 @@ class GeneralizedAdvantageEstimation(Component):
     - 2015 (https://arxiv.org/abs/1506.02438)
     """
 
-    def __init__(self, gae_lambda=1.0, discount=1.0, scope="generalized-advantage-estimation", **kwargs):
+    def __init__(self, gae_lambda=1.0, discount=1.0, clip_rewards=0.0,
+                 scope="generalized-advantage-estimation", **kwargs):
         """
         Args:
             gae_lambda (float): GAE-lambda. See paper for details.
@@ -40,12 +42,14 @@ class GeneralizedAdvantageEstimation(Component):
         self.gae_lambda = gae_lambda
         self.discount = discount
         self.sequence_helper = SequenceHelper()
-        self.add_components(self.sequence_helper)
+        self.clipping = Clipping(clip_value=clip_rewards)
+
+        self.add_components(self.sequence_helper, self.clipping)
 
     @rlgraph_api
     def calc_gae_values(self, baseline_values, rewards, terminals, sequence_indices):
         """
-        Returns advantage values based on GAE.
+        Returns advantage values based on GAE. Clips rewards if specified.
 
         Args:
             baseline_values (DataOp): Baseline predictions V(s).
@@ -56,6 +60,7 @@ class GeneralizedAdvantageEstimation(Component):
         Returns:
             PG-advantage values used for training via policy gradient with baseline.
         """
+        rewards = self.clipping.clip_if_needed(rewards)
         gae_discount = self.gae_lambda * self.discount
 
         # Next, we need to set the next value after the end of each sub-sequence to 0/its prior value
