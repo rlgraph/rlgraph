@@ -221,7 +221,7 @@ class RingBuffer(Memory):
             # End index is just the pointer to the most recent episode.
             limit = self.episode_indices[stored_episodes - 1]
 
-            limit += tf.where(condition=(start < limit), x=0, y=self.capacity)
+            limit += tf.where(condition=(start < limit), x=0, y=self.capacity - 1)
             # limit = tf.Print(limit, [stored_episodes, start, limit], summarize=100, message="start | limit")
             indices = tf.range(start=start, limit=limit + 1) % self.capacity
             return self._read_records(indices=indices)
@@ -237,7 +237,7 @@ class RingBuffer(Memory):
             # End index is just the pointer to the most recent episode.
             limit = self.episode_indices[stored_episodes - 1]
             if start >= limit:
-                limit += self.capacity
+                limit += self.capacity - 1
             indices = torch.arange(start, limit + 1) % self.capacity
 
             records = OrderedDict()
