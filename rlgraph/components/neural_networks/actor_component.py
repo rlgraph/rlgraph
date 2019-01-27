@@ -108,10 +108,10 @@ class ActorComponent(Component):
         # else:
         out = self.policy.get_logits_parameters_log_probs(preprocessed_states, internal_states)
 
-        action_sample = self.policy.get_action_from_logits_and_probabilities(out["logits"], out["probabilities"])
+        action_sample = self.policy.get_action_from_logits_and_probabilities(out["logits"], out["parameters"])
 
         actions = self.exploration.get_action(action_sample["action"], time_step, use_exploration)
         return dict(
-            preprocessed_state=preprocessed_states, action=actions, action_probs=out["probabilities"],
+            preprocessed_state=preprocessed_states, action=actions, action_probs=out["parameters"],
             last_internal_states=out["last_internal_states"]
         )
