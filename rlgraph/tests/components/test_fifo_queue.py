@@ -107,7 +107,8 @@ class TestFIFOQueue(unittest.TestCase):
         cluster_spec = dict(source=["localhost:22222"], target=["localhost:22223"])
 
         def run1():
-            fifo_queue_1 = FIFOQueue(capacity=self.capacity, device="/job:source/task:0/cpu")
+            fifo_queue_1 = FIFOQueue(capacity=self.capacity, device="/job:source/task:0/cpu",
+                                     record_space=self.record_space)
             test_1 = ComponentTest(component=fifo_queue_1, input_spaces=self.input_spaces, execution_spec=dict(
                 mode="distributed",
                 distributed_spec=dict(job="source", task_index=0, cluster_spec=cluster_spec)
@@ -125,7 +126,8 @@ class TestFIFOQueue(unittest.TestCase):
             test_1.terminate()
 
         def run2():
-            fifo_queue_2 = FIFOQueue(capacity=self.capacity, device="/job:source/task:0/cpu")
+            fifo_queue_2 = FIFOQueue(capacity=self.capacity, device="/job:source/task:0/cpu",
+                                     record_space=self.record_space)
             test_2 = ComponentTest(component=fifo_queue_2, input_spaces=self.input_spaces, execution_spec=dict(
                 mode="distributed",
                 distributed_spec=dict(job="target", task_index=0, cluster_spec=cluster_spec)
