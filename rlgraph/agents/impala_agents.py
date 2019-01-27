@@ -465,7 +465,7 @@ class IMPALAAgent(Agent):
             preprocessed_states = preprocessor.preprocess(states)
 
             # Only retrieve logits and do faster sparse softmax in loss.
-            out = policy.get_state_values_logits_probabilities_log_probs(preprocessed_states, initial_internal_states)
+            out = policy.get_state_values_logits_parameters_log_probs(preprocessed_states, initial_internal_states)
             state_values_pi = out["state_values"]
             logits = out["logits"]
             #current_internal_states = out["last_internal_states"]
@@ -740,7 +740,7 @@ class SingleIMPALAAgent(IMPALAAgent):
                 states = agent.preprocessor.preprocess(states)
 
             # Get the pi-action probs AND the values for all our states.
-            out = agent.policy.get_state_values_logits_probabilities_log_probs(states, initial_internal_states)
+            out = agent.policy.get_state_values_logits_parameters_log_probs(states, initial_internal_states)
             state_values_pi = out["state_values"]
             logits_pi = out["logits"]
 

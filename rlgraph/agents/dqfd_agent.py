@@ -258,12 +258,12 @@ class DQFDAgent(Agent):
             optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
 
             # Get the different Q-values.
-            q_values_s = policy.get_logits_probabilities_log_probs(preprocessed_states)["logits"]
-            qt_values_sp = target_policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
+            q_values_s = policy.get_logits_parameters_log_probs(preprocessed_states)["logits"]
+            qt_values_sp = target_policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
+                q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss
@@ -287,12 +287,12 @@ class DQFDAgent(Agent):
             loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
 
             # Get the different Q-values.
-            q_values_s = policy.get_logits_probabilities_log_probs(preprocessed_states)["logits"]
-            qt_values_sp = target_policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
+            q_values_s = policy.get_logits_parameters_log_probs(preprocessed_states)["logits"]
+            qt_values_sp = target_policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = policy.get_logits_probabilities_log_probs(preprocessed_next_states)["logits"]
+                q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss
