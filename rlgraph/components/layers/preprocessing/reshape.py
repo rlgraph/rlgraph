@@ -80,8 +80,6 @@ class ReShape(PreprocessLayer):
 
         # The new shape specifications.
         self.new_shape = new_shape
-        #assert self.backend != "python" or self.new_shape is not None,\
-        #    "ERROR: `new_shape` must be provided if backend is python!"
         self.flatten = flatten
         self.flatten_categories = flatten_categories
         self.fold_time_rank = fold_time_rank
@@ -216,6 +214,8 @@ class ReShape(PreprocessLayer):
 
             # print("Reshaping input of shape {} to new shape {} ".format(preprocessing_inputs.shape, new_shape))
 
+            old_size = np.prod(list(preprocessing_inputs.shape))
+            new_size = np.prod(new_shape)
             # The problem here is the following: Input has dim e.g. [4, 256, 1, 1]
             # -> If shape inference in spaces failed, output dim is not correct -> reshape will attempt
             # something like reshaping to [256].
@@ -223,6 +223,10 @@ class ReShape(PreprocessLayer):
                 # Restore batch-rank.
                 flattened_shape = (1, ) + tuple(new_shape)
                 return torch.reshape(preprocessing_inputs, flattened_shape)
+            # If new shape does not fit into old shape, batch inference failed -> try to restore:
+            # Equal except batch rank -> return as is:
+            elif old_size != new_size and tuple(preprocessing_inputs.shape[1:]) == new_shape:
+                return preprocessing_inputs
             else:
                 return torch.reshape(preprocessing_inputs, new_shape)
 
