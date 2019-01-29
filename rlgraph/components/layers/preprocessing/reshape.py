@@ -21,12 +21,11 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.utils import pytorch_one_hot
-from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space, get_space_from_op
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.ops import flatten_op, unflatten_op
+from rlgraph.utils.ops import unflatten_op
 from rlgraph.utils.numpy import one_hot
 
 if get_backend() == "tf":
@@ -90,7 +89,7 @@ class ReShape(PreprocessLayer):
         self.time_major = time_major
 
     def get_preprocessed_space(self, space):
-        ret = dict()
+        ret = {}
         for key, single_space in space.flatten().items():
             class_ = type(single_space)
 
@@ -220,8 +219,10 @@ class ReShape(PreprocessLayer):
             # The problem here is the following: Input has dim e.g. [4, 256, 1, 1]
             # -> If shape inference in spaces failed, output dim is not correct -> reshape will attempt
             # something like reshaping to [256].
-            if self.flatten or (preprocessing_inputs.size(0) > 1 and preprocessing_inputs.dim() > 1):
-                return preprocessing_inputs.squeeze()
+            if self.flatten and preprocessing_inputs.size(0) == 1 and preprocessing_inputs.dim() > 1:
+                # Restore batch-rank.
+                flattened_shape = (1, ) + tuple(new_shape)
+                return torch.reshape(preprocessing_inputs, flattened_shape)
             else:
                 return torch.reshape(preprocessing_inputs, new_shape)
 
