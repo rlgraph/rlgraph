@@ -4,7 +4,6 @@
   "standardize_advantages": false,
   "clip_ratio": 0.2,
   "discount": 0.9,
-  "clip_rewards": 1.0,
   "gae_lambda": 0.8,
   "weight_entropy": 0.0,
 
