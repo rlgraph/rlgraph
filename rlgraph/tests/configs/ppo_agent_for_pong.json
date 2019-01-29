@@ -76,6 +76,11 @@
     {
         "type": "reshape",
         "flatten": true
+    },
+     {
+        "type": "dense",
+        "units": 256,
+        "scope": "dense1"
     }
   ],
 
@@ -108,6 +113,11 @@
     {
         "type": "reshape",
         "flatten": true
+    },
+   {
+        "type": "dense",
+        "units": 256,
+        "scope": "vf-dense1"
     }
   ],
 
