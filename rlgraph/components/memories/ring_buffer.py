@@ -188,11 +188,14 @@ class RingBuffer(Memory):
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         if get_backend() == "tf":
+            stored_records = self.read_variable(self.size)
+            available_records = tf.minimum(x=num_records, y=stored_records)
             index = self.read_variable(self.index)
-            indices = tf.range(start=index - num_records, limit=index) % self.capacity
+            indices = tf.range(start=index - available_records, limit=index) % self.capacity
             return self._read_records(indices=indices)
         elif get_backend() == "pytorch":
-            indices = np.arange(self.index - num_records, self.index) % self.capacity
+            available_records = min(num_records, self.size)
+            indices = np.arange(self.index - available_records, self.index) % self.capacity
             records = OrderedDict()
             for name, variable in self.record_registry.items():
                 records[name] = self.read_variable(variable, indices,
