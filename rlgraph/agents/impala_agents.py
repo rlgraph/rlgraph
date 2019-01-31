@@ -487,7 +487,7 @@ class IMPALAAgent(Agent):
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
-            return step_op, (stage_op if stage_op else step_op), loss, loss_per_item
+            return step_op, (stage_op if stage_op else step_op), loss, loss_per_item, records
 
     def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
         pass
