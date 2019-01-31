@@ -17,10 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import copy
 import json
 import numpy as np
 import os
+
+from rlgraph import get_backend
+
+if get_backend() == "pytorch":
+    import torch
 
 
 def config_from_path(path, root=None):
@@ -119,4 +123,7 @@ def recursive_assert_almost_equal(x, y, decimals=7):
         np.testing.assert_array_equal(x, y)
     # Everything else (assume numeric).
     else:
+        if isinstance(x, torch.Tensor):
+            x = x.detach().numpy()
+            y = y.detach().numpy()
         np.testing.assert_almost_equal(x, y, decimal=decimals)
