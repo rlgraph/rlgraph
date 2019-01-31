@@ -1178,7 +1178,7 @@ class Component(Specifiable):
                             elif dtype == torch.uint8:
                                 ret.append(val.byte())
                     # Stack list into one Tensor with a btach dim.
-                    return torch.stack(ret)
+                    return torch.stack(ret) if ret else ret
                 else:
                     return variable
 
