@@ -212,16 +212,18 @@ class ReShape(PreprocessLayer):
                     # Batch and time rank stay as is.
                     new_shape = (input_shape[0], input_shape[1]) + new_shape[2:]
 
-            # print("Reshaping input of shape {} to new shape {} ".format(preprocessing_inputs.shape, new_shape))
+            # print("Reshaping input of shape {} to new shape {} (flatten = {})".format(preprocessing_inputs.shape,
+            #                                                                           new_shape, self.flatten))
 
             old_size = np.prod(list(preprocessing_inputs.shape))
             new_size = np.prod(new_shape)
+
             # The problem here is the following: Input has dim e.g. [4, 256, 1, 1]
             # -> If shape inference in spaces failed, output dim is not correct -> reshape will attempt
             # something like reshaping to [256].
-            if self.flatten and preprocessing_inputs.size(0) == 1 and preprocessing_inputs.dim() > 1:
-                # Restore batch-rank.
-                flattened_shape = (1, ) + tuple(new_shape)
+            if self.flatten and preprocessing_inputs.dim() > 1:
+                flattened_shape_without_batchrank = np.prod(preprocessing_inputs.shape[1:])
+                flattened_shape = (preprocessing_inputs.shape[0],) + (flattened_shape_without_batchrank,)
                 return torch.reshape(preprocessing_inputs, flattened_shape)
             # If new shape does not fit into old shape, batch inference failed -> try to restore:
             # Equal except batch rank -> return as is:
