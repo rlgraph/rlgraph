@@ -17,10 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
 
-from rlgraph.components.common import ContainerSplitter, DictMerger
+from rlgraph.components.common import ContainerSplitter, ContainerMerger
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
@@ -101,7 +100,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
 
         test.test(("split", (input_,)), expected_outputs=expected_outputs)
 
-    def test_merger_component(self):
+    def test_dict_merger_component(self):
         space = Tuple(
             dict(a=bool, b=float),
             dict(c=bool),
@@ -112,7 +111,7 @@ class TestSplitterMergerComponents(unittest.TestCase):
             Dict(d=bool, e=FloatBox(shape=())),
             add_batch_rank=False
         )
-        merger = DictMerger("1", "2", "3", "test", "5", "6", "7")
+        merger = ContainerMerger("1", "2", "3", "test", "5", "6", "7")
         test = ComponentTest(component=merger, input_spaces=dict(inputs=[s for s in space]))
 
         # Get a single sample.
@@ -124,5 +123,25 @@ class TestSplitterMergerComponents(unittest.TestCase):
                                  "5": sample[4],
                                  "6": sample[5],
                                  "7": sample[6]})
+
+        test.test(("merge", list(sample)), expected_outputs=expected_outputs)
+
+    def test_tuple_merger_component(self):
+        space = Tuple(
+            dict(a=bool, b=float),
+            dict(c=bool),
+            float,
+            IntBox(low=0, high=255),
+            IntBox(2),
+            FloatBox(shape=(3, 2)),
+            Dict(d=bool, e=FloatBox(shape=())),
+            add_batch_rank=False
+        )
+        merger = ContainerMerger(7)
+        test = ComponentTest(component=merger, input_spaces=dict(inputs=[s for s in space]))
+
+        # Get a single sample.
+        sample = space.sample()
+        expected_outputs = tuple([sample[0], sample[1], sample[2], sample[3], sample[4], sample[5], sample[6]])
 
         test.test(("merge", list(sample)), expected_outputs=expected_outputs)
