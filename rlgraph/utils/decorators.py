@@ -165,6 +165,9 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     if param_name not in self.api_method_inputs:
                         self.api_method_inputs[param_name] = None
 
+                elif isinstance(value, tuple):
+                    value[0].column.component.get_helper_component("dictmerger")
+
                 # Fixed value (instead of op-record): Store the fixed value directly in the op.
                 else:
                     #in_op_column.op_records[i].space = get_space_from_op(value)

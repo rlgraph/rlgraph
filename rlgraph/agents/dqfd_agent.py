@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, PrioritizedReplay, DictMerger, ContainerSplitter, DQFDLossFunction
+from rlgraph.components import Memory, PrioritizedReplay, ContainerMerger, ContainerSplitter, DQFDLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
@@ -111,7 +111,7 @@ class DQFDAgent(Agent):
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = DictMerger("states", "actions", "rewards", "next_states", "terminals")
+        self.merger = ContainerMerger("states", "actions", "rewards", "next_states", "terminals")
 
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
