@@ -139,7 +139,10 @@ class PyTorchExecutor(GraphExecutor):
 
     def clean_results(self, ret, to_return):
         for result in to_return:
-            if self.remove_batch_dims and isinstance(result, np.ndarray):
+            if isinstance(result, dict):
+                cleaned_dict = {k: v for k, v in result.items() if v is not None}
+                ret.append(cleaned_dict)
+            elif self.remove_batch_dims and isinstance(result, np.ndarray):
                 ret.append(np.array(np.squeeze(result)))
             elif hasattr(result, "numpy"):
                 ret.append(np.array(result.numpy()))
