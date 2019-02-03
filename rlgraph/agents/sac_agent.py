@@ -136,6 +136,9 @@ class SACAgentComponent(Component):
         self.steps_since_last_sync = None
         self.sync_interval = q_sync_spec.sync_interval
 
+    def create_variables(self, input_spaces, action_space=None):
+        self.steps_since_last_sync = self.get_variable("steps_since_last_sync", dtype="int", initializer=0)
+
     @rlgraph_api
     def get_policy_weights(self):
         # TODO: why is _variables() "protected"?
@@ -274,8 +277,7 @@ class SACAgentComponent(Component):
         elif backend == "pytorch":
             raise NotImplementedError("TODO: pytorch support")
 
-    """
-    @rlgraph_api(must_be_complete=False)
+    @rlgraph_api
     def sync_targets(self):
         should_sync = self._graph_fn_get__should_sync()
         all_source_vars = [source._variables() for source in self._q_functions]
@@ -310,7 +312,7 @@ class SACAgentComponent(Component):
     def _graph_fn__sync(self, should_sync, grouped_op):
         def assign_op():
             # Make sure we are returning no_op as opposed to reference
-            with tf.control_dependencies([grouped_op, tf.print("syncing")]):
+            with tf.control_dependencies([grouped_op]):
                 return tf.no_op()
 
         cond_assign_op = tf.cond(should_sync, true_fn=assign_op, false_fn=tf.no_op)
@@ -320,10 +322,6 @@ class SACAgentComponent(Component):
     @graph_fn(returns=1)
     def _graph_fn__group(self, *ops):
         return tf.group(*ops)
-    """
-
-    def create_variables(self, input_spaces, action_space=None):
-        self.steps_since_last_sync = self.get_variable("steps_since_last_sync", dtype="int", initializer=0)
 
 
 class SACAgent(Agent):
