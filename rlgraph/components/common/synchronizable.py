@@ -62,8 +62,8 @@ class Synchronizable(Component):
             if self.parent_component.check_input_completeness():
                 self.parent_component.when_input_complete()
 
-        # Pretend we are input-complete (which we may not be) and then check parent's variable completeness
-        # under this condition.
+        # Pretend we are input- and variable-complete (which we may not be) and then check parent's variable
+        # completeness under this condition.
         parent_was_variable_complete = True
         if self.parent_component.variable_complete is False:
             parent_was_variable_complete = False
@@ -81,7 +81,7 @@ class Synchronizable(Component):
 
         return False
 
-    @rlgraph_api(must_be_complete=False, returns=1)
+    @rlgraph_api(must_be_complete=False, returns=1, requires_variable_completeness=True)
     def _graph_fn_sync(self, values_):
         """
         Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable
@@ -91,9 +91,6 @@ class Synchronizable(Component):
             values_ (DataOpDict): The dict of variable values (coming from the "_variables"-Socket of any other
                 Component) that need to be assigned to this Component's parent's variables.
                 The keys in the dict refer to the names of our parent's variables and must match their names.
-
-            strict (bool): Whether to check strictly if the given `values_` match the variables of the to-be-synced
-                Component (in the number of vars).
 
         Returns:
             DataOp: The op that executes the syncing.
