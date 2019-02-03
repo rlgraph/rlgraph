@@ -312,7 +312,7 @@ class GraphBuilder(Specifiable):
                                                  is_input_feed=True, is_python=True)
         return placeholder
 
-    def build_component_when_input_complete(self, component):
+    def build_component_when_input_complete(self, component, check_sub_components=True):
         # Not input complete yet -> Check now.
         if component.input_complete is False or component.built is False:
             component.check_input_completeness()
@@ -333,34 +333,36 @@ class GraphBuilder(Specifiable):
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
-        # Check variable-completeness and actually call the _variable graph_fn if not already done so.
-        # Collect sub-components and build them as well if they just became variable-complete.
-        sub_components = component.sub_components.values()
-        sub_components_not_var_complete = set()
-        for sub_component in sub_components:
-            if sub_component.variable_complete is False:
-                sub_components_not_var_complete.add(sub_component)
-
         if component.input_complete is True and component.check_variable_completeness():
-                # The graph_fn _variables has some in-op-columns that need to be run through the function.
-                if "_graph_fn__variables" in component.graph_fns:
-                    graph_fn_rec = component.graph_fns["_graph_fn__variables"]
-                    # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
-                    # TODO: Then link the first in-op-column (empty) to all out-op-columns.
-                    for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
-                        if in_op_col.already_sent is False:
-                            self.run_through_graph_fn_with_device_and_scope(in_op_col)
-                            # If graph_fn_rec doesn't know about the out-op-col yet, add it.
-                            if len(graph_fn_rec.out_op_columns) <= i:
-                                assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
-                                graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
-                            self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+            # The graph_fn _variables has some in-op-columns that need to be run through the function.
+            if "_graph_fn__variables" in component.graph_fns:
+                graph_fn_rec = component.graph_fns["_graph_fn__variables"]
+                # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
+                # TODO: Then link the first in-op-column (empty) to all out-op-columns.
+                for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
+                    if in_op_col.already_sent is False:
+                        self.run_through_graph_fn_with_device_and_scope(in_op_col)
+                        # If graph_fn_rec doesn't know about the out-op-col yet, add it.
+                        if len(graph_fn_rec.out_op_columns) <= i:
+                            assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
+                            graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
+                        self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+
+            if check_sub_components is True:
+                # Check variable-completeness and actually call the _variable graph_fn if not already done so.
+                # Collect sub-components and build them as well if they just became variable-complete.
+                sub_components = component.sub_components.values()
+                sub_components_not_var_complete = set()
+                for sub_component in sub_components:
+                    if sub_component.variable_complete is False:
+                        sub_components_not_var_complete.add(sub_component)
 
                 for sub_component in sub_components_not_var_complete:
                     self.build_component_when_input_complete(sub_component)
-                # Now that the component is variable-complete, the parent may have become variable-complete as well.
-                #if component.parent_component is not None:
-                #    self.build_component_when_input_complete(component.parent_component)
+
+            # Now that the component is variable-complete, the parent may have become variable-complete as well.
+            if component.parent_component is not None and component.parent_component.variable_complete is False:
+                self.build_component_when_input_complete(component.parent_component, check_sub_components=False)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column, create_new_out_column=None):
         """
@@ -719,7 +721,7 @@ class GraphBuilder(Specifiable):
                 # We have reached the beginning of the graph with a "variables:.."-dependent Space, so no op expected
                 # yet.
                 if isinstance(op_rec.space, str) and re.match(r'^variables:.+', op_rec.space):
-                    assert True, "  Needs error message here!"
+                    assert False, "  Needs error message here!"
 
                 else:
                     assert isinstance(op_rec.column, DataOpRecordColumnFromGraphFn),\
