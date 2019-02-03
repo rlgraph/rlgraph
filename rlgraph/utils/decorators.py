@@ -22,6 +22,7 @@ import inspect
 import re
 import time
 
+#from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
@@ -164,11 +165,9 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     # Create entry with unknown Space if it doesn't exist yet.
                     if param_name not in self.api_method_inputs:
                         self.api_method_inputs[param_name] = None
-
                 # Fixed value (instead of op-record): Store the fixed value directly in the op.
                 else:
-                    #in_op_column.op_records[i].space = get_space_from_op(value)
-                    if param_name not in self.api_method_inputs or self.api_method_inputs[param_name] is None:
+                    if self.api_method_inputs.get(param_name) is None:
                         self.api_method_inputs[param_name] = in_op_column.op_records[i].space
 
             if build_when_done:
@@ -220,7 +219,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
             # Potential call from a lambda.
             if caller_component is None and "fn" in stack[2][0].f_locals:
-                # This is the ecomponent
+                # This is the component.
                 prev_caller_component = TraceContext.PREV_CALLER
                 lambda_obj = stack[2][0].f_locals["fn"]
                 if "lambda" in inspect.getsource(lambda_obj):
@@ -232,13 +231,18 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     "API-method '{}' must have as 1st parameter (the component) either `root` or `self`. Other names "
                     "are not allowed!".format(api_method_rec.name)
                 )
-            elif caller_component is not None and type(caller_component).__name__ != "MetaGraphBuilder" and \
+            # Not directly called by this method itself (auto-helper-component-API-call).
+            # AND call is coming from some caller Component, but that component is not this component
+            # OR a parent -> Error.
+            elif caller_component is not None and \
+                    type(caller_component).__name__ != "MetaGraphBuilder" and \
                     caller_component not in [self] + self.get_parents():
-                raise RLGraphError(
-                    "The component '{}' is not a child (or grand-child) of the caller ({})! Maybe you forgot to add "
-                    "it as a sub-component via `add_components()`.".
-                    format(self.global_scope, caller_component.global_scope)
-                )
+                if not (stack[1][3] == "__init__" and re.search(r'op_records\.py$', stack[1][1])):
+                    raise RLGraphError(
+                        "The component '{}' is not a child (or grand-child) of the caller ({})! Maybe you forgot to "
+                        "add it as a sub-component via `add_components()`.".
+                        format(self.global_scope, caller_component.global_scope)
+                    )
 
             # Update trace context.
             TraceContext.PREV_CALLER = caller_component

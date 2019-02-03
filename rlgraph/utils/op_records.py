@@ -123,10 +123,20 @@ class DataOpRecordColumn(object):
         if num_op_records is None:
             self.op_records = []
             if args is not None:
+                args = list(args)
                 for i in range(len(args)):
                     if args[i] is None:
                         continue
                     op_rec = DataOpRecord(op=None, column=self, position=i)
+
+                    # Tuple instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
+                    # ContainerMerger Component.
+                    if isinstance(args[i], tuple) and isinstance(args[i][0], DataOpRecord):
+                        merger_component = args[i][0].column.component.get_helper_component(
+                            "container-merger", _args=len(args[i])
+                        )
+                        args[i] = merger_component.merge(*args[i])
+
                     # If incoming is an op-rec -> Link them.
                     if isinstance(args[i], DataOpRecord):
                         op_rec.previous = args[i]

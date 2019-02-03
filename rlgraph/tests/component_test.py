@@ -67,6 +67,7 @@ class ComponentTest(object):
             backend (Optional[str]): Override global backend settings for a test by passing in a specific
                 backend, convenience method.
             auto_build (Optional[bool]): If false, build has to be triggered manually to eval build stats.
+            build_kwargs (Optional[dict]): Dict to be passed as **kwargs to the call to `self.graph_executor.build`.
         """
         self.seed = seed
         np.random.seed(seed)

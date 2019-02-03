@@ -24,6 +24,7 @@ import copy
 import inspect
 import numpy as np
 import re
+import uuid
 
 from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry,\
@@ -1212,6 +1213,27 @@ class Component(Specifiable):
         Optionally execute post-build calls.
         """
         pass
+
+    def get_helper_component(self, type_, *args, **kwargs):
+        """
+        Returns a helper component of the given type (only one helper component per type is allowed
+        and necessary). If a helper of the type does not exist yet in `self`, create a new one.
+
+        Args:
+            type_ (str): The type as a string of the helper Component to return.
+
+        Returns:
+            Component: The helper component.
+        """
+        name = "_helper-"+type_+"-{}".format(uuid.uuid4())
+        helper = self.sub_components.get(name)
+        if helper is None:
+            kwargs.update(dict(type=type_, scope=name))
+            if len(args) > 0:
+                kwargs.update({"_args": args})
+            helper = Component.from_spec(kwargs)
+            self.add_components(helper)
+        return helper
 
     @rlgraph_api(returns=1)
     def _graph_fn__variables(self):
