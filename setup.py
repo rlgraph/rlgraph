@@ -26,13 +26,14 @@ with open(os.path.join(os.path.dirname(__file__), 'rlgraph', 'version.py')) as f
     exec(fp.read(), version_vars)
 
 install_requires = [
-    'opencv-python',
+    'absl-py',
     'numpy',
+    'opencv-python',
     'pyyaml',
     'pytest',
-    'six',
     'requests',
-    'absl-py'
+    'scipy',
+    'six'
 ]
 
 setup_requires = []
