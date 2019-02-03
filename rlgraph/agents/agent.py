@@ -24,7 +24,7 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
-    ValueFunction, DictMerger, ContainerSplitter
+    ValueFunction, ContainerMerger, ContainerSplitter
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
@@ -138,10 +138,10 @@ class Agent(Specifiable):
         if value_function_spec is not None:
             self.value_function = ValueFunction(network_spec=value_function_spec)
             self.value_function.add_components(Synchronizable(), expose_apis="sync")
-            self.vars_merger = DictMerger("policy", "vf", scope="variable-dict-merger")
+            self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
         else:
-            self.vars_merger = DictMerger("policy", scope="variable-dict-merger")
+            self.vars_merger = ContainerMerger("policy", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
 
         self.internal_states_space = Space.from_spec(internal_states_space)

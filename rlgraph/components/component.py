@@ -1213,6 +1213,23 @@ class Component(Specifiable):
         """
         pass
 
+    def get_helper_component(self, type_):
+        """
+        Returns a helper component of the given type (only one helper component per type is allowed
+        and necessary). If a helper of the type does not exist yet in `self`, create a new one.
+
+        Args:
+            type_ (str): The type as a string of the helper Component to return.
+
+        Returns:
+            Component: The helper component.
+        """
+        name = "_helper_"+type_
+        helper = self.sub_components.get(name)
+        if helper is None:
+            helper = Component.from_spec(dict(type=type_, scope="_helper_"+type_))
+        return helper
+
     @rlgraph_api(returns=1)
     def _graph_fn__variables(self):
         """

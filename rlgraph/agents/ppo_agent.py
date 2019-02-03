@@ -21,12 +21,10 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.agents import Agent
-from rlgraph.components import DictMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction, ValueFunction, \
-    Optimizer
+from rlgraph.components import ContainerMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
-from rlgraph.components.helpers.clipping import Clipping
 from rlgraph.spaces import BoolBox, FloatBox
-from rlgraph.utils.util import strip_list, default_dict
+from rlgraph.utils.util import strip_list
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
@@ -96,7 +94,7 @@ class PPOAgent(Agent):
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = DictMerger("states", "actions", "rewards", "terminals")
+        self.merger = ContainerMerger("states", "actions", "rewards", "terminals")
         self.memory = Memory.from_spec(memory_spec)
         assert isinstance(self.memory, RingBuffer), "ERROR: PPO memory must be ring-buffer for episode-handling!"
 
