@@ -228,7 +228,9 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
     to.
     """
     def __init__(self, component, graph_fn, flatten_ops=False,
-                 split_ops=False, add_auto_key_as_first_param=False, args=None, kwargs=None):
+                 split_ops=False, add_auto_key_as_first_param=False,
+                 requires_variable_completeness=False,
+                 args=None, kwargs=None):
         # TODO: need to pass in input-arg name information so we can switch to kwargs if some default arg not given.
         super(DataOpRecordColumnIntoGraphFn, self).__init__(
             component=component, args=args, kwargs=kwargs
@@ -240,6 +242,7 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         self.flatten_ops = flatten_ops
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
+        self.requires_variable_completeness = requires_variable_completeness
 
         # The column after passing this one through the graph_fn.
         self.out_graph_fn_column = None
@@ -427,7 +430,8 @@ class APIMethodRecord(object):
     def __init__(self, func, wrapper_func, name,
                  component=None, must_be_complete=True, ok_to_overwrite=False,
                  is_graph_fn_wrapper=False, is_class_method=True,
-                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
+                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
+                 requires_variable_completeness=False):
         """
         Args:
             func (callable): The actual API-method (callable).
@@ -449,6 +453,8 @@ class APIMethodRecord(object):
         self.flatten_ops = flatten_ops
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
+
+        self.requires_variable_completeness = requires_variable_completeness
 
         # List of the input-parameter names (str) of this API-method.
         self.input_names = []
@@ -496,7 +502,8 @@ class APIMethodRecord(object):
 
 class GraphFnRecord(object):
     def __init__(self, func, wrapper_func, component=None, is_class_method=True,
-                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
+                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
+                 requires_variable_completeness=False):
         self.func = func
         self.wrapper_func = wrapper_func
         self.name = self.func.__name__
@@ -507,6 +514,7 @@ class GraphFnRecord(object):
         self.flatten_ops = flatten_ops
         self.split_ops = split_ops
         self.add_auto_key_as_first_param = add_auto_key_as_first_param
+        self.requires_variable_completeness = requires_variable_completeness
 
         self.in_op_columns = []
         self.out_op_columns = []

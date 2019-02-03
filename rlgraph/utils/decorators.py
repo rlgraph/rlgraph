@@ -38,7 +38,7 @@ component_graph_fn_registry = {}
 
 def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
-                must_be_complete=True, ok_to_overwrite=False):
+                must_be_complete=True, ok_to_overwrite=False, requires_variable_completeness=False):
     """
     API-method decorator used to tag any Component's methods as API-methods.
 
@@ -74,6 +74,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
         must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
         ok_to_overwrite (bool): Set to True to indicate that this API-decorator will overwrite an already existing
             API-method in the Component. Default: False.
+        requires_variable_completeness (bool): Whether the underlying graph_fn should only be called
+            after the Component is variable-complete. By default, only input-completeness is required.
 
     Returns:
         callable: The decorator function.
@@ -184,7 +186,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 return_values = graph_fn_wrapper(
                     self, wrapped_func, returns, dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
-                        add_auto_key_as_first_param=add_auto_key_as_first_param
+                        add_auto_key_as_first_param=add_auto_key_as_first_param,
+                        requires_variable_completeness=requires_variable_completeness
                     ), *api_fn_args, **api_fn_kwargs
                 )
 
@@ -279,7 +282,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             name=api_fn_name,
             must_be_complete=must_be_complete, ok_to_overwrite=ok_to_overwrite,
             is_graph_fn_wrapper=is_graph_fn_wrapper, is_class_method=(component is None),
-            flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
+            flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param,
+            requires_variable_completeness=requires_variable_completeness
         )
 
         # Registers the given method with the Component (if not already done so).
@@ -302,7 +306,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
 
 def graph_fn(graph_fn=None, *, component=None, returns=None,
-             flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
+             flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
+             requires_variable_completeness=False):
     """
     Graph_fn decorator used to tag any Component's graph_fn (that is not directly wrapped by an API-method) as such.
 
@@ -338,6 +343,9 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
             Has no effect if `split_ops` is False.
             Default: False.
 
+        requires_variable_completeness (bool): Whether the underlying graph_fn should only be called
+            after the Component is variable-complete. By default, only input-completeness is required.
+
     Returns:
         callable: The decorator function.
     """
@@ -356,14 +364,16 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
                 return graph_fn_wrapper(
                     self, wrapped_func, returns, dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
-                        add_auto_key_as_first_param=add_auto_key_as_first_param
+                        add_auto_key_as_first_param=add_auto_key_as_first_param,
+                        requires_variable_completeness=requires_variable_completeness
                     ), *args, **kwargs
                 )
 
         graph_fn_rec = GraphFnRecord(
             func=wrapped_func, wrapper_func=_graph_fn_wrapper, is_class_method=(component is None),
             flatten_ops=flatten_ops, split_ops=split_ops,
-            add_auto_key_as_first_param=add_auto_key_as_first_param
+            add_auto_key_as_first_param=add_auto_key_as_first_param,
+            requires_variable_completeness=requires_variable_completeness
         )
 
         # Registers the given method with the Component (if not already done so).
@@ -525,11 +535,13 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
     flatten_ops = options.pop("flatten_ops", False)
     split_ops = options.pop("split_ops", False)
     add_auto_key_as_first_param = options.pop("add_auto_key_as_first_param", False)
+    requires_variable_completeness = options.pop("requires_variable_completeness", False)
 
     # Store a graph_fn record in this component for better in/out-op-record-column reference.
     if wrapped_func.__name__ not in component.graph_fns:
         component.graph_fns[wrapped_func.__name__] = GraphFnRecord(
-            func=wrapped_func, wrapper_func=graph_fn_wrapper, component=component
+            func=wrapped_func, wrapper_func=graph_fn_wrapper, component=component,
+            requires_variable_completeness=requires_variable_completeness
         )
 
     # Generate in-going op-rec-column.
@@ -537,6 +549,7 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         component=component, graph_fn=wrapped_func,
         flatten_ops=flatten_ops, split_ops=split_ops,
         add_auto_key_as_first_param=add_auto_key_as_first_param,
+        requires_variable_completeness=requires_variable_completeness,
         args=args, kwargs=kwargs
     )
     # Add the column to the `graph_fns` record.
