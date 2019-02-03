@@ -29,8 +29,8 @@ class SACLossFunction(LossFunction):
 
     @rlgraph_api
     def loss(self, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-            q_values_sampled, rewards, terminals):
-        actor_loss_per_item, critic_loss_per_item = self._graph_fn_loss_per_item(
+             q_values_sampled, rewards, terminals):
+        actor_loss_per_item, critic_loss_per_item = self.loss_per_item(
             log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
             q_values_sampled, rewards, terminals
         )
@@ -60,15 +60,17 @@ class SACLossFunction(LossFunction):
         return loss
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-            q_values_sampled, rewards, terminals):
-        policy_loss, value_loss = self._graph_fn__loss_per_item(log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-            q_values_sampled, rewards, terminals)
+    def loss_per_item(self, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
+                      q_values_sampled, rewards, terminals):
+        policy_loss, value_loss = self._graph_fn_loss_per_item(
+            log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled, q_values_sampled, rewards,
+            terminals
+        )
         return policy_loss, value_loss
 
     @graph_fn
-    def _graph_fn__loss_per_item(self, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-            q_values_sampled, rewards, terminals):
+    def _graph_fn_loss_per_item(self, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
+                                q_values_sampled, rewards, terminals):
         assert log_probs_next_sampled.shape.as_list() == [None, 1]
         assert all(q.shape.as_list() == [None, 1] for q in q_values_next_sampled)
         assert all(q.shape.as_list() == [None, 1] for q in q_values)
@@ -208,8 +210,7 @@ class SACAgentComponent(Component):
             else:
                 state_actions.append(flat_actions[flat_key])
         state_actions = self._graph_fn__concat(*state_actions)
-        q_values = [q.value_output(state_actions) for q in q_functions]
-        return tuple(q_values)
+        return tuple(q.value_output(state_actions) for q in q_functions)
 
     @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights):
@@ -218,7 +219,9 @@ class SACAgentComponent(Component):
         next_sampled_actions = self._policy.get_action(preprocessed_next_states, deterministic=False)["action"]
         log_probs_next_sampled = self._policy.get_action_log_probs(preprocessed_states, next_sampled_actions)[
             "action_log_probs"]
-        q_values_next_sampled = self._compute_q_values(self._target_q_functions, preprocessed_next_states, next_sampled_actions)
+        q_values_next_sampled = self._compute_q_values(
+            self._target_q_functions, preprocessed_next_states, next_sampled_actions
+        )
         q_values = self._compute_q_values(self._q_functions, preprocessed_states, actions)
 
         sampled_actions = self._policy.get_action(preprocessed_states, deterministic=False)["action"]
@@ -231,13 +234,13 @@ class SACAgentComponent(Component):
         q_values_sampled = self._compute_q_values(self._q_functions, preprocessed_states, sampled_actions)
 
         total_policy_loss, policy_loss_per_item, total_values_loss, values_loss_per_item = self.loss_function.loss(
-            log_probs_next_sampled=log_probs_next_sampled,
-            q_values_next_sampled=q_values_next_sampled,
-            q_values=q_values,
-            log_probs_sampled=log_probs_sampled,
-            q_values_sampled=q_values_sampled,
-            rewards=rewards,
-            terminals=terminals
+            log_probs_next_sampled,
+            q_values_next_sampled,
+            q_values,
+            log_probs_sampled,
+            q_values_sampled,
+            rewards,
+            terminals
         )
         return total_policy_loss, policy_loss_per_item, total_values_loss, values_loss_per_item
 
