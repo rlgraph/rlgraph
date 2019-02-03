@@ -20,8 +20,10 @@ from __future__ import print_function
 import copy
 import inspect
 import re
+#import uuid
 import time
 
+#from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
@@ -165,13 +167,15 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     if param_name not in self.api_method_inputs:
                         self.api_method_inputs[param_name] = None
 
-                elif isinstance(value, tuple):
-                    value[0].column.component.get_helper_component("dictmerger")
+                #elif isinstance(value, tuple):
+                #    merger_component = ContainerMerger(len(value), scope="_container-merger{}".format(uuid.uuid4()))
+                #    value[0].column.component.add_sub_component(merger_component)
+                #    value = merger_component.merge(*value)
+                #    #TODO: what to do with `value` now (add to meta-graph)?
 
                 # Fixed value (instead of op-record): Store the fixed value directly in the op.
                 else:
-                    #in_op_column.op_records[i].space = get_space_from_op(value)
-                    if param_name not in self.api_method_inputs or self.api_method_inputs[param_name] is None:
+                    if self.api_method_inputs.get(param_name) is None:
                         self.api_method_inputs[param_name] = in_op_column.op_records[i].space
 
             if build_when_done:
