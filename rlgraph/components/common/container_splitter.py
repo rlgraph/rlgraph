@@ -26,7 +26,7 @@ from rlgraph.utils.decorators import rlgraph_api
 # TODO: rename to DictTupleSplitter
 class ContainerSplitter(Component):
     """
-    Splits an incoming container Space into all its single primitive Spaces.
+    Splits an incoming ContainerSpace into all its single primitive Spaces.
     """
     def __init__(self, *output_order, **kwargs):
         """

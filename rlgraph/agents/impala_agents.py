@@ -22,7 +22,7 @@ import copy
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
-from rlgraph.components.common.dict_merger import DictMerger
+from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
@@ -243,7 +243,7 @@ class IMPALAAgent(Agent):
             # Slice some data from the EnvStepper (e.g only first internal states are needed).
             self.internal_states_slicer = Slice(scope="internal-states-slicer", squeeze=True)
             # Merge back to insert into FIFO.
-            self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
+            self.fifo_input_merger = ContainerMerger(*self.fifo_queue_keys)
 
             # Dummy Flattener to calculate action-probs space.
             dummy_flattener = ReShape(flatten=True, flatten_categories=self.action_space.num_categories)
@@ -595,7 +595,7 @@ class SingleIMPALAAgent(IMPALAAgent):
         )
 
         # Merge back to insert into FIFO.
-        self.fifo_input_merger = DictMerger(*self.fifo_queue_keys)
+        self.fifo_input_merger = ContainerMerger(*self.fifo_queue_keys)
 
         # Dummy Flattener to calculate action-probs space.
         dummy_flattener = ReShape(flatten=True, flatten_categories=self.action_space.num_categories)

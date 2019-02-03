@@ -20,6 +20,7 @@ from __future__ import print_function
 import copy
 import inspect
 import re
+#import uuid
 import time
 
 #from rlgraph.components.common.container_merger import ContainerMerger
@@ -167,6 +168,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     # Create entry with unknown Space if it doesn't exist yet.
                     if param_name not in self.api_method_inputs:
                         self.api_method_inputs[param_name] = None
+
                 # Fixed value (instead of op-record): Store the fixed value directly in the op.
                 else:
                     if self.api_method_inputs.get(param_name) is None:
