@@ -304,6 +304,8 @@ class Component(Specifiable):
 
         # Simply check all direct sub-Components for variable-completeness.
         for direct_child in self.sub_components.values():
+            if re.search(r'^_helper-', direct_child.scope):
+                continue
             if not direct_child.check_variable_completeness():
                 return False
         self.variable_complete = True
@@ -1235,7 +1237,7 @@ class Component(Specifiable):
             self.add_components(helper)
         return helper
 
-    @rlgraph_api(returns=1)
+    @rlgraph_api(returns=1, requires_variable_completeness=True)
     def _graph_fn__variables(self):
         """
         Outputs all of this Component's variables in a DataOpDict (API-method "_variables").
