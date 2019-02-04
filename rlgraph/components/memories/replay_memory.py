@@ -119,7 +119,7 @@ class ReplayMemory(Memory):
             # Return default importance weight one.
             return self._read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)
         elif get_backend() == "pytorch":
-            indices = np.random.choice(np.arange(0, self.size), size=num_records)
+            indices = np.random.choice(np.arange(0, self.size), size=int(num_records))
             indices = (self.index - 1 - indices) % self.capacity
             records = OrderedDict()
             for name, variable in self.record_registry.items():
