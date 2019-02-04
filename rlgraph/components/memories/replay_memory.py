@@ -17,14 +17,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
+
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
+from rlgraph.utils import util
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.decorators import rlgraph_api
 
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
+    import numpy as np
 
 
 class ReplayMemory(Memory):
@@ -46,6 +52,7 @@ class ReplayMemory(Memory):
         self.index = None
         self.size = None
         self.states = None
+        self.flat_record_space = None
 
     def create_variables(self, input_spaces, action_space=None):
         super(ReplayMemory, self).create_variables(input_spaces, action_space)
@@ -53,48 +60,71 @@ class ReplayMemory(Memory):
         # Record space must contain 'terminals' for a replay memory.
         assert 'terminals' in self.record_space
 
-        # Main buffer index.
-        self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-        # Number of elements present.
-        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+        if get_backend() == "tf":
+            # Main buffer index.
+            self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+            # Number of elements present.
+            self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+        elif get_backend() == "pytorch":
+            self.index = 0
+            self.size = 0
+            self.flat_record_space = self.record_space.flatten()
+            self.record_registry["terminals"] = [0 for _ in self.record_registry["terminals"]]
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["terminals"])
-        # List of indices to update (insert from `index` forward and roll over at `self.capacity`).
-        update_indices = tf.range(start=self.index, limit=self.index + num_records) % self.capacity
 
-        # Updates all the necessary sub-variables in the record.
-        # update_indices = tf.Print(update_indices, [update_indices, index, num_records], summarize=100,
-        #                           message='Update indices / index / num records = ')
-        record_updates = list()
-        for key in self.record_registry:
-            record_updates.append(self.scatter_update_variable(
-                variable=self.record_registry[key],
-                indices=update_indices,
-                updates=records[key]
-            ))
+        if get_backend() == "tf":
+            # List of indices to update (insert from `index` forward and roll over at `self.capacity`).
+            update_indices = tf.range(start=self.index, limit=self.index + num_records) % self.capacity
 
-        # Update indices and size.
-        with tf.control_dependencies(control_inputs=record_updates):
-            index_updates = list()
-            index_updates.append(self.assign_variable(ref=self.index, value=(self.index + num_records) % self.capacity))
-            update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
-            index_updates.append(self.assign_variable(self.size, value=update_size))
+            # Updates all the necessary sub-variables in the record.
+            record_updates = []
+            for key in self.record_registry:
+                record_updates.append(self.scatter_update_variable(
+                    variable=self.record_registry[key],
+                    indices=update_indices,
+                    updates=records[key]
+                ))
 
-        # Nothing to return.
-        with tf.control_dependencies(control_inputs=index_updates):
-            return tf.no_op()
+            # Update indices and size.
+            with tf.control_dependencies(control_inputs=record_updates):
+                index_updates = list()
+                index_updates.append(self.assign_variable(ref=self.index, value=(self.index + num_records) % self.capacity))
+                update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
+                index_updates.append(self.assign_variable(self.size, value=update_size))
+
+            # Nothing to return.
+            with tf.control_dependencies(control_inputs=index_updates):
+                return tf.no_op()
+        elif get_backend() == "pytorch":
+            update_indices = torch.arange(self.index, self.index + num_records) % self.capacity
+            for key in self.record_registry:
+                for i, val in zip(update_indices, records[key]):
+                    self.record_registry[key][i] = val
+            self.index = (self.index + num_records) % self.capacity
+            self.size = min(self.size + num_records, self.capacity)
 
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
-        size = self.read_variable(self.size)
+        if get_backend() == "tf":
+            size = self.read_variable(self.size)
 
-        # Sample and retrieve a random range, including terminals.
-        index = self.read_variable(self.index)
-        indices = tf.random_uniform(shape=(num_records,), maxval=size, dtype=tf.int32)
-        indices = (index - 1 - indices) % self.capacity
+            # Sample and retrieve a random range, including terminals.
+            index = self.read_variable(self.index)
+            indices = tf.random_uniform(shape=(num_records,), maxval=size, dtype=tf.int32)
+            indices = (index - 1 - indices) % self.capacity
 
-        # Return default importance weight one.
-        return self._read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)
+            # Return default importance weight one.
+            return self._read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)
+        elif get_backend() == "pytorch":
+            indices = np.random.choice(np.arange(0, self.size), size=num_records)
+            indices = (self.index - 1 - indices) % self.capacity
+            records = OrderedDict()
+            for name, variable in self.record_registry.items():
+                records[name] = self.read_variable(variable, indices, dtype=
+                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+            return records
+
 
