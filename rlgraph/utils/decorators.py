@@ -566,7 +566,7 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         component.graph_builder.build_component_when_input_complete(component)
         if component.input_complete is False:
             raise RLGraphInputIncompleteError(component)
-        # If we are calling `_variables()` -> make sure we are also variable-complete.
+        # If we are calling a variables-requiring graph_fn -> make sure we are also variable-complete.
         if requires_variable_completeness is True and component.variable_complete is False:
             raise RLGraphVariableIncompleteError(component)
         # Call the graph_fn (only if not already done so by build above (e.g. `_variables()`).

@@ -1118,14 +1118,12 @@ class GraphBuilder(Specifiable):
                 isinstance(or_.column, (DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromAPIMethod)) for or_ in
                 op_records_list
             )
-            #highest_nesting_of_callable_graph_fn_column = -1
-            #if have_api_method_recs is False:
-            #    for or_ in op_records_list:
-            #        if isinstance(or_.column, DataOpRecordColumnIntoGraphFn):
-            #            col = or_.column
-            #            if col.is_complete() and col.already_sent is False and \
-            #                    col.component.nesting_level > highest_nesting_of_callable_graph_fn_column:
-            #                highest_nesting_of_callable_graph_fn_column = col.component.nesting_level
+            # Keep track of the highest nesting-level (depth of a component in the parent/child-component-tree) for
+            # a called graph_fn. Graph_fns with a lower nesting level will not be called in the same iteration.
+            # This allows for careful progress through the graph_fn-calls in case API methods of
+            # input/variable-incomplete components are called within these graph_fns (to be avoided at all costs
+            # as it will fail the build).
+            highest_nesting_of_called_graph_fn_column = -1
 
             # Collect op-recs to process in the next iteration.
             self.op_records_to_process = set()
@@ -1206,25 +1204,36 @@ class GraphBuilder(Specifiable):
                         self.op_records_to_process.add(op_rec)
                     # There are other graph_fn columns that have a higher Component nesting_level and are
                     # actually callable -> Call those first.
-                    #elif highest_nesting_of_callable_graph_fn_column > op_rec.column.component.nesting_level:
-                    #    # Recycle this op-rec.
-                    #    self.op_records_to_process.add(op_rec)
+                    elif highest_nesting_of_called_graph_fn_column > op_rec.column.component.nesting_level:
+                        # Recycle this op-rec.
+                        self.op_records_to_process.add(op_rec)
                     # GraphFn column must be complete AND has not been sent through the graph_fn yet.
                     elif op_rec.column.is_complete() and op_rec.column.already_sent is False:
+                        do_call = False  # Do the actual graph_fn call?
+
                         # Only call the graph_fn if the Component is already input-complete.
                         if op_rec.column.component.variable_complete or \
                                 (op_rec.column.requires_variable_completeness is False and
                                  op_rec.column.component.input_complete):
-                            # Call the graph_fn with the given column and call-options.
-                            self.run_through_graph_fn_with_device_and_scope(op_rec.column)
-                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
-                            self.op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
+                            do_call = True
                         # Component not input-/variable-complete yet. Recycle this op-rec.
                         else:
                             self.build_component_when_input_complete(op_rec.column.component)
                             self.op_records_to_process.add(op_rec)
                             if op_rec.column.component.input_complete is False:
                                 non_complete_components.add(op_rec.column.component.global_scope)
+                            # Call the graph_fn here right away iff component is ready now.
+                            elif op_rec.column.component.variable_complete or \
+                                    op_rec.column.requires_variable_completeness is False:
+                                do_call = True
+
+                        if do_call:
+                            # Call the graph_fn with the given column and call-options.
+                            self.run_through_graph_fn_with_device_and_scope(op_rec.column)
+                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
+                            self.op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
+                            highest_nesting_of_called_graph_fn_column = op_rec.column.component.nesting_level
+
                     # - There are still into-API-method-op-recs that should be handled first.
                     # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
                     # - Op column has already been sent (sibling ops may have arrived in same iteration).
