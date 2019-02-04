@@ -24,6 +24,7 @@ import inspect
 import re
 import sys
 from rlgraph import get_backend
+from rlgraph.utils.execution_util import define_by_run_flatten
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
@@ -376,8 +377,9 @@ def force_torch_tensors(params, requires_grad=False):
     if get_backend() == "pytorch":
         tensor_params = []
         for param in params:
-            # Only flat dicts for now.
             if isinstance(param, dict):
+                # Flatten dict.
+                param = define_by_run_flatten(param)
                 ret = {}
                 for key, value in param.items():
                     ret[key] = convert_param(value, requires_grad)
