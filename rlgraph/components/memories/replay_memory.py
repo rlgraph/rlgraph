@@ -106,6 +106,7 @@ class ReplayMemory(Memory):
                     self.record_registry[key][i] = val
             self.index = (self.index + num_records) % self.capacity
             self.size = min(self.size + num_records, self.capacity)
+            return None
 
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
