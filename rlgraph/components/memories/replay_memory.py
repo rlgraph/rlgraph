@@ -128,6 +128,6 @@ class ReplayMemory(Memory):
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
             records = define_by_run_unflatten(records)
-            return records
+            return records, indices, torch.ones(indices.shape, dtype=torch.float32)
 
 
