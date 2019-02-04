@@ -10,9 +10,9 @@ from rlgraph.utils import RLGraphError
 from rlgraph.spaces import FloatBox, BoolBox, IntBox
 from rlgraph.components import Component, Synchronizable
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.components import Memory, DictMerger, ContainerSplitter, PrioritizedReplay, LossFunction
+from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay, LossFunction
 from rlgraph.utils.util import strip_list
-from rlgraph.utils.ops import flatten_op, DataOpTuple
+from rlgraph.utils.ops import flatten_op
 
 
 if get_backend() == "tf":
@@ -121,11 +121,11 @@ class SACAgentComponent(Component):
         self.loss_function = SACLossFunction(alpha=alpha, discount=discount)
 
         memory_items = ["states", "actions", "rewards", "next_states", "terminals"]
-        self._merger = DictMerger(*memory_items)
+        self._merger = ContainerMerger(*memory_items)
         self._splitter = ContainerSplitter(*memory_items)
 
         q_names = ["q_{}".format(i) for i in range(len(self._q_functions))]
-        self._q_vars_merger = DictMerger(*q_names, scope="q_vars_merger")
+        self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
         self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
 
         self.add_components(policy, preprocessor, memory, self._merger, self._splitter, self.loss_function,
