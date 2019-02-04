@@ -22,6 +22,7 @@ from collections import OrderedDict
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils import util
+from rlgraph.utils.execution_util import define_by_run_unflatten
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -125,6 +126,7 @@ class ReplayMemory(Memory):
             for name, variable in self.record_registry.items():
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+            records = define_by_run_unflatten(records)
             return records
 
 
