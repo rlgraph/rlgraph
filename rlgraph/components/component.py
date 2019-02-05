@@ -495,8 +495,7 @@ class Component(Specifiable):
                 use_resource
             )
 
-        # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
-        # Assume that when using pytorch, we use Python/numpy collections to store data.
+        # TODO: Revise possible arg combinations, move in utils.
         elif self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             if add_batch_rank is not False and isinstance(add_batch_rank, int):
                 if isinstance(add_time_rank, int):
@@ -511,6 +510,18 @@ class Component(Specifiable):
             elif initializer is not None:
                 # Return
                 var = initializer
+            elif shape is not None:
+                # Use python list if possible:
+                if len(shape) == 1:
+                    if dtype == int:
+                        var = [0 for _ in range(shape[0])]
+                    elif dtype == float:
+                        var = [0.0 for _ in range(shape[0])]
+                else:
+                    if dtype == int:
+                        var = np.zeros(shape, dtype=np.int32)
+                    elif dtype == float:
+                        var = np.zeros(shape, dtype=np.float32)
             else:
                 var = []
             return var
