@@ -60,17 +60,10 @@ class ReplayMemory(Memory):
 
         # Record space must contain 'terminals' for a replay memory.
         assert 'terminals' in self.record_space
-
-        if get_backend() == "tf":
-            # Main buffer index.
-            self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-            # Number of elements present.
-            self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
-        elif get_backend() == "pytorch":
-            self.index = 0
-            self.size = 0
-            self.flat_record_space = self.record_space.flatten()
-            self.record_registry["terminals"] = [0 for _ in self.record_registry["terminals"]]
+        # Main buffer index.
+        self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+        # Number of elements present.
+        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -91,8 +84,7 @@ class ReplayMemory(Memory):
 
             # Update indices and size.
             with tf.control_dependencies(control_inputs=record_updates):
-                index_updates = list()
-                index_updates.append(self.assign_variable(ref=self.index, value=(self.index + num_records) % self.capacity))
+                index_updates = [self.assign_variable(ref=self.index, value=(self.index + num_records) % self.capacity)]
                 update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
                 index_updates.append(self.assign_variable(self.size, value=update_size))
 

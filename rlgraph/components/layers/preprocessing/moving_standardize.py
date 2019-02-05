@@ -59,7 +59,7 @@ class MovingStandardize(PreprocessLayer):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             self.sample_count = 0.0
             self.mean_est = np.zeros(self.in_shape, dtype=np.float32)
-            self.std_sum_est = np.zeros( self.in_shape, dtype=np.float32)
+            self.std_sum_est = np.zeros(self.in_shape, dtype=np.float32)
         elif get_backend() == "tf":
             self.sample_count = self.get_variable(name="sample-count", dtype="float", initializer=0.0, trainable=False)
             self.mean_est = self.get_variable(

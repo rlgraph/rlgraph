@@ -39,11 +39,13 @@ class Memory(Component):
         # Variables (will be populated in create_variables).
         self.record_space = None
         self.record_registry = None
+        self.flat_record_space = None
         self.capacity = capacity
 
     def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
+        self.flat_record_space = self.record_space.flatten()
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.record_registry = self.get_variable(
