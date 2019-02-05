@@ -1145,7 +1145,7 @@ class Component(Specifiable):
         Args:
             variable (DataOp): The variable whose value to read.
             indices (Optional[np.ndarray,tf.Tensor]): Indices (if any) to fetch from the variable.
-
+            dtype (Optional[torch.dtype]): Optional dtype to convert read values to.
         Returns:
             any: Variable values.
         """
