@@ -82,7 +82,7 @@ class Sequence(PreprocessLayer):
             self.deque = deque([], maxlen=self.sequence_length)
 
     def get_preprocessed_space(self, space):
-        ret = dict()
+        ret = {}
         for key, value in space.flatten().items():
             shape = list(value.shape)
             if self.add_rank:
@@ -109,12 +109,9 @@ class Sequence(PreprocessLayer):
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["preprocessing_inputs"]
         self.output_spaces = self.get_preprocessed_space(in_space)
-
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
-            # TODO get variable does not return an int for python
-            self.index = -1
-        else:
+
+        if get_backend() == "tf":
             self.buffer = self.get_variable(
                 name="buffer", trainable=False, from_space=in_space,
                 add_batch_rank=self.batch_size if in_space.has_batch_rank is not False else False,
