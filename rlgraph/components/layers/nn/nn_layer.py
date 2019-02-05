@@ -134,12 +134,15 @@ class NNLayer(Layer):
                 # Common debug print:
                 # print("in net work layer: ", self.name)
                 # import torch
+                # shapes = []
                 # for inp in inputs:
-                #     if isinstance(inp, torch.Tensor):
-                #         print("input shape = ", inp.shape)
-
+                #     if hasattr(inp, "shape"):
+                #         shapes.append(inp.shape)
+                #     else:
+                #         shapes.append(type(inp))
+                # print("input shapes = ", shapes)
                 # PyTorch layers are called, not `applied`.
-                out = self.layer(*inputs)
+                out = self.layer(*input_tensors)
                 # print("layer output shape = ", out.shape)
                 if self.activation_fn is None:
                     return out
