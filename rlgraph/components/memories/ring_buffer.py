@@ -56,25 +56,18 @@ class RingBuffer(Memory):
 
         # Record space must contain 'terminals' for a ring buffer memory.
         assert 'terminals' in self.record_space
+        self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+        # Number of elements present.
+        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+        # Num episodes present.
+        self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
 
-        # Main buffer index.
-        if get_backend() == "tf":
-            self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-            # Number of elements present.
-            self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+        # Terminal indices contiguously arranged.
+        self.episode_indices = self.get_variable(name="episode-indices", shape=(self.capacity,),
+                                                 dtype=int, trainable=False)
 
-            # Num episodes present.
-            self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
-
-            # Terminal indices contiguously arranged.
-            self.episode_indices = self.get_variable(name="episode-indices", shape=(self.capacity,),
-                                                     dtype=int, trainable=False)
-        elif get_backend() == "pytorch":
-            self.index = 0
-            self.size = 0
-            self.num_episodes = 0
-            self.episode_indices = [0] * self.capacity
-            self.flat_record_space = self.record_space.flatten()
+        # TODO -> space init default values in non-tf.
+        if get_backend() == "pytorch":
             self.record_registry["terminals"] = [0 for _ in self.record_registry["terminals"]]
 
     @rlgraph_api(flatten_ops=True)
