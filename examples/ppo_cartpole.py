@@ -65,7 +65,6 @@ def main(argv):
         state_space=env.state_space,
         action_space=env.action_space
     )
-
     rewards = []
 
     def episode_finished_callback(reward, duration, timesteps, **kwargs):

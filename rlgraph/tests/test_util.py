@@ -17,10 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import copy
 import json
 import numpy as np
 import os
+
+from rlgraph import get_backend
+
+if get_backend() == "pytorch":
+    import torch
 
 
 def config_from_path(path, root=None):
@@ -95,12 +99,12 @@ def recursive_assert_almost_equal(x, y, decimals=7):
     # A dict type.
     if isinstance(x, dict):
         assert isinstance(y, dict), "ERROR: If x is dict, y needs to be a dict as well!"
-        y_copy = copy.deepcopy(y)
+        y_keys = set(x.keys())
         for key, value in x.items():
             assert key in y, "ERROR: y does not have x's key='{}'!".format(key)
             recursive_assert_almost_equal(value, y[key], decimals=decimals)
-            del y_copy[key]
-        assert not y_copy, "ERROR: y contains keys ({}) that are not in x!".format(list(y_copy.keys()))
+            y_keys.remove(key)
+        assert not y_keys, "ERROR: y contains keys ({}) that are not in x!".format(list(y_keys))
     # A tuple type.
     elif isinstance(x, (tuple, list)):
         assert isinstance(y, (tuple, list)), "ERROR: If x is tuple, y needs to be a tuple as well!"
@@ -119,4 +123,8 @@ def recursive_assert_almost_equal(x, y, decimals=7):
         np.testing.assert_array_equal(x, y)
     # Everything else (assume numeric).
     else:
+        if get_backend() == "pytorch":
+            if isinstance(x, torch.Tensor):
+                x = x.detach().numpy()
+                y = y.detach().numpy()
         np.testing.assert_almost_equal(x, y, decimal=decimals)

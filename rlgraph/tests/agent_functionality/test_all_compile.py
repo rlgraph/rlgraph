@@ -53,9 +53,6 @@ class TestAllCompile(unittest.TestCase):
         """
         agent_config = config_from_path("configs/ray_apex_for_pong.json")
         agent_config["execution_spec"].pop("ray_spec")
-        # TODO remove after unified.
-        if get_backend() == "pytorch":
-            agent_config["memory_spec"]["type"] = "mem_prioritized_replay"
         environment = OpenAIGymEnv("Pong-v0", frameskip=4)
 
         agent = ApexAgent.from_spec(

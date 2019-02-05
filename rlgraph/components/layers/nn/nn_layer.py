@@ -22,7 +22,7 @@ from rlgraph.components.layers.layer import Layer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
 from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api
 
 
 class NNLayer(Layer):
@@ -123,14 +123,13 @@ class NNLayer(Layer):
                 return output
             elif get_backend() == "pytorch":
                 # Strip empty internal states:
-                inputs = [v for v in inputs if v is not None]
+                # Ensure dtype is float
+                inputs = [v.float() for v in inputs if v is not None]
 
                 # PyTorch layers are called, not `applied`.
                 # print("in net work layer: ", self.name)
-                # print("network inputs type", type(inputs))
                 # import torch
                 # for inp in inputs:
-                #     print("per input type = {} ".format(type(inp) ))
                 #     if isinstance(inp, torch.Tensor):
                 #         print("input shape = ", inp.shape)
                 out = self.layer(*inputs)

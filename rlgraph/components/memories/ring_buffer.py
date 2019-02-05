@@ -48,6 +48,7 @@ class RingBuffer(Memory):
         self.states = None
         self.num_episodes = None
         self.episode_indices = None
+        self.flat_record_space = None
 
     def create_variables(self, input_spaces, action_space=None):
         super(RingBuffer, self).create_variables(input_spaces, action_space)
@@ -72,6 +73,7 @@ class RingBuffer(Memory):
             self.size = 0
             self.num_episodes = 0
             self.episode_indices = [0] * self.capacity
+            self.flat_record_space = self.record_space.flatten()
             self.record_registry["terminals"] = [0 for _ in self.record_registry["terminals"]]
 
     @rlgraph_api(flatten_ops=True)
@@ -188,15 +190,19 @@ class RingBuffer(Memory):
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
         if get_backend() == "tf":
+            stored_records = self.read_variable(self.size)
+            available_records = tf.minimum(x=num_records, y=stored_records)
             index = self.read_variable(self.index)
-            indices = tf.range(start=index - num_records, limit=index) % self.capacity
+            indices = tf.range(start=index - available_records, limit=index) % self.capacity
             return self._read_records(indices=indices)
         elif get_backend() == "pytorch":
-            indices = np.arange(self.index - num_records, self.index) % self.capacity
+            available_records = min(num_records, self.size)
+            indices = np.arange(self.index - available_records, self.index) % self.capacity
             records = OrderedDict()
+
             for name, variable in self.record_registry.items():
-                records[name] = self.read_variable(variable, indices,
-                                                   dtype=util.convert_dtype(self.record_space[name].dtype, to="pytorch"))
+                records[name] = self.read_variable(variable, indices, dtype=
+                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
             return records
 
     @rlgraph_api(ok_to_overwrite=True)
@@ -242,6 +248,6 @@ class RingBuffer(Memory):
 
             records = OrderedDict()
             for name, variable in self.record_registry.items():
-                records[name] = self.read_variable(variable, indices,
-                                dtype=util.convert_dtype(self.record_space[name].dtype, to="pytorch"))
+                records[name] = self.read_variable(variable, indices, dtype=
+                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
             return records

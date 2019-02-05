@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.memories.prioritized_replay import PrioritizedReplay
@@ -24,21 +25,33 @@ from rlgraph.components.memories.replay_memory import ReplayMemory
 from rlgraph.components.memories.ring_buffer import RingBuffer
 from rlgraph.components.memories.mem_prioritized_replay import MemPrioritizedReplay
 
-
-Memory.__lookup_classes__ = dict(
-    fifo=FIFOQueue,
-    fifoqueue=FIFOQueue,
-    prioritized=PrioritizedReplay,
-    prioritizedreplay=PrioritizedReplay,
-    prioritizedreplaybuffer=PrioritizedReplay,
-    mem_prioritized_replay=MemPrioritizedReplay,
-    replay=ReplayMemory,
-    replaybuffer=ReplayMemory,
-    replaymemory=ReplayMemory,
-    ringbuffer=RingBuffer
-)
+# TODO backend reorg.
+if get_backend() == "tf":
+    Memory.__lookup_classes__ = dict(
+        fifo=FIFOQueue,
+        fifoqueue=FIFOQueue,
+        prioritized=PrioritizedReplay,
+        prioritizedreplay=PrioritizedReplay,
+        prioritizedreplaybuffer=PrioritizedReplay,
+        mem_prioritized_replay=MemPrioritizedReplay,
+        replay=ReplayMemory,
+        replaybuffer=ReplayMemory,
+        replaymemory=ReplayMemory,
+        ringbuffer=RingBuffer
+    )
+elif get_backend() == "pytorch":
+    Memory.__lookup_classes__ = dict(
+        prioritized=MemPrioritizedReplay,
+        prioritizedreplay=MemPrioritizedReplay,
+        prioritizedreplaybuffer=MemPrioritizedReplay,
+        mem_prioritized_replay=MemPrioritizedReplay,
+        replay=ReplayMemory,
+        replaybuffer=ReplayMemory,
+        replaymemory=ReplayMemory,
+        ringbuffer=RingBuffer
+    )
 Memory.__default_constructor__ = ReplayMemory
 
-__all__ = ["Memory"] + \
+__all__ = ["Memory", "PrioritizedReplay"] + \
           list(set(map(lambda x: x.__name__, Memory.__lookup_classes__.values())))
 

@@ -26,14 +26,13 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
-from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
     import torch
-    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH, LOG_SMALL_NUMBER
+    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH
 
 
 # TODO: Create a more primitive base class only defining the API-methods.

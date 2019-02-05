@@ -26,6 +26,8 @@ from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class MovingStandardize(PreprocessLayer):
@@ -54,7 +56,7 @@ class MovingStandardize(PreprocessLayer):
         self.output_spaces = in_space
         self.in_shape = (self.batch_size, ) + in_space.shape
 
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             self.sample_count = 0.0
             self.mean_est = np.zeros(self.in_shape, dtype=np.float32)
             self.std_sum_est = np.zeros( self.in_shape, dtype=np.float32)
@@ -62,7 +64,7 @@ class MovingStandardize(PreprocessLayer):
             self.sample_count = self.get_variable(name="sample-count", dtype="float", initializer=0.0, trainable=False)
             self.mean_est = self.get_variable(
                 name="mean-est",
-                shape= self.in_shape,
+                shape=self.in_shape,
                 dtype=tf.float32,
                 trainable=False,
                 initializer=tf.zeros_initializer()
@@ -107,7 +109,10 @@ class MovingStandardize(PreprocessLayer):
                 var_estimate = np.square(self.mean_est)
             std = np.sqrt(var_estimate) + SMALL_NUMBER
 
-            return result / std
+            standardized = result / std
+            if get_backend() == "pytorch":
+                standardized = torch.Tensor(standardized)
+            return standardized
 
         elif get_backend() == "tf":
             assignments = [tf.assign_add(ref=self.sample_count, value=1.0)]
