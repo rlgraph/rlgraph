@@ -74,6 +74,8 @@ class QueueRunner(Component):
             *self.data_producing_components
         )
 
+        self.input_complete = False
+
     def check_input_completeness(self):
         # The queue must be ready before we are (even though it's not a sub-component).
         if self.queue.input_complete is False or self.queue.built is False:
