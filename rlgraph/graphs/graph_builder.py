@@ -642,12 +642,15 @@ class GraphBuilder(Specifiable):
             out_graph_fn_column = op_rec_column.out_graph_fn_column
 
         # Make sure the number of returned ops matches the number of op-records in the next column.
-        assert len(ops) == len(out_graph_fn_column.op_records), \
-            "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match the number of op-records " \
-            "({}) reserved for the return values of the method!".format(
-                op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
-                len(out_graph_fn_column.op_records)
-            )
+        # TODO: instead of backend check, do a build mode check here.
+        # Define-by-run may return Nothing or None which is not an Op.
+        if get_backend() == "tf":
+            assert len(ops) == len(out_graph_fn_column.op_records), \
+                "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match the number of op-records " \
+                "({}) reserved for the return values of the method!".format(
+                    op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
+                    len(out_graph_fn_column.op_records)
+                )
 
         # Determine the Spaces for each out op and then move it into the respective op and Space slot of the
         # out_graph_fn_column.

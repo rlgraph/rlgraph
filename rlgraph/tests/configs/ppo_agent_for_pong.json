@@ -1,0 +1,143 @@
+{
+  "type": "ppo",
+  "sample_episodes": false,
+  "standardize_advantages": true,
+  "clip_ratio": 0.2,
+  "discount": 0.99,
+  "gae_lambda": 1.0,
+
+  "memory_spec":
+  {
+    "type": "ring_buffer",
+    "capacity": 1000
+  },
+
+  "preprocessing_spec":
+  [
+    {
+      "type": "image_crop",
+      "x": 0,
+      "y": 25,
+      "width": 160,
+      "height": 160,
+      "scope": "image_crop"
+    },
+    {
+      "type": "image_resize",
+      "width": 80,
+      "height": 80,
+      "scope": "image_resize"
+    },
+    {
+      "type": "grayscale",
+      "keep_rank": true,
+      "scope": "grayscale"
+    },
+    {
+      "type": "divide",
+      "divisor": 255,
+      "scope": "divide"
+    },
+    {
+      "type": "sequence",
+      "sequence_length": 4,
+      "batch_size": 1,
+      "add_rank": false,
+      "scope": "sequence"
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+        "type": "conv2d",
+        "filters": 32,
+        "kernel_size": 8,
+        "strides": 4,
+        "activation": "relu",
+        "scope": "conv1"
+    },
+    {
+        "type": "conv2d",
+        "filters": 64,
+        "kernel_size": 4,
+        "strides": 2,
+        "activation": "relu",
+        "scope": "conv2"
+    },
+    {
+        "type": "conv2d",
+        "filters": 64,
+        "kernel_size": 3,
+        "strides": 1,
+        "activation": "relu",
+        "scope": "conv3"
+    },
+    {
+        "type": "reshape",
+        "flatten": true
+    },
+     {
+        "type": "dense",
+        "units": 256,
+        "scope": "dense1"
+    }
+  ],
+
+    "value_function_spec":
+  [
+    {
+        "type": "conv2d",
+        "filters": 32,
+        "kernel_size": 8,
+        "strides": 4,
+        "activation": "relu",
+        "scope": "vf-conv1"
+    },
+    {
+        "type": "conv2d",
+        "filters": 64,
+        "kernel_size": 4,
+        "strides": 2,
+        "activation": "relu",
+        "scope": "vf-conv2"
+    },
+    {
+        "type": "conv2d",
+        "filters": 64,
+        "kernel_size": 3,
+        "strides": 1,
+        "activation": "relu",
+        "scope": "vf-conv3"
+    },
+    {
+        "type": "reshape",
+        "flatten": true
+    },
+   {
+        "type": "dense",
+        "units": 256,
+        "scope": "vf-dense1"
+    }
+  ],
+
+  "observe_spec":
+  {
+    "buffer_size": 1000
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 10000,
+    "steps_before_update": 50000,
+    "batch_size": 10000,
+    "num_iterations": 10,
+    "sample_size": 1000
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0001,
+    "clip_grad_norm": 20
+  }
+}
