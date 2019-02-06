@@ -150,14 +150,15 @@ class BoxSpace(Space):
 
         if is_python is True or get_backend() == "python":
             if isinstance(add_batch_rank, int):
-                if isinstance(add_time_rank, int):
+                if isinstance(add_time_rank, int) and add_time_rank > 0:
                     if time_major:
                         var = [[0 for _ in range_(add_batch_rank)] for _ in range_(add_time_rank)]
                     else:
+                        print([0 for _ in range_(add_time_rank)])
                         var = [[0 for _ in range_(add_time_rank)] for _ in range_(add_batch_rank)]
                 else:
                     var = [0 for _ in range_(add_batch_rank)]
-            elif isinstance(add_time_rank, int):
+            elif isinstance(add_time_rank, int) and add_time_rank > 0:
                 var = [0 for _ in range_(add_time_rank)]
             else:
                 var = []
