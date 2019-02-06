@@ -305,16 +305,16 @@ class DummyWithOptimizer(SimpleDummyWithVar):
     @rlgraph_api
     def calc_grads(self, input_):
         loss = self._graph_fn_simple_square_loss(input_)
-        return self.optimizer.calculate_gradients(self.variable_registry(), loss)
+        return self.optimizer.calculate_gradients(self.variables(), loss)
 
-    @rlgraph_api
-    def apply_grads(self, grads_and_vars):
-        return self.optimizer.apply_gradients(grads_and_vars)
+    #@rlgraph_api(must_be_complete=False)
+    #def apply_grads(self, grads_and_vars):
+    #    return self.optimizer.apply_gradients(grads_and_vars)
 
     @rlgraph_api
     def step(self, input_):
         loss = self._graph_fn_simple_square_loss(input_)
-        return self.optimizer.step(self.variable_registry(), loss, loss)
+        return self.optimizer.step(self.variables(), loss, loss)
 
     @graph_fn
     def _graph_fn_simple_square_loss(self, input_):

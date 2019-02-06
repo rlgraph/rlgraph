@@ -31,7 +31,9 @@ class TestLocalOptimizers(unittest.TestCase):
     def test_calculate_gradients(self):
         component = DummyWithOptimizer()
 
-        test = ComponentTest(component=component, input_spaces=dict(input_=FloatBox(add_batch_rank=True)))
+        test = ComponentTest(component=component, input_spaces=dict(
+            input_=FloatBox(add_batch_rank=True)
+        ))
 
         print(test.test(("calc_grads", np.ndarray([1.0, 2.0, 3.0, 4.0])), expected_outputs=None))
 
