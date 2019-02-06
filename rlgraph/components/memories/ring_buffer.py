@@ -66,10 +66,6 @@ class RingBuffer(Memory):
         self.episode_indices = self.get_variable(name="episode-indices", shape=(self.capacity,),
                                                  dtype=int, trainable=False)
 
-        # TODO -> space init default values in non-tf.
-        if get_backend() == "pytorch":
-            self.record_registry["terminals"] = [0 for _ in self.record_registry["terminals"]]
-
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         if get_backend() == "tf":
