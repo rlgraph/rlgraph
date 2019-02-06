@@ -88,7 +88,7 @@ class Synchronizable(Component):
         Component.
 
         Args:
-            values_ (DataOpDict): The dict of variable values (coming from the "_variables"-Socket of any other
+            values_ (DataOpDict): The dict of variable values (coming from the "variables"-Socket of any other
                 Component) that need to be assigned to this Component's parent's variables.
                 The keys in the dict refer to the names of our parent's variables and must match their names.
 

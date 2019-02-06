@@ -63,7 +63,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         expected2 = np.ones(shape=component_to_test.space.shape)
         expected = dict({"variable-to-sync1": expected1, "variable-to-sync2": expected2})
 
-        test.test("_variables", expected_outputs=expected)
+        test.test("variables", expected_outputs=expected)
 
     def test_sync_functionality(self):
         # Two Components, one with Synchronizable dropped in:

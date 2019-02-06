@@ -289,7 +289,7 @@ class Component(Specifiable):
     def check_variable_completeness(self):
         """
         Checks, whether this Component is input-complete AND all our sub-Components are input-complete.
-        At that point, all variables are defined and we can run the `_variables` graph_fn.
+        At that point, all variables are defined and we can run the `variables` graph_fn.
 
         Returns:
             bool: Whether this Component is "variables-complete".
@@ -1233,7 +1233,7 @@ class Component(Specifiable):
     @rlgraph_api(returns=1)
     def _graph_fn_variables(self):
         """
-        Outputs all of this Component's variables in a DataOpDict (API-method "_variables").
+        Outputs all of this Component's variables in a DataOpDict (API-method "variables").
 
         This can be used e.g. to sync this Component's variables into another Component, which owns
         a Synchronizable() as a sub-component. The returns values of this graph_fn are then sent into
