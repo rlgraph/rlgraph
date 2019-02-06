@@ -717,6 +717,9 @@ class Component(Specifiable):
                     else:
                         variables[name] = self.variables[global_scope_name]
         elif get_backend() == "pytorch":
+            # Unpack tuple.
+            if isinstance(names, tuple) and len(names) == 1:
+                names = names[0]
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
                 if name in self.variables:
