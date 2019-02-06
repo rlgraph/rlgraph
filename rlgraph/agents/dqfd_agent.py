@@ -196,7 +196,7 @@ class DQFDAgent(Agent):
                 return multi_gpu_syncer.sync_target_qnets()
             # We could be the main root or a multi-GPU tower.
             else:
-                policy_vars = root.get_sub_component_by_name(agent.policy.scope)._variables()
+                policy_vars = root.get_sub_component_by_name(agent.policy.scope).variables()
                 return root.get_sub_component_by_name(agent.target_policy.scope).sync(policy_vars)
 
         # Learn from online memory AND demo memory.
@@ -238,7 +238,7 @@ class DQFDAgent(Agent):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
             if "multi-gpu-synchronizer" in root.sub_components:
-                main_policy_vars = agent.policy._variables()
+                main_policy_vars = agent.policy.variables()
                 # TODO: This may be called differently in other agents (replace by root-policy).
                 grads_and_vars, loss, loss_per_item, q_values_s = \
                     root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
@@ -270,7 +270,7 @@ class DQFDAgent(Agent):
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
-            policy_vars = policy._variables()
+            policy_vars = policy.variables()
             if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
                 grads_and_vars = optimizer.calculate_gradients(policy_vars, loss)
                 return grads_and_vars, loss, loss_per_item, q_values_s

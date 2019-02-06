@@ -172,8 +172,8 @@ class ActorCriticAgent(Agent):
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
-            policy_vars = agent.policy._variables()
-            vf_vars = agent.value_function._variables()
+            policy_vars = agent.policy.variables()
+            vf_vars = agent.value_function.variables()
 
             step_op, loss, loss_per_item = agent.optimizer.step(policy_vars, loss, loss_per_item)
             vf_step_op, vf_loss, vf_loss_per_item = agent.value_function_optimizer.step(

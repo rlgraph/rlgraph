@@ -192,7 +192,7 @@ class DQNAgent(Agent):
                 return multi_gpu_syncer.sync_target_qnets()
             # We could be the main root or a multi-GPU tower.
             else:
-                policy_vars = root.get_sub_component_by_name(agent.policy.scope)._variables()
+                policy_vars = root.get_sub_component_by_name(agent.policy.scope).variables()
                 return root.get_sub_component_by_name(agent.target_policy.scope).sync(policy_vars)
 
         # Learn from memory.
@@ -223,7 +223,7 @@ class DQNAgent(Agent):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
             if "multi-gpu-synchronizer" in root.sub_components:
-                main_policy_vars = agent.policy._variables()
+                main_policy_vars = agent.policy.variables()
                 all_vars = agent.vars_merger.merge(main_policy_vars)
                 out = root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                     all_vars, preprocessed_states, actions, rewards, terminals,
@@ -257,7 +257,7 @@ class DQNAgent(Agent):
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
-            policy_vars = policy._variables()
+            policy_vars = policy.variables()
 
             # TODO: for a fully automated multi-GPU strategy, we would have to make sure that:
             # TODO: - every agent (root_component) has an update_from_external_batch method
