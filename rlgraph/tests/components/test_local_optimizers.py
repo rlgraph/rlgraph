@@ -35,7 +35,9 @@ class TestLocalOptimizers(unittest.TestCase):
             input_=FloatBox(add_batch_rank=True)
         ))
 
-        print(test.test(("calc_grads", np.ndarray([1.0, 2.0, 3.0, 4.0])), expected_outputs=None))
+        expected_outputs = [0.73240823, 3.0]
+        out = test.test(("calc_grads"), expected_outputs=expected_outputs)
+        print(out)
 
     def test_apply_gradients(self):
         return
