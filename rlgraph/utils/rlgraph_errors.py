@@ -58,3 +58,11 @@ class RLGraphVariableIncompleteError(RLGraphError):
         super(RLGraphVariableIncompleteError, self).__init__(msg)
         self.component = component
 
+
+class RLGraphObsoletedError(RLGraphError):
+    """
+
+    """
+    def __init__(self, type_, old_value, new_value):
+        msg = "The {} '{}' you are using has been obsoleted! Use '{}' instead.".format(type_, old_value, new_value)
+        super(RLGraphObsoletedError, self).__init__(msg)

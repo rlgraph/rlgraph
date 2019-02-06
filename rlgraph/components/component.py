@@ -28,7 +28,7 @@ import re
 from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry,\
     define_api_method, define_graph_fn
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
 from rlgraph.utils import util
@@ -1246,6 +1246,12 @@ class Component(Specifiable):
         # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.
         variables_dict = self.get_variables(custom_scope_separator="-")
         return DataOpDict(variables_dict)
+
+    def _variables(self):
+        """
+        OBSOLETED API method. New "variables()" should be used.
+        """
+        raise RLGraphObsoletedError("API-method", "_variables()", "variables()")
 
     @staticmethod
     def reset_profile():
