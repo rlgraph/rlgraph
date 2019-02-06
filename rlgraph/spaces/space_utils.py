@@ -425,6 +425,10 @@ def try_space_inference_from_list(list_op):
                 inner_shape = len(elem)
                 return BoxSpace.from_spec(spec=convert_dtype(float, "np"), shape=(batch_shape, inner_shape),
                                           add_batch_rank=True)
+            elif isinstance(elem, int):
+                return IntBox.from_spec(spec=int, shape=(batch_shape,), add_batch_rank=True)
+            elif isinstance(elem, float):
+                return FloatBox.from_spec(spec=int, shape=(batch_shape,), add_batch_rank=True)
         else:
             # Most general guess is a Float box.
             return FloatBox(shape=(batch_shape,))
