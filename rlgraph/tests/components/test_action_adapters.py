@@ -44,7 +44,7 @@ class TestActionAdapters(unittest.TestCase):
                 inputs=[last_nn_layer_space]
             ), action_space=action_space
         )
-        action_adapter_params = test.read_variable_values(action_adapter.variables)
+        action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
 
         # Batch of 2 samples.
         inputs = last_nn_layer_space.sample(2)
@@ -78,7 +78,7 @@ class TestActionAdapters(unittest.TestCase):
                 inputs=[last_nn_layer_space]
             ), action_space=action_space
         )
-        action_adapter_params = test.read_variable_values(action_adapter.variables)
+        action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
 
         # Batch of (4, 5).
         inputs = last_nn_layer_space.sample(size=(4, 5))
@@ -119,7 +119,7 @@ class TestActionAdapters(unittest.TestCase):
                 inputs=[last_nn_layer_space]
             ), action_space=action_space
         )
-        action_adapter_params = test.read_variable_values(action_adapter.variables)
+        action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
 
         # Batch of 2 samples, 3 timesteps.
         inputs = last_nn_layer_space.sample(size=(3, 2))

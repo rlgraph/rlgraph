@@ -58,7 +58,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             ),
             action_space=action_space
         )
-        policy_params = test.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variable_registry)
 
         # Some NN inputs (batch size=2).
         states = state_space.sample(2)
@@ -158,7 +158,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             ),
             action_space=action_space,
         )
-        policy_params = test.read_variable_values(shared_value_function_policy.variables)
+        policy_params = test.read_variable_values(shared_value_function_policy.variable_registry)
 
         base_scope = "shared-value-function-policy/action-adapter-"
 
@@ -286,7 +286,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             ),
             action_space=action_space,
         )
-        policy_params = test.read_variable_values(shared_value_function_policy.variables)
+        policy_params = test.read_variable_values(shared_value_function_policy.variable_registry)
         base_scope = "shared-value-function-policy/action-adapter-"
 
         # Some NN inputs.
@@ -455,7 +455,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             ),
             action_space=action_space
         )
-        policy_params = test.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variable_registry)
 
         # Some NN inputs.
         nn_input = nn_input_space.sample(size=3)

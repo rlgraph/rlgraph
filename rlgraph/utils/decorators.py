@@ -552,14 +552,14 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         # Check Spaces and create variables.
         component.graph_builder.build_component_when_input_complete(component)
         assert component.input_complete
-        # If we are calling `_variables()` -> make sure we are also variable-complete.
-        if wrapped_func.__name__ == "_graph_fn__variables":
+        # If we are calling `variables()` -> make sure we are also variable-complete.
+        if wrapped_func.__name__ == "_graph_fn_variables":
             if component.variable_complete is False:
                 raise RLGraphVariableIncompleteError(
                     "Component '{}' is variable incomplete, but its variables are needed in an API-call during the "
                     "build procedure!".format(component.global_scope), component=component
                 )
-        # Call the graph_fn (only if not already done so by build above (e.g. `_variables()`).
+        # Call the graph_fn (only if not already done so by build above (e.g. `variables()`).
         if in_graph_fn_column.out_graph_fn_column is None:
             assert in_graph_fn_column.already_sent is False
             out_graph_fn_column = component.graph_builder.run_through_graph_fn_with_device_and_scope(in_graph_fn_column)

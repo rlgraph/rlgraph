@@ -78,7 +78,7 @@ class TestSynchronizableComponent(unittest.TestCase):
 
         @rlgraph_api(component=container)
         def execute_sync(self):
-            values_ = sync_from._variables()
+            values_ = sync_from.variables()
             return sync_to.sync(values_)
 
         test = ComponentTest(component=container)
@@ -116,7 +116,7 @@ class TestSynchronizableComponent(unittest.TestCase):
 
         @rlgraph_api(component=container)
         def execute_sync(self):
-            values_ = comp1._variables()
+            values_ = comp1.variables()
             return comp2_writable.sync(values_)
 
         test = ComponentTest(component=container)

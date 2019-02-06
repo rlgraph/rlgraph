@@ -49,7 +49,7 @@ class TestPolicies(unittest.TestCase):
             ),
             action_space=action_space
         )
-        policy_params = test.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variable_registry)
 
         # Some NN inputs (4 input nodes, batch size=2).
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
@@ -130,7 +130,7 @@ class TestPolicies(unittest.TestCase):
             ),
             action_space=action_space,
         )
-        policy_params = test.read_variable_values(shared_value_function_policy.variables)
+        policy_params = test.read_variable_values(shared_value_function_policy.variable_registry)
 
         # Some NN inputs (4 input nodes, batch size=3).
         states = state_space.sample(size=3)
@@ -216,7 +216,7 @@ class TestPolicies(unittest.TestCase):
             ),
             action_space=action_space,
         )
-        policy_params = test.read_variable_values(shared_value_function_policy.variables)
+        policy_params = test.read_variable_values(shared_value_function_policy.variable_registry)
 
         # Some NN inputs.
         states = state_space.sample(size=(2, 3))
@@ -324,7 +324,7 @@ class TestPolicies(unittest.TestCase):
             ),
             action_space=action_space
         )
-        policy_params = test.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variable_registry)
 
         # Some NN inputs.
         nn_input = nn_input_space.sample(size=3)
@@ -412,7 +412,7 @@ class TestPolicies(unittest.TestCase):
             action_space=action_space
         )
 
-        policy_params = test.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variable_registry)
 
         # Some NN inputs.
         nn_input = nn_input_space.sample(size=3)
