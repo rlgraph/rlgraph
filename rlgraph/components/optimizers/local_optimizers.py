@@ -224,6 +224,7 @@ class AdadeltaOptimizer(LocalOptimizer):
                 rho=self.rho
             )
 
+
 class SGDOptimizer(LocalOptimizer):
     """
     Stochastic gradient descent optimizer from tf.keras including support for momentum,

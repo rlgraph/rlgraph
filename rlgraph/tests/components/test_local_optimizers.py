@@ -19,11 +19,9 @@ from __future__ import print_function
 
 import numpy as np
 import unittest
-import tensorflow as tf
 
-from rlgraph.components.optimizers import GradientDescentOptimizer
-from rlgraph.spaces import Tuple, FloatBox, Dict
-from rlgraph.tests import ComponentTest, DummyWithOptimizer
+from rlgraph.spaces import FloatBox
+from rlgraph.tests import ComponentTest, DummyWithOptimizer, recursive_assert_almost_equal
 
 
 class TestLocalOptimizers(unittest.TestCase):
@@ -36,16 +34,31 @@ class TestLocalOptimizers(unittest.TestCase):
         ))
 
         expected_outputs = [0.73240823, 3.0]
-        out = test.test(("calc_grads"), expected_outputs=expected_outputs)
-        print(out)
+        test.test(("calc_grads"), expected_outputs=expected_outputs)
 
     def test_apply_gradients(self):
-        return
-        optimizer = GradientDescentOptimizer(learning_rate=0.01)
-        x = tf.Variable(2, name='x', dtype=tf.float32)
-        log_x = tf.log(x)
-        loss = tf.square(x=log_x)
+        component = DummyWithOptimizer(variable_value=2.0)
 
-        grads_and_vars = self.optimizer._graph_fn_calculate_gradients(variables=[x], loss=loss)
-        step = self.optimizer._graph_fn_apply_gradients(grads_and_vars)
-        print(step)
+        test = ComponentTest(component=component, input_spaces=dict(
+            input_=FloatBox(add_batch_rank=True)
+        ))
+
+        expected_grad = 0.69314718
+        expected_outputs = [expected_grad, 2.0]
+        test.test(("calc_grads"), expected_outputs=expected_outputs)
+
+        # Now apply the grad and check the variable value.
+        expected_loss = np.square(np.log(2.0))
+        expected_outputs = [None, expected_loss, expected_loss]
+        var_values_before = test.read_variable_values(component.variable_registry)
+        test.test(("step"), expected_outputs=expected_outputs)
+
+        # Check against variable now. Should change by -learning_rate*grad.
+        var_values_after = test.read_variable_values(component.variable_registry)
+        expected_new_value = var_values_before["dummy-with-optimizer/variable"] - (
+            component.learning_rate * expected_grad
+        )
+        recursive_assert_almost_equal(
+            var_values_after["dummy-with-optimizer/variable"], expected_new_value, decimals=5
+        )
+
