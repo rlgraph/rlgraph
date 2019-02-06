@@ -17,32 +17,23 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import unittest
 import tensorflow as tf
 
 from rlgraph.components.optimizers import GradientDescentOptimizer
 from rlgraph.spaces import Tuple, FloatBox, Dict
-from rlgraph.tests import ComponentTest
+from rlgraph.tests import ComponentTest, DummyWithOptimizer
 
 
 class TestLocalOptimizers(unittest.TestCase):
 
     def test_calculate_gradients(self):
-        return
-        optimizer = GradientDescentOptimizer(learning_rate=0.01)
+        component = DummyWithOptimizer()
 
-        x = tf.Variable(2, name='x', dtype=tf.float32)
-        log_x = tf.log(x)
-        loss = tf.square(x=log_x)
+        test = ComponentTest(component=component, input_spaces=dict(input_=FloatBox(add_batch_rank=True)))
 
-        test = ComponentTest(component=optimizer, input_spaces=dict(
-            loss=FloatBox(),
-            variables=Dict({"x": FloatBox()}),
-            loss_per_item=FloatBox(add_batch_rank=True),
-            grads_and_vars=Tuple(Tuple(float, float))
-        ))
-
-        print(test.test(("calculate_gradients", [dict(x=x), loss]), expected_outputs=None))
+        print(test.test(("calc_grads", np.ndarray([1.0, 2.0, 3.0, 4.0])), expected_outputs=None))
 
     def test_apply_gradients(self):
         return
