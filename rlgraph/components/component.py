@@ -524,7 +524,6 @@ class Component(Specifiable):
                         var = np.zeros(shape, dtype=np.float32)
             else:
                 var = []
-            return var
 
         # Direct variable creation (using the backend).
         elif get_backend() == "tf":
@@ -720,6 +719,7 @@ class Component(Specifiable):
             # Unpack tuple.
             if isinstance(names, tuple) and len(names) == 1:
                 names = names[0]
+            # print("names = ", names)
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
                 if name in self.variables:
@@ -1195,6 +1195,9 @@ class Component(Specifiable):
                     return torch.stack(ret) if ret else ret
                 else:
                     return variable
+            else:
+                # Catch all for raw types.
+                return variable
 
     def sub_component_by_name(self, scope_name):
         """
