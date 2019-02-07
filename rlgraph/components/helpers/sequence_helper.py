@@ -273,13 +273,13 @@ class SequenceHelper(Component):
                 prev_v = accum_v
 
                 # Arrived at new sequence, start over.
-                # TODO what torch format we get here.
                 if sequence_indices[i] == 1:
                     length = 0
                     prev_v = 0
 
                 # Increase length of current sub-sequence.
                 length += 1
+                i += 1
 
             # Reverse, convert, and return final.
             return torch.tensor(list(reversed(discounted)), dtype=torch.float32)
