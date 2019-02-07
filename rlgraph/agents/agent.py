@@ -238,11 +238,11 @@ class Agent(Specifiable):
         @rlgraph_api(component=self.root_component)
         def get_weights(root):
             policy = root.get_sub_component_by_name(agent.policy.scope)
-            policy_weights = policy._variables()
+            policy_weights = policy.variables()
             value_function_weights = None
             if agent.value_function is not None:
                 value_func = root.get_sub_component_by_name(agent.value_function.scope)
-                value_function_weights = value_func._variables()
+                value_function_weights = value_func.variables()
             return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
 
         @rlgraph_api(component=self.root_component, must_be_complete=False)

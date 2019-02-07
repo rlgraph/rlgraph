@@ -206,7 +206,7 @@ class GraphExecutor(Specifiable):
     #    Returns:
     #        any: Weights for this graph..
     #    """
-    #    return self.execute("_variables")
+    #    return self.execute("variables")
 
     #def set_weights(self, weights):
     #    """

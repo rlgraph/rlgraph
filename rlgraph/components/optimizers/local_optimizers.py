@@ -19,8 +19,9 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.optimizers.optimizer import Optimizer
-from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.util import force_list
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -78,9 +79,10 @@ class LocalOptimizer(Optimizer):
             loss (SingeDataOp): The total loss over a batch to be minimized.
         """
         if get_backend() == "tf":
+            var_list = list(variables.values()) if isinstance(variables, dict) else force_list(variables)
             grads_and_vars = self.optimizer.compute_gradients(
                 loss=loss,
-                var_list=list(variables.values()) if isinstance(variables, dict) else variables
+                var_list=var_list
             )
             if self.clip_grad_norm is not None:
                 for i, (grad, var) in enumerate(grads_and_vars):
@@ -221,6 +223,7 @@ class AdadeltaOptimizer(LocalOptimizer):
                 lr=self.learning_rate,
                 rho=self.rho
             )
+
 
 class SGDOptimizer(LocalOptimizer):
     """

@@ -28,7 +28,7 @@ import re
 from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry,\
     define_api_method, define_graph_fn
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
 from rlgraph.utils import util
@@ -172,7 +172,7 @@ class Component(Specifiable):
         # All Variables that are held by this component (and its sub-components) by name.
         # key=full-scope variable name (scope=component/sub-component scope)
         # value=the actual variable
-        self.variables = {}
+        self.variable_registry = {}
         # All summary ops that are held by this component (and its sub-components) by name.
         # key=full-scope summary name (scope=component/sub-component scope)
         # value=the actual summary op
@@ -289,7 +289,7 @@ class Component(Specifiable):
     def check_variable_completeness(self):
         """
         Checks, whether this Component is input-complete AND all our sub-Components are input-complete.
-        At that point, all variables are defined and we can run the `_variables` graph_fn.
+        At that point, all variables are defined and we can run the `variables` graph_fn.
 
         Returns:
             bool: Whether this Component is "variables-complete".
@@ -410,13 +410,13 @@ class Component(Specifiable):
             # key = re.sub(r'({}).*?([\w\-.]+):\d+$'.format(self.global_scope), r'\1/\2', var.name)
             key = re.sub(r':\d+$', "", var.name)
             # Already registered: Must be the same (shared) variable.
-            if key in self.variables:
-                assert self.variables[key] is var,\
+            if key in self.variable_registry:
+                assert self.variable_registry[key] is var,\
                     "ERROR: Key '{}' in {}.variables already exists, but holds a different variable " \
-                    "({} vs {})!".format(key, self.global_scope, self.variables[key], var)
+                    "({} vs {})!".format(key, self.global_scope, self.variable_registry[key], var)
             # New variable: Register.
             else:
-                self.variables[key] = var
+                self.variable_registry[key] = var
                 # Auto-create the summary for the variable.
                 summary_name = var.name[len(self.global_scope) + (1 if self.global_scope else 0):]
                 summary_name = re.sub(r':\d+$', "", summary_name)
@@ -478,12 +478,12 @@ class Component(Specifiable):
 
         # Called as getter.
         if shape is None and initializer is None and from_space is None:
-            if name not in self.variables:
+            if name not in self.variable_registry:
                 raise KeyError(
                     "Variable with name '{}' not found in registry of Component '{}'!".format(name, self.name)
                 )
             # TODO: Maybe try both the pure name AND the name with global-scope in front.
-            return self.variables[name]
+            return self.variable_registry[name]
 
         # Called as setter.
         var = None
@@ -561,9 +561,9 @@ class Component(Specifiable):
         # TODO: What about a var from Tuple space?
         if isinstance(var, OrderedDict):
             for sub_key, v in var.items():
-                self.variables[key + sub_key] = v
+                self.variable_registry[key + sub_key] = v
         else:
-            self.variables[key] = var
+            self.variable_registry[key] = var
 
         return var
 
@@ -655,7 +655,7 @@ class Component(Specifiable):
                 ret = {}
                 for v in collection_variables:
                     lookup = re.sub(r':\d+$', "", v.name)
-                    if lookup in self.variables:
+                    if lookup in self.variable_registry:
                         if global_scope:
                             # Replace the scope separator with a custom one.
                             ret[re.sub(r'(/|{}|{})'.format(FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN),
@@ -675,7 +675,7 @@ class Component(Specifiable):
             get_ref = kwargs.pop("get_ref", False)
 
             if len(names) == 0:
-                names = list(self.variables.keys())
+                names = list(self.variable_registry.keys())
             return self.get_variables_by_name(
                 *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope,
                 get_ref=get_ref
@@ -707,14 +707,14 @@ class Component(Specifiable):
         if get_backend() == "tf":
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-                if name in self.variables:
-                    variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
-                elif global_scope_name in self.variables:
+                if name in self.variable_registry:
+                    variables[re.sub(r'/', custom_scope_separator, name)] = self.variable_registry[name]
+                elif global_scope_name in self.variable_registry:
                     if global_scope:
-                        variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variables[
+                        variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variable_registry[
                             global_scope_name]
                     else:
-                        variables[name] = self.variables[global_scope_name]
+                        variables[name] = self.variable_registry[global_scope_name]
         elif get_backend() == "pytorch":
             # Unpack tuple.
             if isinstance(names, tuple) and len(names) == 1:
@@ -722,24 +722,24 @@ class Component(Specifiable):
             # print("names = ", names)
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-                if name in self.variables:
+                if name in self.variable_registry:
                     if get_ref:
-                        variables[re.sub(r'/', custom_scope_separator, name)] = self.variables[name]
+                        variables[re.sub(r'/', custom_scope_separator, name)] = self.variable_registry[name]
                     else:
-                        variables[re.sub(r'/', custom_scope_separator, name)] = self.read_variable(self.variables[name])
-                elif global_scope_name in self.variables:
+                        variables[re.sub(r'/', custom_scope_separator, name)] = self.read_variable(self.variable_registry[name])
+                elif global_scope_name in self.variable_registry:
                     if global_scope:
                         if get_ref:
                             variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = \
-                                self.variables[global_scope_name]
+                                self.variable_registry[global_scope_name]
                         else:
                             variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = \
-                                self.read_variable(self.variables[global_scope_name])
+                                self.read_variable(self.variable_registry[global_scope_name])
                     else:
                         if get_ref:
-                            variables[name] = self.variables[global_scope_name]
+                            variables[name] = self.variable_registry[global_scope_name]
                         else:
-                            variables[name] = self.read_variable(self.variables[global_scope_name])
+                            variables[name] = self.read_variable(self.variable_registry[global_scope_name])
         return variables
 
     def create_summary(self, name, values, summary_type="histogram"):
@@ -1040,15 +1040,15 @@ class Component(Specifiable):
             return
 
         # Add all our variables to parent's variable registry.
-        keys = keys or self.variables.keys()
+        keys = keys or self.variable_registry.keys()
         for key in keys:
             # If already there (bubbled up from some child component that was input complete before us)
             # -> Make sure the variable object is identical.
-            if key in self.parent_component.variables:
-                if self.variables[key] is not self.parent_component.variables[key]:
+            if key in self.parent_component.variable_registry:
+                if self.variable_registry[key] is not self.parent_component.variable_registry[key]:
                     raise RLGraphError("ERROR: Variable registry of '{}' already has a variable under key '{}'!". \
                           format(self.parent_component.name, key))
-            self.parent_component.variables[key] = self.variables[key]
+            self.parent_component.variable_registry[key] = self.variable_registry[key]
 
         # Recurse up the container hierarchy.
         self.parent_component.propagate_variables(keys)
@@ -1248,9 +1248,9 @@ class Component(Specifiable):
         return helper
 
     @rlgraph_api(returns=1)
-    def _graph_fn__variables(self):
+    def _graph_fn_variables(self):
         """
-        Outputs all of this Component's variables in a DataOpDict (API-method "_variables").
+        Outputs all of this Component's variables in a DataOpDict (API-method "variables").
 
         This can be used e.g. to sync this Component's variables into another Component, which owns
         a Synchronizable() as a sub-component. The returns values of this graph_fn are then sent into
@@ -1263,6 +1263,12 @@ class Component(Specifiable):
         # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.
         variables_dict = self.get_variables(custom_scope_separator="-")
         return DataOpDict(variables_dict)
+
+    def _variables(self):
+        """
+        OBSOLETED API method. New "variables()" should be used.
+        """
+        raise RLGraphObsoletedError("API-method", "_variables()", "variables()")
 
     @staticmethod
     def reset_profile():

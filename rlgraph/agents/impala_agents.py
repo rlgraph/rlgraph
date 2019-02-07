@@ -480,7 +480,7 @@ class IMPALAAgent(Agent):
             loss, loss_per_item = loss_function.loss(
                 logits, action_probs_mu, state_values_pi, actions, rewards, terminals
             )
-            policy_vars = policy._variables()
+            policy_vars = policy.variables()
 
             # Pass vars and loss values into optimizer.
             step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
@@ -756,9 +756,9 @@ class SingleIMPALAAgent(IMPALAAgent):
                 logits_pi, action_probs_mu, state_values_pi, actions, rewards, terminals
             )
             if self.dynamic_batching:
-                policy_vars = agent.queue_runner.data_producing_components[0].actor_component.policy._variables()
+                policy_vars = agent.queue_runner.data_producing_components[0].actor_component.policy.variables()
             else:
-                policy_vars = agent.policy._variables()
+                policy_vars = agent.policy.variables()
 
             # Pass vars and loss values into optimizer.
             step_op, loss, loss_per_item = agent.optimizer.step(policy_vars, loss, loss_per_item)

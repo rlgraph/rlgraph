@@ -223,8 +223,8 @@ class PPOAgent(Agent):
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
                     if multi_gpu_sync_optimizer is not None:
-                        main_policy_vars = agent.policy._variables()
-                        main_vf_vars = agent.value_function._variables()
+                        main_policy_vars = agent.policy.variables()
+                        main_vf_vars = agent.value_function.variables()
                         all_vars = agent.vars_merger.merge(main_policy_vars, main_vf_vars)
                         # grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
@@ -269,21 +269,21 @@ class PPOAgent(Agent):
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
-                        policy_grads_and_vars = optimizer.calculate_gradients(policy._variables(), loss)
+                        policy_grads_and_vars = optimizer.calculate_gradients(policy.variables(), loss)
                         vf_grads_and_vars = value_function_optimizer.calculate_gradients(
-                            value_function._variables(), vf_loss
+                            value_function.variables(), vf_loss
                         )
                         grads_and_vars_by_component = vars_merger.merge(policy_grads_and_vars, vf_grads_and_vars)
                         return grads_and_vars_by_component, loss, loss_per_item, vf_loss, vf_loss_per_item
                     else:
                         step_op, loss, loss_per_item = optimizer.step(
-                            policy._variables(), loss, loss_per_item
+                            policy.variables(), loss, loss_per_item
                         )
                         loss.set_shape(())
                         loss_per_item.set_shape((agent.sample_size,))
 
                         vf_step_op, vf_loss, vf_loss_per_item = value_function_optimizer.step(
-                            value_function._variables(), vf_loss, vf_loss_per_item
+                            value_function.variables(), vf_loss, vf_loss_per_item
                         )
                         vf_loss.set_shape(())
                         vf_loss_per_item.set_shape((agent.sample_size,))
@@ -339,10 +339,10 @@ class PPOAgent(Agent):
                     )
 
                     # Do not need step op.
-                    _, loss, loss_per_item = optimizer.step(policy._variables(), loss, loss_per_item)
+                    _, loss, loss_per_item = optimizer.step(policy.variables(), loss, loss_per_item)
 
                     _, vf_loss, vf_loss_per_item = \
-                        value_function_optimizer.step(value_function._variables(), vf_loss, vf_loss_per_item)
+                        value_function_optimizer.step(value_function.variables(), vf_loss, vf_loss_per_item)
 
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
 

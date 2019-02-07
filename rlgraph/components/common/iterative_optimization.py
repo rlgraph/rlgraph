@@ -78,8 +78,8 @@ class IterativeOptimization(Component):
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
-            policy_vars = self.policy._variables()
-            vf_vars = self.value_function._variables()
+            policy_vars = self.policy.variables()
+            vf_vars = self.value_function.variables()
             vf_step_op, vf_loss, vf_loss_per_item = self.vf_optimizer(vf_vars, vf_loss, vf_loss_per_item)
             step_op, loss, loss_per_item = self.optimizer.step(policy_vars, loss, loss_per_item)
 
@@ -100,8 +100,8 @@ class IterativeOptimization(Component):
                     )
 
                     # Args are passed in again because some device strategies may want to split them to different devices.
-                    policy_vars = self.policy._variables()
-                    vf_vars = self.value_function._variables()
+                    policy_vars = self.policy.variables()
+                    vf_vars = self.value_function.variables()
 
                     vf_step_op, vf_loss, vf_loss_per_item = self.vf_optimizer(vf_vars, vf_loss, vf_loss_per_item)
                     step_op, loss, loss_per_item = self.optimizer.step(policy_vars, loss, loss_per_item)

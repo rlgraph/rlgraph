@@ -328,7 +328,7 @@ class GraphBuilder(Specifiable):
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
                     # Do not call _variables (only later, when Component is also variable-complete).
-                    if no_in_col.graph_fn.__name__ != "_graph_fn__variables":
+                    if no_in_col.graph_fn.__name__ != "_graph_fn_variables":
                         self.run_through_graph_fn_with_device_and_scope(no_in_col)
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
@@ -343,8 +343,8 @@ class GraphBuilder(Specifiable):
 
         if component.input_complete is True and component.check_variable_completeness():
                 # The graph_fn _variables has some in-op-columns that need to be run through the function.
-                if "_graph_fn__variables" in component.graph_fns:
-                    graph_fn_rec = component.graph_fns["_graph_fn__variables"]
+                if "_graph_fn_variables" in component.graph_fns:
+                    graph_fn_rec = component.graph_fns["_graph_fn_variables"]
                     # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
                     # TODO: Then link the first in-op-column (empty) to all out-op-columns.
                     for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
@@ -692,8 +692,8 @@ class GraphBuilder(Specifiable):
         Checks whether some of the root component's API-method output columns contain ops that are still None.
         """
         for api_method_rec in self.root_component.api_methods.values():
-            # Ignore `_variables` API-method for now.
-            if api_method_rec.name == "_variables":
+            # Ignore `variables` API-method for now.
+            if api_method_rec.name == "variables":
                 continue
             for out_op_column in api_method_rec.out_op_columns:
                 for op_rec in out_op_column.op_records:
@@ -736,7 +736,7 @@ class GraphBuilder(Specifiable):
                             self._analyze_input_incomplete_component(op_rec.column.component)
                         else:
                             assert op_rec.column.component.variable_complete is False and \
-                                   op_rec.column.graph_fn_name == "_graph_fn__variables", \
+                                   op_rec.column.graph_fn_name == "_graph_fn_variables", \
                                    "ERROR: Component '{}' was expected to be either input-incomplete or " \
                                    "variable-incomplete!".format(op_rec.column.component.global_scope)
                             self._analyze_variable_incomplete_component(op_rec.column.component)

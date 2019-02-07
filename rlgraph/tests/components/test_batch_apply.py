@@ -37,7 +37,7 @@ class TestBatchApply(unittest.TestCase):
 
         batch_apply = BatchApply(sub_component=sub_component, api_method_name="apply")
         test = ComponentTest(component=batch_apply, input_spaces=dict(input_=input_space))
-        weights = test.read_variable_values(batch_apply.variables["batch-apply/dense-layer/dense/kernel"])
+        weights = test.read_variable_values(batch_apply.variable_registry["batch-apply/dense-layer/dense/kernel"])
 
         sample = input_space.sample(size=(5, 10))
         sample_folded = np.reshape(sample, newshape=(50, 3))

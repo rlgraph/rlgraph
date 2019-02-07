@@ -54,7 +54,7 @@ class TestDevicePlacements(unittest.TestCase):
         test = ComponentTest(component=a, input_spaces=dict(input_=float))
 
         # Vars -> CPU.
-        self.assertEqual(a.variables["A/constant-variable"].device, var_device)
+        self.assertEqual(a.variable_registry["A/constant-variable"].device, var_device)
         # Placeholders -> GPU.
         self.assertEqual(a.api_methods["run_plus"].in_op_columns[0].op_records[0].op.device, op_device)
         self.assertEqual(a.api_methods["run_minus"].in_op_columns[0].op_records[0].op.device, op_device)

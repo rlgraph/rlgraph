@@ -71,7 +71,7 @@ class TestNeuralNetworks(unittest.TestCase):
         # Batch of size=3.
         input_ = space.sample(3)
         # Calculate output manually.
-        var_dict = test.read_variable_values(neural_net.variables)
+        var_dict = test.read_variable_values(neural_net.variable_registry)
 
         expected = dense_layer(
             dense_layer(input_, var_dict["test-network/hidden-layer/dense/kernel"],
@@ -103,10 +103,10 @@ class TestNeuralNetworks(unittest.TestCase):
         input_ = input_space.sample((batch_size, time_steps))
 
         # Calculate output manually.
-        w0_value = test.read_variable_values(neural_net.variables["test-lstm-network/dense-layer/dense/kernel"])
-        b0_value = test.read_variable_values(neural_net.variables["test-lstm-network/dense-layer/dense/bias"])
-        lstm_w_value = test.read_variable_values(neural_net.variables["test-lstm-network/lstm-layer/lstm-cell/kernel"])
-        lstm_b_value = test.read_variable_values(neural_net.variables["test-lstm-network/lstm-layer/lstm-cell/bias"])
+        w0_value = test.read_variable_values(neural_net.variable_registry["test-lstm-network/dense-layer/dense/kernel"])
+        b0_value = test.read_variable_values(neural_net.variable_registry["test-lstm-network/dense-layer/dense/bias"])
+        lstm_w_value = test.read_variable_values(neural_net.variable_registry["test-lstm-network/lstm-layer/lstm-cell/kernel"])
+        lstm_b_value = test.read_variable_values(neural_net.variable_registry["test-lstm-network/lstm-layer/lstm-cell/bias"])
 
         d0_out = dense_layer(input_, w0_value, b0_value)
         lstm_out, last_internal_states = lstm_layer(d0_out, lstm_w_value, lstm_b_value, time_major=False)
@@ -149,12 +149,12 @@ class TestNeuralNetworks(unittest.TestCase):
         internal_states = internal_states_space.sample(batch_size)
 
         # Calculate output manually.
-        w0_value = test.read_variable_values(neural_net.variables["neural-network/d0/dense/kernel"])
-        b0_value = test.read_variable_values(neural_net.variables["neural-network/d0/dense/bias"])
-        w1_value = test.read_variable_values(neural_net.variables["neural-network/d1/dense/kernel"])
-        b1_value = test.read_variable_values(neural_net.variables["neural-network/d1/dense/bias"])
-        lstm_w_value = test.read_variable_values(neural_net.variables["neural-network/lstm/lstm-cell/kernel"])
-        lstm_b_value = test.read_variable_values(neural_net.variables["neural-network/lstm/lstm-cell/bias"])
+        w0_value = test.read_variable_values(neural_net.variable_registry["neural-network/d0/dense/kernel"])
+        b0_value = test.read_variable_values(neural_net.variable_registry["neural-network/d0/dense/bias"])
+        w1_value = test.read_variable_values(neural_net.variable_registry["neural-network/d1/dense/kernel"])
+        b1_value = test.read_variable_values(neural_net.variable_registry["neural-network/d1/dense/bias"])
+        lstm_w_value = test.read_variable_values(neural_net.variable_registry["neural-network/lstm/lstm-cell/kernel"])
+        lstm_b_value = test.read_variable_values(neural_net.variable_registry["neural-network/lstm/lstm-cell/bias"])
 
         d0_out = dense_layer(input_, w0_value, b0_value)
         lstm_out, last_internal_states = lstm_layer(

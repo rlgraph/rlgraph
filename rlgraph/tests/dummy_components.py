@@ -19,9 +19,14 @@ from __future__ import print_function
 
 import numpy as np
 
+from rlgraph import get_backend
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.components.component import Component
+from rlgraph.components.optimizers.local_optimizers import GradientDescentOptimizer
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class Dummy1To1(Component):
@@ -266,16 +271,17 @@ class SimpleDummyWithVar(Component):
     API:
         run(input_): input_ + `self.variable`(3.0)
     """
-    def __init__(self, scope="simple-dummy-with-var", **kwargs):
+    def __init__(self, variable_value=3.0, scope="simple-dummy-with-var", **kwargs):
         """
         Args:
-            constant_value (float): A constant to add to input in our graph_fn.
+            variable_value (float): The initial value of our variable.
         """
         super(SimpleDummyWithVar, self).__init__(scope=scope, **kwargs)
-        self.constant_variable = None
+        self.variable = None
+        self.variable_value = variable_value
 
     def create_variables(self, input_spaces, action_space=None):
-        self.constant_variable = self.get_variable(name="constant-variable", initializer=3.0)
+        self.variable = self.get_variable(name="variable", initializer=self.variable_value)
 
     @rlgraph_api
     def run(self, input_):
@@ -285,7 +291,33 @@ class SimpleDummyWithVar(Component):
 
     @graph_fn(returns=1)
     def _graph_fn_1(self, input_):
-        return input_ + self.constant_variable
+        return input_ + self.variable
+
+
+class DummyWithOptimizer(SimpleDummyWithVar):
+    def __init__(self, variable_value=3.0, learning_rate=0.1, scope="dummy-with-optimizer", **kwargs):
+        super(DummyWithOptimizer, self).__init__(variable_value=variable_value, scope=scope, **kwargs)
+        self.learning_rate = learning_rate
+
+        self.optimizer = GradientDescentOptimizer(learning_rate=self.learning_rate)
+        self.add_components(self.optimizer)
+
+    @rlgraph_api
+    def calc_grads(self):
+        loss = self._graph_fn_simple_square_loss()
+        return self.optimizer.calculate_gradients(self.variables(), loss)
+
+    @rlgraph_api
+    def step(self):
+        loss = self._graph_fn_simple_square_loss()
+        return self.optimizer.step(self.variables(), loss, loss)
+
+    @graph_fn
+    def _graph_fn_simple_square_loss(self):
+        loss = None
+        if get_backend() == "tf":
+            loss = tf.square(x=tf.log(self.variable))
+        return loss
 
 
 class FlattenSplitDummy(Component):

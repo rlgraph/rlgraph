@@ -51,7 +51,7 @@ class TestActorComponents(unittest.TestCase):
             action_space=action_space
         )
         # Get and check some actions.
-        actor_component_params = test.read_variable_values(actor_component.variables)
+        actor_component_params = test.read_variable_values(actor_component.variable_registry)
 
         # Some state inputs (5 input nodes, batch size=2).
         states = state_space.sample(2)
@@ -74,7 +74,7 @@ class TestActorComponents(unittest.TestCase):
         # Get actions and action-probs by calling a different API-method.
         states = state_space.sample(5)
         # Get and check some actions.
-        actor_component_params = test.read_variable_values(actor_component.variables)
+        actor_component_params = test.read_variable_values(actor_component.variable_registry)
         # Expected NN-output.
         expected_nn_output = np.matmul(
             states * 2, actor_component_params["actor-component/policy/test-network/hidden-layer/dense/kernel"]
@@ -184,7 +184,7 @@ class TestActorComponents(unittest.TestCase):
         # Some state inputs (batch size=4).
         states = state_space.sample(size=4)
         # Get and check some actions.
-        actor_component_params = test.read_variable_values(actor_component.variables)
+        actor_component_params = test.read_variable_values(actor_component.variable_registry)
         # Expected NN-output.
         expected_nn_output_stream_a = np.matmul(
             states["a"] * 0.5, actor_component_params["actor-component/policy/dummy-nn/dense-a/dense/kernel"]

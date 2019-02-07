@@ -29,7 +29,7 @@ __all__ = [
     "AgentTest", "ComponentTest",
     # Simple dummies.
     "Dummy0To1", "Dummy1To1", "Dummy1To2", "Dummy2To1", "Dummy2GraphFns1To1",
-    "DummyWithVar", "SimpleDummyWithVar",
+    "DummyWithVar", "SimpleDummyWithVar", "DummyWithOptimizer",
     "FlattenSplitDummy", "NoFlattenNoSplitDummy",  "OnlyFlattenDummy",
     # Dummies with sub-components.
     "DummyWithSubComponents", "DummyCallingSubComponentsAPIFromWithinGraphFn",

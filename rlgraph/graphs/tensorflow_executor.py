@@ -370,7 +370,7 @@ class TensorFlowExecutor(GraphExecutor):
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
         self.saver = tf.train.Saver(
-           var_list=list(self.graph_builder.root_component.variables.values()),
+           var_list=list(self.graph_builder.root_component.variable_registry.values()),
            reshape=False,
            sharded=False,
            max_to_keep=self.saver_spec.get("max_checkpoints", 1) if self.saver_spec else None,
@@ -442,7 +442,7 @@ class TensorFlowExecutor(GraphExecutor):
         Assigns the scaffold object to `self.scaffold`.
         """
         # Determine init_op and ready_op.
-        var_list = list(self.graph_builder.root_component.variables.values())
+        var_list = list(self.graph_builder.root_component.variable_registry.values())
 
         self.global_training_timestep = tf.get_variable(
             name="global-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,

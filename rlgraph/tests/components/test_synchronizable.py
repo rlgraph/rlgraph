@@ -63,7 +63,7 @@ class TestSynchronizableComponent(unittest.TestCase):
         expected2 = np.ones(shape=component_to_test.space.shape)
         expected = dict({"variable-to-sync1": expected1, "variable-to-sync2": expected2})
 
-        test.test("_variables", expected_outputs=expected)
+        test.test("variables", expected_outputs=expected)
 
     def test_sync_functionality(self):
         # Two Components, one with Synchronizable dropped in:
@@ -78,7 +78,7 @@ class TestSynchronizableComponent(unittest.TestCase):
 
         @rlgraph_api(component=container)
         def execute_sync(self):
-            values_ = sync_from._variables()
+            values_ = sync_from.variables()
             return sync_to.sync(values_)
 
         test = ComponentTest(component=container)
@@ -116,7 +116,7 @@ class TestSynchronizableComponent(unittest.TestCase):
 
         @rlgraph_api(component=container)
         def execute_sync(self):
-            values_ = comp1._variables()
+            values_ = comp1.variables()
             return comp2_writable.sync(values_)
 
         test = ComponentTest(component=container)

@@ -187,7 +187,7 @@ class TestPytorchBackend(unittest.TestCase):
             input_spaces=dict(nn_input=state_space),
             action_space=action_space
         )
-        policy_params = test.read_variable_values(policy.variables)
+        policy_params = test.read_variable_values(policy.variable_registry)
 
         # Some NN inputs (4 input nodes, batch size=2).
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
