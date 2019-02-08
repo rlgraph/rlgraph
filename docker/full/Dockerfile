@@ -37,8 +37,9 @@ RUN touch WORKSPACE
 # Upgrade pip before installing packages with it.
 RUN pip3 install --upgrade pip
 # Install necessary pip packages.
-RUN pip3 install numpy pydevd tensorflow cached-property gym scipy pyyaml gym[atari] ray opencv-python pytest six \
-    requests lz4 pyarrow wheel atari_py torch torchvision
+RUN pip3 install numpy pydevd tensorflow==1.11 cached-property gym scipy pyyaml gym[atari] ray opencv-python pytest six \
+    requests lz4 pyarrow wheel atari_py
+#torch torchvision
 
 # Write a correct bazel build config for python so that bazel finds the python and numpy headers.
 RUN echo 'cc_library(name = "python",hdrs = glob(["include/python3.6/**/*.h"]),' \
