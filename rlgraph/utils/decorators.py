@@ -104,6 +104,16 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
             api_method_rec = self.api_methods[api_fn_name]
 
+            # Sanity check input args for accidential dict-return values being passed into the next API as
+            # supposed DataOpRecord.
+            dict_args = [next(iter(a.values())) for a in args if isinstance(a, dict)]
+            if len(dict_args) > 0 and isinstance(dict_args[0], DataOpRecord):
+                raise RLGraphError(
+                    "One of your input args to API-method '{}.{}()' is a dict of DataOpRecords! This is probably "
+                    "coming from a previous call to an API-method (returning a dict) and the DataOpRecord should be "
+                    "extracted by string-key and passed into '{}' "
+                    "directly.".format(api_method_rec.component.global_scope, api_fn_name, api_fn_name)
+                )
             # Create op-record column to call API method with. Ignore None input params. These should not be sent
             # to the API-method.
             in_op_column = DataOpRecordColumnIntoAPIMethod(
