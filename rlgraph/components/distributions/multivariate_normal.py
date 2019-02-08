@@ -23,7 +23,7 @@ from rlgraph.components.distributions.distribution import Distribution
 
 if get_backend() == "tf":
     import tensorflow as tf
-    import tensorflow_probability as tfp
+    #import tensorflow_probability as tfp
 elif get_backend() == "pytorch":
     import torch
 
