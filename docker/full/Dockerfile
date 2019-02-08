@@ -26,7 +26,7 @@ RUN apt-get install -y --no-install-recommends nasm tar libbz2-dev libgtk2.0-dev
 RUN apt-get install -y freeglut3-dev
 
 # Needed for Deepmind Lab.
-RUN apt-get install -y curl zip unzip g++ zlib1g-dev openjdk-8-jdk
+RUN apt-get install -y curl zip unzip g++ zlib1g-dev openjdk-8-jdk jq
 RUN echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list; curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 RUN sudo apt-get update -y && sudo apt-get install -y bazel
 WORKDIR /root/
@@ -37,7 +37,7 @@ RUN touch WORKSPACE
 # Upgrade pip before installing packages with it.
 RUN pip3 install --upgrade pip
 # Install necessary pip packages.
-RUN pip3 install numpy pydevd tensorflow cached-property gym scipy pyyaml gym[atari] ray opencv-python pytest six \
+RUN pip3 install numpy pydevd tensorflow tensorflow_probability cached-property gym scipy pyyaml gym[atari] ray opencv-python pytest six \
     requests lz4 pyarrow wheel atari_py torch torchvision
 
 # Write a correct bazel build config for python so that bazel finds the python and numpy headers.
