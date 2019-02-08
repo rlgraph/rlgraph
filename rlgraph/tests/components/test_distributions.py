@@ -28,8 +28,6 @@ import numpy as np
 
 class TestDistributions(unittest.TestCase):
 
-    # TODO make these portable to CI.
-
     # TODO also not portable to PyTorch due to batch shapes.
 
     def test_bernoulli(self):
@@ -117,6 +115,41 @@ class TestDistributions(unittest.TestCase):
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
         input_ = [input_spaces["parameters"].sample(1), False]
         expected = input_[0][:, :5]
+        outs = []
+        for _ in range(50):
+            out = test.test(("draw", input_))
+            outs.append(out)
+            out = test.test(("sample_stochastic", input_[0]))
+            outs.append(out)
+
+        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+
+    def test_multivariate_normal(self):
+        # Create batch0=n (batch-rank), batch1=2 (can be used for m mixed Gaussians), num-events=3 (trivariate)
+        # distributions (2 parameters (mean and stddev) each).
+        num_events = 3  # 3=trivariate Gaussian
+        num_mixed_gaussians = 2  # 2x trivariate Gaussians (mixed)
+        param_space = FloatBox(shape=(num_mixed_gaussians, 6), add_batch_rank=True)
+        input_spaces = dict(
+            parameters=param_space,
+            deterministic=bool,
+        )
+
+        # The Component to test.
+        multivariate_normal = MultivariateNormal(num_events=num_events, switched_off_apis={"log_prob", "kl_divergence"})
+        test = ComponentTest(component=multivariate_normal, input_spaces=input_spaces)
+
+        # Batch of size=(3, 2) and deterministic (True).
+        input_ = [input_spaces["parameters"].sample(4), True]
+        expected = input_[0][:, :, :num_events]
+        # Sample n times, expect always mean value (deterministic draw).
+        for _ in range(50):
+            test.test(("draw", input_), expected_outputs=expected)
+            test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+
+        # Batch of size=1 and non-deterministic -> expect roughly the mean.
+        input_ = [input_spaces["parameters"].sample(1), False]
+        expected = input_[0][:, :, :num_events]
         outs = []
         for _ in range(50):
             out = test.test(("draw", input_))
