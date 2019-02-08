@@ -16,7 +16,7 @@ RUN rm -rf python && ln -s python3 python
 RUN apt-get install -y --no-install-recommends tzdata shared-mime-info sudo vim git python3.6-dev python3-pip \
     python3-setuptools libopencv-dev cmake clang-5.0 clang-3.8 git build-essential ca-certificates \
     pkg-config bash-completion lua5.1 liblua5.1-0-dev libffi-dev gettext freeglut3-dev libsdl2-dev libjpeg-dev \
-    libosmesa6-dev python3-pil realpath python3-numpy
+    libosmesa6-dev python3-pil realpath python3-numpy jq
 
 # Vizdoom stuff
 RUN apt-get install -y --no-install-recommends nasm tar libbz2-dev libgtk2.0-dev libfluidsynth-dev libgme-dev \
@@ -26,7 +26,7 @@ RUN apt-get install -y --no-install-recommends nasm tar libbz2-dev libgtk2.0-dev
 RUN apt-get install -y freeglut3-dev
 
 # Needed for Deepmind Lab.
-RUN apt-get install -y curl zip unzip g++ zlib1g-dev openjdk-8-jdk jq
+RUN apt-get install -y curl zip unzip g++ zlib1g-dev openjdk-8-jdk
 RUN echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list; curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 RUN sudo apt-get update -y && sudo apt-get install -y bazel
 WORKDIR /root/
