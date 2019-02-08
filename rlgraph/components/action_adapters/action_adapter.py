@@ -248,7 +248,7 @@ class ActionAdapter(NeuralNetwork):
                 if self.action_space.unbounded:
                     mean, log_sd = tf.split(logits, num_or_size_splits=2, axis=-1)
 
-                    # Turn log sd into sd.
+                    # Turn log sd into sd to ascertain always positive stddev values.
                     sd = tf.exp(log_sd)
 
                     # Merge again.
