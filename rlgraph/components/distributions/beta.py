@@ -20,7 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.spaces import Tuple
+from rlgraph.spaces import Tuple, FloatBox
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
@@ -44,24 +44,26 @@ class Beta(Distribution):
         super(Beta, self).__init__(scope=scope, **kwargs)
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        # Must be a Tuple of len 2 (loc and scale).
+        # Must be a Tuple of len 2 (alpha and beta).
         in_space = input_spaces["parameters"]
-        # Make sure input parameters has an even last rank for splitting into alpha/beta parameter values.
-        assert in_space.shape[-1] % 2 == 0, "ERROR: `parameters` in_space must have an even numbered last rank!"
+        sanity_check_space(in_space, allowed_types=[Tuple])
+        assert len(in_space) == 2, "ERROR: Expected Tuple of len=2 as input Space to Beta!"
+        sanity_check_space(in_space[0], allowed_types=[FloatBox])
+        sanity_check_space(in_space[1], allowed_types=[FloatBox])
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         """
         Args:
-            parameters (DataOp): The alpha and beta parameters (gathered in the last rank of the tensor).
-                The last rank needs to be split into 2 to separate alpha and beta.
+            parameters (DataOpTuple): Tuple holding the alpha and beta parameters.
         """
         if get_backend() == "tf":
-            alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
-            return tf.distributions.Beta(concentration0=alpha, concentration1=beta)
+            #alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
+            # Note: concentration0==beta, concentration1=alpha (!)
+            return tf.distributions.Beta(concentration1=parameters[0], concentration0=parameters[1])
         elif get_backend() == "pytorch":
-            alpha, beta = torch.split(parameters, 2, dim=-1)
-            return torch.distributions.Beta(alpha, beta)
+            #alpha, beta = torch.split(parameters, 2, dim=-1)
+            return torch.distributions.Beta(parameters[0], parameters[1])
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):

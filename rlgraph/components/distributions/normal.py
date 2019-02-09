@@ -48,6 +48,10 @@ class Normal(Distribution):
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
+        """
+        Args:
+            parameters (DataOpTuple): Tuple holding the mean and stddev parameters.
+        """
         if get_backend() == "tf":
             #mean, stddev = tf.split(parameters, num_or_size_splits=2, axis=-1)
             return tf.distributions.Normal(loc=parameters[0], scale=parameters[1])
