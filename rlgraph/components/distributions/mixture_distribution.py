@@ -29,7 +29,7 @@ elif get_backend() == "pytorch":
     import torch
 
 
-class MixedDistribution(Distribution):
+class MixtureDistribution(Distribution):
     """
     A mixed distribution of n sub-distribution components and a categorical which determines,
     from which sub-distribution we sample.
@@ -38,20 +38,20 @@ class MixedDistribution(Distribution):
         """
         Args:
             sub_distributions (List[Union[string,Distribution]]): The type-strings or actual Distribution objects
-                that define the n sub-distributions of this MixedDistribution.
+                that define the n sub-distributions of this MixtureDistribution.
         """
-        super(MixedDistribution, self).__init__(scope=kwargs.pop("scope", "mixed-distribution"), **kwargs)
+        super(MixtureDistribution, self).__init__(scope=kwargs.pop("scope", "mixed-distribution"), **kwargs)
 
         self.sub_distributions = []
-        for s in sub_distributions:
+        for i, s in enumerate(sub_distributions):
             if isinstance(s, str):
-                assert s in ["normal", "beta"],\
-                    "ERROR: MixedDistribution does not accept '{}' as sub-distribution type!".format(s)
-                self.sub_distributions.append(Distribution.from_spec({"type": s}))
+                self.sub_distributions.append(Distribution.from_spec(
+                    {"type": s, "scope": "sub-distribution-{}".format(i)}
+                ))
             else:
                 self.sub_distributions.append(Distribution.from_spec(s))
 
-        self.categorical = Categorical()
+        self.categorical = Categorical(scope="main-categorical")
 
         self.add_components(self.categorical, *self.sub_distributions)
 
@@ -85,6 +85,13 @@ class MixedDistribution(Distribution):
                 cat=tfp.distributions.Categorical(probs=parameters["categorical"]),
                 components=components
             )
+
+    @rlgraph_api
+    def entropy(self, parameters):
+        """
+        Not implemented for Mixed. Raise error for now (safer than returning wrong values).
+        """
+        raise NotImplementedError
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
