@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.spaces import Tuple
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 

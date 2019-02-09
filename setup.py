@@ -38,7 +38,7 @@ install_requires = [
 setup_requires = []
 
 extras_require = {
-    'tf': ['tensorflow'],
+    'tf': ['tensorflow'],  #, 'tensorflow_probability'],
     'tf-gpu': ['tensorflow-gpu'],
     'pytorch': ['torch', 'torchvision'],  # TODO platform dependent.
     'gym': ['gym', 'atari-py'],

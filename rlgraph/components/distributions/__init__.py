@@ -21,15 +21,22 @@ from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.components.distributions.bernoulli import Bernoulli
 from rlgraph.components.distributions.beta import Beta
 from rlgraph.components.distributions.categorical import Categorical
+from rlgraph.components.distributions.multivariate_normal import MultivariateNormal
 from rlgraph.components.distributions.normal import Normal
 
 Distribution.__lookup_classes__ = dict(
     bernoulli=Bernoulli,
+    bernoullidistribution=Bernoulli,
     categorical=Categorical,
-    normaldistribution=Normal,
+    categoricaldistribution=Categorical,
     gaussian=Normal,
-    beta=Beta
+    gaussiandistribution=Normal,
+    multivariatenormal=MultivariateNormal,
+    multivariategaussian=MultivariateNormal,
+    normaldistribution=Normal,
+    beta=Beta,
+    betadistribution=Beta
 )
 
-__all__ = ["Distribution", "Bernoulli", "Categorical", "Normal", "Beta"]
+__all__ = ["Distribution", "Bernoulli", "Categorical", "MultivariateNormal", "Normal", "Beta"]
 

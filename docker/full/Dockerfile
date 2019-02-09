@@ -16,7 +16,7 @@ RUN rm -rf python && ln -s python3 python
 RUN apt-get install -y --no-install-recommends tzdata shared-mime-info sudo vim git python3.6-dev python3-pip \
     python3-setuptools libopencv-dev cmake clang-5.0 clang-3.8 git build-essential ca-certificates \
     pkg-config bash-completion lua5.1 liblua5.1-0-dev libffi-dev gettext freeglut3-dev libsdl2-dev libjpeg-dev \
-    libosmesa6-dev python3-pil realpath python3-numpy
+    libosmesa6-dev python3-pil realpath python3-numpy jq
 
 # Vizdoom stuff
 RUN apt-get install -y --no-install-recommends nasm tar libbz2-dev libgtk2.0-dev libfluidsynth-dev libgme-dev \
@@ -37,7 +37,7 @@ RUN touch WORKSPACE
 # Upgrade pip before installing packages with it.
 RUN pip3 install --upgrade pip
 # Install necessary pip packages.
-RUN pip3 install numpy pydevd tensorflow cached-property gym scipy pyyaml gym[atari] ray opencv-python pytest six \
+RUN pip3 install numpy pydevd tensorflow tensorflow_probability cached-property gym scipy pyyaml gym[atari] ray opencv-python pytest six \
     requests lz4 pyarrow wheel atari_py torch torchvision
 
 # Write a correct bazel build config for python so that bazel finds the python and numpy headers.
