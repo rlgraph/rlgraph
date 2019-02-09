@@ -41,5 +41,5 @@ Distribution.__lookup_classes__ = dict(
     betadistribution=Beta
 )
 
-__all__ = ["Distribution", "Bernoulli", "Categorical", "MultivariateNormal", "Normal", "Beta"]
+__all__ = ["Distribution"] + list(set(map(lambda x: x.__name__, Distribution.__lookup_classes__.values())))
 

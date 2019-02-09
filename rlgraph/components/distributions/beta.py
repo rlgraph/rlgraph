@@ -24,7 +24,7 @@ from rlgraph.spaces import Tuple, FloatBox
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
-    import tensorflow_distribution as tfp
+    import tensorflow_probability as tfp
 elif get_backend() == "pytorch":
     import torch
 

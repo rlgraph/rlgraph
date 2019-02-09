@@ -24,7 +24,6 @@ from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.spaces import Tuple, FloatBox
 
 if get_backend() == "tf":
-    import tensorflow as tf
     import tensorflow_probability as tfp
 elif get_backend() == "pytorch":
     import torch
