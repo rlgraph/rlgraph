@@ -18,11 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.components.distributions.categorical import Categorical
 from rlgraph.components.distributions.distribution import Distribution
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
-    import tensorflow as tf
     import tensorflow_probability as tfp
 elif get_backend() == "pytorch":
     import torch
@@ -46,54 +47,45 @@ class MixedDistribution(Distribution):
             if isinstance(s, str):
                 assert s in ["normal", "beta"],\
                     "ERROR: MixedDistribution does not accept '{}' as sub-distribution type!".format(s)
-                self.sub_distributions.append(s)
-            elif isinstance(s, Normal):
-                self.sub_distributions.append("normal")
-            elif isinstance(s, Beta):
-                self.sub_distributions.append("beta")
+                self.sub_distributions.append(Distribution.from_spec({"type": s}))
             else:
-                raise RLGrapahError(
-                    "MixedDistribution does not accept '{}' as sub-distribution type!".format(type(s).__name__)
-                )
-        #self.num_distributions = len(self.sub_distributions)
+                self.sub_distributions.append(Distribution.from_spec(s))
 
-        # list of ints indicating how many parameters are needed for each sub-distribution
-        self.num_parameters = list()
+        self.categorical = Categorical()
+
+        self.add_components(self.categorical, *self.sub_distributions)
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        # Must be a Tuple of len 2 (loc and scale).
+        # Must be a Dict with keys: 'categorical', 'parameters0', 'parameters1', etc...
         in_space = input_spaces["parameters"]
-        # Make sure input parameters has an even last rank for splitting into mean/stddev parameter values.
-        #assert in_space.shape[-1] % 2 == 0,\
-        #    "ERROR: `parameters` in_space must have an even numbered last rank (mean/stddev split)!"
+
+        assert "categorical" in in_space, "ERROR: in_space for Mixed needs parameter key: 'categorical'!"
+
+        for i, s in enumerate(self.sub_distributions):
+            sub_space = in_space.get("parameters{}".format(i))
+            if sub_space is None:
+                raise RLGraphError("ERROR: in_space for Mixed needs parameter key: 'parameters{}'!".format(i))
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         """
-        Instead of directly parameterizing a fixed distribution, select first the distribution
-        to use via our Categorical and the gievn parameters. Then feed the rest of the parameters
-        and the selected distribution through its own get_distribution API.
-
         Args:
-            parameters (DataOp): The parameters to use for parameterization of a Distribution DataOp.
+            parameters (DataOpDict): The parameters to use for parameterizations of the different sub-distributions
+                including the main-categorical one. Keys must be "categorical", "parameters0", "parameters1", etc..
 
         Returns:
-            DataOp: The ready-to-be-sampled distribution.
+            DataOp: The ready-to-be-sampled mixed distribution.
         """
         if get_backend() == "tf":
             components = []
-            num_or_size_splits = [len(self.sub_distributions)]
-            for s in self.sub_distributions:
-                num_or_size_splits.append()
-                components.append()
-            probabilities, rest = tf.split(parameters, num_or_size_splits=[self.num_distributions, ], axis=-1)
+            for i, s in enumerate(self.sub_distributions):
+                components.append(s.get_distribution(parameters["parameters{}".format(i)]))
 
             return tfp.distributions.Mixture(
-                cat=tfp.Categorical(probs=probabilities),
+                cat=tfp.distributions.Categorical(probs=parameters["categorical"]),
                 components=components
             )
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
-            # TODO:
             return distribution.mean()

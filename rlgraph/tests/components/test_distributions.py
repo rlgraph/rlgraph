@@ -95,7 +95,8 @@ class TestDistributions(unittest.TestCase):
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
         param_space = Tuple(
-            FloatBox(shape=(5,)), FloatBox(shape=(5,)),
+            FloatBox(shape=(5,)),  # mean
+            FloatBox(shape=(5,)),  # stddev
             add_batch_rank=True
         )
         input_spaces = dict(
@@ -168,8 +169,8 @@ class TestDistributions(unittest.TestCase):
     def test_beta(self):
         # Create 5 beta distributions (2 parameters (alpha and beta) each).
         param_space = Tuple(
-            FloatBox(shape=(5,)),
-            FloatBox(shape=(5,)),
+            FloatBox(shape=(5,)),  # alpha
+            FloatBox(shape=(5,)),  # beta
             add_batch_rank=True
         )
         input_spaces = dict(
