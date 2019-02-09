@@ -12,18 +12,16 @@ matrix:
 #    - DOCKER_IMAGE='tensorflow/tensorflow:latest'
   - env:
     - DOCKER_JOB_NAME='rlgraph_py3'
-#    - DOCKER_IMAGE='tensorflow/tensorflow:latest-py3'
-    - DOCKER_IMAGE='rlgraph/rlgraph:py3-full'
+    - DOCKER_IMAGE='rlgraph/rlgraph:py3-full-torch-jq'
 
 before_install:
   - docker pull ${DOCKER_IMAGE}
   - docker run -d --rm --name ${DOCKER_JOB_NAME} -v $(pwd):/rlgraph ${DOCKER_IMAGE} /bin/bash -c 'while true; do sleep 1; done';
 
-install:
-  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c  'apt-get update && apt-get install -y jq';
+# Move all install instructions into the Dockerfile that we use (see value of `DOCKER_IMAGE` above).
+#install:
+#  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'apt-get update && apt-get install -y jq';
 #  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pip install torch torchvision';
-
-# moved all install instructions into the Dockerfile that we use (see value of `DOCKER_IMAGE` above).
 
 script:
   # Test learning capabilities (only one test per Agent).
