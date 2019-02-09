@@ -26,6 +26,7 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
+from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
@@ -250,12 +251,15 @@ class ActionAdapter(NeuralNetwork):
 
                     # Turn log sd into sd to ascertain always positive stddev values.
                     sd = tf.exp(log_sd)
+                    log_mean = tf.log(mean)
 
-                    # Merge again.
-                    parameters = tf.concat([mean, sd], axis=-1)
-                    log_probs = tf.concat([tf.log(mean), log_sd], axis=-1)
-                    parameters._batch_rank = 0
-                    log_probs._batch_rank = 0
+                    mean._batch_rank = 0
+                    sd._batch_rank = 0
+                    log_mean._batch_rank = 0
+                    log_sd._batch_rank = 0
+
+                    parameters = DataOpTuple([mean, sd])
+                    log_probs = DataOpTuple([log_mean, log_sd])
 
                 # Bounded -> Beta distribution.
                 else:
@@ -264,9 +268,16 @@ class ActionAdapter(NeuralNetwork):
                         logits, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
                     )
                     parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
-                    parameters._batch_rank = 0
-                    log_probs = tf.log(parameters)
-                    log_probs._batch_rank = 0
+                    alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
+                    alpha._batch_rank = 0
+                    beta._batch_rank = 0
+                    log_alpha = tf.log(alpha)
+                    log_beta = tf.log(beta)
+                    log_alpha._batch_rank = 0
+                    log_beta._batch_rank = 0
+
+                    parameters = DataOpTuple([alpha, beta])
+                    log_probs = DataOpTuple([log_alpha, log_beta])
 
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
@@ -279,13 +290,18 @@ class ActionAdapter(NeuralNetwork):
                 # Unbounded -> Normal distribution.
                 if self.action_space.unbounded:
                     # Continuous actions.
-                    mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
+                    mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=-1)
 
                     # Turn log sd into sd.
                     sd = torch.exp(log_sd)
+                    log_mean =  torch.log(mean)
 
-                    parameters = torch.cat([mean, sd], -1)
-                    log_probs = torch.cat([torch.log(mean), log_sd], -1)
+                    #parameters = torch.cat([mean, sd], -1)
+                    #log_probs = torch.cat([torch.log(mean), log_sd], -1)
+
+                    parameters = DataOpTuple([mean, sd])
+                    log_probs = DataOpTuple([log_mean, log_sd])
+
                 # Bounded -> Beta distribution.
                 else:
                     # Stabilize both alpha and beta (currently together in parameters).
@@ -293,6 +309,13 @@ class ActionAdapter(NeuralNetwork):
                         logits, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
                     )
                     parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
-                    log_probs = torch.log(parameters)
+                    #log_probs = torch.log(parameters)
+
+                    alpha, beta = torch.split(parameters, split_size_or_sections=2, dim=-1)
+                    log_alpha = torch.log(alpha)
+                    log_beta = torch.log(beta)
+
+                    parameters = DataOpTuple([alpha, beta])
+                    log_probs = DataOpTuple([log_alpha, log_beta])
 
         return parameters, log_probs
