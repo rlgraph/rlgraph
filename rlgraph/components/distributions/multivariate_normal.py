@@ -20,6 +20,8 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components.distributions.distribution import Distribution
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.spaces import Tuple, FloatBox
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -49,33 +51,24 @@ class MultivariateNormal(Distribution):
             "ERROR: Exactly one of `parameterize_via_diagonal` and `parameterize_via_covariance` must be True!"
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        # Must be a Tuple of len 2 (loc and scale).
+        # Must be a Tuple of len 2 (mean and stddev OR mean and full co-variance matrix).
         in_space = input_spaces["parameters"]
-        if self.parameterize_via_diagonal:
-            # Make sure input parameters has an even last rank for splitting into mean/stddev parameter values.
-            assert in_space.shape[-1] % 2 == 0,\
-                "ERROR: `parameters` in_space must have an even numbered last rank (mean/stddev split)!"
-        # TODO: support parameterization through full covariance matrix.
-        #else:
-        #    # Make sure input parameters has an even last rank for splitting into mean/stddev parameter values.
-        #    assert in_space.shape[-2:-1] == (self.num_events, 1 + self.num_events),\
-        #        "ERROR: `parameters` in_space must have a second last rank of {} and a last rank of " \
-        #        "{}!".format(self.num_events, self.num_events + 1)
+        sanity_check_space(in_space, allowed_types=[Tuple])
+        assert len(in_space) == 2, "ERROR: Expected Tuple of len=2 as input Space to MultivariateNormal!"
+        sanity_check_space(in_space[0], allowed_types=[FloatBox])
+        sanity_check_space(in_space[1], allowed_types=[FloatBox])
 
-        # Optional: must_be_complete=False.
-        #if "nn_output" in input_spaces:
-        #    nn_output_space = input_spaces["nn_output"]
-        #    # Make sure nn_output has the correct length.
-        #    assert nn_output_space[-1].shape == self.num_events * (self.num_events + 1),\
-        #        "ERROR: `nn_output` in_space must be of length {}!".format(self.num_events * (self.num_events + 1))
+        if self.parameterize_via_diagonal:
+            # Make sure mean and stddev have the same last rank.
+            assert in_space[0].shape[-1] == in_space[1].shape[-1],\
+                "ERROR: `parameters` in_space must have the same last rank for mean as for (diagonal) stddev values!"
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             if self.parameterize_via_diagonal:
-                mean, scale_diag = tf.split(parameters, num_or_size_splits=2, axis=-1)
                 return tfp.distributions.MultivariateNormalDiag(
-                    loc=mean, scale_diag=scale_diag
+                    loc=parameters[0], scale_diag=parameters[1]
                 )
             # TODO: support parameterization through full covariance matrix.
             #else:

@@ -132,7 +132,11 @@ class TestDistributions(unittest.TestCase):
         # distributions (2 parameters (mean and stddev) each).
         num_events = 3  # 3=trivariate Gaussian
         num_mixed_gaussians = 2  # 2x trivariate Gaussians (mixed)
-        param_space = FloatBox(shape=(num_mixed_gaussians, 6), add_batch_rank=True)
+        param_space = Tuple(
+            FloatBox(shape=(num_mixed_gaussians, num_events)),  # mean
+            FloatBox(shape=(num_mixed_gaussians, num_events)),  # diag (variance)
+            add_batch_rank=True
+        )
         input_spaces = dict(
             parameters=param_space,
             deterministic=bool,
@@ -142,22 +146,21 @@ class TestDistributions(unittest.TestCase):
         multivariate_normal = MultivariateNormal(num_events=num_events, switched_off_apis={"log_prob", "kl_divergence"})
         test = ComponentTest(component=multivariate_normal, input_spaces=input_spaces)
 
-        # Batch of size=(3, 2) and deterministic (True).
         input_ = [input_spaces["parameters"].sample(4), True]
-        expected = input_[0][:, :, :num_events]
+        expected = input_[0][0]  # 0=mean
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(50):
             test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
         input_ = [input_spaces["parameters"].sample(1), False]
-        expected = input_[0][:, :, :num_events]
+        expected = input_[0][0]  # 0=mean
         outs = []
         for _ in range(50):
             out = test.test(("draw", input_))
             outs.append(out)
-            out = test.test(("sample_stochastic", input_[0]))
+            out = test.test(("sample_stochastic", tuple([input_[0]])))
             outs.append(out)
 
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
