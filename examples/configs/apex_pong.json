@@ -117,7 +117,7 @@
         "num_worker_samples": 198,
         "learn_queue_size": 16,
         "num_sample_workers": 8,
-        "num_replay_workers": 4,
+        "num_replay_workers": 1,
         "num_cpus_per_replay_actor": 1
       },
       "worker_spec": {
