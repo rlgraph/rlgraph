@@ -24,7 +24,7 @@ from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
-    import tensorflow as tf
+    import tensorflow_distribution as tfp
 elif get_backend() == "pytorch":
     import torch
 
@@ -54,7 +54,7 @@ class Normal(Distribution):
         """
         if get_backend() == "tf":
             #mean, stddev = tf.split(parameters, num_or_size_splits=2, axis=-1)
-            return tf.distributions.Normal(loc=parameters[0], scale=parameters[1])
+            return tfp.distributions.Normal(loc=parameters[0], scale=parameters[1])
         elif get_backend() == "pytorch":
             #mean, stddev = torch.split(parameters, 2, dim=-1)
             return torch.distributions.Normal(parameters[0], parameters[1])

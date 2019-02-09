@@ -24,7 +24,7 @@ from rlgraph.spaces import Tuple, FloatBox
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
-    import tensorflow as tf
+    import tensorflow_distribution as tfp
 elif get_backend() == "pytorch":
     import torch
 
@@ -60,7 +60,7 @@ class Beta(Distribution):
         if get_backend() == "tf":
             #alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
             # Note: concentration0==beta, concentration1=alpha (!)
-            return tf.distributions.Beta(concentration1=parameters[0], concentration0=parameters[1])
+            return tfp.distributions.Beta(concentration1=parameters[0], concentration0=parameters[1])
         elif get_backend() == "pytorch":
             #alpha, beta = torch.split(parameters, 2, dim=-1)
             return torch.distributions.Beta(parameters[0], parameters[1])

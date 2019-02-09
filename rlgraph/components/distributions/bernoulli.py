@@ -23,7 +23,7 @@ from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components.distributions.distribution import Distribution
 
 if get_backend() == "tf":
-    import tensorflow as tf
+    import tensorflow_distribution as tfp
 elif get_backend() == "pytorch":
     import torch
 
@@ -42,7 +42,7 @@ class Bernoulli(Distribution):
             parameters (DataOp): The p value (probability that distribution returns True).
         """
         if get_backend() == "tf":
-            return tf.distributions.Bernoulli(probs=parameters, dtype=convert_dtype("bool"))
+            return tfp.distributions.Bernoulli(probs=parameters, dtype=convert_dtype("bool"))
         elif get_backend() == "pytorch":
             return torch.distributions.Bernoulli(probs=parameters)
 

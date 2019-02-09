@@ -24,6 +24,7 @@ from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
+    import tensorflow_distribution as tfp
 elif get_backend() == "pytorch":
     import torch
 
@@ -39,7 +40,7 @@ class Categorical(Distribution):
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
-            return tf.distributions.Categorical(probs=parameters, dtype=util.convert_dtype("int"))
+            return tfp.distributions.Categorical(probs=parameters, dtype=util.convert_dtype("int"))
         elif get_backend() == "pytorch":
             return torch.distributions.Categorical(probs=parameters)
 
