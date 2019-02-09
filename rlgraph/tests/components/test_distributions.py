@@ -94,7 +94,10 @@ class TestDistributions(unittest.TestCase):
 
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
-        param_space = FloatBox(shape=(10,), add_batch_rank=True)
+        param_space = Tuple(
+            FloatBox(shape=(5,)), FloatBox(shape=(5,)),
+            add_batch_rank=True
+        )
         input_spaces = dict(
             parameters=param_space,
             deterministic=bool,
@@ -105,21 +108,21 @@ class TestDistributions(unittest.TestCase):
         test = ComponentTest(component=normal, input_spaces=input_spaces)
 
         # Batch of size=2 and deterministic (True).
-        input_ = [input_spaces["parameters"].sample(1), True]
-        expected = input_[0][:, :5]
+        input_ = [input_spaces["parameters"].sample(2), True]
+        expected = input_[0][0]   # 0 = mean
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(50):
             test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", input_[0]), expected_outputs=expected)
+            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
         input_ = [input_spaces["parameters"].sample(1), False]
-        expected = input_[0][:, :5]
+        expected = input_[0][0]  # 0 = mean
         outs = []
         for _ in range(50):
             out = test.test(("draw", input_))
             outs.append(out)
-            out = test.test(("sample_stochastic", input_[0]))
+            out = test.test(("sample_stochastic", tuple([input_[0]])))
             outs.append(out)
 
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)

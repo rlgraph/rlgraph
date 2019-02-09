@@ -19,6 +19,8 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.distributions.distribution import Distribution
+from rlgraph.spaces import Tuple, FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
@@ -39,17 +41,19 @@ class Normal(Distribution):
     def check_input_spaces(self, input_spaces, action_space=None):
         # Must be a Tuple of len 2 (loc and scale).
         in_space = input_spaces["parameters"]
-        # Make sure input parameters has an even last rank for splitting into mean/stddev parameter values.
-        assert in_space.shape[-1] % 2 == 0, "ERROR: `parameters` in_space must have an even numbered last rank!"
+        sanity_check_space(in_space, allowed_types=[Tuple])
+        assert len(in_space) == 2, "ERROR: Expected Tuple of len=2 as input Space to Normal!"
+        sanity_check_space(in_space[0], allowed_types=[FloatBox])
+        sanity_check_space(in_space[1], allowed_types=[FloatBox])
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
-            mean, stddev = tf.split(parameters, num_or_size_splits=2, axis=-1)
-            return tf.distributions.Normal(loc=mean, scale=stddev)
+            #mean, stddev = tf.split(parameters, num_or_size_splits=2, axis=-1)
+            return tf.distributions.Normal(loc=parameters[0], scale=parameters[1])
         elif get_backend() == "pytorch":
-            mean, stddev = torch.split(parameters, 2, dim=-1)
-            return torch.distributions.Normal(mean, stddev)
+            #mean, stddev = torch.split(parameters, 2, dim=-1)
+            return torch.distributions.Normal(parameters[0], parameters[1])
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
