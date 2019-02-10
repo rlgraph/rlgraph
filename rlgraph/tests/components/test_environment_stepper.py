@@ -220,7 +220,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             action_space=self.deterministic_env_action_space,
         )
 
-        weights = test.read_variable_values(environment_stepper.actor_component.policy.variables)
+        weights = test.read_variable_values(environment_stepper.actor_component.policy.variable_registry)
         policy_scope = "environment-stepper/actor-component/policy/"
         weights_hid = weights[policy_scope+"test-network/hidden-layer/dense/kernel"]
         biases_hid = weights[policy_scope+"test-network/hidden-layer/dense/bias"]
@@ -283,7 +283,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             action_space=self.deterministic_env_action_space,
         )
 
-        weights = test.read_variable_values(environment_stepper.actor_component.policy.variables)
+        weights = test.read_variable_values(environment_stepper.actor_component.policy.variable_registry)
         policy_scope = "environment-stepper/actor-component/policy/"
         weights_lstm = weights[policy_scope+"test-lstm-network/lstm-layer/lstm-cell/kernel"]
         biases_lstm = weights[policy_scope+"test-lstm-network/lstm-layer/lstm-cell/bias"]
