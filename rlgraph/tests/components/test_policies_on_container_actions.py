@@ -53,8 +53,8 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                parameters=flat_float_action_space,
-                logits=flat_float_action_space
+                #parameters=flat_float_action_space,
+                #logits=flat_float_action_space
             ),
             action_space=action_space
         )
@@ -153,8 +153,8 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                parameters=flat_float_action_space,
-                logits=flat_float_action_space
+                #parameters=flat_float_action_space,
+                #logits=flat_float_action_space
             ),
             action_space=action_space,
         )
@@ -281,8 +281,8 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                parameters=flat_float_action_space,
-                logits=flat_float_action_space
+                #parameters=flat_float_action_space,
+                #logits=flat_float_action_space
             ),
             action_space=action_space,
         )
@@ -450,8 +450,8 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             input_spaces=dict(
                 nn_input=nn_input_space,
                 actions=action_space,
-                logits=flat_float_action_space,
-                parameters=flat_float_action_space
+                #logits=flat_float_action_space,
+                #parameters=flat_float_action_space
             ),
             action_space=action_space
         )
