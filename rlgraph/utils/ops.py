@@ -59,7 +59,27 @@ class ContainerDataOp(DataOp):
     A placeholder class for any DataOp that's not a SingleDataOp, but a (possibly nested) container structure
     containing SingleDataOps as leave nodes.
     """
-    pass
+    def flat_key_lookup(self, flat_key):
+        """
+        Returns an element within this DataOp following a given flat-key.
+
+        Args:
+            flat_key ():
+
+        Returns:
+
+        """
+        key_sequence = flat_key.split("/")
+        result = self
+        for key in key_sequence:
+            mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key)
+            # Tuple
+            if mo is not None:
+                result = result[int(mo.group(1))]
+            # Dict
+            else:
+                result = result[key]
+        return result
 
 
 class DataOpDict(ContainerDataOp, dict):
