@@ -244,16 +244,18 @@ class TestDistributions(unittest.TestCase):
         # Make probs for categorical.
         input_[0]["categorical"] = softmax(input_[0]["categorical"])
 
+        # Note: Usually, the deterministic draw should return the max-likelihood value
         # Max-likelihood for a 3-Mixed Bivariate: mean-of-argmax(categorical)()
+        # argmax = np.argmax(input_[0]["categorical"], axis=-1)
+        #expected = np.array([input_[0]["parameters{}".format(idx)][0][i] for i, idx in enumerate(argmax)])
+        #    input_[0]["categorical"][:, 1:2] * input_[0]["parameters1"][0] + \
+        #    input_[0]["categorical"][:, 2:3] * input_[0]["parameters2"][0]
+
         # The mean value is a 2D vector (bivariate distribution).
-        #argmax = np.argmax(input_[0]["categorical"], axis=-1)
         expected = input_[0]["categorical"][:, 0:1] * input_[0]["parameters0"][0] + \
             input_[0]["categorical"][:, 1:2] * input_[0]["parameters1"][0] + \
             input_[0]["categorical"][:, 2:3] * input_[0]["parameters2"][0]
 
-        #expected = np.array([input_[0]["parameters{}".format(idx)][0][i] for i, idx in enumerate(argmax)])
-        #    input_[0]["categorical"][:, 1:2] * input_[0]["parameters1"][0] + \
-        #    input_[0]["categorical"][:, 2:3] * input_[0]["parameters2"][0]
         for _ in range(50):
             test.test(("draw", input_), expected_outputs=expected)
             test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
