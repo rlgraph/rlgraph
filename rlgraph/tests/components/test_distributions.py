@@ -21,6 +21,7 @@ import unittest
 
 from rlgraph.components.distributions import *
 from rlgraph.spaces import *
+from rlgraph.utils.numpy import softmax
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 import numpy as np
@@ -239,24 +240,32 @@ class TestDistributions(unittest.TestCase):
         test = ComponentTest(component=mixture, input_spaces=input_spaces)
 
         # Batch of size=n and deterministic (True).
-        input_ = [input_spaces["parameters"].sample(6), True]
-        # Mean for a 3-Mixed Bivariate: [w0, w1, w2] * [mean0(), mean1(), mean2()]
+        input_ = [input_spaces["parameters"].sample(1), True]
+        # Make probs for categorical.
+        input_[0]["categorical"] = softmax(input_[0]["categorical"])
+
+        # Max-likelihood for a 3-Mixed Bivariate: mean-of-argmax(categorical)()
         # The mean value is a 2D vector (bivariate distribution).
-        expected = input_[0]["categorical"] * \
-                   np.asarray(
-                       [input_[0]["parameters0"][0],
-                        input_[0]["parameters1"][0],
-                        input_[0]["parameters2"][0]
-                        ]
-                   )
-        # Sample n times, expect always mean value (deterministic draw).
+        #argmax = np.argmax(input_[0]["categorical"], axis=-1)
+        expected = input_[0]["categorical"][:, 0:1] * input_[0]["parameters0"][0] + \
+            input_[0]["categorical"][:, 1:2] * input_[0]["parameters1"][0] + \
+            input_[0]["categorical"][:, 2:3] * input_[0]["parameters2"][0]
+
+        #expected = np.array([input_[0]["parameters{}".format(idx)][0][i] for i, idx in enumerate(argmax)])
+        #    input_[0]["categorical"][:, 1:2] * input_[0]["parameters1"][0] + \
+        #    input_[0]["categorical"][:, 2:3] * input_[0]["parameters2"][0]
         for _ in range(50):
             test.test(("draw", input_), expected_outputs=expected)
             test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
         input_ = [input_spaces["parameters"].sample(1), False]
-        expected = 1.0 / (1.0 + input_[0][1] / input_[0][0])
+        # Make probs for categorical.
+        input_[0]["categorical"] = softmax(input_[0]["categorical"])
+
+        expected = input_[0]["categorical"][:, 0:1] * input_[0]["parameters0"][0] + \
+            input_[0]["categorical"][:, 1:2] * input_[0]["parameters1"][0] + \
+            input_[0]["categorical"][:, 2:3] * input_[0]["parameters2"][0]
         outs = []
         for _ in range(50):
             out = test.test(("draw", input_))
@@ -264,4 +273,4 @@ class TestDistributions(unittest.TestCase):
             out = test.test(("sample_stochastic", tuple([input_[0]])))
             outs.append(out)
 
-        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+        recursive_assert_almost_equal(np.mean(np.array(outs), axis=0), expected, decimals=1)

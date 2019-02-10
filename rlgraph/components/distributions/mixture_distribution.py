@@ -82,7 +82,7 @@ class MixtureDistribution(Distribution):
                 components.append(s.get_distribution(parameters["parameters{}".format(i)]))
 
             return tfp.distributions.Mixture(
-                cat=tfp.distributions.Categorical(probs=parameters["categorical"]),
+                cat=self.categorical.get_distribution(parameters["categorical"]),
                 components=components
             )
 
