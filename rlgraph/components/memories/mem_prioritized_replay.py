@@ -17,16 +17,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import OrderedDict
+
 import numpy as np
 import operator
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
-from rlgraph.utils.util import SMALL_NUMBER, get_rank, convert_dtype as dtype_
+from rlgraph.utils import util
+from rlgraph.utils.execution_util import define_by_run_unflatten
+from rlgraph.utils.util import SMALL_NUMBER, get_rank
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.spaces import Dict
 
 if get_backend() == "pytorch":
     import torch
@@ -49,19 +52,14 @@ class MemPrioritizedReplay(Memory):
         self.size = 0
         self.max_priority = 1.0
         self.alpha = alpha
-
         self.beta = beta
         self.next_states = next_states
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
 
     def create_variables(self, input_spaces, action_space=None):
-        # Store our record-space for convenience.
-        self.record_space = input_spaces["records"]
-        self.record_space_flat = Dict(self.record_space.flatten(
-            custom_scope_separator="/", scope_separator_at_start=False), add_batch_rank=True)
+        super(MemPrioritizedReplay, self).create_variables(input_spaces, action_space)
         self.priority_capacity = 1
-
         while self.priority_capacity < self.capacity:
             self.priority_capacity *= 2
 
@@ -76,43 +74,6 @@ class MemPrioritizedReplay(Memory):
             min_tree=min_segment_tree,
             capacity=self.priority_capacity
         )
-
-    def _read_records(self, indices):
-        """
-        Obtains record values for the provided indices.
-
-        Args:
-            indices ndarray: Indices to read. Assumed to be not contiguous.
-
-        Returns:
-             dict: Record value dict.
-        """
-        records = {}
-        for name in self.record_space_flat.keys():
-            records[name] = []
-
-        if self.size > 0:
-            for index in indices:
-                record = self.memory_values[index]
-                for name in self.record_space_flat.keys():
-                    records[name].append(record[name])
-
-        else:
-            # TODO figure out how to do default handling in pytorch builds.
-            # Fill with default vals for build.
-            for name in self.record_space_flat.keys():
-                if get_backend() == "pytorch":
-                    records[name] = torch.zeros(self.record_space_flat[name].shape,
-                                                dtype=dtype_(self.record_space_flat[name].dtype, "pytorch"))
-                else:
-                    records[name] = np.zeros(self.record_space_flat[name].shape)
-
-        # Convert if necessary: list of tensors fails at space inference otherwise.
-        if get_backend() == "pytorch":
-            for name in self.record_space_flat.keys():
-                records[name] = torch.squeeze(torch.stack(records[name]))
-
-        return records
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -146,9 +107,10 @@ class MemPrioritizedReplay(Memory):
 
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
+        available_records = min(num_records, self.size)
         indices = []
         prob_sum = self.merged_segment_tree.sum_segment_tree.get_sum(0, self.size - 1)
-        samples = np.random.random(size=(num_records,)) * prob_sum
+        samples = np.random.random(size=(available_records,)) * prob_sum
         for sample in samples:
             indices.append(self.merged_segment_tree.sum_segment_tree.index_of_prefixsum(prefix_sum=sample))
 
@@ -167,13 +129,18 @@ class MemPrioritizedReplay(Memory):
         else:
             indices = np.asarray(indices)
             weights = np.asarray(weights)
-        return self._read_records(indices=indices), indices, weights
+
+        records = OrderedDict()
+        for name, variable in self.record_registry.items():
+            records[name] = self.read_variable(variable, indices, dtype=
+            util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+        records = define_by_run_unflatten(records)
+        return records, indices, weights
 
     @rlgraph_api(must_be_complete=False)
     def _graph_fn_update_records(self, indices, update):
-        if len(indices) > 0 and indices[0]:
-            for index, loss in zip(indices, update):
-                priority = np.power(loss, self.alpha)
-                self.merged_segment_tree.insert(index, priority)
-                self.max_priority = max(self.max_priority, priority)
+        for index, loss in zip(indices, update):
+            priority = np.power(loss, self.alpha)
+            self.merged_segment_tree.insert(index, priority)
+            self.max_priority = max(self.max_priority, priority)
 

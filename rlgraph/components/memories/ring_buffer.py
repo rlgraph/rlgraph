@@ -22,6 +22,7 @@ from collections import OrderedDict
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils import util
+from rlgraph.utils.execution_util import define_by_run_unflatten
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -55,26 +56,15 @@ class RingBuffer(Memory):
 
         # Record space must contain 'terminals' for a ring buffer memory.
         assert 'terminals' in self.record_space
+        self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+        # Number of elements present.
+        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
+        # Num episodes present.
+        self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
 
-        # Main buffer index.
-        if get_backend() == "tf":
-            self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-            # Number of elements present.
-            self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
-
-            # Num episodes present.
-            self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
-
-            # Terminal indices contiguously arranged.
-            self.episode_indices = self.get_variable(name="episode-indices", shape=(self.capacity,),
-                                                     dtype=int, trainable=False)
-        elif get_backend() == "pytorch":
-            self.index = 0
-            self.size = 0
-            self.num_episodes = 0
-            self.episode_indices = [0] * self.capacity
-            self.flat_record_space = self.record_space.flatten()
-            self.record_registry["terminals"] = [0 for _ in self.record_registry["terminals"]]
+        # Terminal indices contiguously arranged.
+        self.episode_indices = self.get_variable(name="episode-indices", shape=(self.capacity,),
+                                                 dtype=int, trainable=False)
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -203,6 +193,7 @@ class RingBuffer(Memory):
             for name, variable in self.record_registry.items():
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+            records = define_by_run_unflatten(records)
             return records
 
     @rlgraph_api(ok_to_overwrite=True)
@@ -250,4 +241,5 @@ class RingBuffer(Memory):
             for name, variable in self.record_registry.items():
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+            records = define_by_run_unflatten(records)
             return records

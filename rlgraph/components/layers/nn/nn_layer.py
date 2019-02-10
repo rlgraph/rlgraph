@@ -123,16 +123,26 @@ class NNLayer(Layer):
                 return output
             elif get_backend() == "pytorch":
                 # Strip empty internal states:
-                # Ensure dtype is float
-                inputs = [v.float() for v in inputs if v is not None]
+                # Ensure inputs are float tensors.
+                input_tensors = []
+                for value in inputs:
+                    if value is not None and hasattr(value, "float"):
+                        input_tensors.append(value.float())
+                if not input_tensors:
+                    return None
 
-                # PyTorch layers are called, not `applied`.
+                # Common debug print:
                 # print("in net work layer: ", self.name)
                 # import torch
+                # shapes = []
                 # for inp in inputs:
-                #     if isinstance(inp, torch.Tensor):
-                #         print("input shape = ", inp.shape)
-                out = self.layer(*inputs)
+                #     if hasattr(inp, "shape"):
+                #         shapes.append(inp.shape)
+                #     else:
+                #         shapes.append(type(inp))
+                # print("input shapes = ", shapes)
+                # PyTorch layers are called, not `applied`.
+                out = self.layer(*input_tensors)
                 # print("layer output shape = ", out.shape)
                 if self.activation_fn is None:
                     return out

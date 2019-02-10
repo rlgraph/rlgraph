@@ -354,7 +354,7 @@ class DQNAgent(Agent):
                 return_ops += [3, 4]  # 3=batch, 4=q-values
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops))
+            ret = self.graph_executor.execute(("update_from_memory", [True], return_ops))
 
             # Store the last Q-table?
             if self.store_last_q_table is True:

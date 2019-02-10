@@ -495,8 +495,7 @@ class Component(Specifiable):
                 use_resource
             )
 
-        # TODO: Figure out complete concept for python/numpy based Components (including their handling of variables).
-        # Assume that when using pytorch, we use Python/numpy collections to store data.
+        # TODO: Revise possible arg combinations, move in utils.
         elif self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             if add_batch_rank is not False and isinstance(add_batch_rank, int):
                 if isinstance(add_time_rank, int):
@@ -511,9 +510,20 @@ class Component(Specifiable):
             elif initializer is not None:
                 # Return
                 var = initializer
+            elif shape is not None:
+                # Use python list if possible:
+                if len(shape) == 1:
+                    if dtype == int:
+                        var = [0 for _ in range(shape[0])]
+                    elif dtype == float:
+                        var = [0.0 for _ in range(shape[0])]
+                else:
+                    if dtype == int:
+                        var = np.zeros(shape, dtype=np.int32)
+                    elif dtype == float:
+                        var = np.zeros(shape, dtype=np.float32)
             else:
                 var = []
-            return var
 
         # Direct variable creation (using the backend).
         elif get_backend() == "tf":
@@ -706,6 +716,10 @@ class Component(Specifiable):
                     else:
                         variables[name] = self.variable_registry[global_scope_name]
         elif get_backend() == "pytorch":
+            # Unpack tuple.
+            if isinstance(names, tuple) and len(names) == 1:
+                names = names[0]
+            # print("names = ", names)
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
                 if name in self.variable_registry:
@@ -1145,7 +1159,7 @@ class Component(Specifiable):
         Args:
             variable (DataOp): The variable whose value to read.
             indices (Optional[np.ndarray,tf.Tensor]): Indices (if any) to fetch from the variable.
-
+            dtype (Optional[torch.dtype]): Optional dtype to convert read values to.
         Returns:
             any: Variable values.
         """
@@ -1181,6 +1195,9 @@ class Component(Specifiable):
                     return torch.stack(ret) if ret else ret
                 else:
                     return variable
+            else:
+                # Catch all for raw types.
+                return variable
 
     def sub_component_by_name(self, scope_name):
         """

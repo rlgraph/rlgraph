@@ -1,6 +1,15 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.3.2 - 9.2.2019
+- Fixed a number of bugs in internal state management for PyTorch which now
+  allow to unify variable creation in most components
+- Fixed bug in PyTorch GAE calculation
+- Added PyTorch basic replay buffer implementation
+- Renamed _variables() to variables() to obtain internal state of a component
+- Changed some single node configurations in examples to use less memory and only
+  one replay worker (Ape-X).
+
 ## RLgraph 0.3.1 - 27.1.2019
 
 - Fixed count bug in synchronous Ray executor
