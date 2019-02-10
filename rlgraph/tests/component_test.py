@@ -178,6 +178,31 @@ class ComponentTest(object):
         return ret
 
     @staticmethod
+    def read_params(name, params):
+        """
+        Tries to read name from params. Name may be either an actual key or a prefix of a key
+
+        Args:
+            name (str): Key or prefix to key.
+            params (dict): Params to read.
+
+        Returns:
+            any: Param value for key.
+
+        Raises:
+            ValueError: If no key can be found.
+        """
+        if name in params:
+            return params[name]
+
+        # Otherwise return first matching key.
+        for key in params.keys():
+            if key.startswith(name):
+                return params[key]
+
+        raise ValueError("No value found for key = {}. Keys are: {}".format(name, params.keys()))
+
+    @staticmethod
     def assert_equal(outs, expected_outputs, decimals=7):
         """
         Convenience wrapper: See implementation of `recursive_assert_almost_equal` for details.
