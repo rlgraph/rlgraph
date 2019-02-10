@@ -199,6 +199,9 @@ class ComponentTest(object):
         for key in params.keys():
             if key.startswith(name):
                 return params[key]
+            # Catch key ending with extra scope separator
+            elif name[-1] == "/" and key.startswith(name[:-1]):
+                return params[key]
 
         raise ValueError("No value found for key = {}. Keys are: {}".format(name, params.keys()))
 
