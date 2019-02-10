@@ -10,9 +10,9 @@ from rlgraph.utils import RLGraphError
 from rlgraph.spaces import FloatBox, BoolBox, IntBox
 from rlgraph.components import Component, Synchronizable
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.components import Memory, DictMerger, ContainerSplitter, PrioritizedReplay, LossFunction
+from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay, LossFunction
 from rlgraph.utils.util import strip_list
-from rlgraph.utils.ops import flatten_op, DataOpTuple
+from rlgraph.utils.ops import flatten_op
 
 
 if get_backend() == "tf":
@@ -106,14 +106,16 @@ class SyncSpecification(object):
 
 
 class SACAgentComponent(Component):
-    def __init__(self, policy, q_functions, preprocessor, memory, discount,
-                 alpha, optimizer, vf_optimizer, q_sync_spec):
+    def __init__(self, policy, q_function, preprocessor, memory, discount,
+                 alpha, optimizer, vf_optimizer, q_sync_spec, num_q_functions=2):
         super(SACAgentComponent, self).__init__()
         self._policy = policy
         self._preprocessor = preprocessor
         self._memory = memory
-        self._q_functions = q_functions
-        self._target_q_functions = [q.copy(scope="target-" + q.scope, trainable=True) for q in q_functions]
+        self._q_functions = [q_function]
+        self._q_functions += [q_function.copy(scope="{}-{}".format(q_function.scope, i + 1), trainable=True)
+                              for i in range(num_q_functions - 1)]
+        self._target_q_functions = [q.copy(scope="target-" + q.scope, trainable=True) for q in self._q_functions]
         for target_q in self._target_q_functions:
             target_q.add_components(Synchronizable(), expose_apis="sync")
         self._optimizer = optimizer
@@ -121,11 +123,11 @@ class SACAgentComponent(Component):
         self.loss_function = SACLossFunction(alpha=alpha, discount=discount)
 
         memory_items = ["states", "actions", "rewards", "next_states", "terminals"]
-        self._merger = DictMerger(*memory_items)
+        self._merger = ContainerMerger(*memory_items)
         self._splitter = ContainerSplitter(*memory_items)
 
         q_names = ["q_{}".format(i) for i in range(len(self._q_functions))]
-        self._q_vars_merger = DictMerger(*q_names, scope="q_vars_merger")
+        self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
         self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
 
         self.add_components(policy, preprocessor, memory, self._merger, self._splitter, self.loss_function,
@@ -172,7 +174,7 @@ class SACAgentComponent(Component):
         records, sample_indices, importance_weights = self._memory.get_records(batch_size)
         preprocessed_s, actions, rewards, preprocessed_s_prime, terminals = self._splitter.split(records)
 
-        actor_step_op, critic_step_op, actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item\
+        actor_step_op, critic_step_op, sync_op, actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item\
             = self.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
             )
@@ -200,9 +202,9 @@ class SACAgentComponent(Component):
         actor_step_op, actor_loss, actor_loss_per_item = \
             self._optimizer.step(policy_vars, actor_loss, actor_loss_per_item)
 
-        #sync_op = self.sync_targets()
+        sync_op = self.sync_targets()
 
-        return actor_step_op, critic_step_op, actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item
+        return actor_step_op, critic_step_op, sync_op, actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item
 
     def _compute_q_values(self, q_functions, states, actions):
         flat_actions = flatten_op(actions)
@@ -216,6 +218,13 @@ class SACAgentComponent(Component):
         return tuple(q.value_output(state_actions) for q in q_functions)
 
     @rlgraph_api
+    def get_q_values(self, preprocessed_states, actions):
+        q_values = self._compute_q_values(
+            self._q_functions, preprocessed_states, actions
+        )
+        return q_values
+
+    @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights):
         # TODO: internal states
 
@@ -226,7 +235,6 @@ class SACAgentComponent(Component):
             self._target_q_functions, preprocessed_next_states, next_sampled_actions
         )
         q_values = self._compute_q_values(self._q_functions, preprocessed_states, actions)
-
         sampled_actions = self._policy.get_action(preprocessed_states, deterministic=False)["action"]
         debug_data = self._policy.get_logits_parameters_log_probs(preprocessed_states)
         if sampled_actions.op is not None:
@@ -312,7 +320,7 @@ class SACAgentComponent(Component):
     def _graph_fn__sync(self, should_sync, grouped_op):
         def assign_op():
             # Make sure we are returning no_op as opposed to reference
-            with tf.control_dependencies([grouped_op]):
+            with tf.control_dependencies([grouped_op, tf.print("syncing")]):
                 return tf.no_op()
 
         cond_assign_op = tf.cond(should_sync, true_fn=assign_op, false_fn=tf.no_op)
@@ -325,7 +333,7 @@ class SACAgentComponent(Component):
 
 
 class SACAgent(Agent):
-    def __init__(self, double_q=True, alpha=1.0, memory_spec=None, **kwargs):
+    def __init__(self, double_q=True, alpha=1.0, memory_spec=None, value_function_sync_spec=None, **kwargs):
         """
         This is an implementation of the Soft-Actor Critic algorithm.
 
@@ -384,22 +392,22 @@ class SACAgent(Agent):
         self.memory = Memory.from_spec(memory_spec)
         self.root_component = SACAgentComponent(
             policy=self.policy,
-            value_function=self.value_function,
-            target_value_function=self.target_value_function,
-            q_functions=[],
+            q_function=self.value_function,
             preprocessor=self.preprocessor,
             memory=self.memory,
             discount=self.discount,
             alpha=self.alpha,
-            optimizer=self.optimizer
+            optimizer=self.optimizer,
+            vf_optimizer=self.value_function_optimizer,
+            q_sync_spec=value_function_sync_spec
         )
 
     def define_graph_api(self, *args, **kwargs):
         pass
 
-    def set_weights(self, weights):
+    def set_weights(self, policy_weights, value_function_weights=None):
         # TODO: Overrides parent but should this be policy of value function?
-        return self.graph_executor.execute((self.root_component.set_policy_weights, weights))
+        return self.graph_executor.execute((self.root_component.set_policy_weights, policy_weights))
 
     def get_weights(self):
         return self.graph_executor.execute(self.root_component.get_policy_weights)

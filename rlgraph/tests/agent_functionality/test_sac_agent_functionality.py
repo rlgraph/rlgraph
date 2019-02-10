@@ -91,28 +91,18 @@ class TestSACAgentFunctionality(unittest.TestCase):
             action_space=action_space
         )
         policy.add_components(Synchronizable(), expose_apis="sync")
-        q_functions = [
-            ValueFunction(
-                network_spec=[
-                    {"type": "dense", "units": 8, "activation": "relu"},
-                    {"type": "dense", "units": 8, "activation": "relu", "scope": "h2"},
-                    {"type": "dense", "units": 8, "activation": "relu", "scope": "h3"}
-                ],
-                scope="q-function-1"
-            ),
-            ValueFunction(
-                network_spec=[
-                    {"type": "dense", "units": 8, "activation": "relu"},
-                    {"type": "dense", "units": 8, "activation": "relu", "scope": "h2"},
-                    {"type": "dense", "units": 8, "activation": "relu", "scope": "h3"}
-                ],
-                scope="q-function-2"
-            )
-        ]
+        q_function = ValueFunction(
+            network_spec=[
+                {"type": "dense", "units": 8, "activation": "relu"},
+                {"type": "dense", "units": 8, "activation": "relu", "scope": "h2"},
+                {"type": "dense", "units": 8, "activation": "relu", "scope": "h3"}
+            ],
+            scope="q-function-1"
+        )
 
         agent_component = SACAgentComponent(
             policy=policy,
-            q_functions=q_functions,
+            q_function=q_function,
             preprocessor=PreprocessorStack.from_spec([]),
             memory=ReplayMemory(),
             discount=0.8,
@@ -149,22 +139,31 @@ class TestSACAgentFunctionality(unittest.TestCase):
 
         policy_loss = []
         values_loss = []
-        target_dist = stats.norm(loc=0.5, scale=0.2)
+        true_mean = 0.5
+        target_dist = stats.norm(loc=true_mean, scale=0.2)
+        batch_size = 100
         for _ in range(1000):
-            batch_size = 10
             action_sample = action_space.sample(batch_size)
             rewards = target_dist.pdf(action_sample)
-            result = test.graph_executor.execute(("update_from_external_batch", [
-                #state_space.sample(batch_size, fill_value=1.0),
+            result = test.graph_executor.execute((agent_component.update_from_external_batch, [
                 state_space.sample(batch_size),
                 action_sample,
-                rewards,  # reward
-                terminal_space.sample(batch_size),  # terminal
-                #state_space.sample(batch_size, fill_value=0.0),
+                rewards,
+                [True] * batch_size,
                 state_space.sample(batch_size),
                 [1.0] * batch_size  # importance
             ]))
-            policy_loss.append(result[0])
-            values_loss.append(result[2])
+            policy_loss.append(result[3])
+            values_loss.append(result[5])
         print(policy_loss)
         print(values_loss)
+
+        action_sample = np.linspace(-1, 1, batch_size)
+        q_values = test.graph_executor.execute((agent_component.get_q_values, [state_space.sample(batch_size), action_sample]))
+        for q_val in q_values:
+            q_val = q_val.flatten()
+            np.testing.assert_allclose(q_val, target_dist.pdf(action_sample), atol=0.2)
+
+        _, action_sample = test.graph_executor.execute((agent_component.action_from_preprocessed_state, [state_space.sample(batch_size), False]))
+        action_sample = action_sample.flatten()
+        np.testing.assert_allclose(np.mean(action_sample), true_mean, atol=0.1)
