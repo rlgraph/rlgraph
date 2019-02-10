@@ -348,20 +348,19 @@ class Policy(Component):
         DataOpDict with the keys corresponding to our `action_space`.
 
         Args:
-            parameters (DataOp): The parameters to define a distribution.
+            parameters (DataOp): The parameters to define a distribution. This could be a ContainerDataOp, which
+                container the parameter pieces for each action component.
 
         Returns:
             FlattenedDataOp: A DataOpDict with the different distributions' `entropy` outputs. Keys always correspond to
                 structure of `self.action_space`.
         """
-        ret = {}
-        for key, d in self.distributions.items():
-            if key == "":
+        ret = FlattenedDataOp()
+        for flat_key, d in self.distributions.items():
+            if flat_key == "":
                 return d.entropy(parameters)
             else:
-                params = parameters if not isinstance(parameters, DataOpDict) or key not in parameters \
-                    else parameters[key]
-                ret[key] = d.entropy(params)
+                ret[flat_key] = d.entropy(parameters.flat_key_lookup(flat_key))
         return ret
 
     @graph_fn
@@ -378,55 +377,50 @@ class Policy(Component):
             FlattenedDataOp: A DataOpDict with the different distributions' `log_prob` outputs. Keys always correspond
                 to structure of `self.action_space`.
         """
-        flat_action_space = self.action_space.flatten()
-        ret = {}
-        for key, action_space_component in flat_action_space.items():
-            if key == "":
+        ret = FlattenedDataOp()
+        for flat_key, action_space_component in self.action_space.flatten().items():
+            if flat_key == "":
                 # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
-                if self.bounded_action_space[key] is True:
+                if self.bounded_action_space[flat_key] is True:
                     actions = (actions - self.action_space.low) / (self.action_space.high - self.action_space.low)
-                return self.distributions[key].log_prob(parameters, actions)
+                return self.distributions[flat_key].log_prob(parameters, actions)
             else:
-                actions_ = actions if not isinstance(actions, DataOpDict) or key not in actions \
-                    else actions[key]
                 # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
-                if self.bounded_action_space[key] is True:
-                    actions_ = (actions_ - self.action_space.low) / (self.action_space.high - self.action_space.low)
-                params = parameters if not isinstance(parameters, DataOpDict) or key not in parameters \
-                    else parameters[key]
-            ret[key] = self.distributions[key].log_prob(params, actions_)
+                actions_ = actions.flat_key_lookup(flat_key)
+                if self.bounded_action_space[flat_key] is True:
+                    actions_ = (actions_ - self.action_space.low) / \
+                               (self.action_space.high - self.action_space.low)
+                ret[flat_key] = self.distributions[flat_key].log_prob(
+                    parameters.flat_key_lookup(flat_key), actions_
+                )
         return ret
 
     @graph_fn
     def _graph_fn_get_action_components(self, logits, parameters, deterministic):
-        flat_action_space = self.action_space.flatten()
-
-        ret = {}
-        for key, action_space_component in flat_action_space.items():
+        ret = FlattenedDataOp()
+        for flat_key, action_space_component in self.action_space.flatten().items():
             # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
             # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
             # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
             if isinstance(action_space_component, IntBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
-                if key == "":
+                if flat_key == "":
                     return self._graph_fn_get_deterministic_action_wo_distribution(logits)
                 else:
-                    logits = logits if not isinstance(logits, DataOpDict) or key not in logits \
-                        else logits[key]
-                ret[key] = self._graph_fn_get_deterministic_action_wo_distribution(logits)
+                    ret[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(
+                        logits.flat_key_lookup(flat_key)
+                    )
             else:
-                if key == "":
-                    return self.distributions[key].draw(parameters, deterministic)
-                else:
-                    params = parameters if not isinstance(parameters, DataOpDict) or key not in parameters \
-                        else parameters[key]
-                actions = self.distributions[key].draw(params, deterministic)
+                if flat_key == "":
+                    return self.distributions[flat_key].draw(parameters, deterministic)
+
+                actions = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
 
                 # If a bounded space (Beta distribution output between 0.0 and 1.0) -> scale correctly.
-                if self.bounded_action_space[key] is True:
+                if self.bounded_action_space[flat_key] is True:
                     actions = actions * (self.action_space.high - self.action_space.low) + self.action_space.low
 
-                ret[key] = actions
+                ret[flat_key] = actions
 
         return ret
 
