@@ -89,7 +89,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             a=np.argmax(expected_action_layer_outputs["a"], axis=-1),
             b=np.argmax(expected_action_layer_outputs["b"], axis=-1)
         )
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)  # dict(action=expected_actions))
@@ -214,7 +214,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
                 b2=np.argmax(expected_action_layer_outputs["b"]["b2"], axis=-1)
             )
         )
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)
@@ -356,7 +356,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
                 a=np.argmax(expected_action_layer_output_unfolded[2]["a"], axis=-1),
             )
         ])
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = tuple([
@@ -535,7 +535,7 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
                np.argmax(expected_q_values_output["a"][1], axis=-1)),
             b=dict(ba=np.argmax(expected_q_values_output["b"]["ba"], axis=-1))
         )
-        test.test(("get_action", nn_input), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", nn_input, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = dict(

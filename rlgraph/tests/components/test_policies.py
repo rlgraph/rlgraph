@@ -73,7 +73,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([
@@ -171,7 +171,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)
@@ -263,7 +263,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output_unfolded, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([[
@@ -365,7 +365,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_q_values_output, axis=-1)
-        test.test(("get_action", nn_input), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", nn_input, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([

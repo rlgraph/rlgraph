@@ -222,7 +222,8 @@ class Policy(Component):
         out = self.get_logits_parameters_log_probs(nn_input, internal_states)
         action = self._graph_fn_get_action_components(out["logits"], out["parameters"], deterministic)
 
-        return dict(action=action, last_internal_states=out["last_internal_states"])
+        return dict(action=action, last_internal_states=out["last_internal_states"], logits=out["logits"],
+                    parameters=out["parameters"], log_probs=out["log_probs"])
 
     @rlgraph_api
     def get_action_log_probs(self, nn_input, actions, internal_states=None):
