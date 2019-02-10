@@ -398,7 +398,7 @@ class TestPolicies(unittest.TestCase):
         nn_input_space = FloatBox(shape=(4,), add_batch_rank=True)
         action_space = FloatBox(low=-1.0, high=1.0, shape=(1,), add_batch_rank=True)
         # Double the shape for alpha/beta params.
-        action_space_parameters = FloatBox(shape=(2,), add_batch_rank=True)
+        action_space_parameters = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(1,)), add_batch_rank=True)
 
         policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
