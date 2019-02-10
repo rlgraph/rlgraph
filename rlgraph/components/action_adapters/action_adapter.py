@@ -27,6 +27,7 @@ from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
@@ -123,30 +124,13 @@ class ActionAdapter(NeuralNetwork):
         if isinstance(self.action_space, IntBox):
             sanity_check_space(self.action_space, must_have_categories=True)
 
-#    @rlgraph_api
-#    def get_raw_output(self, nn_output):
-#        """
-#        Returns the raw, non-reshaped output of the action-layer (DenseLayer) after passing through it the raw
-#        nn_output (coming from the previous Component).
-
-#        Args:
-#            nn_output (DataOpRecord): The NN output of the preceding neural network.
-
-#        Returns:
-#            DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
-#        """
-#        out = self.network.apply(nn_output)
-
-#        if type(out) == dict:
-#            return out
-#        else:
-#            return dict(output=out)
-
     @rlgraph_api
     def get_logits(self, nn_output, nn_input=None):
         """
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
+            nn_input (DataOpRecord): The NN input of the preceeding neural network.
+                Only needed if unfold_time_rank is True.
 
         Returns:
             SingleDataOp: The logits (raw nn_output, BUT reshaped).
@@ -175,26 +159,8 @@ class ActionAdapter(NeuralNetwork):
                 - "log_probs": log([action probabilities])
         """
         logits = self.get_logits(nn_output, nn_input)
-        parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
-        return dict(logits=logits, parameters=parameters, log_probs=log_probs)
-
-    @rlgraph_api
-    def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
-        """
-        Args:
-            nn_output (DataOpRecord): The NN output of the preceding neural network.
-
-        Returns:
-            Tuple[SingleDataOp]:
-                - logits (raw nn_output, BUT reshaped)
-                - probabilities (softmaxed(logits))
-                - log(probabilities)
-        """
-        self.logger.warn("Deprecated API method `get_logits_probabilities_log_probs` used! "
-                         "Use `get_logits_parameters_log_probs` instead.")
-        logits = self.get_logits(nn_output, nn_input)
-        probabilities, log_probs = self._graph_fn_get_parameters_log_probs(logits)
-        return dict(logits=logits, probabilities=probabilities, log_probs=log_probs)
+        out = self.get_parameters_log_probs(logits)
+        return dict(logits=logits, parameters=out["parameters"], log_probs=out["log_probs"])
 
     @rlgraph_api
     def get_logits_parameters_log_probs(self, nn_output, nn_input=None):
@@ -212,8 +178,25 @@ class ActionAdapter(NeuralNetwork):
                 - "log_probs": log([action probabilities])
         """
         logits = self.get_logits(nn_output, nn_input)
+        out = self.get_parameters_log_probs(logits)
+        return dict(
+            logits=logits, parameters=out["parameters"], log_probs=out["log_probs"]
+        )
+
+    def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
+        raise RLGraphObsoletedError(
+            "API method", "get_logits_probabilities_log_probs", "get_logits_parameters_log_probs"
+        )
+
+    @rlgraph_api
+    def get_parameters_log_probs(self, logits):
+        """
+        Args:
+            logits (SingleDataOp): The output of some layer that is already reshaped
+                according to our action Space.
+        """
         parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
-        return dict(logits=logits, parameters=parameters, log_probs=log_probs)
+        return dict(parameters=parameters, log_probs=log_probs)
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
