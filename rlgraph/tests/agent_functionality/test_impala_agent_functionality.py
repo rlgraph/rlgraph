@@ -199,12 +199,18 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         test.terminate()
 
     def test_environment_stepper_component_with_large_impala_architecture(self):
+        try:
+            from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+        except ImportError:
+            print("DeepmindLab not installed: Skipping this test case.")
+            return
+
         worker_sample_size = 100
         env_spec = dict(
             type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
             frameskip=4
         )
-        dummy_env = Environment.from_spec(env_spec)
+        dummy_env = DeepmindLabEnv.from_spec(env_spec)
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
         actor_component = ActorComponent(
