@@ -95,15 +95,18 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # IMPALA uses a baseline action adapter (v-trace off-policy PG with baseline value function).
         policy = SharedValueFunctionPolicy(
             network_spec=large_impala_architecture, action_space=self.action_space,
-            switched_off_apis={"get_action_from_logits_and_probabilities", "get_action_log_probs"}
+            switched_off_apis={
+                #"get_action_from_logits_and_parameters", "get_action_from_logits_and_probabilities",
+                "get_action_log_probs"
+            }
         )
         test = ComponentTest(
             policy,
             input_spaces=dict(
                 nn_input=self.input_space,
                 internal_states=self.internal_states_space,
-                parameters=self.parameters_and_logits_space,
-                logits=self.parameters_and_logits_space
+                #parameters=self.parameters_and_logits_space,
+                #logits=self.parameters_and_logits_space
             ),
             action_space=self.action_space,
             execution_spec=dict(disable_monitoring=True)
@@ -196,12 +199,18 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         test.terminate()
 
     def test_environment_stepper_component_with_large_impala_architecture(self):
+        try:
+            from rlgraph.environments.deepmind_lab import DeepmindLabEnv
+        except ImportError:
+            print("DeepmindLab not installed: Skipping this test case.")
+            return
+
         worker_sample_size = 100
         env_spec = dict(
             type="deepmind_lab", level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"],
             frameskip=4
         )
-        dummy_env = Environment.from_spec(env_spec)
+        dummy_env = DeepmindLabEnv.from_spec(env_spec)
         state_space = dummy_env.state_space
         action_space = dummy_env.action_space
         actor_component = ActorComponent(

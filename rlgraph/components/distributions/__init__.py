@@ -21,6 +21,7 @@ from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.components.distributions.bernoulli import Bernoulli
 from rlgraph.components.distributions.beta import Beta
 from rlgraph.components.distributions.categorical import Categorical
+from rlgraph.components.distributions.mixture_distribution import MixtureDistribution
 from rlgraph.components.distributions.multivariate_normal import MultivariateNormal
 from rlgraph.components.distributions.normal import Normal
 
@@ -31,6 +32,8 @@ Distribution.__lookup_classes__ = dict(
     categoricaldistribution=Categorical,
     gaussian=Normal,
     gaussiandistribution=Normal,
+    mixed=MixtureDistribution,
+    mixeddistribution=MixtureDistribution,
     multivariatenormal=MultivariateNormal,
     multivariategaussian=MultivariateNormal,
     normaldistribution=Normal,
@@ -38,5 +41,5 @@ Distribution.__lookup_classes__ = dict(
     betadistribution=Beta
 )
 
-__all__ = ["Distribution", "Bernoulli", "Categorical", "MultivariateNormal", "Normal", "Beta"]
+__all__ = ["Distribution"] + list(set(map(lambda x: x.__name__, Distribution.__lookup_classes__.values())))
 

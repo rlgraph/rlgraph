@@ -1,4 +1,4 @@
-# Copyright 2018 The Rlgraph Authors, All Rights Reserved.
+# Copyright 2018/2019 The Rlgraph Authors, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,15 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import math
-
 from rlgraph import get_backend
 from rlgraph.components.common.softmax import Softmax
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.policies.policy import Policy
-from rlgraph.spaces import FloatBox, IntBox
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.util import get_rank, SMALL_NUMBER
+from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
+from rlgraph.utils.util import get_rank
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -114,47 +113,17 @@ class DuelingPolicy(Policy):
 
         q_values = self._graph_fn_calculate_q_values(state_values, advantages)
 
-        parameters, log_probs = self._graph_fn_get_parameters_log_probs(q_values)
+        parameters, log_probs = self._graph_fn_get_action_adapter_parameters_log_probs(q_values)
 
         return dict(state_values=state_values, logits=q_values, parameters=parameters, log_probs=log_probs,
                     last_internal_states=nn_output.get("last_internal_states"),
                     advantages=advantages, q_values=q_values)
 
-    @rlgraph_api
     def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-        """
-        Similar to `get_values_logits_probabilities_log_probs`, but also returns in the return dict under key
-        `state_value` the output of our state-value function node.
-
-        Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-
-        Returns:
-            Dict:
-                state_values: The single (but batched) value function node output.
-                logits: The (reshaped) logits from the ActionAdapter.
-                probabilities: The probabilities gained from the softmaxed logits.
-                log_probs: The log(probabilities) values.
-                last_internal_states: The last internal states (if network is RNN-based).
-        """
-        self.logger.warn("Deprecated API method `get_state_values_logits_probabilities_log_probs` used!"
-                         "Use `get_state_values_logits_parameters_log_probs` instead.")
-
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        advantages, _, _ = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
-            nn_output["output"], nn_input
+        raise RLGraphObsoletedError(
+            "API method", "get_state_values_logits_probabilities_log_probs",
+            "get_state_values_logits_parameters_log_probs"
         )
-        state_values_tmp = self.dense_layer_state_value_stream.apply(nn_output["output"])
-        state_values = self.state_value_node.apply(state_values_tmp)
-
-        q_values = self._graph_fn_calculate_q_values(state_values, advantages)
-
-        parameters, log_probs = self._graph_fn_get_parameters_log_probs(q_values)
-
-        return dict(state_values=state_values, logits=q_values, probabilities=parameters, parameters=parameters,
-                    log_probs=log_probs, last_internal_states=nn_output.get("last_internal_states"),
-                    advantages=advantages, q_values=q_values)
 
     @rlgraph_api
     def get_logits_parameters_log_probs(self, nn_input, internal_states=None):
@@ -175,25 +144,11 @@ class DuelingPolicy(Policy):
         return dict(logits=out["logits"], parameters=out["parameters"], log_probs=out["log_probs"],
                     last_internal_states=out.get("last_internal_states"))
 
-    @rlgraph_api
     def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-        """
-        Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-
-        Returns:
-            Dict:
-                logits: The q-values after adding advantages to state values (and subtracting the mean advantage).
-                probabilities: The probabilities gained from the softmaxed logits.
-                log_probs: The log(probabilities) values.
-                last_internal_states: The final internal states after passing through a possible RNN.
-        """
-        self.logger.warn("Deprecated API method `get_logits_probabilities_log_probs` used!"
-                         "Use `get_logits_parameters_log_probs` instead.")
-        out = self.get_state_values_logits_parameters_log_probs(nn_input, internal_states)
-        return dict(logits=out["logits"], probabilities=out["parameters"], parameters=out["parameters"],
-                    log_probs=out["log_probs"], last_internal_states=out.get("last_internal_states"))
+        raise RLGraphObsoletedError(
+            "API method", "get_logits_probabilities_log_probs",
+            "get_logits_parameters_log_probs"
+        )
 
     @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_calculate_q_values(self, state_value, advantage_values):
@@ -234,73 +189,8 @@ class DuelingPolicy(Policy):
             return q_values
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_parameters_log_probs(self, key, logits):
+    def _graph_fn_get_action_adapter_parameters_log_probs(self, key, q_values):
         """
-        Creates parameters and log-probs from some reshaped output.
-
-        Args:
-            logits (SingleDataOp): The output of some layer that is already reshaped
-                according to our action Space.
-
-        Returns:
-            tuple (2x SingleDataOp):
-                parameters (DataOp): The parameters, ready to be passed to a Distribution object's
-                    get_distribution API-method (usually some probabilities or loc/scale pairs).
-
-                log_probs (DataOp): Simply the log(parameters).
         """
-
-        if get_backend() == "tf":
-            if isinstance(self.action_space_flattened[key], IntBox):
-                # Discrete actions.
-                parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
-                # Log probs.
-                log_probs = tf.log(x=parameters)
-            elif isinstance(self.action_space_flattened[key], FloatBox):
-                # Continuous actions.
-                mean, log_sd = tf.split(value=logits, num_or_size_splits=2, axis=1)
-                # Remove moments rank.
-                mean = tf.squeeze(input=mean, axis=1)
-                log_sd = tf.squeeze(input=log_sd, axis=1)
-
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = tf.clip_by_value(
-                    t=log_sd, clip_value_min=math.log(SMALL_NUMBER), clip_value_max=-math.log(SMALL_NUMBER)
-                )
-
-                # Turn log sd into sd.
-                sd = tf.exp(x=log_sd)
-
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(tf.log(x=mean), log_sd)
-            else:
-                raise NotImplementedError
-            return parameters, log_probs
-
-        elif get_backend() == "pytorch":
-            if isinstance(self.action_space, IntBox):
-                # Discrete actions.
-                parameters = torch.max(torch.softmax(logits, dim=-1), torch.tensor(SMALL_NUMBER))
-                # Log probs.
-                log_probs = torch.log(parameters)
-            elif isinstance(self.action_space, FloatBox):
-                # Continuous actions.
-                mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
-                # Remove moments rank.
-                mean = torch.squeeze(mean, dim=1)
-                log_sd = torch.squeeze(log_sd, dim=1)
-
-                # Clip log_sd. log(SMALL_NUMBER) is negative.
-                log_sd = torch.clamp(
-                    log_sd, min=math.log(SMALL_NUMBER), max=-math.log(SMALL_NUMBER)
-                )
-
-                # Turn log sd into sd.
-                sd = torch.exp(log_sd)
-
-                parameters = DataOpTuple(mean, sd)
-                log_probs = DataOpTuple(torch.log(mean), log_sd)
-            else:
-                raise NotImplementedError
-
-            return parameters, log_probs
+        out = self.action_adapters[key].get_parameters_log_probs(q_values)
+        return out["parameters"], out["log_probs"]

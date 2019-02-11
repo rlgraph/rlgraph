@@ -44,8 +44,8 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                logits=flat_float_action_space,
-                parameters=flat_float_action_space
+                #parameters=flat_float_action_space,
+                #logits=flat_float_action_space
             ),
             action_space=action_space
         )
@@ -73,7 +73,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([
@@ -125,8 +125,8 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                parameters=flat_float_action_space,
-                logits=flat_float_action_space
+                #parameters=flat_float_action_space,
+                #logits=flat_float_action_space
             ),
             action_space=action_space,
         )
@@ -171,7 +171,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)
@@ -211,8 +211,8 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                logits=flat_float_action_space,
-                parameters=flat_float_action_space
+                #parameters=flat_float_action_space,
+                #logits=flat_float_action_space
             ),
             action_space=action_space,
         )
@@ -263,7 +263,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_action_layer_output_unfolded, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([[
@@ -319,8 +319,8 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=nn_input_space,
                 actions=action_space,
-                parameters=flat_float_action_space,
-                logits=flat_float_action_space
+                #parameters=flat_float_action_space,
+                #logits=flat_float_action_space
             ),
             action_space=action_space
         )
@@ -365,7 +365,7 @@ class TestPolicies(unittest.TestCase):
         print("Probs: {}".format(expected_parameters_output))
 
         expected_actions = np.argmax(expected_q_values_output, axis=-1)
-        test.test(("get_action", nn_input), expected_outputs=dict(action=expected_actions))
+        test.test(("get_action", nn_input, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Action log-probs.
         expected_action_log_prob_output = np.log(np.array([
@@ -398,7 +398,7 @@ class TestPolicies(unittest.TestCase):
         nn_input_space = FloatBox(shape=(4,), add_batch_rank=True)
         action_space = FloatBox(low=-1.0, high=1.0, shape=(1,), add_batch_rank=True)
         # Double the shape for alpha/beta params.
-        action_space_parameters = FloatBox(shape=(2,), add_batch_rank=True)
+        action_space_parameters = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(1,)), add_batch_rank=True)
 
         policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
@@ -406,8 +406,8 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=nn_input_space,
                 actions=action_space,
-                parameters=action_space_parameters,
-                logits=FloatBox(shape=(1,), add_batch_rank=True)
+                #parameters=action_space_parameters,
+                #logits=FloatBox(shape=(1,), add_batch_rank=True)
             ),
             action_space=action_space
         )
@@ -428,12 +428,14 @@ class TestPolicies(unittest.TestCase):
                   decimals=5)
 
         # Parameter (alpha/betas).
-        expected_parameters_output = np.log(np.exp(expected_raw_logits) + 1.0) + 1.0
+        expected_alpha_parameters = np.log(np.exp(expected_raw_logits[:, 0:1]) + 1.0) + 1.0
+        expected_beta_parameters = np.log(np.exp(expected_raw_logits[:, 1:]) + 1.0) + 1.0
+        expected_parameters = tuple([expected_alpha_parameters, expected_beta_parameters])
         test.test(("get_logits_parameters_log_probs", nn_input, ["logits", "parameters"]), expected_outputs=dict(
-            logits=expected_raw_logits, parameters=expected_parameters_output
+            logits=expected_raw_logits, parameters=expected_parameters
         ), decimals=5)
 
-        print("Params: {}".format(expected_parameters_output))
+        print("Params: {}".format(expected_parameters))
 
         actions = test.test(("get_action", nn_input))["action"]
         self.assertTrue(actions.dtype == np.float32)
@@ -443,8 +445,10 @@ class TestPolicies(unittest.TestCase):
 
         # Action log-probs.
         actions_scaled_back = (actions + 1.0) / 2.0
-        expected_action_log_prob_output = np.log(beta.pdf(actions_scaled_back, expected_parameters_output[:, 1], expected_parameters_output[:, 0]))
-        expected_action_log_prob_output = np.array([[expected_action_log_prob_output[0][0]], [expected_action_log_prob_output[1][1]], [expected_action_log_prob_output[2][2]]])
+        expected_action_log_prob_output = np.log(
+            beta.pdf(actions_scaled_back, expected_alpha_parameters, expected_beta_parameters)
+        )
+        #expected_action_log_prob_output = np.array([[expected_action_log_prob_output[0][0]], [expected_action_log_prob_output[1][1]], [expected_action_log_prob_output[2][2]]])
         test.test(("get_action_log_probs", [nn_input, actions]),
                   expected_outputs=dict(action_log_probs=expected_action_log_prob_output,
                                         logits=expected_raw_logits), decimals=5)

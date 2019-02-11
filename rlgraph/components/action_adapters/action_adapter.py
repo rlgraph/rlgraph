@@ -26,6 +26,8 @@ from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
+from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
@@ -122,30 +124,13 @@ class ActionAdapter(NeuralNetwork):
         if isinstance(self.action_space, IntBox):
             sanity_check_space(self.action_space, must_have_categories=True)
 
-#    @rlgraph_api
-#    def get_raw_output(self, nn_output):
-#        """
-#        Returns the raw, non-reshaped output of the action-layer (DenseLayer) after passing through it the raw
-#        nn_output (coming from the previous Component).
-
-#        Args:
-#            nn_output (DataOpRecord): The NN output of the preceding neural network.
-
-#        Returns:
-#            DataOpRecord: The output of the action layer (a DenseLayer) after passing `nn_output` through it.
-#        """
-#        out = self.network.apply(nn_output)
-
-#        if type(out) == dict:
-#            return out
-#        else:
-#            return dict(output=out)
-
     @rlgraph_api
     def get_logits(self, nn_output, nn_input=None):
         """
         Args:
             nn_output (DataOpRecord): The NN output of the preceding neural network.
+            nn_input (DataOpRecord): The NN input of the preceeding neural network.
+                Only needed if unfold_time_rank is True.
 
         Returns:
             SingleDataOp: The logits (raw nn_output, BUT reshaped).
@@ -174,26 +159,8 @@ class ActionAdapter(NeuralNetwork):
                 - "log_probs": log([action probabilities])
         """
         logits = self.get_logits(nn_output, nn_input)
-        parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
-        return dict(logits=logits, parameters=parameters, log_probs=log_probs)
-
-    @rlgraph_api
-    def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
-        """
-        Args:
-            nn_output (DataOpRecord): The NN output of the preceding neural network.
-
-        Returns:
-            Tuple[SingleDataOp]:
-                - logits (raw nn_output, BUT reshaped)
-                - probabilities (softmaxed(logits))
-                - log(probabilities)
-        """
-        self.logger.warn("Deprecated API method `get_logits_probabilities_log_probs` used! "
-                         "Use `get_logits_parameters_log_probs` instead.")
-        logits = self.get_logits(nn_output, nn_input)
-        probabilities, log_probs = self._graph_fn_get_parameters_log_probs(logits)
-        return dict(logits=logits, probabilities=probabilities, log_probs=log_probs)
+        out = self.get_parameters_log_probs(logits)
+        return dict(logits=logits, parameters=out["parameters"], log_probs=out["log_probs"])
 
     @rlgraph_api
     def get_logits_parameters_log_probs(self, nn_output, nn_input=None):
@@ -211,8 +178,25 @@ class ActionAdapter(NeuralNetwork):
                 - "log_probs": log([action probabilities])
         """
         logits = self.get_logits(nn_output, nn_input)
+        out = self.get_parameters_log_probs(logits)
+        return dict(
+            logits=logits, parameters=out["parameters"], log_probs=out["log_probs"]
+        )
+
+    def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
+        raise RLGraphObsoletedError(
+            "API method", "get_logits_probabilities_log_probs", "get_logits_parameters_log_probs"
+        )
+
+    @rlgraph_api
+    def get_parameters_log_probs(self, logits):
+        """
+        Args:
+            logits (SingleDataOp): The output of some layer that is already reshaped
+                according to our action Space.
+        """
         parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
-        return dict(logits=logits, parameters=parameters, log_probs=log_probs)
+        return dict(parameters=parameters, log_probs=log_probs)
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
@@ -250,12 +234,15 @@ class ActionAdapter(NeuralNetwork):
 
                     # Turn log sd into sd to ascertain always positive stddev values.
                     sd = tf.exp(log_sd)
+                    log_mean = tf.log(mean)
 
-                    # Merge again.
-                    parameters = tf.concat([mean, sd], axis=-1)
-                    log_probs = tf.concat([tf.log(mean), log_sd], axis=-1)
-                    parameters._batch_rank = 0
-                    log_probs._batch_rank = 0
+                    mean._batch_rank = 0
+                    sd._batch_rank = 0
+                    log_mean._batch_rank = 0
+                    log_sd._batch_rank = 0
+
+                    parameters = DataOpTuple([mean, sd])
+                    log_probs = DataOpTuple([log_mean, log_sd])
 
                 # Bounded -> Beta distribution.
                 else:
@@ -264,9 +251,16 @@ class ActionAdapter(NeuralNetwork):
                         logits, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
                     )
                     parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
-                    parameters._batch_rank = 0
-                    log_probs = tf.log(parameters)
-                    log_probs._batch_rank = 0
+                    alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
+                    alpha._batch_rank = 0
+                    beta._batch_rank = 0
+                    log_alpha = tf.log(alpha)
+                    log_beta = tf.log(beta)
+                    log_alpha._batch_rank = 0
+                    log_beta._batch_rank = 0
+
+                    parameters = DataOpTuple([alpha, beta])
+                    log_probs = DataOpTuple([log_alpha, log_beta])
 
         elif get_backend() == "pytorch":
             if isinstance(self.action_space, IntBox):
@@ -279,13 +273,18 @@ class ActionAdapter(NeuralNetwork):
                 # Unbounded -> Normal distribution.
                 if self.action_space.unbounded:
                     # Continuous actions.
-                    mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
+                    mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=-1)
 
                     # Turn log sd into sd.
                     sd = torch.exp(log_sd)
+                    log_mean =  torch.log(mean)
 
-                    parameters = torch.cat([mean, sd], -1)
-                    log_probs = torch.cat([torch.log(mean), log_sd], -1)
+                    #parameters = torch.cat([mean, sd], -1)
+                    #log_probs = torch.cat([torch.log(mean), log_sd], -1)
+
+                    parameters = DataOpTuple([mean, sd])
+                    log_probs = DataOpTuple([log_mean, log_sd])
+
                 # Bounded -> Beta distribution.
                 else:
                     # Stabilize both alpha and beta (currently together in parameters).
@@ -293,6 +292,13 @@ class ActionAdapter(NeuralNetwork):
                         logits, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
                     )
                     parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
-                    log_probs = torch.log(parameters)
+                    #log_probs = torch.log(parameters)
+
+                    alpha, beta = torch.split(parameters, split_size_or_sections=2, dim=-1)
+                    log_alpha = torch.log(alpha)
+                    log_beta = torch.log(beta)
+
+                    parameters = DataOpTuple([alpha, beta])
+                    log_probs = DataOpTuple([log_alpha, log_beta])
 
         return parameters, log_probs

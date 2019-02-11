@@ -107,7 +107,7 @@ class Distribution(Component):
 
         Args:
             parameters (DataOp): The input(s) used to parameterize this distribution. This is normally a cleaned up
-                single NN-output that (e.g.: the two values for mean and variance for a univariate Gaussian
+                single NN-output (e.g.: the two values for mean and variance for a univariate Gaussian
                 distribution).
 
         Returns:

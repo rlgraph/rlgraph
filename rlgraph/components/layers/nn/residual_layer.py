@@ -72,7 +72,7 @@ class ResidualLayer(NNLayer):
             result = results + inputs
             activation_function = get_activation_function(self.activation, self.activation_params)
             if activation_function is not None:
-                result = activation_function(added_with_input)
+                result = activation_function(result)
             # TODO: Move into util function.
             if hasattr(inputs, "_batch_rank"):
                 result._batch_rank = inputs._batch_rank

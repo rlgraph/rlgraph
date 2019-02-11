@@ -1,4 +1,4 @@
-# Copyright 2018 The RLgraph authors, All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,11 +106,12 @@ class ActorComponent(Component):
         # if isinstance(self.policy, SharedValueFunctionPolicy):
         #    out = self.policy.get_state_values_logits_probabilities_log_probs(preprocessed_states, internal_states)
         # else:
-        out = self.policy.get_logits_parameters_log_probs(preprocessed_states, internal_states)
+        # out = self.policy.get_logits_parameters_log_probs(preprocessed_states, internal_states)
+        # action_sample = self.policy.get_action_from_logits_and_parameters(out["logits"], out["parameters"])
 
-        action_sample = self.policy.get_action_from_logits_and_probabilities(out["logits"], out["parameters"])
+        out = self.policy.get_action(preprocessed_states, internal_states=internal_states)
 
-        actions = self.exploration.get_action(action_sample["action"], time_step, use_exploration)
+        actions = self.exploration.get_action(out["action"], time_step, use_exploration)
         return dict(
             preprocessed_state=preprocessed_states, action=actions, action_probs=out["parameters"],
             last_internal_states=out["last_internal_states"]

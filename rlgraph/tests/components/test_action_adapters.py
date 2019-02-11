@@ -33,6 +33,7 @@ class TestActionAdapters(unittest.TestCase):
     def test_simple_action_adapter(self):
         # Last NN layer.
         last_nn_layer_space = FloatBox(shape=(16,), add_batch_rank=True)
+        logits_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
@@ -41,7 +42,8 @@ class TestActionAdapters(unittest.TestCase):
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(
                 nn_output=last_nn_layer_space,
-                inputs=[last_nn_layer_space]
+                inputs=[last_nn_layer_space],
+                logits=logits_space,
             ), action_space=action_space
         )
         action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
@@ -65,6 +67,7 @@ class TestActionAdapters(unittest.TestCase):
     def test_simple_action_adapter_with_batch_apply(self):
         # Last NN layer.
         last_nn_layer_space = FloatBox(shape=(16,), add_batch_rank=True, add_time_rank=True, time_major=True)
+        logits_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
@@ -75,7 +78,8 @@ class TestActionAdapters(unittest.TestCase):
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(
                 nn_output=last_nn_layer_space,
-                inputs=[last_nn_layer_space]
+                inputs=[last_nn_layer_space],
+                logits=logits_space
             ), action_space=action_space
         )
         action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
@@ -109,6 +113,7 @@ class TestActionAdapters(unittest.TestCase):
     def test_action_adapter_with_complex_lstm_output(self):
         # Last NN layer (LSTM with time rank).
         last_nn_layer_space = FloatBox(shape=(4,), add_batch_rank=True, add_time_rank=True, time_major=True)
+        logits_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
@@ -116,7 +121,8 @@ class TestActionAdapters(unittest.TestCase):
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(
                 nn_output=last_nn_layer_space,
-                inputs=[last_nn_layer_space]
+                inputs=[last_nn_layer_space],
+                logits=logits_space
             ), action_space=action_space
         )
         action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
