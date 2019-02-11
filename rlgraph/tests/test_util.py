@@ -126,5 +126,6 @@ def recursive_assert_almost_equal(x, y, decimals=7):
         if get_backend() == "pytorch":
             if isinstance(x, torch.Tensor):
                 x = x.detach().numpy()
+            if isinstance(y, torch.Tensor):
                 y = y.detach().numpy()
         np.testing.assert_almost_equal(x, y, decimal=decimals)
