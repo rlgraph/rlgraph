@@ -21,7 +21,7 @@ import numpy as np
 import random
 
 from rlgraph import get_backend
-from rlgraph.utils import root_logger
+from rlgraph.utils import root_logger, PyTorchVariable
 from rlgraph.utils.input_parsing import parse_execution_spec
 from rlgraph.graphs import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
@@ -179,6 +179,29 @@ class ComponentTest(object):
 
     @staticmethod
     def read_params(name, params):
+        """
+        Tries to read name from params. Name may be either an actual key or a prefix of a key
+
+        Args:
+            name (str): Key or prefix to key.
+            params (dict): Params to read.
+            to (str): Type to convert param to if needed.
+        Returns:
+            any: Param value for key.
+
+        Raises:
+            ValueError: If no key can be found.
+        """
+        param = ComponentTest.read_prefixed_params(name, params)
+        if isinstance(param, PyTorchVariable):
+            weight = param.get_value()
+            # Weights require gradients.
+            return weight.detach().numpy()
+        else:
+            return param
+
+    @staticmethod
+    def read_prefixed_params(name, params):
         """
         Tries to read name from params. Name may be either an actual key or a prefix of a key
 
