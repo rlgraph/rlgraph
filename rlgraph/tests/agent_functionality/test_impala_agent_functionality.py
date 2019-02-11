@@ -105,8 +105,8 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             input_spaces=dict(
                 nn_input=self.input_space,
                 internal_states=self.internal_states_space,
-                parameters=self.parameters_and_logits_space,
-                logits=self.parameters_and_logits_space
+                #parameters=self.parameters_and_logits_space,
+                #logits=self.parameters_and_logits_space
             ),
             action_space=self.action_space,
             execution_spec=dict(disable_monitoring=True)
