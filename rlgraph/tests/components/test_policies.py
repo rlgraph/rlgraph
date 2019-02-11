@@ -36,7 +36,6 @@ class TestPolicies(unittest.TestCase):
 
         # action_space (5 possible actions).
         action_space = IntBox(5, add_batch_rank=True)
-        flat_float_action_space = FloatBox(shape=(5,), add_batch_rank=True)
 
         policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
@@ -44,8 +43,6 @@ class TestPolicies(unittest.TestCase):
             input_spaces=dict(
                 nn_input=state_space,
                 actions=action_space,
-                #parameters=flat_float_action_space,
-                #logits=flat_float_action_space
             ),
             action_space=action_space
         )
@@ -54,12 +51,15 @@ class TestPolicies(unittest.TestCase):
         # Some NN inputs (4 input nodes, batch size=2).
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
         # Raw NN-output.
-        expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
-        test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=6)
+        expected_nn_output = np.matmul(states,
+                                       ComponentTest.read_params("policy/test-network/hidden-layer", policy_params))
+
+        test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=5)
 
         # Raw action layer output; Expected shape=(2,5): 2=batch, 5=action categories
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["policy/action-adapter-0/action-network/action-layer/dense/kernel"]
+            expected_nn_output,
+            ComponentTest.read_params("policy/action-adapter-0/action-network/action-layer", policy_params)
         )
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
