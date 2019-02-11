@@ -178,14 +178,15 @@ class ComponentTest(object):
         return ret
 
     @staticmethod
-    def read_params(name, params):
+    def read_params(name, params, transpose_torch_params=True):
         """
-        Tries to read name from params. Name may be either an actual key or a prefix of a key
+        Tries to read name from params. Name may be either an actual key or a prefix of a key.
 
         Args:
             name (str): Key or prefix to key.
             params (dict): Params to read.
-            to (str): Type to convert param to if needed.
+            transpose_torch_params (bool): If the parameter lookup yields a torch parameter and this argument is True,
+                transpose the result. Accounts for different internal data layouts.
         Returns:
             any: Param value for key.
 
@@ -194,9 +195,14 @@ class ComponentTest(object):
         """
         param = ComponentTest.read_prefixed_params(name, params)
         if isinstance(param, PyTorchVariable):
-            weight = param.get_value()
-            # Weights require gradients.
-            return weight.detach().numpy()
+            # Weights require gradients -> detach.
+            weight = param.get_value().detach().numpy()
+
+            # PyTorch and TF
+            if transpose_torch_params:
+                return weight.transpose()
+            else:
+                return weight
         else:
             return param
 
