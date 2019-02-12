@@ -979,6 +979,7 @@ class GraphBuilder(Specifiable):
                         flattened_kwargs[key] = arg
 
             # If splitting args, split then iterate and merge. Only split if some args were actually flattened.
+            # print("flattened args = ", flattened_args)
             if args_actually_flattened:
                 split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
                                                                  *flattened_args, **flattened_kwargs)
@@ -1028,9 +1029,13 @@ class GraphBuilder(Specifiable):
             else:
                 # Just pass in args and kwargs because not actually flattened, with or without default key.
                 if add_auto_key_as_first_param:
-                    return graph_fn(component, "", *args, **kwargs)
+                    ret = graph_fn(component, "", *args, **kwargs)
                 else:
-                    return graph_fn(component, *args, **kwargs)
+                    ret = graph_fn(component, *args, **kwargs)
+                if isinstance(ret, FlattenedDataOp) and len(ret) == 1:
+                    return ret[""]
+                else:
+                    return ret
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
