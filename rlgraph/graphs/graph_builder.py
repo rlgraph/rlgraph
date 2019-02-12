@@ -25,7 +25,8 @@ import inspect
 from collections import OrderedDict
 
 from rlgraph import get_backend
-from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten
+from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten, \
+    define_by_run_unpack
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
 from rlgraph.utils.specifiable import Specifiable
 
@@ -1032,10 +1033,7 @@ class GraphBuilder(Specifiable):
                     ret = graph_fn(component, "", *args, **kwargs)
                 else:
                     ret = graph_fn(component, *args, **kwargs)
-                if isinstance(ret, FlattenedDataOp) and len(ret) == 1:
-                    return ret[""]
-                else:
-                    return ret
+                return define_by_run_unpack(ret)
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):

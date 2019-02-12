@@ -21,7 +21,7 @@ import re
 from collections import OrderedDict
 
 from rlgraph import get_backend
-from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, deep_tuple
+from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, deep_tuple, FlattenedDataOp
 
 if get_backend() == "pytorch":
     import torch
@@ -241,3 +241,26 @@ def define_by_run_unflatten(result_dict):
     # TODO necessary in define by run?
     return deep_tuple(base_structure)
 
+
+def define_by_run_unpack(args):
+    """
+    Unpacks potential nested FlattenedDataOp wrapper args.
+    Args:
+        args (any):
+
+    Returns:
+        any: Unpacked args.
+    """
+    if isinstance(args, FlattenedDataOp) and len(args) == 1:
+        return next(iter(args.values()))
+    elif isinstance(args, (list, tuple)):
+        ret = []
+        # Check list elements one by one.
+        for value in args:
+            if isinstance(value, FlattenedDataOp) and len(value) == 1:
+                ret.append(next(iter(value.values())))
+            else:
+                ret.append(value)
+        return ret
+    else:
+        return args
