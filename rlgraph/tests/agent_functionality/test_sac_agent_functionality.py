@@ -4,11 +4,38 @@ import numpy as np
 
 from rlgraph.utils import root_logger
 from rlgraph.tests import ComponentTest
-from rlgraph.agents.sac_agent import SACLossFunction, SACAgentComponent, SyncSpecification
+from rlgraph.agents.sac_agent import SACLossFunction, SACAgentComponent, SyncSpecification, SACAgent
 from rlgraph.spaces import FloatBox, BoolBox, Tuple, IntBox
 from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
     Synchronizable
+from rlgraph.environments import Environment
+from rlgraph.execution import SingleThreadedWorker
 from scipy import stats
+
+
+class DummyEnvironment(Environment):
+    """Dummy environment, the reward is density of the gaussian at the action."""
+    def __init__(self, loc=0.5, scale=0.2, episode_length=5):
+        super(DummyEnvironment, self).__init__(state_space=FloatBox(shape=(1, )),
+                                               action_space=FloatBox(shape=(1, ), low=-1.0, high=1.0))
+        self.episode_length = episode_length
+        self.episode_step = 0
+        self.target_dist = stats.norm(loc=loc, scale=scale)
+
+    def seed(self, seed=None):
+        pass
+
+    def reset(self):
+        self.episode_step = 0
+        return np.random.uniform(size=(1, ))
+
+    def step(self, actions, **kwargs):
+        reward = self.target_dist.pdf(actions)[0]
+        self.episode_step += 1
+        return np.random.uniform(size=(1, )), reward, self.episode_step >= self.episode_length, dict()
+
+    def __str__(self):
+        return self.__class__.__name__
 
 
 class TestSACAgentFunctionality(unittest.TestCase):
@@ -17,14 +44,11 @@ class TestSACAgentFunctionality(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.DEBUG)
 
-    def test_sac_loss_function(self):
-        loss_function = SACLossFunction(
-            alpha=0.9, discount=0.8
-        )
-
+    def _prepare_loss_function_test(self, loss_function):
         test = ComponentTest(
             component=loss_function,
             input_spaces=dict(
+                alpha=float,
                 log_probs_next_sampled=FloatBox(shape=(1,), add_batch_rank=True),
                 q_values_next_sampled=Tuple(FloatBox(shape=(1,)), FloatBox(shape=(1,)), add_batch_rank=True),
                 q_values=Tuple(FloatBox(shape=(1,)), FloatBox(shape=(1,)), add_batch_rank=True),
@@ -36,9 +60,17 @@ class TestSACAgentFunctionality(unittest.TestCase):
             ),
             action_space=IntBox(2, shape=(), add_batch_rank=True)
         )
-        batch_size = 10
+        return test
 
+    def test_sac_loss_function(self):
+        loss_function = SACLossFunction(
+            target_entropy=0.1, discount=0.8
+        )
+        test = self._prepare_loss_function_test(loss_function)
+
+        batch_size = 10
         inputs = [
+            0.9,  # alpha
             [[0.5]] * batch_size,  # log_probs_next_sampled
             ([[0.0]] * batch_size, [[1.0]] * batch_size),  # q_values_next_sampled
             ([[0.0]] * batch_size, [[1.0]] * batch_size),  # q_values
@@ -50,6 +82,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
 
         policy_loss_per_item = [.35] * batch_size
         values_loss_per_item = [.2696] * batch_size
+        alpha_loss_per_item = [-.54] * batch_size
 
         test.test(
             (loss_function.loss, inputs),
@@ -57,7 +90,9 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 np.mean(policy_loss_per_item),
                 policy_loss_per_item,
                 np.mean(values_loss_per_item),
-                values_loss_per_item
+                values_loss_per_item,
+                np.mean(alpha_loss_per_item),
+                alpha_loss_per_item
             ],
             decimals=5
         )
@@ -66,7 +101,59 @@ class TestSACAgentFunctionality(unittest.TestCase):
             (loss_function.loss_per_item, inputs),
             expected_outputs=[
                 policy_loss_per_item,
-                values_loss_per_item
+                values_loss_per_item,
+                alpha_loss_per_item
+            ],
+            decimals=5
+        )
+
+        test.test(
+            (loss_function.loss_average, [policy_loss_per_item]),
+            expected_outputs=[np.mean(policy_loss_per_item)],
+            decimals=5
+        )
+
+    def test_sac_loss_function_no_target_entropy(self):
+        loss_function = SACLossFunction(
+            target_entropy=None, discount=0.8
+        )
+        test = self._prepare_loss_function_test(loss_function)
+
+        batch_size = 10
+        inputs = [
+            0.9,  # alpha
+            [[0.5]] * batch_size,  # log_probs_next_sampled
+            ([[0.0]] * batch_size, [[1.0]] * batch_size),  # q_values_next_sampled
+            ([[0.0]] * batch_size, [[1.0]] * batch_size),  # q_values
+            [[0.5]] * batch_size,  # log_probs_sampled
+            ([[.1]] * batch_size, [[.2]] * batch_size),  # q_values_sampled
+            [1.0] * batch_size,  # rewards
+            [False] * batch_size  # terminals
+        ]
+
+        policy_loss_per_item = [.35] * batch_size
+        values_loss_per_item = [.2696] * batch_size
+        alpha_loss_per_item = [0.0] * batch_size
+
+        test.test(
+            (loss_function.loss, inputs),
+            expected_outputs=[
+                np.mean(policy_loss_per_item),
+                policy_loss_per_item,
+                np.mean(values_loss_per_item),
+                values_loss_per_item,
+                np.mean(alpha_loss_per_item),
+                alpha_loss_per_item
+            ],
+            decimals=5
+        )
+
+        test.test(
+            (loss_function.loss_per_item, inputs),
+            expected_outputs=[
+                policy_loss_per_item,
+                values_loss_per_item,
+                alpha_loss_per_item
             ],
             decimals=5
         )
@@ -106,7 +193,8 @@ class TestSACAgentFunctionality(unittest.TestCase):
             preprocessor=PreprocessorStack.from_spec([]),
             memory=ReplayMemory(),
             discount=0.8,
-            alpha=0.01,
+            initial_alpha=0.01,
+            target_entropy=None,
             optimizer=AdamOptimizer(learning_rate=1e-2, scope="policy-optimizer"),
             vf_optimizer=AdamOptimizer(learning_rate=1e-2, scope="vf-optimizer"),
             q_sync_spec=SyncSpecification(sync_interval=10)
@@ -153,8 +241,8 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 state_space.sample(batch_size),
                 [1.0] * batch_size  # importance
             ]))
-            policy_loss.append(result[3])
-            values_loss.append(result[5])
+            policy_loss.append(result[4])
+            values_loss.append(result[6])
         print(policy_loss)
         print(values_loss)
 
@@ -164,6 +252,59 @@ class TestSACAgentFunctionality(unittest.TestCase):
             q_val = q_val.flatten()
             np.testing.assert_allclose(q_val, target_dist.pdf(action_sample), atol=0.2)
 
-        _, action_sample = test.graph_executor.execute((agent_component.action_from_preprocessed_state, [state_space.sample(batch_size), False]))
+        action_sample, _ = test.graph_executor.execute((agent_component.action_from_preprocessed_state, [state_space.sample(batch_size), False]))
         action_sample = action_sample.flatten()
         np.testing.assert_allclose(np.mean(action_sample), true_mean, atol=0.1)
+
+    def test_sac_agent(self):
+        env = DummyEnvironment(episode_length=5)
+        agent = SACAgent(
+            state_space=env.state_space,
+            action_space=env.action_space,
+            memory_spec=ReplayMemory(capacity=1000),
+            value_function_sync_spec=SyncSpecification(sync_interval=10),
+            update_spec={
+                "update_mode": "time_steps",
+                "do_updates": True,
+                "update_interval": 1,
+                "sync_interval": 20,
+                "batch_size": 100,
+                "num_iterations": 1
+            },
+            network_spec=[
+                {
+                    "type": "dense",
+                    "units": 8,
+                    "activation": "tanh",
+                    "scope": "hidden1"
+                }
+            ],
+            value_function_spec=[
+                {
+                    "type": "dense",
+                    "units": 8,
+                    "activation": "tanh",
+                    "scope": "vf-hidden1"
+                }
+            ],
+            optimizer_spec={
+                "type": "adam",
+                "learning_rate": 3e-3
+            },
+            value_function_optimizer_spec={
+                "type": "adam",
+                "learning_rate": 3e-3
+            },
+            initial_alpha=0.1
+        )
+
+        rewards = []
+
+        def episode_finish_callback(reward, **kwargs):
+            nonlocal rewards
+            rewards.append(reward)
+
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, episode_finish_callback=episode_finish_callback)
+        worker.execute_episodes(num_episodes=2000)
+
+        assert np.mean(rewards[:100]) < np.mean(rewards[-100:])
