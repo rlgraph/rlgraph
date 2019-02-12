@@ -304,7 +304,8 @@ class Policy(Component):
             FlattenedDataOp: A DataOpDict with the different action adapter outputs (keys correspond to
                 structure of `self.action_space`).
         """
-        nn_input = next(iter(nn_input.values()))
+        if isinstance(nn_input, FlattenedDataOp):
+            nn_input = next(iter(nn_input.values()))
 
         ret = FlattenedDataOp()
         for flat_key, action_adapter in self.action_adapters.items():
