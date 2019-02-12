@@ -91,17 +91,25 @@ class PyTorchExecutor(GraphExecutor):
                 tensor_params = force_torch_tensors(params=params)
 
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
+                is_dict_result = isinstance(api_ret, dict)
                 if not isinstance(api_ret, list) and not isinstance(api_ret, tuple):
                     api_ret = [api_ret]
                 to_return = []
                 if op_indices_to_return is not None:
-                    # Build return ops in correct order.
-                    # TODO clarify op indices order vs tensorflow.
-                    for i in sorted(op_indices_to_return):
-                        op_result = api_ret[i]
-                        if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
-                            op_result = op_result.detach()
-                        to_return.append(op_result)
+                    # Op indices can be integers into a result list or strings into a result dict.
+                    if is_dict_result:
+                        result_dict = {}
+                        for key in op_indices_to_return:
+                                result_dict[key] = api_ret[0][key]
+                        to_return.append(result_dict)
+                    else:
+                        # Build return ops in correct order.
+                        # TODO clarify op indices order vs tensorflow.
+                        for i in sorted(op_indices_to_return):
+                            op_result = api_ret[i]
+                            if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
+                                op_result = op_result.detach()
+                            to_return.append(op_result)
 
                 else:
                     # Just return everything in the order it was returned by the API method.
@@ -134,6 +142,7 @@ class PyTorchExecutor(GraphExecutor):
         return ret
 
     def clean_results(self, ret, to_return):
+        # print("to_return = ", to_return)
         for result in to_return:
             if isinstance(result, dict):
                 cleaned_dict = {k: v for k, v in result.items() if v is not None}
