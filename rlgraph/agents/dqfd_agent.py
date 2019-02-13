@@ -416,7 +416,7 @@ class DQFDAgent(Agent):
         Resets our preprocessor, but only if it contains stateful PreprocessLayer Components (meaning
         the PreprocessorStack has at least one variable defined).
         """
-        if self.preprocessing_required and len(self.preprocessor.variables) > 0:
+        if self.preprocessing_required and len(self.preprocessor.variable_registry) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
     def update_from_demos(self, num_updates=1, batch_size=None):
