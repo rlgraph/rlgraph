@@ -49,14 +49,16 @@ class ActionAdapter(NeuralNetwork):
     - Reshaping (according to the action Space).
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
     """
-    def __init__(self, action_space, units=None, weights_spec=None, biases_spec=None, activation=None,
+    def __init__(self, action_space=None, final_shape=None, weights_spec=None, biases_spec=None, activation=None,
                  pre_network_spec=None, scope="action-adapter", **kwargs):
         """
         Args:
-            action_space (Space): The action Space within which this Component will create actions.
+            action_space (Optional[Space]): The action Space within which this Component will create actions.
+                NOTE: Exactly one of `action_space` of `final_shape` must be provided.
 
-            units (Optional[int]): An optional number of units to use for the action-layer. If None, will calculate
-                the number of units automatically from the given action_space.
+            final_shape (Optional[Tuple[int]): An optional final output shape (in case action_space is not provided).
+                If None, will calculate the shape automatically from the given `action_space`.
+                NOTE: Exactly one of `action_space` of `final_shape` must be provided.
 
             weights_spec (Optional[any]): An optional RLGraph Initializer spec that will be used to initialize the
                 weights of `self.action layer`. Default: None (use default initializer).
@@ -71,25 +73,34 @@ class ActionAdapter(NeuralNetwork):
                 last action layer. If None, only the action layer itself is applied.
         """
         # Build the action layer for this adapter based on the given action-space.
-        self.action_space = action_space.with_batch_rank()
-        assert not isinstance(self.action_space, ContainerSpace), "ERROR: ActionAdapter cannot handle ContainerSpaces!"
-        # Calculate the number of nodes in the action layer (DenseLayer object) depending on our action Space
-        # or using a given fixed number (`units`).
-        # Also generate the ReShape sub-Component and give it the new_shape.
-        if isinstance(self.action_space, IntBox):
-            if units is None:
-                units = self.action_space.flat_dim_with_categories
-            new_shape = self.action_space.get_shape(with_category_rank=True)
-        else:
-            if units is None:
-                units = 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
-            # Add moments (2x for each action item).
-            if self.action_space.shape == ():
-                new_shape = (2,)
-            else:
-                new_shape = tuple(list(self.action_space.shape[:-1]) + [self.action_space.shape[-1] * 2])
+        self.action_space = None
+        if action_space is not None:
+            self.action_space = action_space.with_batch_rank()
+            assert not isinstance(self.action_space, ContainerSpace),\
+                "ERROR: ActionAdapter cannot handle ContainerSpaces!"
 
-        assert units > 0, "ERROR: Number of nodes for action-layer calculated as {}! Must be larger 0.".format(units)
+        self.final_shape = final_shape
+
+        assert (self.action_space is None) != (self.final_shape is None),\
+            "ERROR: Exactly one of `action_space` or `final_shape` must be provided!"
+
+        if self.final_shape is None:
+            # Calculate the number of nodes in the action layer (DenseLayer object) depending on our `self.action_space`
+            if isinstance(self.action_space, IntBox):
+                self.final_shape = self.action_space.get_shape(with_category_rank=True)
+            else:
+                # Two slots for each action-component (mean and log sd).
+                if self.action_space.shape == ():
+                    self.final_shape = (2,)
+                else:
+                    self.final_shape = tuple(list(self.action_space.shape[:-1]) + [self.action_space.shape[-1] * 2])
+        else:
+            assert isinstance(self.final_shape, (tuple, list)), "ERROR: `final_shape` must be a list or a tuple!"
+
+        # Use `self.final_shape` for number of nodes calculation.
+        units = 1
+        for s in self.final_shape:
+            units *= s
 
         action_layer = DenseLayer(
             units=units,
@@ -104,7 +115,7 @@ class ActionAdapter(NeuralNetwork):
         self.network.add_layer(action_layer)
 
         # Add the reshape layer to match the action space's shape.
-        self.network.add_layer(ReShape(new_shape=new_shape))
+        self.network.add_layer(ReShape(new_shape=self.final_shape))
 
         super(ActionAdapter, self).__init__(self.network, scope=scope, **kwargs)
 
@@ -114,7 +125,7 @@ class ActionAdapter(NeuralNetwork):
         sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
 
         # Check the action Space.
-        sanity_check_space(self.action_space, must_have_batch_rank=True)
+        #sanity_check_space(self.action_space, must_have_batch_rank=True)
         # IntBoxes must have categories.
         if isinstance(self.action_space, IntBox):
             sanity_check_space(self.action_space, must_have_categories=True)
