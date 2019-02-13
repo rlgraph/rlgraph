@@ -258,14 +258,11 @@ class ActionAdapter(NeuralNetwork):
                 # Unbounded -> Normal distribution.
                 if self.action_space.unbounded:
                     # Continuous actions.
-                    mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=-1)
+                    mean, log_sd = torch.split(logits, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1)
 
                     # Turn log sd into sd.
                     sd = torch.exp(log_sd)
                     log_mean =  torch.log(mean)
-
-                    #parameters = torch.cat([mean, sd], -1)
-                    #log_probs = torch.cat([torch.log(mean), log_sd], -1)
 
                     parameters = DataOpTuple([mean, sd])
                     log_probs = DataOpTuple([log_mean, log_sd])
@@ -277,9 +274,9 @@ class ActionAdapter(NeuralNetwork):
                         logits, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
                     )
                     parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
-                    #log_probs = torch.log(parameters)
 
-                    alpha, beta = torch.split(parameters, split_size_or_sections=2, dim=-1)
+                    # Split in the middle.
+                    alpha, beta = torch.split(parameters, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1)
                     log_alpha = torch.log(alpha)
                     log_beta = torch.log(beta)
 

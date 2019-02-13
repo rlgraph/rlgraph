@@ -58,11 +58,9 @@ class Beta(Distribution):
             parameters (DataOpTuple): Tuple holding the alpha and beta parameters.
         """
         if get_backend() == "tf":
-            #alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
             # Note: concentration0==beta, concentration1=alpha (!)
             return tfp.distributions.Beta(concentration1=parameters[0], concentration0=parameters[1])
         elif get_backend() == "pytorch":
-            #alpha, beta = torch.split(parameters, 2, dim=-1)
             return torch.distributions.Beta(parameters[0], parameters[1])
 
     @graph_fn
