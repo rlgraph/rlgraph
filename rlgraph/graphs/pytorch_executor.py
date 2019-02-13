@@ -85,7 +85,7 @@ class PyTorchExecutor(GraphExecutor):
                 continue
             elif isinstance(api_method, (list, tuple)):
                 # Which ops are supposed to be returned?
-                op_indices_to_return = api_method[2] if len(api_method) > 2 else None
+                op_or_indices_to_return = api_method[2] if len(api_method) > 2 else None
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
                 tensor_params = force_torch_tensors(params=params)
@@ -95,17 +95,19 @@ class PyTorchExecutor(GraphExecutor):
                 if not isinstance(api_ret, list) and not isinstance(api_ret, tuple):
                     api_ret = [api_ret]
                 to_return = []
-                if op_indices_to_return is not None:
+                if op_or_indices_to_return is not None:
                     # Op indices can be integers into a result list or strings into a result dict.
                     if is_dict_result:
+                        if isinstance(op_or_indices_to_return, str):
+                            op_or_indices_to_return = [op_or_indices_to_return]
                         result_dict = {}
-                        for key in op_indices_to_return:
+                        for key in op_or_indices_to_return:
                                 result_dict[key] = api_ret[0][key]
                         to_return.append(result_dict)
                     else:
                         # Build return ops in correct order.
                         # TODO clarify op indices order vs tensorflow.
-                        for i in sorted(op_indices_to_return):
+                        for i in sorted(op_or_indices_to_return):
                             op_result = api_ret[i]
                             if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
                                 op_result = op_result.detach()
