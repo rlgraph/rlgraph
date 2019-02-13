@@ -134,14 +134,16 @@ class TestPolicies(unittest.TestCase):
         states = state_space.sample(size=3)
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
         expected_nn_output = relu(np.matmul(
-            states, policy_params["shared-value-function-policy/test-network/hidden-layer/dense/kernel"]
+            states, ComponentTest.read_params("shared-value-function-policy/test-network/hidden-layer", policy_params)
         ), 0.1)
+
         test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=5)
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
             expected_nn_output,
-            policy_params["shared-value-function-policy/action-adapter-0/action-network/action-layer/dense/kernel"]
+            ComponentTest.read_params("shared-value-function-policy/action-adapter-0/action-network/action-layer/",
+                                      policy_params)
         )
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
@@ -149,7 +151,7 @@ class TestPolicies(unittest.TestCase):
         # State-values: One for each item in the batch.
         expected_state_value_output = np.matmul(
             expected_nn_output,
-            policy_params["shared-value-function-policy/value-function-node/dense-layer/dense/kernel"]
+            ComponentTest.read_params("shared-value-function-policy/value-function-node/dense-layer", policy_params)
         )
         test.test(("get_state_values", states), expected_outputs=dict(state_values=expected_state_value_output),
                   decimals=5)
@@ -173,12 +175,12 @@ class TestPolicies(unittest.TestCase):
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].dtype == np.int32 or (out["action"].dtype == np.int64))
         self.assertTrue(out["action"].shape == (3,))
 
         # Deterministic sample.
         out = test.test(("get_deterministic_action", states), expected_outputs=None)
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].dtype == np.int32 or (out["action"].dtype == np.int64))
         self.assertTrue(out["action"].shape == (3,))
 
         # Distribution's entropy.
@@ -221,15 +223,17 @@ class TestPolicies(unittest.TestCase):
         states_folded = np.reshape(states, newshape=(6, 3))
         # Raw NN-output (3 hidden nodes). All weights=1.5, no biases.
         expected_nn_output = relu(np.matmul(
-            states_folded, policy_params["shared-value-function-policy/test-network/hidden-layer/dense/kernel"]
+            states_folded,
+            ComponentTest.read_params("shared-value-function-policy/test-network/hidden-layer", policy_params)
         ), 0.1)
         test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=5)
 
         # Raw action layer output; Expected shape=(3,3): 3=batch, 2=action categories + 1 state value
         expected_action_layer_output = np.matmul(
-            expected_nn_output, policy_params["shared-value-function-policy/action-adapter-0/action-network/"
-                                              "action-layer/dense/kernel"]
-        )
+            expected_nn_output,
+            ComponentTest.read_params("shared-value-function-policy/action-adapter-0/action-network/action-layer/",
+                                      policy_params))
+
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 3, 4))
         test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
@@ -237,7 +241,7 @@ class TestPolicies(unittest.TestCase):
         # State-values: One for each item in the batch.
         expected_state_value_output = np.matmul(
             expected_nn_output,
-            policy_params["shared-value-function-policy/value-function-node/dense-layer/dense/kernel"]
+            ComponentTest.read_params("shared-value-function-policy/value-function-node/dense-layer", policy_params)
         )
         expected_state_value_output_unfolded = np.reshape(expected_state_value_output, newshape=(2, 3, 1))
         test.test(("get_state_values", states), expected_outputs=dict(state_values=expected_state_value_output_unfolded),
