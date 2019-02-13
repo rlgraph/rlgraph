@@ -36,6 +36,8 @@ class NeuralNetwork(Stack):
     be `last_internal_states` for RNN-based NNs and other keys.
 
     No other API methods other than `apply` should be defined/used.
+
+    A NeuralNetwork Component correctly handles
     """
 
     def __init__(self, *layers, **kwargs):
@@ -101,7 +103,8 @@ class NeuralNetwork(Stack):
         # Auto apply-API -> Handle LSTMs correctly.
         elif self.custom_api_given is False:
             @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
-            def apply(self_, *inputs, **kwargs):
+            def apply(self_, nn_input, *nn_inputs, **kwargs):
+                inputs = [nn_input] + list(nn_inputs)
                 # Keep track of the folding status.
                 fold_status = "unfolded" if self.has_rnn() else None
                 # Fold time rank? For now only support 1st arg folding/unfolding.
@@ -121,6 +124,8 @@ class NeuralNetwork(Stack):
                         args_ = inputs
                 kwargs_ = kwargs
 
+                # TODO: keep track of LSTMLayers that only return the last time-step (outputs after these Layers
+                # TODO: can no longer be folded, their time-rank is gone for the rest of the NN.
                 for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
                     if sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
                         continue
@@ -157,15 +162,6 @@ class NeuralNetwork(Stack):
             super(NeuralNetwork, self).build_auto_api_method(
                 stack_api_method_name, component_api_method_name, fold_time_rank, unfold_time_rank, ok_to_overwrite
             )
-            if self.custom_api_given is False:
-                @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
-                def apply(self, *inputs):
-                    out = self.apply_shadowed_(*inputs)
-                    if isinstance(out, dict):
-                        assert "output" in out
-                        return out
-                    else:
-                        return dict(output=out)
 
     def _unfold(self, original_input, *args_, **kwargs_):
         if args_ == ():
