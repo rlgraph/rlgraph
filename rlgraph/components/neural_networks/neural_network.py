@@ -96,9 +96,9 @@ class NeuralNetwork(Stack):
                               unfold_time_rank=False, ok_to_overwrite=False):
         if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
             @rlgraph_api(name=stack_api_method_name, component=self, ok_to_overwrite=ok_to_overwrite)
-            def method(self, *inputs, **kwargs):
+            def method(self, nn_input, *nn_inputs, **kwargs):
                 # Avoid jumping back between layers and calls at runtime.
-                return self._pytorch_fast_path_exec(inputs, **kwargs)
+                return self._pytorch_fast_path_exec(*([nn_input] + list(nn_inputs)), **kwargs)
 
         # Auto apply-API -> Handle LSTMs correctly.
         elif self.custom_api_given is False:
