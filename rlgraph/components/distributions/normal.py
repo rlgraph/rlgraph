@@ -59,4 +59,7 @@ class Normal(Distribution):
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
+        if get_backend() == "tf":
             return distribution.mean()
+        elif get_backend() == "pytorch":
+            return distribution.mean
