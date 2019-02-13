@@ -168,27 +168,6 @@ class ActionAdapter(NeuralNetwork):
         out = self.get_parameters_log_probs(logits)
         return dict(logits=logits, parameters=out["parameters"], log_probs=out["log_probs"])
 
-    @rlgraph_api
-    def get_logits_parameters_log_probs(self, nn_output, nn_input=None):
-        """
-        Args:
-            nn_output (DataOpRecord): The NN output of the preceding neural network.
-            nn_input (DataOpRecord): The NN input  of the preceding neural network (needed for optional time-rank
-                folding/unfolding purposes).
-
-        Returns:
-            Dict[str,SingleDataOp]:
-                - "logits": The raw nn_output, only reshaped according to the action_space.
-                - "parameters": The softmaxed(logits) for the discrete case and the mean/std values for the continuous
-                    case.
-                - "log_probs": log([action probabilities])
-        """
-        logits = self.get_logits(nn_output, nn_input)
-        out = self.get_parameters_log_probs(logits)
-        return dict(
-            logits=logits, parameters=out["parameters"], log_probs=out["log_probs"]
-        )
-
     def get_logits_probabilities_log_probs(self, nn_output, nn_input=None):
         raise RLGraphObsoletedError(
             "API method", "get_logits_probabilities_log_probs", "get_logits_parameters_log_probs"
