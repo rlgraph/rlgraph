@@ -359,7 +359,10 @@ class Policy(Component):
         ret = FlattenedDataOp()
         for flat_key, d in self.distributions.items():
             if flat_key == "":
-                return d.entropy(parameters)
+                if isinstance(parameters, FlattenedDataOp):
+                    return d.entropy(parameters[flat_key])
+                else:
+                    return d.entropy(parameters)
             else:
                 ret[flat_key] = d.entropy(parameters.flat_key_lookup(flat_key))
         return ret
@@ -384,7 +387,10 @@ class Policy(Component):
                 # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
                 if self.bounded_action_space[flat_key] is True:
                     actions = (actions - self.action_space.low) / (self.action_space.high - self.action_space.low)
-                return self.distributions[flat_key].log_prob(parameters, actions)
+                if isinstance(parameters, FlattenedDataOp):
+                    return self.distributions[flat_key].log_prob(parameters[flat_key], actions)
+                else:
+                    return self.distributions[flat_key].log_prob(parameters, actions)
             else:
                 # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
                 actions_ = actions.flat_key_lookup(flat_key)
@@ -413,7 +419,11 @@ class Policy(Component):
                     )
             else:
                 if flat_key == "":
-                    return self.distributions[flat_key].draw(parameters, deterministic)
+                    # Still wrapped as FlattenedDataOp.
+                    if isinstance(parameters, FlattenedDataOp):
+                        return self.distributions[flat_key].draw(parameters[flat_key], deterministic)
+                    else:
+                        return self.distributions[flat_key].draw(parameters, deterministic)
 
                 actions = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
 
