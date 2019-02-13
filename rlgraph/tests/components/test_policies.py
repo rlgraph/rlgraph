@@ -283,12 +283,12 @@ class TestPolicies(unittest.TestCase):
 
         # Deterministic sample.
         out = test.test(("get_deterministic_action", states), expected_outputs=None)
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].dtype == np.int32 or (out["action"].dtype == np.int64))
         self.assertTrue(out["action"].shape == (2, 3))  # Make sure output is unfolded.
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].dtype == np.int32 or (out["action"].dtype == np.int64))
         self.assertTrue(out["action"].shape == (2, 3))  # Make sure output is unfolded.
 
         # Distribution's entropy.
@@ -303,7 +303,7 @@ class TestPolicies(unittest.TestCase):
 
         # action_space (2 possible actions).
         action_space = IntBox(2, add_batch_rank=True)
-        flat_float_action_space = FloatBox(shape=(2,), add_batch_rank=True)
+        # flat_float_action_space = FloatBox(shape=(2,), add_batch_rank=True)
 
         # Policy with dueling logic.
         policy = DuelingPolicy(
@@ -332,22 +332,26 @@ class TestPolicies(unittest.TestCase):
         nn_input = nn_input_space.sample(size=3)
         # Raw NN-output.
         expected_nn_output = relu(np.matmul(
-            nn_input, policy_params["dueling-policy/test-network/hidden-layer/dense/kernel"]), 0.1
+            nn_input,
+            ComponentTest.read_params("dueling-policy/test-network/hidden-layer", policy_params)), 0.1
         )
         test.test(("get_nn_output", nn_input), expected_outputs=dict(output=expected_nn_output))
 
         # Raw action layer output.
         expected_raw_advantages = np.matmul(relu(np.matmul(
-            expected_nn_output, policy_params["dueling-policy/action-adapter-0/action-network/dense-layer/dense/kernel"]
-        ), 0.1), policy_params["dueling-policy/action-adapter-0/action-network/action-layer/dense/kernel"])
+            expected_nn_output,
+            ComponentTest.read_params("dueling-policy/action-adapter-0/action-network/dense-layer", policy_params)
+        ), 0.1),
+            ComponentTest.read_params("dueling-policy/action-adapter-0/action-network/action-layer", policy_params))
         test.test(("get_action_layer_output", nn_input), expected_outputs=dict(output=expected_raw_advantages),
                   decimals=5)
 
         # Single state values.
         expected_state_values = np.matmul(relu(np.matmul(
             expected_nn_output,
-            policy_params["dueling-policy/dense-layer-state-value-stream/dense/kernel"]
-        )), policy_params["dueling-policy/state-value-node/dense/kernel"])
+            ComponentTest.read_params("dueling-policy/dense-layer-state-value-stream", policy_params)
+        )),
+            ComponentTest.read_params("dueling-policy/state-value-node", policy_params))
         test.test(("get_state_values", nn_input), expected_outputs=dict(state_values=expected_state_values),
                   decimals=5)
 
@@ -380,12 +384,12 @@ class TestPolicies(unittest.TestCase):
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", nn_input), expected_outputs=None)
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].dtype == np.int32 or (out["action"].dtype == np.int64))
         self.assertTrue(out["action"].shape == (3,))
 
         # Deterministic sample.
         out = test.test(("get_deterministic_action", nn_input), expected_outputs=None)
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].dtype == np.int32 or (out["action"].dtype == np.int64))
         self.assertTrue(out["action"].shape == (3,))
 
         # Distribution's entropy.
@@ -400,7 +404,7 @@ class TestPolicies(unittest.TestCase):
         nn_input_space = FloatBox(shape=(4,), add_batch_rank=True)
         action_space = FloatBox(low=-1.0, high=1.0, shape=(1,), add_batch_rank=True)
         # Double the shape for alpha/beta params.
-        action_space_parameters = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(1,)), add_batch_rank=True)
+        # action_space_parameters = Tuple(FloatBox(shape=(1,)), FloatBox(shape=(1,)), add_batch_rank=True)
 
         policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
         test = ComponentTest(
@@ -419,12 +423,14 @@ class TestPolicies(unittest.TestCase):
         # Some NN inputs.
         nn_input = nn_input_space.sample(size=3)
         # Raw NN-output.
-        expected_nn_output = np.matmul(nn_input, policy_params["policy/test-network/hidden-layer/dense/kernel"])
+        expected_nn_output = np.matmul(nn_input,
+                                       ComponentTest.read_params("policy/test-network/hidden-layer", policy_params))
         test.test(("get_nn_output", nn_input), expected_outputs=dict(output=expected_nn_output))
 
         # Raw action layer output.
         expected_raw_logits = np.matmul(
-            expected_nn_output, policy_params["policy/action-adapter-0/action-network/action-layer/dense/kernel"]
+            expected_nn_output,
+            ComponentTest.read_params("policy/action-adapter-0/action-network/action-layer", policy_params)
         )
         test.test(("get_action_layer_output", nn_input), expected_outputs=dict(output=expected_raw_logits),
                   decimals=5)
@@ -450,7 +456,8 @@ class TestPolicies(unittest.TestCase):
         expected_action_log_prob_output = np.log(
             beta.pdf(actions_scaled_back, expected_alpha_parameters, expected_beta_parameters)
         )
-        #expected_action_log_prob_output = np.array([[expected_action_log_prob_output[0][0]], [expected_action_log_prob_output[1][1]], [expected_action_log_prob_output[2][2]]])
+        # expected_action_log_prob_output = np.array([[expected_action_log_prob_output[0][0]],
+        # [expected_action_log_prob_output[1][1]], [expected_action_log_prob_output[2][2]]])
         test.test(("get_action_log_probs", [nn_input, actions]),
                   expected_outputs=dict(action_log_probs=expected_action_log_prob_output,
                                         logits=expected_raw_logits), decimals=5)
