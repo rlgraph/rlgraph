@@ -49,19 +49,14 @@ class ActionAdapter(NeuralNetwork):
     - Reshaping (according to the action Space).
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
     """
-    def __init__(self, action_space, add_units=0, units=None, weights_spec=None, biases_spec=None, activation=None,
+    def __init__(self, action_space, units=None, weights_spec=None, biases_spec=None, activation=None,
                  pre_network_spec=None, scope="action-adapter", **kwargs):
         """
         Args:
             action_space (Space): The action Space within which this Component will create actions.
 
-            add_units (Optional[int]): An optional number of units to add to the auto-calculated number of action-
-                layer nodes. Can be negative to subtract units from the auto-calculated value.
-                NOTE: Only one of either `add_units` or `units` must be provided.
-
             units (Optional[int]): An optional number of units to use for the action-layer. If None, will calculate
                 the number of units automatically from the given action_space.
-                NOTE: Only one of either `add_units` or `units` must be provided.
 
             weights_spec (Optional[any]): An optional RLGraph Initializer spec that will be used to initialize the
                 weights of `self.action layer`. Default: None (use default initializer).
@@ -83,11 +78,11 @@ class ActionAdapter(NeuralNetwork):
         # Also generate the ReShape sub-Component and give it the new_shape.
         if isinstance(self.action_space, IntBox):
             if units is None:
-                units = add_units + self.action_space.flat_dim_with_categories
+                units = self.action_space.flat_dim_with_categories
             new_shape = self.action_space.get_shape(with_category_rank=True)
         else:
             if units is None:
-                units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
+                units = 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
             # Add moments (2x for each action item).
             if self.action_space.shape == ():
                 new_shape = (2,)
