@@ -139,14 +139,17 @@ if get_backend() == "pytorch":
         padding options like TF.
         """
         def __init__(self, in_channels, out_channels, kernel_size, bias=True, stride=1,
-                     padding_layer=torch.nn.ReflectionPad2d):
-            super().__init__()
+                     transpose=False, padding_layer=torch.nn.ReflectionPad2d):
+            super(SamePaddedConv2d, self).__init__()
             ka = kernel_size // 2
             kb = ka - 1 if kernel_size % 2 == 0 else ka
 
-            self.layer = torch.nn.Conv2d(in_channels, out_channels, kernel_size, bias=bias, stride=stride)
+            if transpose is True:
+                self.layer = torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size, bias=bias, stride=stride)
+            else:
+                self.layer = torch.nn.Conv2d(in_channels, out_channels, kernel_size, bias=bias, stride=stride)
             self.net = torch.nn.Sequential(
-                padding_layer((ka,kb,ka,kb)),
+                padding_layer((ka, kb, ka, kb)),
                 self.layer
             )
 

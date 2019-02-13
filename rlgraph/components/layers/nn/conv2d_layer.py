@@ -65,7 +65,6 @@ class Conv2DLayer(NNLayer):
 
         # At model-build time.
         self.kernel_init = None
-        # At model-build time.
         self.biases_init = None
 
     def create_variables(self, input_spaces, action_space=None):

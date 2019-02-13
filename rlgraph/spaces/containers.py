@@ -166,7 +166,7 @@ class Tuple(ContainerSpace, tuple):
     Supports nesting of other container (Dict/Tuple) spaces inside itself.
     """
     def __new__(cls, *components, **kwargs):
-        if isinstance(components[0], (list, tuple)):
+        if isinstance(components[0], (list, tuple)) and not isinstance(components[0], Tuple):
             assert len(components) == 1
             components = components[0]
 

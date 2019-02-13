@@ -98,7 +98,10 @@ class LSTMLayer(NNLayer):
 
         # Check correct tuple-internal-states format (if not None, in which case we assume all 0.0s).
         if "internal_states" in input_spaces:
-            sanity_check_space(input_spaces["internal_states"], allowed_types=[Tuple])
+            sanity_check_space(
+                input_spaces["internal_states"], allowed_types=[Tuple], must_have_batch_rank=True,
+                must_have_time_rank=False
+            )
             assert len(input_spaces["internal_states"]) == 2,\
                 "ERROR: If internal_states are provided (which is the case), an LSTMLayer requires the len of " \
                 "this Tuple to be 2 (c- and h-states). Your Space is '{}'.".format(input_spaces["internal_states"])
