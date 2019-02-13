@@ -146,6 +146,9 @@ class PyTorchExecutor(GraphExecutor):
         for result in to_return:
             if isinstance(result, dict):
                 cleaned_dict = {k: v for k, v in result.items() if v is not None}
+                for key, val in cleaned_dict.items():
+                    if isinstance(val, torch.Tensor):
+                        cleaned_dict[key] = val.detach().numpy()
                 ret.append(cleaned_dict)
             elif self.remove_batch_dims and isinstance(result, np.ndarray):
                 ret.append(np.array(np.squeeze(result)))
