@@ -133,6 +133,12 @@ class BoxSpace(Space):
     def bounds(self):
         return self.low, self.high
 
+    def tensor_backed_bounds(self):
+        if get_backend() == "pytorch":
+            return torch.tensor(self.low), torch.tensor(self.high)
+        else:
+            return self.low, self.high
+
     def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
                      time_major=None, is_python=False, local=False, **kwargs):
         add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank

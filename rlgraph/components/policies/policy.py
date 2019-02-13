@@ -384,22 +384,23 @@ class Policy(Component):
         """
         ret = FlattenedDataOp()
         for flat_key, action_space_component in self.action_space.flatten().items():
+            low, high = action_space_component.tensor_backed_bounds()
             if flat_key == "":
                 # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
                 if self.bounded_action_space[flat_key] is True:
-                    actions = (actions - self.action_space.low) / (self.action_space.high - self.action_space.low)
+                    actions = (actions - low) / (high - low)
                 if isinstance(parameters, FlattenedDataOp):
                     return self.distributions[flat_key].log_prob(parameters[flat_key], actions)
                 else:
                     return self.distributions[flat_key].log_prob(parameters, actions)
             else:
                 # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
-                actions_ = actions.flat_key_lookup(flat_key)
+                action_value = actions.flat_key_lookup(flat_key)
                 if self.bounded_action_space[flat_key] is True:
-                    actions_ = (actions_ - self.action_space.low) / \
-                               (self.action_space.high - self.action_space.low)
+                    action_value = (action_value - low) / \
+                               (high - low)
                 ret[flat_key] = self.distributions[flat_key].log_prob(
-                    parameters.flat_key_lookup(flat_key), actions_
+                    parameters.flat_key_lookup(flat_key), action_value
                 )
         return ret
 

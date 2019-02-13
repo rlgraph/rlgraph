@@ -262,7 +262,7 @@ class ActionAdapter(NeuralNetwork):
 
                     # Turn log sd into sd.
                     sd = torch.exp(log_sd)
-                    log_mean =  torch.log(mean)
+                    log_mean = torch.log(mean)
 
                     parameters = DataOpTuple([mean, sd])
                     log_probs = DataOpTuple([log_mean, log_sd])

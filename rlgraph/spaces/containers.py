@@ -57,7 +57,7 @@ class Dict(ContainerSpace, dict):
         if spec is None:
             spec = kwargs
 
-        dict_ = {}
+        space_dict = {}
         for key in sorted(spec.keys()):
             # Keys must be strings.
             if not isinstance(key, str):
@@ -70,24 +70,24 @@ class Dict(ContainerSpace, dict):
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch/time-ranks.
             if isinstance(value, Space):
                 w_batch_w_time = value.with_extra_ranks(add_batch_rank, add_time_rank, time_major)
-                dict_[key] = w_batch_w_time
+                space_dict[key] = w_batch_w_time
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                dict_[key] = Tuple(
+                space_dict[key] = Tuple(
                     *value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
                 )
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
-                dict_[key] = Space.from_spec(
+                space_dict[key] = Space.from_spec(
                     value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
                 )
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
-                dict_[key] = Dict(
+                space_dict[key] = Dict(
                     value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
                 )
 
-        dict.__init__(self, dict_)
+        dict.__init__(self, space_dict)
 
     def _add_batch_rank(self, add_batch_rank=False):
         super(Dict, self)._add_batch_rank(add_batch_rank)
