@@ -70,8 +70,6 @@ class TestPolicies(unittest.TestCase):
             logits=expected_action_layer_output, parameters=np.array(expected_parameters_output, dtype=np.float32)
         ), decimals=5)
 
-        print("Probs: {}".format(expected_parameters_output))
-
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
         test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
@@ -86,12 +84,12 @@ class TestPolicies(unittest.TestCase):
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)  # dict(action=expected_actions))
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].dtype == np.int32 or (out["action"].dtype == np.int64))
         self.assertTrue(out["action"].shape == (2,))
 
         # Deterministic sample.
         test.test(("get_deterministic_action", states), expected_outputs=None)  # dict(action=expected_actions))
-        self.assertTrue(out["action"].dtype == np.int32)
+        self.assertTrue(out["action"].dtype == np.int32 or (out["action"].dtype == np.int64))
         self.assertTrue(out["action"].shape == (2,))
 
         # Distribution's entropy.
