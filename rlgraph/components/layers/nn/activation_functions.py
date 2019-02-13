@@ -111,7 +111,7 @@ def get_activation_function(activation_function=None, *other_parameters):
         # Leaky ReLU: x * [alpha if x < 0 else 1.0]
         elif activation_function in ["lrelu", "leaky_relu"]:
             alpha = other_parameters[0] if len(other_parameters) > 0 else 0.2
-            return partial(nn.LeakyReLU(), alpha=alpha)
+            return nn.LeakyReLU(negative_slope=alpha)
         # Softmax function:
         elif activation_function == "softmax":
             return nn.Softmax()
