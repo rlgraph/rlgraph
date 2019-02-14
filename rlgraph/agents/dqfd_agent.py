@@ -97,7 +97,7 @@ class DQFDAgent(Agent):
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
-            weights="variables:{}".format(self.policy.scope),
+            policy_weights="variables:{}".format(self.policy.scope),
             time_step=int,
             use_exploration=bool,
             demo_batch_size=int,
