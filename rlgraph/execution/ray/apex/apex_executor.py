@@ -137,17 +137,6 @@ class ApexExecutor(RayExecutor):
         )
         self.init_tasks()
 
-    def test_worker_init(self):
-        """
-        Tests every worker for successful constructor call (which may otherwise fail silently.
-        """
-        for ray_worker in self.ray_env_sample_workers:
-            self.logger.info("Testing worker for successful init: {}".format(self.worker_ids[ray_worker]))
-            task = ray_worker.get_constructor_success.remote()
-            result = ray.get(task)
-            assert result is True, "ERROR: constructor failed, attribute returned: {}" \
-                                   "instead of True".format(result)
-
     def init_tasks(self):
         # Start learner thread.
         self.update_worker.start()
