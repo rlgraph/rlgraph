@@ -41,7 +41,7 @@ class TestNeuralNetworks(unittest.TestCase):
         neural_net = NeuralNetwork.from_spec(config_from_path("configs/test_simple_nn.json"))  # type: NeuralNetwork
 
         # Do not seed, we calculate expectations manually.
-        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space))
+        test = ComponentTest(component=neural_net, input_spaces=dict(nn_input=space))
 
         # Batch of size=3.
         input_ = np.array([[0.1, 0.2, 0.3], [1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
@@ -66,7 +66,7 @@ class TestNeuralNetworks(unittest.TestCase):
         neural_net.add_layer(DenseLayer(units=10, scope="last-layer"))
 
         # Do not seed, we calculate expectations manually.
-        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space))
+        test = ComponentTest(component=neural_net, input_spaces=dict(nn_input=space))
 
         # Batch of size=3.
         input_ = space.sample(3)
@@ -96,7 +96,7 @@ class TestNeuralNetworks(unittest.TestCase):
 
         # Do not seed, we calculate expectations manually.
         test = ComponentTest(component=neural_net, input_spaces=dict(
-            inputs=input_space
+            nn_input=input_space
         ))
 
         # Batch of size=2, time-steps=3.
