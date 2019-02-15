@@ -343,7 +343,7 @@ class DQFDAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None):
+    def update(self, batch=None, update_from_demos=False):
         # Should we sync the target net?
         self.steps_since_target_net_sync += self.update_spec["update_interval"]
         if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
@@ -364,9 +364,13 @@ class DQFDAgent(Agent):
                 return_ops += [3]  # 3=batch
 
             # Combine: Update from memory (apply_demo_loss=False), update_from_demo (apply=True).
-            ret = self.graph_executor.execute(("update_from_memory", False, return_ops),
-                                              ("update_from_demos", [self.demo_batch_size, True], return_ops),
-                                              sync_call)
+            # Otherwise only update from online memory.
+            if update_from_demos:
+                ret = self.graph_executor.execute(("update_from_memory", False, return_ops),
+                                                  ("update_from_demos", [self.demo_batch_size, True], return_ops),
+                                                  sync_call)
+            else:
+                ret = self.graph_executor.execute(("update_from_memory", False, return_ops), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -386,9 +390,13 @@ class DQFDAgent(Agent):
             # Add false: no demo loss.
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"], False]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops),
-                                              ("update_from_demos", [self.demo_batch_size, True], return_ops),
-                                              sync_call)
+
+            if update_from_demos:
+                ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops),
+                                                  ("update_from_demos", [self.demo_batch_size, True], return_ops),
+                                                  sync_call)
+            else:
+                ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
