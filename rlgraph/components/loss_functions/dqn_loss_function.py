@@ -195,7 +195,7 @@ class DQNLossFunction(LossFunction):
                 qt_sp_ap_values = torch.sum(qt_values_sp * one_hot, dim=-1)
             else:
                 # Qt(s',a') -> Use the max(a') value (from the target network).
-                qt_sp_ap_values = torch.max(qt_values_sp)
+                qt_sp_ap_values = torch.max(qt_values_sp, -1)[0]
 
             # Make sure the rewards vector (batch) is broadcast correctly.
             for _ in range(get_rank(qt_sp_ap_values) - 1):
