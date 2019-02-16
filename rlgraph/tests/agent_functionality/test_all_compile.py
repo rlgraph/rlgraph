@@ -106,6 +106,8 @@ class TestAllCompile(unittest.TestCase):
         """
         Tests IMPALA agent compilation (actor).
         """
+        if get_backend() == "pytorch":
+            return
         try:
             from rlgraph.environments.deepmind_lab import DeepmindLabEnv
         except ImportError:
@@ -135,6 +137,8 @@ class TestAllCompile(unittest.TestCase):
         """
         Tests IMPALA agent compilation (learner).
         """
+        if get_backend() == "pytorch":
+            return
         try:
             from rlgraph.environments.deepmind_lab import DeepmindLabEnv
         except ImportError:
