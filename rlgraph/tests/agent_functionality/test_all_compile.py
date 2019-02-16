@@ -89,6 +89,8 @@ class TestAllCompile(unittest.TestCase):
         """
         Tests IMPALA agent compilation (single-node mode).
         """
+        if get_backend() == "pytorch":
+            return
         env = GridWorld("2x2")
         agent = IMPALAAgent.from_spec(
             config_from_path("configs/impala_agent_for_2x2_gridworld.json"),
