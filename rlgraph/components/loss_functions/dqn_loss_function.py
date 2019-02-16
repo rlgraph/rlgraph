@@ -24,6 +24,7 @@ from rlgraph.spaces import IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.pytorch_util import pytorch_tile
 from rlgraph.utils.util import get_rank
 
 if get_backend() == "tf":
@@ -204,6 +205,9 @@ class DQNLossFunction(LossFunction):
             # Ignore Q(s'a') values if s' is a terminal state. Instead use 0.0 as the state-action value for s'a'.
             # Note that in that case, the next_state (s') is not the correct next state and should be disregarded.
             # See Chapter 3.4 in "RL - An Introduction" (2017 draft) by A. Barto and R. Sutton for a detailed analysis.
+            # torch.where cannot broadcast here, so tile and reshape to same shape.
+            if qt_sp_ap_values.dim() > 1:
+                terminals = pytorch_tile(terminals, qt_sp_ap_values.shape[1], -1).reshape(qt_sp_ap_values.shape)
             qt_sp_ap_values = torch.where(
                 terminals, torch.zeros_like(qt_sp_ap_values), qt_sp_ap_values
             )
