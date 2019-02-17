@@ -57,12 +57,12 @@ class PyTorchVariable(object):
                     ))
 
 
-def pytorch_one_hot(tensor, depth=0):
+def pytorch_one_hot(index_tensor, depth=0):
     """
     One-hot utility function for PyTorch.
 
     Args:
-        tensor (torch.Tensor): The input to be one-hot.
+        index_tensor (torch.Tensor): The input to be one-hot.
         depth (int): The max. number to be one-hot encoded (size of last rank).
 
     Returns:
@@ -70,22 +70,15 @@ def pytorch_one_hot(tensor, depth=0):
     """
     if get_backend() == "pytorch":
         # Do converts.
-        if isinstance(tensor, torch.FloatTensor):
-            tensor = tensor.long()
-        if isinstance(tensor, torch.IntTensor):
-            tensor = tensor.long()
-        # Un-squeeze 1d.
-        if tensor.dim() == 1:
-            tensor = tensor.unsqueeze(-1)
-        # print("one hot input: {}, dim: {}, shape {}, type {}".format(
-        #     tensor, tensor.dim(), tensor.shape, tensor.dtype
-        # ))
-        # print("tensor.shape[0]", tensor.shape[0])
-        tensor_one_hot = torch.FloatTensor(tensor.shape[0], depth)
-        tensor_one_hot.zero_()
-        tensor_one_hot.scatter_(1, tensor, 1)
+        if isinstance(index_tensor, torch.FloatTensor):
+            index_tensor = index_tensor.long()
+        if isinstance(index_tensor, torch.IntTensor):
+            index_tensor = index_tensor.long()
 
-        return tensor_one_hot
+        out = torch.zeros(index_tensor.size() + torch.Size([depth]))
+        dim = len(index_tensor.size())
+        index = index_tensor.unsqueeze(-1)
+        return out.scatter_(dim, index, 1)
 
 
 def pytorch_tile(tensor, n_tile, dim=0):
