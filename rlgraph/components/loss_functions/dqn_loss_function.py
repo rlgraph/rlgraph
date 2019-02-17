@@ -193,7 +193,7 @@ class DQNLossFunction(LossFunction):
 
                 # Now lookup Q(s'a') with the calculated a'.
                 one_hot = pytorch_one_hot(a_primes, depth=self.flat_action_space[key].num_categories)
-                qt_sp_ap_values = torch.sum(qt_values_sp * one_hot, dim=-1)
+                qt_sp_ap_values = torch.sum(qt_values_sp * one_hot.squeeze(), dim=-1)
             else:
                 # Qt(s',a') -> Use the max(a') value (from the target network).
                 qt_sp_ap_values = torch.max(qt_values_sp, -1)[0]
