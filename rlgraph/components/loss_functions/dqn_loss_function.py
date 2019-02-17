@@ -207,7 +207,8 @@ class DQNLossFunction(LossFunction):
             # See Chapter 3.4 in "RL - An Introduction" (2017 draft) by A. Barto and R. Sutton for a detailed analysis.
             # torch.where cannot broadcast here, so tile and reshape to same shape.
             if qt_sp_ap_values.dim() > 1:
-                terminals = pytorch_tile(terminals, qt_sp_ap_values.shape[1], -1).reshape(qt_sp_ap_values.shape)
+                num_tiles = np.prod(qt_sp_ap_values.shape[1:])
+                terminals = pytorch_tile(terminals, num_tiles, -1).reshape(qt_sp_ap_values.shape)
             qt_sp_ap_values = torch.where(
                 terminals, torch.zeros_like(qt_sp_ap_values), qt_sp_ap_values
             )
