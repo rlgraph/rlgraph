@@ -1026,7 +1026,7 @@ class GraphBuilder(Specifiable):
                         unflattened_ret.append(op)
 
                 # Return unflattened results.
-                return unflattened_ret
+                return unflattened_ret[0] if len(unflattened_ret) == 1 else unflattened_ret
             else:
                 # Just pass in args and kwargs because not actually flattened, with or without default key.
                 if add_auto_key_as_first_param:
