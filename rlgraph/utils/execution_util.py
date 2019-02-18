@@ -142,7 +142,7 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
                 # Append raw tensor.
             elif isinstance(arg, dict):
                 if len(arg) > 1 or "" not in arg:
-                    flattened_args.append(arg.items())
+                    flattened_args.append(arg)
                     # Use first encountered container arg.
                     if lead_container_arg is None:
                         lead_container_arg = arg
