@@ -950,6 +950,7 @@ class GraphBuilder(Specifiable):
         flatten_ops = options.pop("flatten_ops", False)
         split_ops = options.pop("split_ops", False)
         add_auto_key_as_first_param = options.pop("add_auto_key_as_first_param", False)
+        # print("################## ################## ##################")
         # print("executing graph fn", graph_fn)
         # print("raw args = ", args)
         # print("raw kwargs = ", kwargs)
@@ -993,7 +994,7 @@ class GraphBuilder(Specifiable):
                     for key, params in split_args_and_kwargs.items():
                         params_args = [p for p in params if not isinstance(p, tuple)]
                         params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
-                        ops[key] = force_tuple(graph_fn(component, *params_args, **params_kwargs))
+                        ops[key] = graph_fn(component, *params_args, **params_kwargs)
                         num_return_values = len(ops[key])
 
                     # Un-split the results dict into a tuple of `num_return_values` slots.
@@ -1003,13 +1004,16 @@ class GraphBuilder(Specifiable):
                         for key in split_args_and_kwargs.keys():
                             dict_with_singles[key] = ops[key][i]
                         un_split_ops.append(dict_with_singles)
-
                     flattened_ret = tuple(un_split_ops)
                 else:
-                    split_args = split_args_and_kwargs[0]
-                    split_kwargs = split_args_and_kwargs[1]
-                    # Args did not contain deep nested structure so
-                    flattened_ret = graph_fn(component, *split_args, **split_kwargs)
+                    if isinstance(split_args_and_kwargs, OrderedDict):
+                        flattened_ret = graph_fn(component, split_args_and_kwargs)
+                    else:
+                        # Args and kwargs tuple.
+                        split_args = split_args_and_kwargs[0]
+                        split_kwargs = split_args_and_kwargs[1]
+                        # Args did not contain deep nested structure so
+                        flattened_ret = graph_fn(component, *split_args, **split_kwargs)
 
                 # If result is a raw tensor, return as is.
                 if get_backend() == "pytorch":
