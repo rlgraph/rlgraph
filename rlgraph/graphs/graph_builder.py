@@ -995,15 +995,23 @@ class GraphBuilder(Specifiable):
                         params_args = [p for p in params if not isinstance(p, tuple)]
                         params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
                         ops[key] = graph_fn(component, *params_args, **params_kwargs)
-                        num_return_values = len(ops[key])
+                        if hasattr(ops[key], "shape"):
+                            num_return_values = 1
+                        else:
+                            num_return_values = len(ops[key])
 
                     # Un-split the results dict into a tuple of `num_return_values` slots.
                     un_split_ops = []
                     for i in range(num_return_values):
                         dict_with_singles = OrderedDict()
                         for key in split_args_and_kwargs.keys():
-                            dict_with_singles[key] = ops[key][i]
+                            # Use tensor as is.
+                            if hasattr(ops[key], "shape"):
+                                dict_with_singles[key] = ops[key]
+                            else:
+                                dict_with_singles[key] = ops[key][i]
                         un_split_ops.append(dict_with_singles)
+
                     flattened_ret = tuple(un_split_ops)
                 else:
                     if isinstance(split_args_and_kwargs, OrderedDict):
