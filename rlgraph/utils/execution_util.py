@@ -158,7 +158,7 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
             # Prep input params for a single call.
             params = [key] if add_auto_key_as_first_param is True else []
 
-            for arg in args:
+            for arg in flattened_args:
                 params.append(arg[key] if key in arg else arg[""])
 
             # Add kwarg_ops
