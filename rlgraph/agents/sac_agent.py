@@ -42,20 +42,20 @@ class SACLossFunction(LossFunction):
     @graph_fn
     def _graph_fn__critic_loss(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, rewards, terminals):
         q_min_next = tf.reduce_min(tf.concat(q_values_next_sampled, axis=1), axis=1, keepdims=True)
+        assert q_min_next.shape.as_list() == [None, 1]
         soft_state_value = q_min_next - alpha * log_probs_next_sampled
         q_target = rewards + self.discount * (1.0 - tf.cast(terminals, tf.float32)) * soft_state_value
-        q_target = tf.stop_gradient(q_target)
         total_loss = 0.0
         for i, q_value in enumerate(q_values):
-            loss = 0.5 * (q_value - q_target) ** 2
+            loss = 0.5 * (q_value - tf.stop_gradient(q_target)) ** 2
             loss = tf.identity(loss, "critic_loss_per_item_{}".format(i + 1))
             total_loss += loss
-        total_loss = tf.identity(total_loss, "critic_loss_per_item")
         return total_loss
 
     @graph_fn
     def _graph_fn__actor_loss(self, alpha, log_probs_sampled, q_values_sampled):
         q_min = tf.reduce_min(tf.concat(q_values_sampled, axis=1), axis=1, keepdims=True)
+        assert q_min.shape.as_list() == [None, 1]
         loss = alpha * log_probs_sampled - q_min
         loss = tf.identity(loss, "actor_loss_per_item")
         return loss
@@ -148,15 +148,15 @@ class SACAgentComponent(Component):
 
         q_names = ["q_{}".format(i) for i in range(len(self._q_functions))]
         self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
-        self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
+        #self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
 
         self.add_components(policy, preprocessor, memory, self._merger, self._splitter, self.loss_function,
-                            optimizer, vf_optimizer, self._q_vars_merger, self._q_vars_splitter)
+                            optimizer, vf_optimizer, self._q_vars_merger)#, self._q_vars_splitter)
         self.add_components(*self._q_functions)
         self.add_components(*self._target_q_functions)
 
         self.steps_since_last_sync = None
-        self.sync_interval = q_sync_spec.sync_interval
+        self.q_sync_spec = q_sync_spec
 
     def create_variables(self, input_spaces, action_space=None):
         self.steps_since_last_sync = self.get_variable("steps_since_last_sync", dtype="int", initializer=0)
@@ -257,20 +257,17 @@ class SACAgentComponent(Component):
     def get_losses(self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights):
         # TODO: internal states
 
-        next_sampled_actions = self._policy.get_action(preprocessed_next_states, deterministic=False)["action"]
-        log_probs_next_sampled = self._policy.get_action_log_probs(preprocessed_states, next_sampled_actions)[
-            "action_log_probs"]
+        samples_next = self._policy.get_action_and_log_prob(preprocessed_next_states, deterministic=False)
+        next_sampled_actions = samples_next["action"]
+        log_probs_next_sampled = samples_next["log_prob"]
+
         q_values_next_sampled = self._compute_q_values(
             self._target_q_functions, preprocessed_next_states, next_sampled_actions
         )
         q_values = self._compute_q_values(self._q_functions, preprocessed_states, actions)
-        sampled_actions = self._policy.get_action(preprocessed_states, deterministic=False)["action"]
-        debug_data = self._policy.get_logits_parameters_log_probs(preprocessed_states)
-        if sampled_actions.op is not None:
-            with tf.control_dependencies([tf.print("debug:", sampled_actions.op, debug_data["parameters"].op)]):
-                sampled_actions.op = tf.identity(sampled_actions.op)
-
-        log_probs_sampled = self._policy.get_action_log_probs(preprocessed_states, sampled_actions)["action_log_probs"]
+        samples = self._policy.get_action_and_log_prob(preprocessed_states, deterministic=False)
+        sampled_actions = samples["action"]
+        log_probs_sampled = samples["log_prob"]
         q_values_sampled = self._compute_q_values(self._q_functions, preprocessed_states, sampled_actions)
 
         alpha = self._graph_fn__compute_alpha()
@@ -320,21 +317,23 @@ class SACAgentComponent(Component):
         elif backend == "pytorch":
             raise NotImplementedError("TODO: pytorch support")
 
-    @rlgraph_api
+    @rlgraph_api(requires_variable_completeness=True)
+    def reset_targets(self):
+        ops = []
+        for q, target_q in zip(self._q_functions, self._target_q_functions):
+            ops.append(target_q.sync(q._variables()))
+        return tuple(ops)
+
+    @rlgraph_api(requires_variable_completeness=True)
     def sync_targets(self):
         should_sync = self._graph_fn_get__should_sync()
-        all_source_vars = [source._variables() for source in self._q_functions]
-        assign_ops = []
-        for source_vars, destination in zip(all_source_vars, self._target_q_functions):
-            assign_ops.append(destination.sync(source_vars))
-        grouped_op = self._graph_fn__group(*assign_ops)
-        return self._graph_fn__sync(should_sync, grouped_op)
+        return self._graph_fn__sync(should_sync)
 
-    @graph_fn(returns=1)
+    @graph_fn(returns=1, requires_variable_completeness=True)
     def _graph_fn_get__should_sync(self):
         if get_backend() == "tf":
             inc_op = tf.assign_add(self.steps_since_last_sync, 1)
-            should_sync = inc_op >= self.sync_interval
+            should_sync = inc_op >= self.q_sync_spec.sync_interval
 
             def reset_op():
                 op = tf.assign(self.steps_since_last_sync, 0)
@@ -342,7 +341,7 @@ class SACAgentComponent(Component):
                     return tf.no_op()
 
             sync_op = tf.cond(
-                pred=inc_op >= self.sync_interval,
+                pred=inc_op >= self.q_sync_spec.sync_interval,
                 true_fn=reset_op,
                 false_fn=tf.no_op
             )
@@ -351,24 +350,39 @@ class SACAgentComponent(Component):
         else:
             raise NotImplementedError("TODO")
 
-    @graph_fn(returns=1)
-    def _graph_fn__sync(self, should_sync, grouped_op):
+    @graph_fn(returns=1, requires_variable_completeness=True)
+    def _graph_fn__sync(self, should_sync):
+        assign_ops = []
+        tau = self.q_sync_spec.sync_tau
+        if tau != 1.0:
+            all_source_vars = [source.get_variables(collections=None, custom_scope_separator="-") for source in self._q_functions]
+            all_dest_vars = [destination.get_variables(collections=None, custom_scope_separator="-") for destination in self._target_q_functions]
+            for source_vars, dest_vars in zip(all_source_vars, all_dest_vars):
+                for (source_key, source_var), (dest_key, dest_var) in zip(sorted(source_vars.items()), sorted(dest_vars.items())):
+                    assign_ops.append(tf.assign(dest_var, tau * source_var + (1.0 - tau) * dest_var))
+        else:
+            all_source_vars = [source._variables() for source in self._q_functions]
+            for source_vars, destination in zip(all_source_vars, self._target_q_functions):
+                assign_ops.append(destination.sync(source_vars))
+        assert len(assign_ops) > 0
+        grouped_op = tf.group(assign_ops)
+
         def assign_op():
             # Make sure we are returning no_op as opposed to reference
-            with tf.control_dependencies([grouped_op, tf.print("syncing")]):
+            with tf.control_dependencies([grouped_op]):
                 return tf.no_op()
 
         cond_assign_op = tf.cond(should_sync, true_fn=assign_op, false_fn=tf.no_op)
         with tf.control_dependencies([cond_assign_op]):
             return tf.no_op()
 
-    @graph_fn(returns=1)
-    def _graph_fn__group(self, *ops):
-        return tf.group(*ops)
-
     @graph_fn
     def _graph_fn__no_op(self):
         return tf.no_op()
+
+    @rlgraph_api
+    def get_size(self):
+        return self._memory.get_size()
 
 
 class SACAgent(Agent):
@@ -435,10 +449,12 @@ class SACAgent(Agent):
 
         if value_function_sync_spec is None:
             value_function_sync_spec = SyncSpecification(
-                sync_interval=self.update_spec["sync_interval"] // self.update_spec["update_interval"]
+                sync_interval=self.update_spec["sync_interval"] // self.update_spec["update_interval"],
+                sync_tau=self.update_spec["sync_tau"] if "sync_tau" in self.update_spec else 5e-3
             )
 
         self.memory = Memory.from_spec(memory_spec)
+        print(memory_spec)
         self.root_component = SACAgentComponent(
             policy=self.policy,
             q_function=self.value_function,
@@ -521,6 +537,10 @@ class SACAgent(Agent):
 
     def update(self, batch=None):
         if batch is None:
+            size = self.graph_executor.execute(self.root_component.get_size)
+            # TODO: is this necessary?
+            if size < self.batch_size:
+                return 0.0, 0.0
             ret = self.graph_executor.execute((self.root_component.update_from_memory, [self.batch_size]))
 
             # Remove unnecessary return dicts (e.g. sync-op).
@@ -545,6 +565,7 @@ class SACAgent(Agent):
         """
         if self.preprocessing_required and len(self.preprocessor.variables) > 0:
             self.graph_executor.execute("reset_preprocessor")
+        self.graph_executor.execute(self.root_component.reset_targets)
 
     def __repr__(self):
         return "SACAgent(double_q={}, initial_alpha={})".format(self.double_q, self.initial_alpha)

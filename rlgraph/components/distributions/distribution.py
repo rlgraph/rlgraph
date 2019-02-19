@@ -85,6 +85,11 @@ class Distribution(Component):
         return self._graph_fn_draw(distribution, deterministic)
 
     @rlgraph_api
+    def sample_and_log_prob(self, parameters, deterministic=True):
+        distribution = self.get_distribution(parameters)
+        return self._graph_fn_sample_and_log_prob(distribution, deterministic)
+
+    @rlgraph_api
     def entropy(self, parameters):
         distribution = self.get_distribution(parameters)
         return self._graph_fn_entropy(distribution)
@@ -174,6 +179,12 @@ class Distribution(Component):
             return distribution.sample(seed=self.seed)
         elif get_backend() == "pytorch":
             return distribution.sample()
+
+    @graph_fn
+    def _graph_fn_sample_and_log_prob(self, distribution, deterministic):
+        actions = self._graph_fn_draw(distribution, deterministic)
+        log_probs = self._graph_fn_log_prob(distribution, actions)
+        return actions, log_probs
 
     @graph_fn
     def _graph_fn_log_prob(self, distribution, values):

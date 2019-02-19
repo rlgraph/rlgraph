@@ -260,6 +260,7 @@ class ActionAdapter(NeuralNetwork):
 
                 # Bounded -> Beta distribution.
                 else:
+                    """
                     # Stabilize both alpha and beta (currently together in parameters).
                     parameters = tf.clip_by_value(
                         logits, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
@@ -267,6 +268,18 @@ class ActionAdapter(NeuralNetwork):
                     parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
                     parameters._batch_rank = 0
                     log_probs = tf.log(parameters)
+                    log_probs._batch_rank = 0
+                    """
+                    mean, log_sd = tf.split(logits, num_or_size_splits=2, axis=-1)
+                    log_sd = tf.clip_by_value(log_sd, -20, 2)
+
+                    # Turn log sd into sd.
+                    sd = tf.exp(log_sd)
+
+                    # Merge again.
+                    parameters = tf.concat([mean, sd], axis=-1)
+                    log_probs = tf.concat([tf.log(mean), log_sd], axis=-1)
+                    parameters._batch_rank = 0
                     log_probs._batch_rank = 0
 
         elif get_backend() == "pytorch":

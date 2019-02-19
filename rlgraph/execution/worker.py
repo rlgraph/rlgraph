@@ -230,6 +230,8 @@ class Worker(Specifiable):
 
             # Interpret update interval as n time-steps or n episodes.
             self.update_mode = update_schedule.get("update_mode", "time_steps")
+        else:
+            self.updating = False
 
     def get_action(self, states, use_exploration, apply_preprocessing, extra_returns):
         if self.worker_executes_exploration:

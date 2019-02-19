@@ -23,12 +23,12 @@ from rlgraph import get_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical, Beta
+from rlgraph.components.distributions import Normal, Categorical, Beta, SquashedNormal
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.spaces.space import Space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.ops import FlattenedDataOp, flatten_op, DataOpDict, unflatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -109,11 +109,13 @@ class Policy(Component):
             # Continuous action space -> Normal distribution (each action needs mean and variance from network).
             elif isinstance(action_component, FloatBox):
                 # Unbounded -> Normal distribution.
-                if self.bounded_action_space is False:
+                if self.bounded_action_space[flat_key] is False:
                     self.distributions[flat_key] = Normal(scope="normal-{}".format(i))
                 # Bounded -> Beta distribution.
                 else:
-                    self.distributions[flat_key] = Beta(scope="beta-{}".format(i))
+                    #self.distributions[flat_key] = Beta(scope="beta-{}".format(i), low=action_component.low, high=action_component.high)
+                    self.distributions[flat_key] = SquashedNormal(scope="squashed-{}".format(i), low=action_component.low, high=action_component.high)
+                    #self.distributions[flat_key] = Normal(scope="normal-{}".format(i))
             else:
                 raise RLGraphError("ERROR: `action_component` is of type {} and not allowed in {} Component!".
                                    format(type(action_space).__name__, self.name))
@@ -335,6 +337,31 @@ class Policy(Component):
 
         return dict(entropy=entropy, last_internal_states=out["last_internal_states"])
 
+    @rlgraph_api
+    def get_action_and_log_prob(self, nn_input, internal_states=None, deterministic=None):
+        """
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
+                from the distribution in max-likelihood (deterministic) or stochastic fashion.
+
+        Returns:
+            dict:
+                `action`: The drawn action.
+                `log_prob`: The log likelihood of the drawn action.
+                `last_internal_states`: The last internal states (if NN is RNN based, otherwise: None).
+        """
+        deterministic = self.deterministic if deterministic is None else deterministic
+        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
+        action, log_prob = self._graph_fn_get_action_components_log_probs(out["parameters"], deterministic)
+
+        return dict(
+            action=action,
+            log_prob=log_prob,
+            last_internal_states=out["last_internal_states"]
+        )
+
     @graph_fn(flatten_ops={1})
     def _graph_fn_get_action_layer_outputs(self, nn_output, nn_input):
         """
@@ -431,9 +458,6 @@ class Policy(Component):
             FlattenedDataOp: A DataOpDict with the different distributions' `log_prob` outputs. Keys always correspond
                 to structure of `self.action_space`.
         """
-        # For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
-        if self.bounded_action_space[key] is True:
-            actions = (actions - self.action_space.low) / (self.action_space.high - self.action_space.low)
         return self.distributions[key].log_prob(parameters, actions)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
@@ -449,11 +473,12 @@ class Policy(Component):
             actions = self._graph_fn_get_deterministic_action_wo_distribution(logits)
         else:
             actions = self.distributions[key].draw(parameters, deterministic)
-            # If a bounded space (Beta distribution output between 0.0 and 1.0) -> scale correctly.
-            if self.bounded_action_space[key] is True:
-                actions = actions * (self.action_space.high - self.action_space.low) + self.action_space.low
 
         return actions
+
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True, returns=2)
+    def _graph_fn_get_action_components_log_probs(self, key, parameters, deterministic):
+        return self.distributions[key].sample_and_log_prob(parameters, deterministic)
 
     @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_get_deterministic_action_wo_distribution(self, logits):

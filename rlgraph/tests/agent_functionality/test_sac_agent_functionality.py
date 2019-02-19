@@ -15,9 +15,9 @@ from scipy import stats
 
 class DummyEnvironment(Environment):
     """Dummy environment, the reward is density of the gaussian at the action."""
-    def __init__(self, loc=0.5, scale=0.2, episode_length=5):
+    def __init__(self, loc=-0.5, scale=0.2, episode_length=5):
         super(DummyEnvironment, self).__init__(state_space=FloatBox(shape=(1, )),
-                                               action_space=FloatBox(shape=(1, ), low=-1.0, high=1.0))
+                                               action_space=FloatBox(shape=(1, ), low=-2.0, high=2.0))
         self.episode_length = episode_length
         self.episode_step = 0
         self.target_dist = stats.norm(loc=loc, scale=scale)
@@ -26,13 +26,44 @@ class DummyEnvironment(Environment):
         pass
 
     def reset(self):
+        print("start")
         self.episode_step = 0
         return np.random.uniform(size=(1, ))
 
     def step(self, actions, **kwargs):
         reward = self.target_dist.pdf(actions)[0]
+        print(actions, reward)
         self.episode_step += 1
         return np.random.uniform(size=(1, )), reward, self.episode_step >= self.episode_length, dict()
+
+    def __str__(self):
+        return self.__class__.__name__
+
+
+class DummyEnvironment2(Environment):
+    """Dummy environment, the reward is density of the gaussian at the action."""
+    def __init__(self, episode_length=5):
+        super(DummyEnvironment2, self).__init__(state_space=FloatBox(shape=(1, )),
+                                                action_space=FloatBox(shape=(1, ), low=-2.0, high=2.0))
+        self.episode_length = episode_length
+        self.episode_step = 0
+        self.loc = None
+
+    def seed(self, seed=None):
+        pass
+
+    def reset(self):
+        print("start")
+        self.episode_step = 0
+        self.loc = np.random.uniform(size=(1, )) * 2 - 1
+        return self.loc
+
+    def step(self, actions, **kwargs):
+        reward = stats.norm(loc=self.loc, scale=0.1).pdf(actions)[0]
+        print(self.loc[0], actions[0], reward)
+        self.episode_step += 1
+        self.loc = np.random.uniform(size=(1,)) * 2 - 1
+        return self.loc, reward, self.episode_step >= self.episode_length, dict()
 
     def __str__(self):
         return self.__class__.__name__
@@ -257,17 +288,18 @@ class TestSACAgentFunctionality(unittest.TestCase):
         np.testing.assert_allclose(np.mean(action_sample), true_mean, atol=0.1)
 
     def test_sac_agent(self):
-        env = DummyEnvironment(episode_length=5)
+        env = DummyEnvironment2(episode_length=5)
         agent = SACAgent(
+            discount=0.99,
             state_space=env.state_space,
             action_space=env.action_space,
             memory_spec=ReplayMemory(capacity=1000),
-            value_function_sync_spec=SyncSpecification(sync_interval=10),
             update_spec={
                 "update_mode": "time_steps",
                 "do_updates": True,
                 "update_interval": 1,
-                "sync_interval": 20,
+                "sync_interval": 1,
+                "sync_tau": 0.05,
                 "batch_size": 100,
                 "num_iterations": 1
             },
@@ -277,6 +309,12 @@ class TestSACAgentFunctionality(unittest.TestCase):
                     "units": 8,
                     "activation": "tanh",
                     "scope": "hidden1"
+                },
+                {
+                    "type": "dense",
+                    "units": 8,
+                    "activation": "tanh",
+                    "scope": "hidden2"
                 }
             ],
             value_function_spec=[
@@ -285,6 +323,12 @@ class TestSACAgentFunctionality(unittest.TestCase):
                     "units": 8,
                     "activation": "tanh",
                     "scope": "vf-hidden1"
+                },
+                {
+                    "type": "dense",
+                    "units": 8,
+                    "activation": "tanh",
+                    "scope": "vf-hidden2"
                 }
             ],
             optimizer_spec={
@@ -295,7 +339,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 "type": "adam",
                 "learning_rate": 3e-3
             },
-            initial_alpha=0.1
+            initial_alpha=.01
         )
 
         rewards = []
@@ -305,6 +349,6 @@ class TestSACAgentFunctionality(unittest.TestCase):
             rewards.append(reward)
 
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, episode_finish_callback=episode_finish_callback)
-        worker.execute_episodes(num_episodes=2000)
+        worker.execute_episodes(num_episodes=500)
 
         assert np.mean(rewards[:100]) < np.mean(rewards[-100:])
