@@ -26,8 +26,6 @@ python dqn_cartpole.py
 ```
 """
 
-import json
-import os
 import sys
 
 import numpy as np
@@ -37,6 +35,7 @@ from absl import flags
 from rlgraph.agents import Agent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution import SingleThreadedWorker
+from rlgraph.utils.config_util import read_config_file
 
 
 FLAGS = flags.FLAGS
@@ -52,9 +51,7 @@ def main(argv):
     except flags.Error as e:
         print('%s\\nUsage: %s ARGS\\n%s' % (e, sys.argv[0], FLAGS))
 
-    agent_config_path = os.path.join(os.getcwd(), FLAGS.config)
-    with open(agent_config_path, 'rt') as fp:
-        agent_config = json.load(fp)
+    agent_config = read_config_file(FLAGS.config)
 
     env = OpenAIGymEnv.from_spec({
         "type": "openai",
