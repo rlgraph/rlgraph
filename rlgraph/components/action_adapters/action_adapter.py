@@ -84,10 +84,15 @@ class ActionAdapter(NeuralNetwork):
         assert (self.action_space is None) != (self.final_shape is None),\
             "ERROR: Exactly one of `action_space` or `final_shape` must be provided!"
 
+        # Calculate the number of nodes in the action layer (DenseLayer object) depending on our `self.action_space`
         if self.final_shape is None:
-            # Calculate the number of nodes in the action layer (DenseLayer object) depending on our `self.action_space`
+            # IntBoxes -> Categorical.
             if isinstance(self.action_space, IntBox):
                 self.final_shape = self.action_space.get_shape(with_category_rank=True)
+            # BoolBoxes translate to single nodes (per output), which represent Bernoulli distribution parameters (p).
+            elif isinstance(self.action_space, BoolBox):
+                self.final_shape = self.action_space.get_shape()
+            # FloatBoxes.
             else:
                 # Two slots for each action-component (mean and log sd).
                 if self.action_space.shape == ():
@@ -211,6 +216,14 @@ class ActionAdapter(NeuralNetwork):
                 log_probs = tf.log(x=parameters)
                 log_probs._batch_rank = 0
 
+            # Bool actions -> Sigmoid (p for Bernoulli).
+            elif isinstance(self.action_space, BoolBox):
+                parameters = tf.nn.sigmoid(logits, axis=-1)
+                parameters._batch_rank = 0
+                # Log probs.
+                log_probs = tf.log(x=parameters)
+                log_probs._batch_rank = 0
+
             # Continuous actions.
             elif isinstance(self.action_space, FloatBox):
                 # Unbounded -> Normal distribution.
@@ -254,6 +267,13 @@ class ActionAdapter(NeuralNetwork):
                 parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
                 # Log probs.
                 log_probs = torch.log(parameters)
+
+            # Bool actions -> Sigmoid (p for Bernoulli).
+            elif isinstance(self.action_space, BoolBox):
+                parameters = torch.sigmoid(logits, dim=-1)
+                # Log probs.
+                log_probs = torch.log(parameters)
+
             elif isinstance(self.action_space, FloatBox):
                 # Unbounded -> Normal distribution.
                 if self.action_space.unbounded:
