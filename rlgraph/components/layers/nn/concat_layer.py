@@ -34,15 +34,20 @@ class ConcatLayer(NNLayer):
     A simple concatenation layer wrapper. The ConcatLayer is a Layer without sub-components but with n
     api_methods and 1 output, where input data is concatenated into one output by its GraphFunction.
     """
-    def __init__(self, axis=-1, scope="concat-layer", **kwargs):
+    def __init__(self, axis=-1, dict_keys=None, scope="concat-layer", **kwargs):
         """
         Args:
             axis (int): The axis along which to concatenate. Use negative numbers to count from end.
                 All api_methods to this layer must have the same shape, except for the `axis` rank.
                 Default: -1.
+
+            dict_keys (Optional[List[str]]): An optional list of dict keys to use to retrieve input data from an
+                incoming dict (instead of a tuple series of inputs).
         """
         super(ConcatLayer, self).__init__(scope=scope, **kwargs)
+
         self.axis = axis
+        self.dict_keys = dict_keys
 
         # Whether input spaces are time-major or not.
         self.time_major = None
@@ -50,11 +55,15 @@ class ConcatLayer(NNLayer):
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
         # Make sure all inputs have the same shape except for the last rank.
-        self.in_space_0 = input_spaces["inputs[0]"]
+        if self.dict_keys:
+            self.in_space_0 = input_spaces["input_dict[{}]".format(self.dict_keys[0])]
+        else:
+            self.in_space_0 = input_spaces["inputs[0]"]
         self.time_major = self.in_space_0.time_major
+        # Loop through either all args or all kwargs Spaces.
         idx = 0
-        while True:
-            key = "inputs[{}]".format(idx)
+        while self.dict_keys is None or len(self.dict_keys) > idx:
+            key = "inputs[{}]".format(idx) if self.dict_keys is None else "input_dict[{}]".format(self.dict_keys[idx])
             if key not in input_spaces:
                 break
             # Make sure the shapes match (except for last rank).
@@ -65,7 +74,11 @@ class ConcatLayer(NNLayer):
             idx += 1
 
     @rlgraph_api
-    def _graph_fn_apply(self, *inputs):
+    def _graph_fn_apply(self, *inputs, **input_dict):
+        # Simple translation from dict to tuple-input.
+        if self.dict_keys is not None:
+            inputs = [input_dict[key] for key in self.dict_keys]
+
         if get_backend() == "tf":
             concat_output = tf.concat(values=inputs, axis=self.axis)
             # Add batch/time-rank information.

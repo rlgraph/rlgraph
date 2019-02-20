@@ -22,9 +22,9 @@ import numpy as np
 
 from rlgraph.components.layers.nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer, MaxPool2DLayer, \
     LSTMLayer, ResidualLayer, LocalResponseNormalizationLayer
-from rlgraph.spaces import FloatBox
+from rlgraph.spaces import FloatBox, Dict
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.numpy import sigmoid, relu, lstm_layer, dense_layer
+from rlgraph.utils.numpy import sigmoid, relu, lstm_layer
 
 
 class TestNNLayer(unittest.TestCase):
@@ -152,7 +152,6 @@ class TestNNLayer(unittest.TestCase):
         expected = np.array(calculated)
         test.test(("apply", input_), expected_outputs=expected)
 
-
     def test_concat_layer(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
         space0 = FloatBox(shape=(2, 3), add_batch_rank=True)
@@ -172,6 +171,22 @@ class TestNNLayer(unittest.TestCase):
                               [4.0, 5.0, 6.0, 2.0, 3.2, 4.2]],
                              [[1.1, 2.1, 3.1, 3.0, 1.3, 2.3],
                               [4.1, 5.1, 6.1, 4.0, 3.3, 4.3]]], dtype=np.float32)
+        test.test(("apply", inputs), expected_outputs=expected)
+
+    def test_concat_layer_with_dict_input(self):
+        # Spaces must contain batch dimension (otherwise, NNlayer will complain).
+        input_space = Dict({
+            "a": FloatBox(shape=(2, 3)),
+            "b": FloatBox(shape=(2, 1)),
+            "c": FloatBox(shape=(2, 2)),
+        }, add_batch_rank=True)
+
+        concat_layer = ConcatLayer(dict_keys=["c", "a", "b"])  # some crazy order
+        test = ComponentTest(component=concat_layer, input_spaces=dict(input_dict=input_space))
+
+        # Batch of n samples to concatenate.
+        inputs = input_space.sample(4)
+        expected = np.concatenate((inputs["c"], inputs["a"], inputs["b"]), axis=-1)
         test.test(("apply", inputs), expected_outputs=expected)
 
     def test_residual_layer(self):

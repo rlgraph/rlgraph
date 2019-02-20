@@ -265,8 +265,8 @@ class Component(Specifiable):
                 if self.api_method_inputs[input_name] is None:
                     self.input_complete = False
                     return False
-                # OR: API-method has a var-positional parameter: Check whether it has been called at least once (in
-                # which case we have Space information stored under "*args[0]").
+                # API-method has a var-positional parameter (*args): Check whether it has been called at
+                # least once (in which case we have Space information stored under "args[0]").
                 elif self.api_method_inputs[input_name] == "*flex":
                     # Check all keys "input_name[n]" for any None. If one None found -> input incomplete.
                     idx = 0
@@ -284,6 +284,15 @@ class Component(Specifiable):
                             self.input_complete = False
                             return False
                         idx += 1
+                # API-method has **kwargs parameters: Check whether it has been called at
+                # least once (in which case we have Space information stored under "kwargs['some key']").
+                elif self.api_method_inputs[input_name] == "**flex":
+                    keys = [k for k in self.api_method_inputs if re.match(r'{}\['.format(input_name), k)]
+                    # Check all keys "input_name[n]" for any None. If one None found -> input incomplete.
+                    for key in keys:
+                        if self.api_method_inputs[key] is None:
+                            self.input_complete = False
+                            return False
         return True
 
     def check_variable_completeness(self):

@@ -850,7 +850,8 @@ class GraphBuilder(Specifiable):
             params = []
             return_ops = None
             if isinstance(api_method_call, (list, tuple)):
-                params = force_list(api_method_call[1])
+                params = force_list(api_method_call[1]) if not isinstance(api_method_call[1], dict) else \
+                    [v for k, v in sorted(api_method_call[1].items())]
                 return_ops = force_list(api_method_call[2]) if len(api_method_call) > 2 and \
                                                                api_method_call[2] is not None else None
                 api_method_call = api_method_call[0]
