@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
-from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
+from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
 from rlgraph.utils.ops import DataOpTuple
