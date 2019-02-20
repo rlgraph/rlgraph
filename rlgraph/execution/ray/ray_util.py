@@ -20,6 +20,7 @@ from __future__ import print_function
 import os
 import base64
 import numpy as np
+from six import string_types
 from rlgraph import get_distributed_backend
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
@@ -156,13 +157,14 @@ def split_local_non_local_agents(ray_agents):
 def ray_compress(data):
     data = pyarrow.serialize(data).to_buffer().to_pybytes()
     data = lz4.frame.compress(data)
-    data = base64.b64encode(data)
-
+    # Unclear why ascii decoding.
+    data = base64.b64encode(data).decode("ascii")
+    # data = base64.b64encode(data)
     return data
 
 
 def ray_decompress(data):
-    if isinstance(data, bytes):
+    if isinstance(data, bytes) or isinstance(data, string_types):
         data = base64.b64decode(data)
         data = lz4.frame.decompress(data)
         data = pyarrow.deserialize(data)
