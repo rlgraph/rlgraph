@@ -185,6 +185,8 @@ class DataOpRecordColumn(object):
         kwargs = {}
         for op_rec in self.op_records:
             if op_rec.kwarg is None:
+                if op_rec.position > len(args):
+                    args += [None] * (op_rec.position - len(args))
                 args.append(op_rec)
             else:
                 kwargs[op_rec.kwarg] = op_rec

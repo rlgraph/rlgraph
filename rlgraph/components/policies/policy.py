@@ -73,11 +73,13 @@ class Policy(Component):
         else:
             self.action_space = Space.from_spec(action_space)
             for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
-                if action_adapter_spec is not None:
+                if isinstance(action_adapter_spec, dict):
                     aa_spec = action_adapter_spec.get(flat_key, action_adapter_spec)
                     aa_spec["action_space"] = action_component
-                else:
+                elif not isinstance(action_adapter_spec, ActionAdapter):
                     aa_spec = dict(action_space=action_component)
+                else:
+                    aa_spec = action_adapter_spec
                 self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
 
         self.deterministic = deterministic
