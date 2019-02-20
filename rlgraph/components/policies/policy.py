@@ -20,13 +20,12 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_errors import RLGraphError
-from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical, Beta
+from rlgraph.components.distributions import Normal, Categorical, Beta, Bernoulli
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
-from rlgraph.spaces.space import Space
+from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import FlattenedDataOp, DataOpDict
 
@@ -108,6 +107,8 @@ class Policy(Component):
         for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
             if isinstance(action_component, IntBox):
                 self.distributions[flat_key] = Categorical(scope="categorical-{}".format(i))
+            elif isinstance(action_component, BoolBox):
+                self.distributions[flat_key] = Bernoulli(scope="bernoulli-{}".format(i))
             # Continuous action space -> Normal distribution (each action needs mean and variance from network).
             elif isinstance(action_component, FloatBox):
                 # Unbounded -> Normal distribution.
@@ -117,8 +118,10 @@ class Policy(Component):
                 else:
                     self.distributions[flat_key] = Beta(scope="beta-{}".format(i))
             else:
-                raise RLGraphError("ERROR: `action_component` is of type {} and not allowed in {} Component!".
-                                   format(type(action_space).__name__, self.name))
+                raise RLGraphError(
+                    "ERROR: `action_component` is of type {} and not allowed in {} Component!".
+                    format(type(action_component).__name__, self.name)
+                )
 
         self.add_components(
             *[self.neural_network] + list(self.action_adapters.values()) + list(self.distributions.values())
@@ -421,6 +424,12 @@ class Policy(Component):
                     ret[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(
                         logits.flat_key_lookup(flat_key)
                     )
+            elif isinstance(action_space_component, BoolBox) and \
+                    (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
+                if flat_key == "":
+                    return tf.greater(logits, 0.5)
+                else:
+                    ret[flat_key] = tf.greater(logits.flat_key_lookup(flat_key), 0.5)
             else:
                 if flat_key == "":
                     # Still wrapped as FlattenedDataOp.
