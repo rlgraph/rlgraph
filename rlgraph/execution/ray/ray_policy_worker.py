@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from copy import deepcopy
 import numpy as np
+from rlgraph.utils import util
 from six.moves import xrange as range_
 import time
 
@@ -54,7 +55,8 @@ class RayPolicyWorker(RayActor):
         self.env_frame_skip = env_spec.get("frameskip", 1)
         # Worker computes weights for prioritized sampling.
         worker_spec = deepcopy(worker_spec)
-        self.worker_sample_size = worker_spec.pop("worker_sample_size")
+        self.num_environments = worker_spec.pop("num_worker_environments", 1)
+        self.worker_sample_size = worker_spec.pop("worker_sample_size") * self.num_environments
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
 
         # Use GAE.
@@ -62,7 +64,6 @@ class RayPolicyWorker(RayActor):
         self.gae_lambda = worker_spec.pop("gae_lambda", 1.0)
         self.compress = worker_spec.pop("compress_states", False)
 
-        self.num_environments = worker_spec.pop("num_worker_environments", 1)
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         self.auto_build = auto_build
         num_background_envs = worker_spec.pop("num_background_envs", 1)
@@ -420,7 +421,9 @@ class RayPolicyWorker(RayActor):
             )
 
         if self.compress:
-            states = [ray_compress(state) for state in states]
+            env_dtype = self.vector_env.state_space.dtype
+            states = [ray_compress(np.asarray(state, dtype=util.convert_dtype(dtype=env_dtype, to='np')))
+                      for state in states]
         return dict(
             states=states,
             actions=actions,

@@ -24,6 +24,7 @@ from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, RingB
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
+from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import strip_list
 
@@ -259,6 +260,8 @@ class ActorCriticAgent(Agent):
             if sequence_indices is None:
                 sequence_indices = batch["terminals"]
 
+            pps_dtype = self.preprocessed_state_space.dtype
+            batch["states"] = np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np'))
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices]
 
             # Execute post-processing or already post-processed by workers?
