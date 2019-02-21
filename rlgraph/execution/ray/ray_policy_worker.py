@@ -55,7 +55,8 @@ class RayPolicyWorker(RayActor):
         self.env_frame_skip = env_spec.get("frameskip", 1)
         # Worker computes weights for prioritized sampling.
         worker_spec = deepcopy(worker_spec)
-        self.worker_sample_size = worker_spec.pop("worker_sample_size")
+        self.num_environments = worker_spec.pop("num_worker_environments", 1)
+        self.worker_sample_size = worker_spec.pop("worker_sample_size") * self.num_environments
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
 
         # Use GAE.
@@ -63,7 +64,6 @@ class RayPolicyWorker(RayActor):
         self.gae_lambda = worker_spec.pop("gae_lambda", 1.0)
         self.compress = worker_spec.pop("compress_states", False)
 
-        self.num_environments = worker_spec.pop("num_worker_environments", 1)
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         self.auto_build = auto_build
         num_background_envs = worker_spec.pop("num_background_envs", 1)
