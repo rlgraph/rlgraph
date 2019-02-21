@@ -24,6 +24,7 @@ from rlgraph.agents import Agent
 from rlgraph.components import ContainerMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
+from rlgraph.utils import util
 from rlgraph.utils.util import strip_list
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -425,6 +426,8 @@ class PPOAgent(Agent):
             if sequence_indices is None:
                 sequence_indices = batch["terminals"]
 
+            pps_dtype = self.preprocessed_state_space.dtype
+            batch["states"] = np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np'))
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            sequence_indices, apply_postprocessing]
 

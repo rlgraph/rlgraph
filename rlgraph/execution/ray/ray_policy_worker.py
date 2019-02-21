@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from copy import deepcopy
 import numpy as np
+from rlgraph.utils import util
 from six.moves import xrange as range_
 import time
 
@@ -420,7 +421,9 @@ class RayPolicyWorker(RayActor):
             )
 
         if self.compress:
-            states = [ray_compress(state) for state in states]
+            env_dtype = self.vector_env.state_space.dtype
+            states = [ray_compress(np.asarray(state, dtype=util.convert_dtype(dtype=env_dtype, to='np')))
+                      for state in states]
         return dict(
             states=states,
             actions=actions,
