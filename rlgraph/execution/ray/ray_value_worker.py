@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from copy import deepcopy
 import numpy as np
+from rlgraph.utils import util
 from six.moves import xrange as range_
 import time
 
@@ -56,10 +57,12 @@ class RayValueWorker(RayActor):
         self.env_frame_skip = env_spec.get("frameskip", 1)
         # Worker computes weights for prioritized sampling.
         worker_spec = deepcopy(worker_spec)
-        self.worker_sample_size = worker_spec.pop("worker_sample_size")
+        self.num_environments = worker_spec.pop("num_worker_environments", 1)
+
+        # Make sample size proportional to num envs.
+        self.worker_sample_size = worker_spec.pop("worker_sample_size") * self.num_environments
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
-        self.num_environments = worker_spec.pop("num_worker_environments", 1)
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         self.auto_build = auto_build
         num_background_envs = worker_spec.pop("num_background_envs", 1)
@@ -536,16 +539,19 @@ class RayValueWorker(RayActor):
                 )
             )
             weights = np.abs(loss_per_item) + SMALL_NUMBER
+        env_dtype = self.vector_env.state_space.dtype
+        compressed_states = [ray_compress(np.asarray(state, dtype=util.convert_dtype(dtype=env_dtype, to='np')))
+                             for state in states]
 
-        compressed_states = [ray_compress(state) for state in states]
-        compressed_next_states = compressed_states[self.n_step_adjustment:] + [ray_compress(next_s) for next_s in
-                                                   next_states[-self.n_step_adjustment:]]
+        compressed_next_states = compressed_states[self.n_step_adjustment:] + \
+                                 [ray_compress(np.asarray(next_s,dtype=util.convert_dtype(dtype=env_dtype, to='np')))
+                                  for next_s in next_states[-self.n_step_adjustment:]]
         return dict(
-            states=np.array(compressed_states),
+            states=compressed_states,
             actions=np.array(actions),
             rewards=np.array(rewards),
             terminals=np.array(terminals),
-            next_states=np.array(compressed_next_states),
+            next_states=compressed_next_states,
             importance_weights=np.array(weights)
         ), len(rewards)
 

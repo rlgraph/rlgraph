@@ -17,7 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 from rlgraph.agents import DQNAgent
+from rlgraph.utils import util
 
 
 class ApexAgent(DQNAgent):
@@ -70,8 +72,12 @@ class ApexAgent(DQNAgent):
             return ret[1]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"], True]
+            pps_dtype = self.preprocessed_state_space.dtype
+            batch_input = [np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
+                           batch["actions"],
+                           batch["rewards"], batch["terminals"],
+                           np.asarray(batch["next_states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
+                           batch["importance_weights"]]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
