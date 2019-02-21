@@ -299,12 +299,9 @@ class SingleThreadedWorker(Worker):
                 if self.worker_executes_preprocessing and self.preprocessors[env_id] is not None:
                     #next_state = self.agent.state_space.force_batch(env_states[i])
                     next_states[i] = np.array(self.preprocessors[env_id].preprocess(env_states[i]))  # next_state
-                # TODO: If worker does not execute preprocessing, next state is not preprocessed here.
-                # Observe per environment.
-                self.agent.observe(
-                    preprocessed_states=preprocessed_states[i], actions=env_actions[i], internals=[],
-                    rewards=env_rewards[i], next_states=next_states[i],
-                    terminals=episode_terminals[i], env_id=self.env_ids[i]
+                self._observe(
+                    self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],
+                    episode_terminals[i]
                 )
             self.update_if_necessary()
             timesteps_executed += self.num_environments
@@ -367,3 +364,13 @@ class SingleThreadedWorker(Worker):
         self.logger.info("Final episode reward: {}".format(results['final_episode_reward']))
 
         return results
+
+    def _observe(self, env_ids, states, actions, rewards, next_states, terminals):
+        # TODO: If worker does not execute preprocessing, next state is not preprocessed here.
+        # Observe per environment.
+        self.agent.observe(
+            preprocessed_states=states, actions=actions, internals=[],
+            rewards=rewards, next_states=next_states,
+            terminals=terminals, env_id=env_ids
+        )
+

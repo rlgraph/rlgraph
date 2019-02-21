@@ -214,11 +214,11 @@ class Worker(Specifiable):
                 how many steps to perform before beginning to update.
         """
         if update_schedule is not None:
-            self.updating = True
-            self.steps_before_update = update_schedule['steps_before_update']
-            self.update_interval = update_schedule['update_interval']
-            self.update_steps = update_schedule['update_steps']
-            self.sync_interval = update_schedule['sync_interval']
+            self.updating = update_schedule["do_updates"]
+            self.steps_before_update = update_schedule["steps_before_update"]
+            self.update_interval = update_schedule["update_interval"]
+            self.update_steps = update_schedule["update_steps"]
+            self.sync_interval = update_schedule["sync_interval"]
 
             # Interpret update interval as n time-steps or n episodes.
             self.update_mode = update_schedule.get("update_mode", "time_steps")

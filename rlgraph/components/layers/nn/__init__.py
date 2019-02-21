@@ -29,14 +29,21 @@ from rlgraph.components.layers.nn.local_response_normalization_layer import Loca
 
 NNLayer.__lookup_classes__ = dict(
     concat=ConcatLayer,
+    concatlayer=ConcatLayer,
     conv2d=Conv2DLayer,
+    conv2dlayer=Conv2DLayer,
     dense=DenseLayer,
-    fc=DenseLayer,  # alias
-    #dueling=DuelingLayer,
+    denselayer=DenseLayer,
+    fc=DenseLayer,
+    fclayer=DenseLayer,
     lstm=LSTMLayer,
+    lstmlayer=LSTMLayer,
     maxpool2d=MaxPool2DLayer,
+    maxpool2dlayer=MaxPool2DLayer,
     residual=ResidualLayer,
-    localresponsenormalization=LocalResponseNormalizationLayer
+    residuallayer=ResidualLayer,
+    localresponsenormalization=LocalResponseNormalizationLayer,
+    localresponsenormalizationlayer=LocalResponseNormalizationLayer
 )
 
 __all__ = ["NNLayer"] + list(set(map(lambda x: x.__name__, NNLayer.__lookup_classes__.values())))
