@@ -847,55 +847,58 @@ class GraphBuilder(Specifiable):
             if api_method_call is None:
                 continue
 
+            api_method_name = api_method_call
             params = []
             return_ops = None
+
+            # Call is defined by a list/tuple of [method], [input params], [return_ops]?
             if isinstance(api_method_call, (list, tuple)):
+                api_method_name = api_method_call[0] if not callable(api_method_call[0]) else \
+                    api_method_call[0].__name__
                 params = force_list(api_method_call[1]) if not isinstance(api_method_call[1], dict) else \
                     [v for k, v in sorted(api_method_call[1].items())]
                 return_ops = force_list(api_method_call[2]) if len(api_method_call) > 2 and \
                                                                api_method_call[2] is not None else None
-                api_method_call = api_method_call[0]
-
+            # Allow passing the function directly
             if callable(api_method_call):
-                # Allow passing the function directly
-                api_method_call = api_method_call.__name__
+                api_method_name = api_method_call.__name__
 
-            if api_method_call not in self.api:
-                raise RLGraphError("No API-method with name '{}' found!".format(api_method_call))
+            if api_method_name not in self.api:
+                raise RLGraphError("No API-method with name '{}' found!".format(api_method_name))
 
             # API returns a dict.
-            if len(self.api[api_method_call][1]) > 0 and self.api[api_method_call][1][0].kwarg is not None:
-                fetch_dict[api_method_call] = {op_rec.kwarg: op_rec.op for op_rec in self.api[api_method_call][1] if
+            if len(self.api[api_method_name][1]) > 0 and self.api[api_method_name][1][0].kwarg is not None:
+                fetch_dict[api_method_name] = {op_rec.kwarg: op_rec.op for op_rec in self.api[api_method_name][1] if
                                                return_ops is None or op_rec.kwarg in return_ops}
                 if return_ops is not None:
-                    assert all(op in fetch_dict[api_method_call] for op in return_ops),\
+                    assert all(op in fetch_dict[api_method_name] for op in return_ops),\
                         "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
                         return_ops)
             # API returns a tuple.
             else:
-                fetch_dict[api_method_call] = [op_rec.op for i, op_rec in enumerate(self.api[api_method_call][1]) if
+                fetch_dict[api_method_name] = [op_rec.op for i, op_rec in enumerate(self.api[api_method_name][1]) if
                                                return_ops is None or i in return_ops]
                 if return_ops is not None:
-                    assert len(fetch_dict[api_method_call]) == len(return_ops),\
+                    assert len(fetch_dict[api_method_name]) == len(return_ops),\
                         "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
                         return_ops)
 
             for i, param in enumerate(params):
                 if param is None:
-                    assert len(self.api[api_method_call][0]) == i, \
+                    assert len(self.api[api_method_name][0]) == i, \
                         "ERROR: More input params given ({}) than expected ({}) for call to '{}'!". \
-                        format(len(params), len(self.api[api_method_call][0]), api_method_call)
+                        format(len(params), len(self.api[api_method_name][0]), api_method_name)
                     break
 
                 # TODO: What if len(params) < len(self.api[api_method][0])?
                 # Need to handle default API-method params also for the root-component (this one).
-                if len(self.api[api_method_call][0]) <= i:
+                if len(self.api[api_method_name][0]) <= i:
                     raise RLGraphError(
                         "API-method with name '{}' only has {} input parameters! You passed in "
-                        "{}.".format(api_method_call, len(self.api[api_method_call][0]), len(params))
+                        "{}.".format(api_method_name, len(self.api[api_method_name][0]), len(params))
                     )
 
-                placeholder = self.api[api_method_call][0][i].op  # 0=input op-recs; i=ith input op-rec
+                placeholder = self.api[api_method_name][0][i].op  # 0=input op-recs; i=ith input op-rec
                 if isinstance(placeholder, ContainerDataOp):
                     flat_placeholders = flatten_op(placeholder)
                     for flat_key, value in flatten_op(param).items():
