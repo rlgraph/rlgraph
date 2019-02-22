@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.spaces import Tuple
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.components.action_adapters import SquashedNormalAdapter
 
 
 if get_backend() == "tf":
@@ -34,8 +34,7 @@ EPS = 1e-6
 
 class SquashedNormal(Distribution):
     """
-    A Gaussian Normal distribution object defined by a tuple: mean, variance,
-    which is the same as "loc_and_scale".
+    A Squashed with tanh Normal distribution object defined by a tuple: mean, standard deviation.
     """
     def __init__(self, scope="squashed-normal", low=-1.0, high=1.0, **kwargs):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
@@ -106,7 +105,6 @@ class SquashedNormal(Distribution):
             action = tf.tanh(raw_action)
             log_prob = distribution.log_prob(raw_action)
             log_prob -= tf.reduce_sum(tf.log(1 - action ** 2 + EPS), axis=1, keepdims=True)
-            print(log_prob)
             scaled_action = (action + 1) / 2 * (self.high - self.low) + self.low
             return scaled_action, log_prob
         elif get_backend() == "pytorch":
@@ -114,4 +112,8 @@ class SquashedNormal(Distribution):
                 raw_action = distribution.mean()
             else:
                 raw_action = distribution.sample()
+            # TODO: ...
             raise NotImplementedError
+
+    def get_action_adapter_type(self):
+        return SquashedNormalAdapter

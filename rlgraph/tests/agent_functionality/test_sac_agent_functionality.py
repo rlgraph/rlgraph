@@ -5,7 +5,7 @@ import numpy as np
 from rlgraph.utils import root_logger
 from rlgraph.tests import ComponentTest
 from rlgraph.agents.sac_agent import SACLossFunction, SACAgentComponent, SyncSpecification, SACAgent
-from rlgraph.spaces import FloatBox, BoolBox, Tuple, IntBox
+from rlgraph.spaces import FloatBox, BoolBox, Tuple, IntBox, Dict
 from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
     Synchronizable
 from rlgraph.environments import Environment
@@ -15,58 +15,34 @@ from scipy import stats
 
 class DummyEnvironment(Environment):
     """Dummy environment, the reward is density of the gaussian at the action."""
-    def __init__(self, loc=-0.5, scale=0.2, episode_length=5):
+    def __init__(self, episode_length=5, scale=0.1):
         super(DummyEnvironment, self).__init__(state_space=FloatBox(shape=(1, )),
                                                action_space=FloatBox(shape=(1, ), low=-2.0, high=2.0))
         self.episode_length = episode_length
         self.episode_step = 0
-        self.target_dist = stats.norm(loc=loc, scale=scale)
-
-    def seed(self, seed=None):
-        pass
-
-    def reset(self):
-        print("start")
-        self.episode_step = 0
-        return np.random.uniform(size=(1, ))
-
-    def step(self, actions, **kwargs):
-        reward = self.target_dist.pdf(actions)[0]
-        print(actions, reward)
-        self.episode_step += 1
-        return np.random.uniform(size=(1, )), reward, self.episode_step >= self.episode_length, dict()
-
-    def __str__(self):
-        return self.__class__.__name__
-
-
-class DummyEnvironment2(Environment):
-    """Dummy environment, the reward is density of the gaussian at the action."""
-    def __init__(self, episode_length=5):
-        super(DummyEnvironment2, self).__init__(state_space=FloatBox(shape=(1, )),
-                                                action_space=FloatBox(shape=(1, ), low=-2.0, high=2.0))
-        self.episode_length = episode_length
-        self.episode_step = 0
         self.loc = None
+        self.scale = scale
 
     def seed(self, seed=None):
         pass
 
     def reset(self):
-        print("start")
         self.episode_step = 0
         self.loc = np.random.uniform(size=(1, )) * 2 - 1
         return self.loc
 
     def step(self, actions, **kwargs):
-        reward = stats.norm(loc=self.loc, scale=0.1).pdf(actions)[0]
-        print(self.loc[0], actions[0], reward)
+        reward = stats.norm.pdf(actions, loc=self.loc, scale=self.scale)[0]
         self.episode_step += 1
         self.loc = np.random.uniform(size=(1,)) * 2 - 1
         return self.loc, reward, self.episode_step >= self.episode_length, dict()
 
     def __str__(self):
         return self.__class__.__name__
+
+    def get_max_reward(self):
+        max_reward_per_step = stats.norm(loc=0.0, scale=self.scale).pdf(0.0)
+        return self.episode_length * max_reward_per_step
 
 
 class TestSACAgentFunctionality(unittest.TestCase):
@@ -214,8 +190,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 {"type": "dense", "units": 8, "activation": "relu"},
                 {"type": "dense", "units": 8, "activation": "relu", "scope": "h2"},
                 {"type": "dense", "units": 8, "activation": "relu", "scope": "h3"}
-            ],
-            scope="q-function-1"
+            ]
         )
 
         agent_component = SACAgentComponent(
@@ -228,7 +203,8 @@ class TestSACAgentFunctionality(unittest.TestCase):
             target_entropy=None,
             optimizer=AdamOptimizer(learning_rate=1e-2, scope="policy-optimizer"),
             vf_optimizer=AdamOptimizer(learning_rate=1e-2, scope="vf-optimizer"),
-            q_sync_spec=SyncSpecification(sync_interval=10)
+            q_sync_spec=SyncSpecification(sync_interval=10, sync_tau=1.0),
+            num_q_functions=2
         )
 
         test = ComponentTest(
@@ -245,7 +221,12 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 importance_weights=FloatBox(add_batch_rank=True),
                 preprocessed_next_states=state_space.with_batch_rank(add_batch_rank=True),
                 deterministic=bool,
-                weights="variables:{}".format(policy.scope)
+                weights="variables:{}".format(policy.scope),
+                # TODO: how to provide the space for multiple component variables?
+                #q_weights=Dict(
+                #    q_0="variables:{}".format(q_function.scope),
+                #    q_1="variables:{}".format(agent_component._q_functions[1].scope),
+                #)
             ),
             action_space=action_space,
             build_kwargs=dict(
@@ -272,10 +253,8 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 state_space.sample(batch_size),
                 [1.0] * batch_size  # importance
             ]))
-            policy_loss.append(result[4])
-            values_loss.append(result[6])
-        print(policy_loss)
-        print(values_loss)
+            policy_loss.append(result["actor_loss"])
+            values_loss.append(result["critic_loss"])
 
         action_sample = np.linspace(-1, 1, batch_size)
         q_values = test.graph_executor.execute((agent_component.get_q_values, [state_space.sample(batch_size), action_sample]))
@@ -288,7 +267,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         np.testing.assert_allclose(np.mean(action_sample), true_mean, atol=0.1)
 
     def test_sac_agent(self):
-        env = DummyEnvironment2(episode_length=5)
+        env = DummyEnvironment(episode_length=5)
         agent = SACAgent(
             discount=0.99,
             state_space=env.state_space,
@@ -342,13 +321,15 @@ class TestSACAgentFunctionality(unittest.TestCase):
             initial_alpha=.01
         )
 
-        rewards = []
-
-        def episode_finish_callback(reward, **kwargs):
-            nonlocal rewards
-            rewards.append(reward)
-
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, episode_finish_callback=episode_finish_callback)
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env, agent=agent
+        )
         worker.execute_episodes(num_episodes=500)
-
+        rewards = worker.finished_episode_rewards[0]
         assert np.mean(rewards[:100]) < np.mean(rewards[-100:])
+
+        worker.execute_episodes(num_episodes=100, use_exploration=False, update_spec=None)
+        rewards = worker.finished_episode_rewards[0]
+        assert len(rewards) == 100
+        evaluation_score = np.mean(rewards)
+        assert .5 * env.get_max_reward() < evaluation_score <= env.get_max_reward()

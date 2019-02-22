@@ -7,7 +7,7 @@ import numpy as np
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.utils import RLGraphError
-from rlgraph.spaces import FloatBox, BoolBox, IntBox, Tuple
+from rlgraph.spaces import FloatBox, BoolBox, IntBox
 from rlgraph.components import Component, Synchronizable
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay, LossFunction
@@ -23,6 +23,9 @@ if get_backend() == "pytorch":
 
 
 class SACLossFunction(LossFunction):
+    """
+    TODO: docs
+    """
     def __init__(self, target_entropy=None, discount=0.99, scope="sac-loss-function", **kwargs):
         super(SACLossFunction, self).__init__(discount=discount, scope=scope, **kwargs)
         self.target_entropy = target_entropy
@@ -116,7 +119,14 @@ class SACLossFunction(LossFunction):
 
 
 class SyncSpecification(object):
+    """Describes a synchronization schedule, used to update the target value weights. The target values are gradually
+    updates using exponential moving average as suggested by the paper."""
     def __init__(self, sync_interval=None, sync_tau=None):
+        """
+        Arguments:
+            sync_interval: How often to update the target.
+            sync_tau: The smoothing constant to use in the averaging. Setting to 1 replaces the values each iteration.
+        """
         self.sync_interval = sync_interval
         self.sync_tau = sync_tau
 
@@ -131,8 +141,13 @@ class SACAgentComponent(Component):
         self._q_functions = [q_function]
         self._q_functions += [q_function.copy(scope="{}-{}".format(q_function.scope, i + 1), trainable=True)
                               for i in range(num_q_functions - 1)]
+        for q in self._q_functions:
+            # TODO: is there a better way to do this?
+            if "synchronizable" not in q.sub_components:
+                q.add_components(Synchronizable(), expose_apis="sync")
         self._target_q_functions = [q.copy(scope="target-" + q.scope, trainable=True) for q in self._q_functions]
         for target_q in self._target_q_functions:
+            # TODO: is there a better way to do this?
             if "synchronizable" not in target_q.sub_components:
                 target_q.add_components(Synchronizable(), expose_apis="sync")
         self._optimizer = optimizer
@@ -176,10 +191,15 @@ class SACAgentComponent(Component):
     def set_policy_weights(self, weights):
         return self._policy.sync(weights)
 
+    """ TODO: need to define the input space
     @rlgraph_api(must_be_complete=False)
-    def set_q_weights(self, weights):
-        #return self._value_function.sync(vf_weights)
-        return None
+    def set_q_weights(self, q_weights):
+        split_weights = self._q_vars_splitter.split(q_weights)
+        assert len(split_weights) == len(self._q_functions)
+        update_ops = [q.sync(q_weights) for q_weights, q in zip(split_weights, self._q_functions)]
+        update_ops.extend([q.sync(q_weights) for q_weights, q in zip(split_weights, self._target_q_functions)])
+        return tuple(update_ops)
+    """
 
     @rlgraph_api
     def preprocess_states(self, states):
@@ -195,17 +215,15 @@ class SACAgentComponent(Component):
         records, sample_indices, importance_weights = self._memory.get_records(batch_size)
         preprocessed_s, actions, rewards, preprocessed_s_prime, terminals = self._splitter.split(records)
 
-        actor_step_op, critic_step_op, sync_op, alpha_step_op, actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item\
-            = self.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
-            )
+        result = self.update_from_external_batch(
+            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+        )
 
-        ret = [actor_step_op, critic_step_op, sync_op, alpha_step_op, actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item]
         if isinstance(self._memory, PrioritizedReplay):
-            update_pr_step_op = self._memory.update_records(sample_indices, critic_loss_per_item)
-            ret.append(update_pr_step_op)
+            update_pr_step_op = self._memory.update_records(sample_indices, result["critic_loss_per_item"])
+            result["update_pr_step_op"] = update_pr_step_op
 
-        return tuple(ret)
+        return result
 
     @rlgraph_api
     def update_from_external_batch(self, preprocessed_states, actions, rewards, terminals,
@@ -232,8 +250,18 @@ class SACAgentComponent(Component):
 
         sync_op = self.sync_targets()
 
-        return actor_step_op, critic_step_op, sync_op, alpha_step_op, actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item,\
-            alpha_loss, alpha_loss_per_item
+        return dict(
+            actor_step_op=actor_step_op,
+            critic_step_op=critic_step_op,
+            sync_op=sync_op,
+            alpha_step_op=alpha_step_op,
+            actor_loss=actor_loss,
+            actor_loss_per_item=actor_loss_per_item,
+            critic_loss=critic_loss,
+            critic_loss_per_item=critic_loss_per_item,
+            alpha_loss=alpha_loss,
+            alpha_loss_per_item=alpha_loss_per_item
+        )
 
     def _compute_q_values(self, q_functions, states, actions):
         flat_actions = flatten_op(actions)
@@ -283,10 +311,6 @@ class SACAgentComponent(Component):
             terminals
         )
 
-    @graph_fn
-    def _graph_fn__compute_alpha(self):
-        return tf.exp(self.log_alpha)
-
     @rlgraph_api
     def get_preprocessed_state_and_action(self, states, deterministic=False):
         preprocessed_states = self._preprocessor.preprocess(states)
@@ -297,9 +321,23 @@ class SACAgentComponent(Component):
         out = self._policy.get_action(preprocessed_states, deterministic=deterministic)
         return out["action"], preprocessed_states
 
+    @rlgraph_api(requires_variable_completeness=True)
+    def reset_targets(self):
+        ops = (target_q.sync(q._variables()) for q, target_q in zip(self._q_functions, self._target_q_functions))
+        return tuple(ops)
+
+    @rlgraph_api(requires_variable_completeness=True)
+    def sync_targets(self):
+        should_sync = self._graph_fn_get__should_sync()
+        return self._graph_fn__sync(should_sync)
+
     @rlgraph_api
-    def sync_target_qnet(self):
-        pass
+    def get_memory_size(self):
+        return self._memory.get_size()
+
+    @graph_fn
+    def _graph_fn__compute_alpha(self):
+        return tf.exp(self.log_alpha)
 
     @graph_fn(returns=1)
     def _graph_fn__concat(self, *tensors):
@@ -316,18 +354,6 @@ class SACAgentComponent(Component):
             return tf.one_hot(tensor, depth=5)
         elif backend == "pytorch":
             raise NotImplementedError("TODO: pytorch support")
-
-    @rlgraph_api(requires_variable_completeness=True)
-    def reset_targets(self):
-        ops = []
-        for q, target_q in zip(self._q_functions, self._target_q_functions):
-            ops.append(target_q.sync(q._variables()))
-        return tuple(ops)
-
-    @rlgraph_api(requires_variable_completeness=True)
-    def sync_targets(self):
-        should_sync = self._graph_fn_get__should_sync()
-        return self._graph_fn__sync(should_sync)
 
     @graph_fn(returns=1, requires_variable_completeness=True)
     def _graph_fn_get__should_sync(self):
@@ -380,10 +406,6 @@ class SACAgentComponent(Component):
     def _graph_fn__no_op(self):
         return tf.no_op()
 
-    @rlgraph_api
-    def get_size(self):
-        return self._memory.get_size()
-
 
 class SACAgent(Agent):
     def __init__(self, double_q=True, initial_alpha=1.0, target_entropy=None, memory_spec=None, value_function_sync_spec=None, **kwargs):
@@ -399,7 +421,7 @@ class SACAgent(Agent):
             update_spec (dict): Here we can have sync_interval or sync_tau (for the value network update).
         """
         super(SACAgent, self).__init__(
-            policy_spec=dict(deterministic=False),
+            policy_spec=dict(deterministic=False, bounded_distribution_type="squashed"),
             name=kwargs.pop("name", "sac-agent"),
             **kwargs
         )
@@ -454,7 +476,6 @@ class SACAgent(Agent):
             )
 
         self.memory = Memory.from_spec(memory_spec)
-        print(memory_spec)
         self.root_component = SACAgentComponent(
             policy=self.policy,
             q_function=self.value_function,
@@ -537,26 +558,17 @@ class SACAgent(Agent):
 
     def update(self, batch=None):
         if batch is None:
-            size = self.graph_executor.execute(self.root_component.get_size)
+            size = self.graph_executor.execute(self.root_component.get_memory_size)
             # TODO: is this necessary?
             if size < self.batch_size:
-                return 0.0, 0.0
+                return 0.0, 0.0, 0.0
             ret = self.graph_executor.execute((self.root_component.update_from_memory, [self.batch_size]))
-
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_memory"]
         else:
             # No sequence indices means terminals are used in place.
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], batch["next_states"]]
             ret = self.graph_executor.execute((self.root_component.update_from_external_batch, batch_input))
 
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_external_batch"]
-
-        # [0] loss, [1] loss per item
-        return ret[4], ret[5]
+        return ret["actor_loss"], ret["critic_loss"], ret["alpha_loss"]
 
     def reset(self):
         """
@@ -568,4 +580,5 @@ class SACAgent(Agent):
         self.graph_executor.execute(self.root_component.reset_targets)
 
     def __repr__(self):
-        return "SACAgent(double_q={}, initial_alpha={})".format(self.double_q, self.initial_alpha)
+        return "SACAgent(double_q={}, initial_alpha={}, target_entropy={})".format(
+            self.double_q, self.initial_alpha, self.target_entropy)

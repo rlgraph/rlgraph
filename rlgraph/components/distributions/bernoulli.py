@@ -21,6 +21,7 @@ from rlgraph import get_backend
 from rlgraph.utils.util import convert_dtype
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components.distributions.distribution import Distribution
+from rlgraph.components.action_adapters import CategoricalDistributionAdapter
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -50,3 +51,5 @@ class Bernoulli(Distribution):
     def _graph_fn_sample_deterministic(self, distribution):
         return distribution.prob(True) >= 0.5
 
+    def get_action_adapter_type(self):
+        return CategoricalDistributionAdapter
