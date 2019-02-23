@@ -22,14 +22,16 @@ from rlgraph.components.distributions.bernoulli import Bernoulli
 from rlgraph.components.distributions.beta import Beta
 from rlgraph.components.distributions.categorical import Categorical
 from rlgraph.components.distributions.normal import Normal
+from rlgraph.components.distributions.squashed_normal import SquashedNormal
 
 Distribution.__lookup_classes__ = dict(
     bernoulli=Bernoulli,
     categorical=Categorical,
     normaldistribution=Normal,
     gaussian=Normal,
-    beta=Beta
+    beta=Beta,
+    squashed=SquashedNormal,
 )
 
-__all__ = ["Distribution", "Bernoulli", "Categorical", "Normal", "Beta"]
+__all__ = ["Distribution", "Bernoulli", "Categorical", "Normal", "Beta", "SquashedNormal"]
 

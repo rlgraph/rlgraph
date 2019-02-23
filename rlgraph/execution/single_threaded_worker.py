@@ -117,7 +117,7 @@ class SingleThreadedWorker(Worker):
                          frameskip=None, reset=True):
         return self._execute(
             num_episodes=num_episodes,
-            max_timesteps_per_episode = max_timesteps_per_episode,
+            max_timesteps_per_episode=max_timesteps_per_episode,
             use_exploration=use_exploration,
             update_spec=update_spec,
             frameskip=frameskip,

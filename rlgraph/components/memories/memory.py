@@ -113,3 +113,13 @@ class Memory(Component):
         for name, variable in self.record_registry.items():
             records[name] = self.read_variable(variable, indices)
         return records
+
+    @rlgraph_api(requires_variable_completeness=True)
+    def _graph_fn_get_size(self):
+        """
+        Returns the current size of the memory.
+
+        Returns:
+            The size of the memory.
+        """
+        raise NotImplemented

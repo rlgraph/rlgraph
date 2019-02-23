@@ -98,3 +98,6 @@ class ReplayMemory(Memory):
         # Return default importance weight one.
         return self._read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)
 
+    @rlgraph_api
+    def _graph_fn_get_size(self):
+        return self.read_variable(self.size)

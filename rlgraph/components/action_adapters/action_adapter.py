@@ -17,22 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from math import log
-
-from rlgraph import get_backend
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
-from rlgraph.spaces import Space, IntBox, FloatBox, ContainerSpace
+from rlgraph.spaces import Space, IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
-from rlgraph.utils.util import SMALL_NUMBER
-
-if get_backend() == "tf":
-    import tensorflow as tf
-elif get_backend() == "pytorch":
-    import torch
-    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH
 
 
 # TODO: Create a more primitive base class only defining the API-methods.
@@ -79,18 +69,7 @@ class ActionAdapter(NeuralNetwork):
         # Calculate the number of nodes in the action layer (DenseLayer object) depending on our action Space
         # or using a given fixed number (`units`).
         # Also generate the ReShape sub-Component and give it the new_shape.
-        if isinstance(self.action_space, IntBox):
-            if units is None:
-                units = add_units + self.action_space.flat_dim_with_categories
-            new_shape = self.action_space.get_shape(with_category_rank=True)
-        else:
-            if units is None:
-                units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
-            # Add moments (2x for each action item).
-            if self.action_space.shape == ():
-                new_shape = (2,)
-            else:
-                new_shape = tuple(list(self.action_space.shape[:-1]) + [self.action_space.shape[-1] * 2])
+        units, shape = self.get_units_and_shape(add_units=add_units, units=units)
 
         assert units > 0, "ERROR: Number of nodes for action-layer calculated as {}! Must be larger 0.".format(units)
 
@@ -107,9 +86,21 @@ class ActionAdapter(NeuralNetwork):
         self.network.add_layer(action_layer)
 
         # Add the reshape layer to match the action space's shape.
-        self.network.add_layer(ReShape(new_shape=new_shape))
+        self.network.add_layer(ReShape(new_shape=shape))
 
         super(ActionAdapter, self).__init__(self.network, scope=scope, **kwargs)
+
+    def get_units_and_shape(self, add_units=0, units=None):
+        """Returns the number of units in the layer that will be added and the shape of the output according to the
+        action space.
+
+        Args:
+            add_units: see the constructor
+            units: see the constructor
+        Returns:
+
+        """
+        raise NotImplementedError
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # Check the input Space.
@@ -230,69 +221,4 @@ class ActionAdapter(NeuralNetwork):
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
                 log_probs (DataOp): Simply the log(parameters).
         """
-        parameters = None
-        log_probs = None
-
-        if get_backend() == "tf":
-            # Discrete actions.
-            if isinstance(self.action_space, IntBox):
-                parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
-                parameters._batch_rank = 0
-                # Log probs.
-                log_probs = tf.log(x=parameters)
-                log_probs._batch_rank = 0
-
-            # Continuous actions.
-            elif isinstance(self.action_space, FloatBox):
-                # Unbounded -> Normal distribution.
-                if self.action_space.unbounded:
-                    mean, log_sd = tf.split(logits, num_or_size_splits=2, axis=-1)
-
-                    # Turn log sd into sd.
-                    sd = tf.exp(log_sd)
-
-                    # Merge again.
-                    parameters = tf.concat([mean, sd], axis=-1)
-                    log_probs = tf.concat([tf.log(mean), log_sd], axis=-1)
-                    parameters._batch_rank = 0
-                    log_probs._batch_rank = 0
-
-                # Bounded -> Beta distribution.
-                else:
-                    # Stabilize both alpha and beta (currently together in parameters).
-                    parameters = tf.clip_by_value(
-                        logits, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
-                    )
-                    parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
-                    parameters._batch_rank = 0
-                    log_probs = tf.log(parameters)
-                    log_probs._batch_rank = 0
-
-        elif get_backend() == "pytorch":
-            if isinstance(self.action_space, IntBox):
-                # Discrete actions.
-                softmax_logits = torch.softmax(logits, dim=-1)
-                parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
-                # Log probs.
-                log_probs = torch.log(parameters)
-            elif isinstance(self.action_space, FloatBox):
-                # Unbounded -> Normal distribution.
-                if self.action_space.unbounded:
-                    # Continuous actions.
-                    mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
-
-                    # Turn log sd into sd.
-                    sd = torch.exp(log_sd)
-
-                    parameters = torch.cat([mean, sd], -1)
-                    log_probs = torch.cat([torch.log(mean), log_sd], -1)
-                # Bounded -> Beta distribution.
-                else:
-                    # Stabilize both alpha and beta (currently together in parameters).
-                    parameters = torch.clamp(
-                        logits, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
-                    )
-                    parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
-                    log_probs = torch.log(parameters)
-
-        return parameters, log_probs
+        raise NotImplementedError

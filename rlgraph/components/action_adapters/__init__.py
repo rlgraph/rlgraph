@@ -18,15 +18,18 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
-#from rlgraph.components.action_adapters.baseline_action_adapter import BaselineActionAdapter
-#from rlgraph.components.action_adapters.dueling_action_adapter import DuelingActionAdapter
+from rlgraph.components.action_adapters.beta_distribution_adapter import BetaDistributionAdapter
+from rlgraph.components.action_adapters.categorical_distribution_adapter import CategoricalDistributionAdapter
+from rlgraph.components.action_adapters.normal_distribution_adapter import NormalDistributionAdapter
+from rlgraph.components.action_adapters.squashed_normal_adapter import SquashedNormalAdapter
 
 
 ActionAdapter.__lookup_classes__ = dict(
     actionadapter=ActionAdapter,
-#    baselineactionadapter=BaselineActionAdapter,
-#    duelingactionadapter=DuelingActionAdapter,
-
+    categoricaldistributionadapter=CategoricalDistributionAdapter,
+    betadistributionadapter=BetaDistributionAdapter,
+    normaldistributionadapter=NormalDistributionAdapter,
+    squashednormaladapter=SquashedNormalAdapter
 )
 
 __all__ = ["ActionAdapter"] + list(set(map(lambda x: x.__name__, ActionAdapter.__lookup_classes__.values())))

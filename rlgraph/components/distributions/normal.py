@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.spaces import Tuple
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.components.action_adapters import NormalDistributionAdapter
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -55,3 +55,6 @@ class Normal(Distribution):
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
             return distribution.mean()
+
+    def get_action_adapter_type(self):
+        return NormalDistributionAdapter
