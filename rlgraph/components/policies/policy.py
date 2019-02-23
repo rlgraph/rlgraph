@@ -312,31 +312,6 @@ class Policy(Component):
 
         return dict(entropy=entropy, last_internal_states=out["last_internal_states"])
 
-    #@rlgraph_api
-    #def get_action_and_log_prob(self, nn_input, internal_states=None, deterministic=None):
-    #    """
-    #    Args:
-    #        nn_input (any): The input to our neural network.
-    #        internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-    #        deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
-    #            from the distribution in max-likelihood (deterministic) or stochastic fashion.
-
-    #    Returns:
-    #        dict:
-    #            `action`: The drawn action.
-    #            `log_prob`: The log likelihood of the drawn action.
-    #            `last_internal_states`: The last internal states (if NN is RNN based, otherwise: None).
-    #    """
-    #    deterministic = self.deterministic if deterministic is None else deterministic
-    #    out = self.get_logits_parameters_log_probs(nn_input, internal_states)
-    #    action, log_prob = self._graph_fn_get_action_components_log_probs(out["parameters"], deterministic)
-
-    #    return dict(
-    #        action=action,
-    #        log_prob=log_prob,
-    #        last_internal_states=out["last_internal_states"]
-    #    )
-
     @graph_fn(flatten_ops={1})
     def _graph_fn_get_action_layer_outputs(self, nn_output, nn_input):
         """

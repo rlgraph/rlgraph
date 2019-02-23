@@ -284,17 +284,17 @@ class SACAgentComponent(Component):
     def get_losses(self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights):
         # TODO: internal states
 
-        samples_next = self._policy.get_action_and_log_prob(preprocessed_next_states, deterministic=False)
+        samples_next = self._policy.get_action(preprocessed_next_states, deterministic=False)
         next_sampled_actions = samples_next["action"]
-        log_probs_next_sampled = samples_next["log_prob"]
+        log_probs_next_sampled = samples_next["log_probs"]
 
         q_values_next_sampled = self._compute_q_values(
             self._target_q_functions, preprocessed_next_states, next_sampled_actions
         )
         q_values = self._compute_q_values(self._q_functions, preprocessed_states, actions)
-        samples = self._policy.get_action_and_log_prob(preprocessed_states, deterministic=False)
+        samples = self._policy.get_action(preprocessed_states, deterministic=False)
         sampled_actions = samples["action"]
-        log_probs_sampled = samples["log_prob"]
+        log_probs_sampled = samples["log_probs"]
         q_values_sampled = self._compute_q_values(self._q_functions, preprocessed_states, sampled_actions)
 
         alpha = self._graph_fn__compute_alpha()
