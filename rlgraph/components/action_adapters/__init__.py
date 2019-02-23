@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters.bernoulli_distribution_adapter import BernoulliDistributionAdapter
 from rlgraph.components.action_adapters.beta_distribution_adapter import BetaDistributionAdapter
 from rlgraph.components.action_adapters.categorical_distribution_adapter import CategoricalDistributionAdapter
 from rlgraph.components.action_adapters.normal_distribution_adapter import NormalDistributionAdapter
@@ -26,6 +27,7 @@ from rlgraph.components.action_adapters.squashed_normal_adapter import SquashedN
 
 ActionAdapter.__lookup_classes__ = dict(
     actionadapter=ActionAdapter,
+    bernoullidistributionadapter=BernoulliDistributionAdapter,
     categoricaldistributionadapter=CategoricalDistributionAdapter,
     betadistributionadapter=BetaDistributionAdapter,
     normaldistributionadapter=NormalDistributionAdapter,
