@@ -45,7 +45,6 @@ class RingBuffer(Memory):
         super(RingBuffer, self).__init__(capacity, scope=scope, **kwargs)
 
         self.index = None
-        self.size = None
         self.states = None
         self.num_episodes = None
         self.episode_indices = None
@@ -57,8 +56,6 @@ class RingBuffer(Memory):
         # Record space must contain 'terminals' for a ring buffer memory.
         assert 'terminals' in self.record_space
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-        # Number of elements present.
-        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
         # Num episodes present.
         self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
 

@@ -41,6 +41,8 @@ class Memory(Component):
         self.record_registry = None
         self.flat_record_space = None
         self.capacity = capacity
+        # The current size of the memory.
+        self.size = None
 
     def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.
@@ -55,6 +57,8 @@ class Memory(Component):
             add_batch_rank=self.capacity,
             initializer=0
         )
+        # Number of elements present.
+        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -116,12 +120,12 @@ class Memory(Component):
             records[name] = self.read_variable(variable, indices)
         return records
 
-    @rlgraph_api(requires_variable_completeness=True)
+    @rlgraph_api
     def _graph_fn_get_size(self):
         """
         Returns the current size of the memory.
 
         Returns:
-            The size of the memory.
+            SingleDataOp: The size (int) of the memory.
         """
-        raise NotImplemented
+        return self.read_variable(self.size)

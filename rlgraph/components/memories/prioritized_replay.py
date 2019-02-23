@@ -49,7 +49,6 @@ class PrioritizedReplay(Memory):
 
         # Variables.
         self.index = None
-        self.size = None
         self.max_priority = None
         self.sum_segment_buffer = None
         self.sum_segment_tree = None
@@ -75,8 +74,6 @@ class PrioritizedReplay(Memory):
 
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-        # Number of elements present.
-        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
         self.max_priority = self.get_variable(name="max-priority", dtype=float, trainable=False, initializer=1.0)
 

@@ -51,7 +51,6 @@ class ReplayMemory(Memory):
         super(ReplayMemory, self).__init__(capacity, scope=scope, **kwargs)
 
         self.index = None
-        self.size = None
         self.states = None
         self.flat_record_space = None
 
@@ -62,8 +61,6 @@ class ReplayMemory(Memory):
         assert 'terminals' in self.record_space
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-        # Number of elements present.
-        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -121,8 +118,3 @@ class ReplayMemory(Memory):
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
             records = define_by_run_unflatten(records)
             return records, indices, torch.ones(indices.shape, dtype=torch.float32)
-
-
-    @rlgraph_api
-    def _graph_fn_get_size(self):
-        return self.read_variable(self.size)
