@@ -87,15 +87,15 @@ class ActionAdapter(NeuralNetwork):
 
         super(ActionAdapter, self).__init__(self.network, scope=scope, **kwargs)
 
-    def get_units_and_shape(self, add_units=0, units=None):
-        """Returns the number of units in the layer that will be added and the shape of the output according to the
+    def get_units_and_shape(self):
+        """
+        Returns the number of units in the layer that will be added and the shape of the output according to the
         action space.
 
-        Args:
-            add_units: see the constructor
-            units: see the constructor
         Returns:
-
+            Tuple:
+                int: The number of units for the action layer.
+                shape: The final shape for the output space.
         """
         raise NotImplementedError
 

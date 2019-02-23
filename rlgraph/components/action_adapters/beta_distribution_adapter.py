@@ -30,9 +30,8 @@ elif get_backend() == "pytorch":
 class BetaDistributionAdapter(ActionAdapter):
     """Action adapter for the Beta distribution"""
 
-    def get_units_and_shape(self, add_units=0, units=None):
-        if units is None:
-            units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
+    def get_units_and_shape(self):
+        units = 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
         # Add moments (2x for each action item).
         if self.action_space.shape == ():
             new_shape = (2,)

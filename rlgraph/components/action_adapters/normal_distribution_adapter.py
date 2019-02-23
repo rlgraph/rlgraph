@@ -31,6 +31,7 @@ class NormalDistributionAdapter(ActionAdapter):
         if units is None:
             units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
         # Add moments (2x for each action item).
+        units = 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
         if self.action_space.shape == ():
             new_shape = (2,)
         else:

@@ -37,9 +37,8 @@ class CategoricalDistributionAdapter(ActionAdapter):
         # IntBoxes must have categories.
         sanity_check_space(self.action_space, must_have_categories=True)
 
-    def get_units_and_shape(self, add_units=0, units=None):
-        if units is None:
-            units = add_units + self.action_space.flat_dim_with_categories
+    def get_units_and_shape(self):
+        units = self.action_space.flat_dim_with_categories
         new_shape = self.action_space.get_shape(with_category_rank=True)
         return units, new_shape
 
