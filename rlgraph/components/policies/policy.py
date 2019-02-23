@@ -111,8 +111,8 @@ class Policy(Component):
             return Categorical(scope="categorical-{}".format(i))
         # BoolBox: Bernoulli.
         elif isinstance(action_component, BoolBox):
-            self.distributions[flat_key] = Bernoulli(scope="bernoulli-{}".format(i))
-        # Continuous action space -> Normal distribution (each action needs mean and variance from network).
+            return Bernoulli(scope="bernoulli-{}".format(i))
+        # Continuous action space: Normal/Beta/etc. distribution.
         elif isinstance(action_component, FloatBox):
             # Unbounded -> Normal distribution.
             if not self._is_action_bounded(action_component):
@@ -120,8 +120,10 @@ class Policy(Component):
             # Bounded -> according to the bounded_distribution parameter.
             else:
                 scope = "{}-{}".format(self.bounded_distribution_type, i)
-                spec = dict(type=self.bounded_distribution_type, scope=scope, low=action_component.low,
-                            high=action_component.high)
+                spec = dict(
+                    type=self.bounded_distribution_type, scope=scope, low=action_component.low,
+                    high=action_component.high
+                )
                 return Distribution.from_spec(spec=spec)
 
     @staticmethod
