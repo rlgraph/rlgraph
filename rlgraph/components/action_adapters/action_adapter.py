@@ -20,18 +20,10 @@ from __future__ import print_function
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
-from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox, ContainerSpace
+from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
-from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
-from rlgraph.utils.util import SMALL_NUMBER
-
-if get_backend() == "tf":
-    import tensorflow as tf
-elif get_backend() == "pytorch":
-    import torch
-    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH
 
 
 # TODO: Create a more primitive base class only defining the API-methods.
@@ -111,12 +103,8 @@ class ActionAdapter(NeuralNetwork):
         # Check the input Space.
         last_nn_layer_space = input_spaces["nn_input"]  # type: Space
         sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
-
         # Check the action Space.
         #sanity_check_space(self.action_space, must_have_batch_rank=True)
-        # IntBoxes must have categories.
-        if isinstance(self.action_space, IntBox):
-            sanity_check_space(self.action_space, must_have_categories=True)
 
     @rlgraph_api
     def get_logits(self, nn_input, original_nn_input=None):

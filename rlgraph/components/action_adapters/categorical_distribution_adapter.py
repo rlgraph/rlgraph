@@ -13,10 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from math import log
-
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import ActionAdapter
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn
 from rlgraph.utils.util import SMALL_NUMBER
 
@@ -29,7 +28,14 @@ elif get_backend() == "pytorch":
 
 
 class CategoricalDistributionAdapter(ActionAdapter):
-    """Action adapter for the Categorical distribution"""
+    """
+    Action adapter for the Categorical distribution
+    """
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        super(CategoricalDistributionAdapter, self).check_input_spaces(input_spaces, action_space)
+        # IntBoxes must have categories.
+        sanity_check_space(self.action_space, must_have_categories=True)
 
     def get_units_and_shape(self, add_units=0, units=None):
         if units is None:
