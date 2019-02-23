@@ -179,12 +179,11 @@ class SACAgentComponent(Component):
 
     @rlgraph_api
     def get_policy_weights(self):
-        # TODO: why is _variables() "protected"?
-        return self._policy._variables()
+        return self._policy.variables()
 
     @rlgraph_api
     def get_q_weights(self):
-        merged_weights = self._q_vars_merger.merge(*[q._variables() for q in self._q_functions])
+        merged_weights = self._q_vars_merger.merge(*[q.variables() for q in self._q_functions])
         return merged_weights
 
     @rlgraph_api(must_be_complete=False)
@@ -231,8 +230,8 @@ class SACAgentComponent(Component):
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
             self.get_losses(preprocessed_states, actions, rewards, terminals, preprocessed_s_prime, importance_weights)
 
-        policy_vars = self._policy._variables()
-        q_vars = [q_func._variables() for q_func in self._q_functions]
+        policy_vars = self._policy.variables()
+        q_vars = [q_func.variables() for q_func in self._q_functions]
         merged_q_vars = self._q_vars_merger.merge(*q_vars)
         critic_step_op, critic_loss, critic_loss_per_item = \
             self.vf_optimizer.step(merged_q_vars, critic_loss, critic_loss_per_item)
@@ -323,7 +322,7 @@ class SACAgentComponent(Component):
 
     @rlgraph_api(requires_variable_completeness=True)
     def reset_targets(self):
-        ops = (target_q.sync(q._variables()) for q, target_q in zip(self._q_functions, self._target_q_functions))
+        ops = (target_q.sync(q.variables()) for q, target_q in zip(self._q_functions, self._target_q_functions))
         return tuple(ops)
 
     @rlgraph_api(requires_variable_completeness=True)
@@ -387,7 +386,7 @@ class SACAgentComponent(Component):
                 for (source_key, source_var), (dest_key, dest_var) in zip(sorted(source_vars.items()), sorted(dest_vars.items())):
                     assign_ops.append(tf.assign(dest_var, tau * source_var + (1.0 - tau) * dest_var))
         else:
-            all_source_vars = [source._variables() for source in self._q_functions]
+            all_source_vars = [source.variables() for source in self._q_functions]
             for source_vars, destination in zip(all_source_vars, self._target_q_functions):
                 assign_ops.append(destination.sync(source_vars))
         assert len(assign_ops) > 0
