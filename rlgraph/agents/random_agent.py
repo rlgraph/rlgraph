@@ -24,9 +24,9 @@ class RandomAgent(Agent):
     """
     An Agent that picks random actions from the action Space.
     """
-    def __init__(self, state_space, action_space, **kwargs):
+    def __init__(self, state_space, action_space, name="random-agent", **kwargs):
         super(RandomAgent, self).__init__(
-            state_space=state_space, action_space=action_space, name=kwargs.pop("name", "random-agent"), **kwargs
+            update_spec=dict(do_updates=False), state_space=state_space, action_space=action_space, name=name, **kwargs
         )
 
     def get_action(self, states, internals=None, use_exploration=False,  apply_preprocessing=True, extra_returns=None):

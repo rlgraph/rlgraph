@@ -18,8 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from copy import deepcopy
-
-from rlgraph.execution.ray.ray_util import worker_exploration
 from six.moves import xrange as range_
 import logging
 import numpy as np
@@ -28,6 +26,7 @@ import time
 from rlgraph import get_distributed_backend
 from rlgraph.agents import Agent
 from rlgraph.environments import Environment
+from rlgraph.execution.ray.ray_util import worker_exploration
 
 if get_distributed_backend() == "ray":
     import ray
@@ -155,6 +154,7 @@ class RayExecutor(object):
         """
         Executes a workload on Ray and measures worker statistics. Workload semantics
         are decided via the private implementer, _execute_step().
+
         Args:
             workload (dict): Workload parameters, primarily 'num_timesteps' and 'report_interval'
                 to indicate how many steps to execute and how often to report results.
@@ -297,7 +297,7 @@ class RayExecutor(object):
 
     def result_by_worker(self, worker_index=None):
         """
-        Retreives full episode-reward time series for a worker by id (or first worker in registry if None).
+        Retrieves full episode-reward time series for a worker by id (or first worker in registry if None).
 
         Args:
             worker_index (Optional[int]): Index of worker to fetch.
@@ -341,7 +341,7 @@ class RayExecutor(object):
 
     def get_sample_worker_ids(self):
         """
-        Returns identifeirs of all sample workers.
+        Returns identifiers of all sample workers.
 
         Returns:
             list: List of worker name strings in case individual analysis of one worker's results are required via

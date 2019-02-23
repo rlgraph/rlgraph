@@ -31,6 +31,7 @@ from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
 
 Space.__lookup_classes__ = dict({
     "bool": BoolBox,
+    "boolbox": BoolBox,
     bool: BoolBox,
     np.bool_: BoolBox,
     "int": IntBox,
@@ -40,6 +41,7 @@ Space.__lookup_classes__ = dict({
     "multidiscrete": IntBox,
     "continuous": FloatBox,
     "float": FloatBox,
+    "floatbox": FloatBox,
     "float32": FloatBox,
     float: FloatBox,
     np.float32: FloatBox,
