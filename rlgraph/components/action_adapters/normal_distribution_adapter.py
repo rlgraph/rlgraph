@@ -16,7 +16,7 @@
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import ActionAdapter
 from rlgraph.utils.decorators import graph_fn
-
+from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -25,11 +25,10 @@ elif get_backend() == "pytorch":
 
 
 class NormalDistributionAdapter(ActionAdapter):
-    """Action adapter for the Normal distribution"""
-
-    def get_units_and_shape(self, add_units=0, units=None):
-        if units is None:
-            units = add_units + 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
+    """
+    Action adapter for the Normal distribution
+    """
+    def get_units_and_shape(self):
         # Add moments (2x for each action item).
         units = 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
         if self.action_space.shape == ():
@@ -39,29 +38,36 @@ class NormalDistributionAdapter(ActionAdapter):
         return units, new_shape
 
     @graph_fn
-    def _graph_fn_get_parameters_log_probs(self, logits):
+    def _graph_fn_get_parameters_log_probs(self, last_nn_layer_output):
         parameters = None
         log_probs = None
 
         if get_backend() == "tf":
-            mean, log_sd = tf.split(logits, num_or_size_splits=2, axis=-1)
+            mean, log_sd = tf.split(last_nn_layer_output, num_or_size_splits=2, axis=-1)
 
-            # Turn log sd into sd.
+            # Turn log sd into sd to ascertain always positive stddev values.
             sd = tf.exp(log_sd)
+            log_mean = tf.log(mean)
 
-            # Merge again.
-            parameters = tf.concat([mean, sd], axis=-1)
-            log_probs = tf.concat([tf.log(mean), log_sd], axis=-1)
-            parameters._batch_rank = 0
-            log_probs._batch_rank = 0
+            mean._batch_rank = 0
+            sd._batch_rank = 0
+            log_mean._batch_rank = 0
+            log_sd._batch_rank = 0
+
+            parameters = DataOpTuple([mean, sd])
+            log_probs = DataOpTuple([log_mean, log_sd])
 
         elif get_backend() == "pytorch":
-            mean, log_sd = torch.split(logits, split_size_or_sections=2, dim=1)
+            # Continuous actions.
+            mean, log_sd = torch.split(
+                last_nn_layer_output, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1
+            )
 
             # Turn log sd into sd.
             sd = torch.exp(log_sd)
+            log_mean = torch.log(mean)
 
-            parameters = torch.cat([mean, sd], -1)
-            log_probs = torch.cat([torch.log(mean), log_sd], -1)
+            parameters = DataOpTuple([mean, sd])
+            log_probs = DataOpTuple([log_mean, log_sd])
 
         return parameters, log_probs

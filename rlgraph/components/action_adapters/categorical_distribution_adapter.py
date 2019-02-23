@@ -43,19 +43,19 @@ class CategoricalDistributionAdapter(ActionAdapter):
         return units, new_shape
 
     @graph_fn
-    def _graph_fn_get_parameters_log_probs(self, logits):
+    def _graph_fn_get_parameters_log_probs(self, last_nn_layer_output):
         parameters = None
         log_probs = None
 
         if get_backend() == "tf":
-            parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
+            parameters = tf.maximum(x=tf.nn.softmax(logits=last_nn_layer_output, axis=-1), y=SMALL_NUMBER)
             parameters._batch_rank = 0
             # Log probs.
             log_probs = tf.log(x=parameters)
             log_probs._batch_rank = 0
 
         elif get_backend() == "pytorch":
-            softmax_logits = torch.softmax(logits, dim=-1)
+            softmax_logits = torch.softmax(last_nn_layer_output, dim=-1)
             parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
             # Log probs.
             log_probs = torch.log(parameters)

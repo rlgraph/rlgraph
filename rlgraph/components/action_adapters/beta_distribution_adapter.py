@@ -18,6 +18,7 @@ from math import log
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import ActionAdapter
 from rlgraph.utils.decorators import graph_fn
+from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.util import SMALL_NUMBER
 
 
@@ -40,25 +41,40 @@ class BetaDistributionAdapter(ActionAdapter):
         return units, new_shape
 
     @graph_fn
-    def _graph_fn_get_parameters_log_probs(self, logits):
+    def _graph_fn_get_parameters_log_probs(self, last_nn_layer_output):
         parameters = None
         log_probs = None
 
         if get_backend() == "tf":
-            # Stabilize both alpha and beta (currently together in parameters).
+            # Stabilize both alpha and beta (currently together in last_nn_layer_output).
             parameters = tf.clip_by_value(
-                logits, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
+                last_nn_layer_output, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
             )
             parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
-            parameters._batch_rank = 0
-            log_probs = tf.log(parameters)
-            log_probs._batch_rank = 0
+            alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
+            alpha._batch_rank = 0
+            beta._batch_rank = 0
+            log_alpha = tf.log(alpha)
+            log_beta = tf.log(beta)
+            log_alpha._batch_rank = 0
+            log_beta._batch_rank = 0
+
+            parameters = DataOpTuple([alpha, beta])
+            log_probs = DataOpTuple([log_alpha, log_beta])
 
         elif get_backend() == "pytorch":
+            # Stabilize both alpha and beta (currently together in last_nn_layer_output).
             parameters = torch.clamp(
-                logits, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
+                last_nn_layer_output, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
             )
             parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
-            log_probs = torch.log(parameters)
+
+            # Split in the middle.
+            alpha, beta = torch.split(parameters, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1)
+            log_alpha = torch.log(alpha)
+            log_beta = torch.log(beta)
+
+            parameters = DataOpTuple([alpha, beta])
+            log_probs = DataOpTuple([log_alpha, log_beta])
 
         return parameters, log_probs
