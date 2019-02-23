@@ -159,11 +159,12 @@ class TestExplorations(unittest.TestCase):
             action_space=action_space
         )
 
-        # With exploration: Check, whether actions are equally distributed.
+        # With (random) exploration (in the beginning of decay interval): Check, whether actions are equally and
+        # more or less randomly distributed.
         batch_size = 2
         num_time_steps = 30
         nn_outputs = nn_output_space.sample(batch_size)
-        time_steps = time_step_space.sample(num_time_steps)
+        time_steps = np.maximum(time_step_space.sample(num_time_steps) - 8000, 0)
         # Collect action-batch-of-2 for each of our various random time steps.
         actions_a = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
         actions_b = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)

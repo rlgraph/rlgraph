@@ -36,7 +36,7 @@ if get_distributed_backend() == "ray":
 
 class RayPolicyWorker(RayActor):
     """
-    A ray policy worker for distributed policy optimisation.
+    A Ray policy worker for distributed policy optimisation.
     """
 
     def __init__(self, agent_config, worker_spec, env_spec, frameskip=1, auto_build=False):
@@ -73,24 +73,7 @@ class RayPolicyWorker(RayActor):
         agent_config['state_space'] = self.vector_env.state_space
         agent_config['action_space'] = self.vector_env.action_space
 
-        ray_exploration = worker_spec.pop("ray_exploration", None)
-        self.worker_executes_exploration = worker_spec.pop("worker_executes_exploration", False)
-        self.ray_exploration_set = False
-        if ray_exploration is not None:
-            # Update worker with worker specific constant exploration value.
-            # TODO too many levels?
-            assert agent_config["exploration_spec"]["epsilon_spec"]["decay_spec"]["type"] == "constant_decay", \
-                "ERROR: If using Ray's constant exploration, exploration type must be 'constant_decay'."
-            if self.worker_executes_exploration:
-                agent_config["exploration_spec"] = None
-                self.exploration_epsilon = ray_exploration
-            else:
-                agent_config["exploration_spec"]["epsilon_spec"]["decay_spec"]["constant_value"] = ray_exploration
-                self.ray_exploration_set = True
-
-        self.discount = agent_config.get("discount", 0.99)
         # Python based preprocessor as image resizing is broken in TF.
-
         self.preprocessors = {}
         preprocessing_spec = agent_config.get("preprocessing_spec", None)
         self.is_preprocessed = {}
@@ -181,23 +164,6 @@ class RayPolicyWorker(RayActor):
         """
         Sets up agent, potentially modifying its configuration via worker specific settings.
         """
-        sample_exploration = worker_spec.pop("sample_exploration", False)
-        # Adjust exploration for this worker.
-        if sample_exploration:
-            assert self.ray_exploration_set is False, "ERROR: Cannot sample exploration if ray exploration is used."
-            exploration_min_value = worker_spec.pop("exploration_min_value", 0.0)
-            epsilon_spec = agent_config["exploration_spec"]["epsilon_spec"]
-
-            if epsilon_spec is not None and "decay_spec" in epsilon_spec:
-                decay_from = epsilon_spec["decay_spec"]["from"]
-                assert decay_from >= exploration_min_value, \
-                    "Min value for exploration sampling must be smaller than" \
-                    "decay_from {} in exploration_spec but is {}.".format(decay_from, exploration_min_value)
-
-                # Sample a new initial epsilon from the interval [exploration_min_value, decay_from).
-                sampled_from = np.random.uniform(low=exploration_min_value, high=decay_from)
-                epsilon_spec["decay_spec"]["from"] = sampled_from
-
         # Worker execution spec may differ from controller/learner.
         worker_exec_spec = worker_spec.get("execution_spec", None)
         if worker_exec_spec is not None:
@@ -269,6 +235,7 @@ class RayPolicyWorker(RayActor):
 
             actions = self.get_action(states=self.preprocessed_states_buffer,
                                       use_exploration=use_exploration, apply_preprocessing=False)
+
             next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):
@@ -462,23 +429,6 @@ class RayPolicyWorker(RayActor):
         ), len(rewards)
 
     def get_action(self, states, use_exploration, apply_preprocessing):
-        if self.worker_executes_exploration:
-            # Only once for all actions otherwise we would have to call a session anyway.
-            if np.random.random() <= self.exploration_epsilon:
-                if self.num_environments == 1:
-                    # Sample returns without batch dim -> wrap.
-                    action = [self.agent.action_space.sample(size=self.num_environments)]
-                else:
-                    action = self.agent.action_space.sample(size=self.num_environments)
-            else:
-                if self.num_environments == 1:
-                    action = [self.agent.get_action(states=states, use_exploration=use_exploration,
-                                                    apply_preprocessing=apply_preprocessing)]
-                else:
-                    action = self.agent.get_action(states=states, use_exploration=use_exploration,
-                                                    apply_preprocessing=apply_preprocessing)
-            return action
-        else:
-            return self.agent.get_action(states=states, use_exploration=use_exploration,
-                                         apply_preprocessing=apply_preprocessing)
-
+        action = self.agent.get_action(states=states, use_exploration=use_exploration,
+                                       apply_preprocessing=apply_preprocessing)
+        return [action] if action.shape == () else action

@@ -43,8 +43,6 @@ class TestPytorchBackend(unittest.TestCase):
         agent_config = config_from_path("configs/backend_performance_dqn_cartpole.json")
 
         # Test cpu settings for batching here.
-        if get_backend() == "pytorch":
-            agent_config["memory_spec"]["type"] = "mem_prioritized_replay"
         agent_config["update_spec"] = None
 
         agent = DQNAgent.from_spec(
@@ -81,8 +79,6 @@ class TestPytorchBackend(unittest.TestCase):
         agent_config = config_from_path("configs/backend_performance_dqn_pong.json")
 
         # Test cpu settings for batching here.
-        if get_backend() == "pytorch":
-            agent_config["memory_spec"]["type"] = "mem_prioritized_replay"
         agent_config["update_spec"] = None
 
         agent = DQNAgent.from_spec(

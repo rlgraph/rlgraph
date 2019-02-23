@@ -28,7 +28,8 @@ from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
 from rlgraph.utils.ops import TraceContext
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError, RLGraphVariableIncompleteError, \
+    RLGraphInputIncompleteError
 from rlgraph.utils import util
 
 
@@ -563,14 +564,11 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         # if self.input_complete is False:
         # Check Spaces and create variables.
         component.graph_builder.build_component_when_input_complete(component)
-        assert component.input_complete
-        # If we are calling `_variables()` -> make sure we are also variable-complete.
-        if wrapped_func.__name__ == "_graph_fn__variables":
-            if component.variable_complete is False:
-                raise RLGraphVariableIncompleteError(
-                    "Component '{}' is variable incomplete, but its variables are needed in an API-call during the "
-                    "build procedure!".format(component.global_scope), component=component
-                )
+        if component.input_complete is False:
+            raise RLGraphInputIncompleteError(component)
+        # If we are calling a variables-requiring graph_fn -> make sure we are also variable-complete.
+        if requires_variable_completeness is True and component.variable_complete is False:
+            raise RLGraphVariableIncompleteError(component)
         # Call the graph_fn (only if not already done so by build above (e.g. `_variables()`).
         if in_graph_fn_column.out_graph_fn_column is None:
             assert in_graph_fn_column.already_sent is False

@@ -4,7 +4,7 @@
   "n_step": 3,
   "memory_spec": {
     "type": "prioritized_replay",
-    "capacity": 10000
+    "capacity": 1000
   },
   "saver_spec": null,
   "preprocessing_spec": [
@@ -159,7 +159,7 @@
     "trace_enabled": false
   },
   "observe_spec": {
-    "buffer_size": 3000
+    "buffer_size": 1000
   },
   "update_spec": {
     "do_updates": true,

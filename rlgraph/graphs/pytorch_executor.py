@@ -88,12 +88,8 @@ class PyTorchExecutor(GraphExecutor):
                 op_indices_to_return = api_method[2] if len(api_method) > 2 else None
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
+                tensor_params = force_torch_tensors(params=params)
 
-                # TODO where to determine this? exec spec?
-                requires_grad = False
-                if "update" in api_method:
-                    requires_grad = True
-                tensor_params = force_torch_tensors(params=params, requires_grad=requires_grad)
                 api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
                 if not isinstance(api_ret, list) and not isinstance(api_ret, tuple):
                     api_ret = [api_ret]
@@ -139,7 +135,10 @@ class PyTorchExecutor(GraphExecutor):
 
     def clean_results(self, ret, to_return):
         for result in to_return:
-            if self.remove_batch_dims and isinstance(result, np.ndarray):
+            if isinstance(result, dict):
+                cleaned_dict = {k: v for k, v in result.items() if v is not None}
+                ret.append(cleaned_dict)
+            elif self.remove_batch_dims and isinstance(result, np.ndarray):
                 ret.append(np.array(np.squeeze(result)))
             elif hasattr(result, "numpy"):
                 ret.append(np.array(result.numpy()))

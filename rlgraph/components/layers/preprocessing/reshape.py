@@ -21,12 +21,11 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.utils import pytorch_one_hot
-from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space, get_space_from_op
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.ops import flatten_op, unflatten_op
+from rlgraph.utils.ops import unflatten_op
 from rlgraph.utils.numpy import one_hot
 
 if get_backend() == "tf":
@@ -81,8 +80,6 @@ class ReShape(PreprocessLayer):
 
         # The new shape specifications.
         self.new_shape = new_shape
-        #assert self.backend != "python" or self.new_shape is not None,\
-        #    "ERROR: `new_shape` must be provided if backend is python!"
         self.flatten = flatten
         self.flatten_categories = flatten_categories
         self.fold_time_rank = fold_time_rank
@@ -90,7 +87,7 @@ class ReShape(PreprocessLayer):
         self.time_major = time_major
 
     def get_preprocessed_space(self, space):
-        ret = dict()
+        ret = {}
         for key, single_space in space.flatten().items():
             class_ = type(single_space)
 
@@ -215,13 +212,23 @@ class ReShape(PreprocessLayer):
                     # Batch and time rank stay as is.
                     new_shape = (input_shape[0], input_shape[1]) + new_shape[2:]
 
-            # print("Reshaping input of shape {} to new shape {} ".format(preprocessing_inputs.shape, new_shape))
+            # print("Reshaping input of shape {} to new shape {} (flatten = {})".format(preprocessing_inputs.shape,
+            #                                                                           new_shape, self.flatten))
+
+            old_size = np.prod(list(preprocessing_inputs.shape))
+            new_size = np.prod(new_shape)
 
             # The problem here is the following: Input has dim e.g. [4, 256, 1, 1]
             # -> If shape inference in spaces failed, output dim is not correct -> reshape will attempt
             # something like reshaping to [256].
-            if self.flatten or (preprocessing_inputs.size(0) > 1 and preprocessing_inputs.dim() > 1):
-                return preprocessing_inputs.squeeze()
+            if self.flatten and preprocessing_inputs.dim() > 1:
+                flattened_shape_without_batchrank = np.prod(preprocessing_inputs.shape[1:])
+                flattened_shape = (preprocessing_inputs.shape[0],) + (flattened_shape_without_batchrank,)
+                return torch.reshape(preprocessing_inputs, flattened_shape)
+            # If new shape does not fit into old shape, batch inference failed -> try to restore:
+            # Equal except batch rank -> return as is:
+            elif old_size != new_size and tuple(preprocessing_inputs.shape[1:]) == new_shape:
+                return preprocessing_inputs
             else:
                 return torch.reshape(preprocessing_inputs, new_shape)
 
