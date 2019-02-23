@@ -20,7 +20,6 @@ from __future__ import print_function
 import copy
 import inspect
 import re
-#import uuid
 import time
 
 #from rlgraph.components.common.container_merger import ContainerMerger
@@ -28,7 +27,8 @@ from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
 from rlgraph.utils.ops import TraceContext
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError, RLGraphVariableIncompleteError, \
+    RLGraphInputIncompleteError
 from rlgraph.utils import util
 
 
@@ -39,23 +39,28 @@ component_graph_fn_registry = {}
 
 def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
-                must_be_complete=True, ok_to_overwrite=False):
+                must_be_complete=True, ok_to_overwrite=False, requires_variable_completeness=False):
     """
     API-method decorator used to tag any Component's methods as API-methods.
 
     Args:
         api_method (callable): The actual function/method to tag as an API method.
+
         component (Optional[Component]): The Component that the method should belong to. None if `api_method` is
             decorated inside a Component class.
+
         name (Optional[str]): The name under which the API-method should be registered. This is only necessary if
             the API-method is automatically generated as a thin-wrapper around a graph_fn.
+
         returns (Optional[int]): If the function is a graph_fn, we may specify, how many return values
             it returns. If None, will try to get this number from looking at the source code or from the Component's
             `num_graph_fn_return_values` property.
+
         flatten_ops (Union[bool,Set[str]]): Whether to flatten all or some DataOps by creating
             a FlattenedDataOp (with automatic key names).
             Can also be a set of in-Socket names to flatten explicitly (True for all).
             (default: True).
+
         split_ops (Union[bool,Set[str]]): Whether to split all or some of the already flattened DataOps
             and send the SingleDataOps one by one through the graph_fn.
             Example: Spaces=A=Dict (container), B=int (primitive)
@@ -63,6 +68,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             _graph_fn(primitive-in-A (Space), B (int))
             NOTE that B will be the same in all calls for all primitive-in-A's.
             (default: True).
+
         add_auto_key_as_first_param (bool): If `split_ops` is not False, whether to send the
             automatically generated flat key as the very first parameter into each call of the graph_fn.
             Example: Spaces=A=float (primitive), B=Tuple (container)
@@ -72,9 +78,14 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             The key can now be used to index into variables equally structured as B.
             Has no effect if `split_ops` is False.
             (default: False).
+
         must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
+
         ok_to_overwrite (bool): Set to True to indicate that this API-decorator will overwrite an already existing
             API-method in the Component. Default: False.
+
+        requires_variable_completeness (bool): Whether the underlying graph_fn should only be called
+            after the Component is variable-complete. By default, only input-completeness is required.
 
     Returns:
         callable: The decorator function.
@@ -177,12 +188,6 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     if param_name not in self.api_method_inputs:
                         self.api_method_inputs[param_name] = None
 
-                #elif isinstance(value, tuple):
-                #    merger_component = ContainerMerger(len(value), scope="_container-merger{}".format(uuid.uuid4()))
-                #    value[0].column.component.add_sub_component(merger_component)
-                #    value = merger_component.merge(*value)
-                #    #TODO: what to do with `value` now (add to meta-graph)?
-
                 # Fixed value (instead of op-record): Store the fixed value directly in the op.
                 else:
                     if self.api_method_inputs.get(param_name) is None:
@@ -202,7 +207,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                 return_values = graph_fn_wrapper(
                     self, wrapped_func, returns, dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
-                        add_auto_key_as_first_param=add_auto_key_as_first_param
+                        add_auto_key_as_first_param=add_auto_key_as_first_param,
+                        requires_variable_completeness=requires_variable_completeness
                     ), *api_fn_args, **api_fn_kwargs
                 )
 
@@ -237,7 +243,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
             # Potential call from a lambda.
             if caller_component is None and "fn" in stack[2][0].f_locals:
-                # This is the ecomponent
+                # This is the component.
                 prev_caller_component = TraceContext.PREV_CALLER
                 lambda_obj = stack[2][0].f_locals["fn"]
                 if "lambda" in inspect.getsource(lambda_obj):
@@ -249,13 +255,18 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     "API-method '{}' must have as 1st parameter (the component) either `root` or `self`. Other names "
                     "are not allowed!".format(api_method_rec.name)
                 )
-            elif caller_component is not None and type(caller_component).__name__ != "MetaGraphBuilder" and \
+            # Not directly called by this method itself (auto-helper-component-API-call).
+            # AND call is coming from some caller Component, but that component is not this component
+            # OR a parent -> Error.
+            elif caller_component is not None and \
+                    type(caller_component).__name__ != "MetaGraphBuilder" and \
                     caller_component not in [self] + self.get_parents():
-                raise RLGraphError(
-                    "The component '{}' is not a child (or grand-child) of the caller ({})! Maybe you forgot to add "
-                    "it as a sub-component via `add_components()`.".
-                    format(self.global_scope, caller_component.global_scope)
-                )
+                if not (stack[1][3] == "__init__" and re.search(r'op_records\.py$', stack[1][1])):
+                    raise RLGraphError(
+                        "The component '{}' is not a child (or grand-child) of the caller ({})! Maybe you forgot to "
+                        "add it as a sub-component via `add_components()`.".
+                        format(self.global_scope, caller_component.global_scope)
+                    )
 
             # Update trace context.
             TraceContext.PREV_CALLER = caller_component
@@ -292,7 +303,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             name=api_fn_name,
             must_be_complete=must_be_complete, ok_to_overwrite=ok_to_overwrite,
             is_graph_fn_wrapper=is_graph_fn_wrapper, is_class_method=(component is None),
-            flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param
+            flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param,
+            requires_variable_completeness=requires_variable_completeness
         )
 
         # Registers the given method with the Component (if not already done so).
@@ -315,7 +327,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
 
 def graph_fn(graph_fn=None, *, component=None, returns=None,
-             flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False):
+             flatten_ops=False, split_ops=False, add_auto_key_as_first_param=False,
+             requires_variable_completeness=False):
     """
     Graph_fn decorator used to tag any Component's graph_fn (that is not directly wrapped by an API-method) as such.
 
@@ -351,6 +364,9 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
             Has no effect if `split_ops` is False.
             Default: False.
 
+        requires_variable_completeness (bool): Whether the underlying graph_fn should only be called
+            after the Component is variable-complete. By default, only input-completeness is required.
+
     Returns:
         callable: The decorator function.
     """
@@ -369,14 +385,16 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
                 return graph_fn_wrapper(
                     self, wrapped_func, returns, dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
-                        add_auto_key_as_first_param=add_auto_key_as_first_param
+                        add_auto_key_as_first_param=add_auto_key_as_first_param,
+                        requires_variable_completeness=requires_variable_completeness
                     ), *args, **kwargs
                 )
 
         graph_fn_rec = GraphFnRecord(
             func=wrapped_func, wrapper_func=_graph_fn_wrapper, is_class_method=(component is None),
             flatten_ops=flatten_ops, split_ops=split_ops,
-            add_auto_key_as_first_param=add_auto_key_as_first_param
+            add_auto_key_as_first_param=add_auto_key_as_first_param,
+            requires_variable_completeness=requires_variable_completeness
         )
 
         # Registers the given method with the Component (if not already done so).
@@ -538,11 +556,13 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
     flatten_ops = options.pop("flatten_ops", False)
     split_ops = options.pop("split_ops", False)
     add_auto_key_as_first_param = options.pop("add_auto_key_as_first_param", False)
+    requires_variable_completeness = options.pop("requires_variable_completeness", False)
 
     # Store a graph_fn record in this component for better in/out-op-record-column reference.
     if wrapped_func.__name__ not in component.graph_fns:
         component.graph_fns[wrapped_func.__name__] = GraphFnRecord(
-            func=wrapped_func, wrapper_func=graph_fn_wrapper, component=component
+            func=wrapped_func, wrapper_func=graph_fn_wrapper, component=component,
+            requires_variable_completeness=requires_variable_completeness
         )
 
     # Generate in-going op-rec-column.
@@ -550,6 +570,7 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         component=component, graph_fn=wrapped_func,
         flatten_ops=flatten_ops, split_ops=split_ops,
         add_auto_key_as_first_param=add_auto_key_as_first_param,
+        requires_variable_completeness=requires_variable_completeness,
         args=args, kwargs=kwargs
     )
     # Add the column to the `graph_fns` record.
@@ -561,14 +582,11 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         # if self.input_complete is False:
         # Check Spaces and create variables.
         component.graph_builder.build_component_when_input_complete(component)
-        assert component.input_complete
-        # If we are calling `variables()` -> make sure we are also variable-complete.
-        if wrapped_func.__name__ == "_graph_fn_variables":
-            if component.variable_complete is False:
-                raise RLGraphVariableIncompleteError(
-                    "Component '{}' is variable incomplete, but its variables are needed in an API-call during the "
-                    "build procedure!".format(component.global_scope), component=component
-                )
+        if component.input_complete is False:
+            raise RLGraphInputIncompleteError(component)
+        # If we are calling a variables-requiring graph_fn -> make sure we are also variable-complete.
+        if requires_variable_completeness is True and component.variable_complete is False:
+            raise RLGraphVariableIncompleteError(component)
         # Call the graph_fn (only if not already done so by build above (e.g. `variables()`).
         if in_graph_fn_column.out_graph_fn_column is None:
             assert in_graph_fn_column.already_sent is False

@@ -45,7 +45,9 @@ class RLGraphInputIncompleteError(RLGraphError):
     """
     Raised if the build of a model cannot
     """
-    def __init__(self, msg, component):
+    def __init__(self, component, msg=None):
+        msg = msg or "Component '{}' is input incomplete, but its input Spaces are needed in an API-call during the " \
+                     "build procedure!".format(component.global_scope)
         super(RLGraphInputIncompleteError, self).__init__(msg)
         self.component = component
 
@@ -54,7 +56,9 @@ class RLGraphVariableIncompleteError(RLGraphError):
     """
 
     """
-    def __init__(self, msg, component):
+    def __init__(self, component, msg=None):
+        msg = msg or "Component '{}' is variable incomplete, but its variables are needed in an API-call during the " \
+                     "build procedure!".format(component.global_scope)
         super(RLGraphVariableIncompleteError, self).__init__(msg)
         self.component = component
 

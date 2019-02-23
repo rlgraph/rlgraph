@@ -67,6 +67,14 @@ class Distribution(Component):
     #                "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
     #                "(atm; may soon do)!".format(self.name)
 
+    def get_action_adapter_type(self):
+        """Returns the type of the action adapter to be used for this distribution.
+
+        Returns:
+            Union[str, class]: The type of the action adapter
+        """
+        raise NotImplementedError
+
     # Now use that API-method to get the distribution object to implement all other API-methods.
     @rlgraph_api
     def sample_stochastic(self, parameters):
@@ -82,6 +90,11 @@ class Distribution(Component):
     def draw(self, parameters, deterministic=True):
         distribution = self.get_distribution(parameters)
         return self._graph_fn_draw(distribution, deterministic)
+
+    @rlgraph_api
+    def sample_and_log_prob(self, parameters, deterministic=True):
+        distribution = self.get_distribution(parameters)
+        return self._graph_fn_sample_and_log_prob(distribution, deterministic)
 
     @rlgraph_api
     def entropy(self, parameters):
@@ -173,6 +186,12 @@ class Distribution(Component):
             return distribution.sample(seed=self.seed)
         elif get_backend() == "pytorch":
             return distribution.sample()
+
+    @graph_fn
+    def _graph_fn_sample_and_log_prob(self, distribution, deterministic):
+        actions = self._graph_fn_draw(distribution, deterministic)
+        log_probs = self._graph_fn_log_prob(distribution, actions)
+        return actions, log_probs
 
     @graph_fn
     def _graph_fn_log_prob(self, distribution, values):

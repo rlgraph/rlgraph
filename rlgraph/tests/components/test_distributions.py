@@ -276,3 +276,19 @@ class TestDistributions(unittest.TestCase):
             outs.append(out)
 
         recursive_assert_almost_equal(np.mean(np.array(outs), axis=0), expected, decimals=1)
+
+    def test_squashed_normal(self):
+        param_space = FloatBox(shape=(2,), add_batch_rank=True)
+        values_space = FloatBox(shape=(1, ), add_batch_rank=True)
+        input_spaces = dict(
+            parameters=param_space,
+            deterministic=bool,
+            values=values_space
+        )
+
+        distribution = SquashedNormal(switched_off_apis={"kl_divergence"}, low=-1.0, high=1.0)
+        test = ComponentTest(component=distribution, input_spaces=input_spaces)
+
+        input_ = [np.array([[5.0, 0.2]]), False]
+
+        print(test.graph_executor.execute((distribution.log_prob, [[[0.9, 0.01]], [[-1.0]]])))

@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.action_adapters import BetaDistributionAdapter
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.spaces import Tuple, FloatBox
@@ -39,8 +40,10 @@ class Beta(Distribution):
         and Gamma(n) = (n - 1)!
 
     """
-    def __init__(self, scope="beta", **kwargs):
+    def __init__(self, scope="beta", low=0.0, high=1.0, **kwargs):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
+        self.low = low
+        self.high = high
         super(Beta, self).__init__(scope=scope, **kwargs)
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -64,8 +67,31 @@ class Beta(Distribution):
             return torch.distributions.Beta(parameters[0], parameters[1])
 
     @graph_fn
+    def _graph_fn_squash(self, raw_values):
+        return raw_values * (self.high - self.low) + self.low
+
+    @graph_fn
+    def _graph_fn_unsquash(self, values):
+        return (values - self.low) / (self.high - self.low)
+
+    @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
+        mean = None
         if get_backend() == "tf":
-            return distribution.mean()
+            mean = distribution.mean()
         elif get_backend() == "pytorch":
-            return distribution.mean
+            mean = distribution.mean
+        return self._graph_fn_squash(mean)
+
+    @graph_fn
+    def _graph_fn_sample_stochastic(self, distribution):
+        raw_values = super(Beta, self)._graph_fn_sample_stochastic(distribution)
+        return self._graph_fn_squash(raw_values)
+
+    @graph_fn
+    def _graph_fn_log_prob(self, distribution, values):
+        raw_values = self._graph_fn_unsquash(values)
+        return super(Beta, self)._graph_fn_log_prob(distribution, raw_values)
+
+    def get_action_adapter_type(self):
+        return BetaDistributionAdapter

@@ -20,7 +20,7 @@ from __future__ import print_function
 import unittest
 import numpy as np
 
-from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.utils.numpy import softmax, relu
@@ -37,8 +37,8 @@ class TestActionAdapters(unittest.TestCase):
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
-        action_adapter = ActionAdapter(action_space=action_space, weights_spec=1.0, biases_spec=False,
-                                       activation="relu")
+        action_adapter = CategoricalDistributionAdapter(action_space=action_space, weights_spec=1.0, biases_spec=False,
+                                                        activation="relu")
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(
                 nn_input=previous_nn_layer_space,
@@ -70,7 +70,7 @@ class TestActionAdapters(unittest.TestCase):
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
-        action_adapter = ActionAdapter(
+        action_adapter = CategoricalDistributionAdapter(
             action_space=action_space, weights_spec=1.0, biases_spec=False, fold_time_rank=True, unfold_time_rank=True,
             activation="relu"
         )
@@ -115,7 +115,7 @@ class TestActionAdapters(unittest.TestCase):
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
-        action_adapter = ActionAdapter(action_space=action_space, biases_spec=False)
+        action_adapter = CategoricalDistributionAdapter(action_space=action_space, biases_spec=False)
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(
                 nn_input=previous_nn_layer_space,

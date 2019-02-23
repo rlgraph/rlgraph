@@ -123,3 +123,6 @@ class ReplayMemory(Memory):
             return records, indices, torch.ones(indices.shape, dtype=torch.float32)
 
 
+    @rlgraph_api
+    def _graph_fn_get_size(self):
+        return self.read_variable(self.size)

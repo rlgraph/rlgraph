@@ -25,6 +25,7 @@ from rlgraph.agents.impala_agents import IMPALAAgent, SingleIMPALAAgent
 from rlgraph.agents.ppo_agent import PPOAgent
 from rlgraph.agents.actor_critic_agent import ActorCriticAgent
 from rlgraph.agents.random_agent import RandomAgent
+from rlgraph.agents.sac_agent import SACAgent
 
 
 Agent.__lookup_classes__ = dict(
@@ -41,7 +42,9 @@ Agent.__lookup_classes__ = dict(
     ppo=PPOAgent,
     ppoagent=PPOAgent,
     random=RandomAgent,
-    randomagent=RandomAgent
+    randomagent=RandomAgent,
+    sac=SACAgent,
+    sacagent=SACAgent
 )
 
 __all__ = ["Agent"] + \

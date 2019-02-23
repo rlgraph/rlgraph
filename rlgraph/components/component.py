@@ -24,6 +24,7 @@ import copy
 import inspect
 import numpy as np
 import re
+import uuid
 
 from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry,\
@@ -303,6 +304,8 @@ class Component(Specifiable):
 
         # Simply check all direct sub-Components for variable-completeness.
         for direct_child in self.sub_components.values():
+            if re.search(r'^_helper-', direct_child.scope):
+                continue
             if not direct_child.check_variable_completeness():
                 return False
         self.variable_complete = True
@@ -470,7 +473,6 @@ class Component(Specifiable):
         Returns:
             DataOp: The actual variable (dependent on the backend) or - if from
                 a ContainerSpace - a FlattenedDataOp or ContainerDataOp depending on the Space.
-
         """
 
         # Overwrite the given trainable parameter, iff self.trainable is actually defined as a bool.
@@ -1160,6 +1162,7 @@ class Component(Specifiable):
             variable (DataOp): The variable whose value to read.
             indices (Optional[np.ndarray,tf.Tensor]): Indices (if any) to fetch from the variable.
             dtype (Optional[torch.dtype]): Optional dtype to convert read values to.
+
         Returns:
             any: Variable values.
         """
@@ -1230,7 +1233,7 @@ class Component(Specifiable):
         """
         pass
 
-    def get_helper_component(self, type_):
+    def get_helper_component(self, type_, *args, **kwargs):
         """
         Returns a helper component of the given type (only one helper component per type is allowed
         and necessary). If a helper of the type does not exist yet in `self`, create a new one.
@@ -1241,13 +1244,17 @@ class Component(Specifiable):
         Returns:
             Component: The helper component.
         """
-        name = "_helper_"+type_
+        name = "_helper-"+type_+"-{}".format(uuid.uuid4())
         helper = self.sub_components.get(name)
         if helper is None:
-            helper = Component.from_spec(dict(type=type_, scope="_helper_"+type_))
+            kwargs.update(dict(type=type_, scope=name))
+            if len(args) > 0:
+                kwargs.update({"_args": args})
+            helper = Component.from_spec(kwargs)
+            self.add_components(helper)
         return helper
 
-    @rlgraph_api(returns=1)
+    @rlgraph_api(returns=1, requires_variable_completeness=True)
     def _graph_fn_variables(self):
         """
         Outputs all of this Component's variables in a DataOpDict (API-method "variables").
