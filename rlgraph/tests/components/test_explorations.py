@@ -22,7 +22,7 @@ from six.moves import xrange as range_
 import unittest
 
 from rlgraph.components.component import Component
-from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters.categorical_distribution_adapter import CategoricalDistributionAdapter
 from rlgraph.components.explorations.exploration import Exploration, EpsilonExploration
 from rlgraph.components.distributions import Categorical, Normal
 from rlgraph.spaces import *
@@ -41,7 +41,7 @@ class TestExplorations(unittest.TestCase):
 
         # Our distribution to go into the Exploration object.
         distribution = Categorical()
-        action_adapter = ActionAdapter(action_space=action_space)
+        action_adapter = CategoricalDistributionAdapter(action_space=action_space)
 
         exploration = Exploration.from_spec(dict(
             epsilon_spec=dict(
@@ -116,9 +116,9 @@ class TestExplorations(unittest.TestCase):
         distribution_a = Categorical(scope="d_a")
         distribution_b = Categorical(scope="d_b")
         distribution_c = Categorical(scope="d_c")
-        action_adapter_a = ActionAdapter(action_space=action_space["a"], scope="aa_a")
-        action_adapter_b = ActionAdapter(action_space=action_space["b"], scope="aa_b")
-        action_adapter_c = ActionAdapter(action_space=action_space["c"], scope="aa_c")
+        action_adapter_a = CategoricalDistributionAdapter(action_space=action_space["a"], scope="aa_a")
+        action_adapter_b = CategoricalDistributionAdapter(action_space=action_space["b"], scope="aa_b")
+        action_adapter_c = CategoricalDistributionAdapter(action_space=action_space["c"], scope="aa_c")
 
         exploration = Exploration.from_spec(dict(
             epsilon_spec=dict(
