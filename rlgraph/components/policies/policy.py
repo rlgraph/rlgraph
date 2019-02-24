@@ -247,6 +247,30 @@ class Policy(Component):
                     parameters=out["parameters"], log_probs=out["log_probs"])
 
     @rlgraph_api
+    def get_action_and_log_prob(self, nn_input, internal_states=None, deterministic=None):
+        """
+        Args:
+            nn_input (any): The input to our neural network.
+            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
+                from the distribution in max-likelihood (deterministic) or stochastic fashion.
+        Returns:
+            dict:
+                `action`: The drawn action.
+                `log_prob`: The log likelihood of the drawn action.
+                `last_internal_states`: The last internal states (if NN is RNN based, otherwise: None).
+        """
+        deterministic = self.deterministic if deterministic is None else deterministic
+        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
+        action, log_prob = self._graph_fn_get_action_and_log_prob(out["parameters"], deterministic)
+
+        return dict(
+            action=action,
+            log_prob=log_prob,
+            last_internal_states=out["last_internal_states"]
+        )
+
+    @rlgraph_api
     def get_action_log_probs(self, nn_input, actions, internal_states=None):
         """
         Computes the log-likelihood for a given set of actions under the distribution induced by a set of states.
@@ -464,9 +488,45 @@ class Policy(Component):
 
         return ret
 
-    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True, returns=2)
-    def _graph_fn_get_action_components_log_probs(self, key, parameters, deterministic):
-        return self.distributions[key].sample_and_log_prob(parameters, deterministic)
+    @graph_fn(returns=2)
+    def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):
+        ret = FlattenedDataOp()
+        for flat_key, action_space_component in self.action_space.flatten().items():
+            # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
+            # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
+            # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
+            if flat_key == "":
+                if isinstance(parameters, FlattenedDataOp):
+                    params = parameters[""]
+                else:
+                    params = parameters
+            else:
+                params = parameters.flat_key_lookup(flat_key)
+
+            if isinstance(action_space_component, IntBox) and \
+                    (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
+                ret[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(params), \
+                                tf.reduce_max(params, axis=-1, output_type=tf.int32)
+                #else:
+                #    ret[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(params), \
+                #        tf.reduce_max(params, axis=-1, output_type=tf.int32)
+            elif isinstance(action_space_component, BoolBox) and \
+                    (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
+                #if flat_key == "":
+                #    return tf.greater(params, 0.5), params
+                #else:
+                ret[flat_key] = tf.greater(params, 0.5), params
+            else:
+                #if flat_key == "":
+                #    # Still wrapped as FlattenedDataOp.
+                #    if isinstance(parameters, FlattenedDataOp):
+                #        return self.distributions[flat_key].sample_and_log_prob(parameters[flat_key], deterministic)
+                #    else:
+                #        return self.distributions[flat_key].sample_and_log_prob(parameters, deterministic)
+                ret[flat_key] = self.distributions[flat_key].sample_and_log_prob(params, deterministic)
+
+        return ret[""] if len(ret) == 1 and "" in ret else ret
+        #return self.distributions[key].sample_and_log_prob(parameters, deterministic)
 
     @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_get_deterministic_action_wo_distribution(self, logits):
