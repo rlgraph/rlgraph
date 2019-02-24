@@ -19,6 +19,8 @@ from rlgraph.utils.ops import flatten_op
 if get_backend() == "tf":
     import tensorflow as tf
     from rlgraph.utils import tf_util
+elif get_backend() == "pytorch":
+    import torch
 
 
 class SyncSpecification(object):
@@ -239,7 +241,11 @@ class SACAgentComponent(Component):
 
     @graph_fn
     def _graph_fn__compute_alpha(self):
-        return tf.exp(self.log_alpha)
+        backend = get_backend()
+        if backend == "tf":
+            return tf.exp(self.log_alpha)
+        elif backend == "pytorch":
+            return torch.exp(self.log_alpha)
 
     @graph_fn(returns=1)
     def _graph_fn__concat(self, *tensors):
