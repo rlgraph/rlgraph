@@ -243,7 +243,7 @@ class SingleThreadedWorker(Worker):
                     env_actions = [env_actions]
 
             for _ in range_(frameskip):
-                next_states, step_rewards, episode_terminals, infos = self.vector_env.step(actions=env_actions)
+                next_states, step_rewards, episode_terminals, _ = self.vector_env.step(actions=env_actions)
 
                 self.env_frames += self.num_environments
                 for i, step_reward in enumerate(step_rewards):

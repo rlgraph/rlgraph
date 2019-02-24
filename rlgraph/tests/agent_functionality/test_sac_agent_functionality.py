@@ -1,48 +1,17 @@
 import unittest
 import logging
 import numpy as np
-
-from rlgraph.utils import root_logger
-from rlgraph.tests import ComponentTest
-from rlgraph.agents.sac_agent import SACLossFunction, SACAgentComponent, SyncSpecification, SACAgent
-from rlgraph.spaces import FloatBox, BoolBox, Tuple, IntBox, Dict
-from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
-    Synchronizable
-from rlgraph.environments import Environment
-from rlgraph.execution import SingleThreadedWorker
 from scipy import stats
 
-
-class DummyEnvironment(Environment):
-    """Dummy environment, the reward is density of the gaussian at the action."""
-    def __init__(self, episode_length=5, scale=0.1):
-        super(DummyEnvironment, self).__init__(state_space=FloatBox(shape=(1, )),
-                                               action_space=FloatBox(shape=(1, ), low=-2.0, high=2.0))
-        self.episode_length = episode_length
-        self.episode_step = 0
-        self.loc = None
-        self.scale = scale
-
-    def seed(self, seed=None):
-        pass
-
-    def reset(self):
-        self.episode_step = 0
-        self.loc = np.random.uniform(size=(1, )) * 2 - 1
-        return self.loc
-
-    def step(self, actions, **kwargs):
-        reward = stats.norm.pdf(actions, loc=self.loc, scale=self.scale)[0]
-        self.episode_step += 1
-        self.loc = np.random.uniform(size=(1,)) * 2 - 1
-        return self.loc, reward, self.episode_step >= self.episode_length, dict()
-
-    def __str__(self):
-        return self.__class__.__name__
-
-    def get_max_reward(self):
-        max_reward_per_step = stats.norm(loc=0.0, scale=self.scale).pdf(0.0)
-        return self.episode_length * max_reward_per_step
+from rlgraph.agents import Agent
+from rlgraph.agents.sac_agent import SACLossFunction, SACAgentComponent, SyncSpecification
+from rlgraph.spaces import FloatBox, BoolBox, Tuple, IntBox
+from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
+    Synchronizable
+from rlgraph.environments import GaussianDensityAsRewardEnvironment
+from rlgraph.execution import SingleThreadedWorker
+from rlgraph.tests import ComponentTest, config_from_path
+from rlgraph.utils import root_logger
 
 
 class TestSACAgentFunctionality(unittest.TestCase):
@@ -51,7 +20,8 @@ class TestSACAgentFunctionality(unittest.TestCase):
     """
     root_logger.setLevel(level=logging.DEBUG)
 
-    def _prepare_loss_function_test(self, loss_function):
+    @staticmethod
+    def _prepare_loss_function_test(loss_function):
         test = ComponentTest(
             component=loss_function,
             input_spaces=dict(
@@ -267,58 +237,11 @@ class TestSACAgentFunctionality(unittest.TestCase):
         np.testing.assert_allclose(np.mean(action_sample), true_mean, atol=0.1)
 
     def test_sac_agent(self):
-        env = DummyEnvironment(episode_length=5)
-        agent = SACAgent(
-            discount=0.99,
+        env = GaussianDensityAsRewardEnvironment(episode_length=5)
+        agent = Agent.from_spec(
+            config_from_path("configs/sac_agent_for_functionality_test.json"),
             state_space=env.state_space,
-            action_space=env.action_space,
-            memory_spec=ReplayMemory(capacity=1000),
-            update_spec={
-                "update_mode": "time_steps",
-                "do_updates": True,
-                "update_interval": 1,
-                "sync_interval": 1,
-                "sync_tau": 0.05,
-                "batch_size": 100,
-                "num_iterations": 1
-            },
-            network_spec=[
-                {
-                    "type": "dense",
-                    "units": 8,
-                    "activation": "tanh",
-                    "scope": "hidden1"
-                },
-                {
-                    "type": "dense",
-                    "units": 8,
-                    "activation": "tanh",
-                    "scope": "hidden2"
-                }
-            ],
-            value_function_spec=[
-                {
-                    "type": "dense",
-                    "units": 8,
-                    "activation": "tanh",
-                    "scope": "vf-hidden1"
-                },
-                {
-                    "type": "dense",
-                    "units": 8,
-                    "activation": "tanh",
-                    "scope": "vf-hidden2"
-                }
-            ],
-            optimizer_spec={
-                "type": "adam",
-                "learning_rate": 3e-3
-            },
-            value_function_optimizer_spec={
-                "type": "adam",
-                "learning_rate": 3e-3
-            },
-            initial_alpha=.01
+            action_space=env.action_space
         )
 
         worker = SingleThreadedWorker(
