@@ -230,7 +230,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         q_values = test.graph_executor.execute((agent_component.get_q_values, [state_space.sample(batch_size), action_sample]))
         for q_val in q_values:
             q_val = q_val.flatten()
-            np.testing.assert_allclose(q_val, target_dist.pdf(action_sample), atol=0.2)
+            np.testing.assert_allclose(q_val, target_dist.pdf(action_sample), atol=0.4)
 
         action_sample, _ = test.graph_executor.execute((agent_component.action_from_preprocessed_state, [state_space.sample(batch_size), False]))
         action_sample = action_sample.flatten()
