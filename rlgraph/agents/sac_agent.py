@@ -9,8 +9,9 @@ from rlgraph.agents import Agent
 from rlgraph.utils import RLGraphError
 from rlgraph.spaces import FloatBox, BoolBox, IntBox
 from rlgraph.components import Component, Synchronizable
+from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay, LossFunction
+from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay
 from rlgraph.utils.util import strip_list
 from rlgraph.utils.ops import flatten_op
 
@@ -18,104 +19,6 @@ from rlgraph.utils.ops import flatten_op
 if get_backend() == "tf":
     import tensorflow as tf
     from rlgraph.utils import tf_util
-if get_backend() == "pytorch":
-    import torch
-
-
-class SACLossFunction(LossFunction):
-    """
-    TODO: docs
-    """
-    def __init__(self, target_entropy=None, discount=0.99, scope="sac-loss-function", **kwargs):
-        super(SACLossFunction, self).__init__(discount=discount, scope=scope, **kwargs)
-        self.target_entropy = target_entropy
-
-    @rlgraph_api
-    def loss(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-             q_values_sampled, rewards, terminals):
-        actor_loss_per_item, critic_loss_per_item, alpha_loss_per_item = self.loss_per_item(
-            alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-            q_values_sampled, rewards, terminals
-        )
-        actor_loss = self.loss_average(actor_loss_per_item)
-        critic_loss = self.loss_average(critic_loss_per_item)
-        alpha_loss = self.loss_average(alpha_loss_per_item)
-        return actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item
-
-    @graph_fn
-    def _graph_fn__critic_loss(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, rewards, terminals):
-        q_min_next = tf.reduce_min(tf.concat(q_values_next_sampled, axis=1), axis=1, keepdims=True)
-        assert q_min_next.shape.as_list() == [None, 1]
-        soft_state_value = q_min_next - alpha * log_probs_next_sampled
-        q_target = rewards + self.discount * (1.0 - tf.cast(terminals, tf.float32)) * soft_state_value
-        total_loss = 0.0
-        for i, q_value in enumerate(q_values):
-            loss = 0.5 * (q_value - tf.stop_gradient(q_target)) ** 2
-            loss = tf.identity(loss, "critic_loss_per_item_{}".format(i + 1))
-            total_loss += loss
-        return total_loss
-
-    @graph_fn
-    def _graph_fn__actor_loss(self, alpha, log_probs_sampled, q_values_sampled):
-        q_min = tf.reduce_min(tf.concat(q_values_sampled, axis=1), axis=1, keepdims=True)
-        assert q_min.shape.as_list() == [None, 1]
-        loss = alpha * log_probs_sampled - q_min
-        loss = tf.identity(loss, "actor_loss_per_item")
-        return loss
-
-    @graph_fn
-    def _graph_fn__alpha_loss(self, alpha, log_probs_sampled):
-        loss = -alpha * tf.stop_gradient(log_probs_sampled + self.target_entropy)
-        loss = tf.identity(loss, "alpha_loss_per_item")
-        return loss
-
-    @rlgraph_api
-    def loss_per_item(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-                      q_values_sampled, rewards, terminals):
-        return self._graph_fn_loss_per_item(
-            alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled, q_values_sampled,
-            rewards, terminals
-        )
-
-    @graph_fn
-    def _graph_fn_loss_per_item(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-                                q_values_sampled, rewards, terminals):
-        assert alpha.shape.as_list() == []
-        assert log_probs_next_sampled.shape.as_list() == [None, 1]
-        assert all(q.shape.as_list() == [None, 1] for q in q_values_next_sampled)
-        assert all(q.shape.as_list() == [None, 1] for q in q_values)
-        assert log_probs_sampled.shape.as_list() == [None, 1]
-        assert all(q.shape.as_list() == [None, 1] for q in q_values_sampled)
-        assert rewards.shape.as_list() == [None]
-        assert terminals.shape.as_list() == [None]
-        rewards = tf.expand_dims(rewards, axis=-1)
-        terminals = tf.expand_dims(terminals, axis=-1)
-
-        critic_loss_per_item = self._graph_fn__critic_loss(
-            alpha=alpha,
-            log_probs_next_sampled=log_probs_next_sampled,
-            q_values_next_sampled=q_values_next_sampled,
-            q_values=q_values,
-            rewards=rewards,
-            terminals=terminals
-        )
-        critic_loss_per_item = tf.squeeze(critic_loss_per_item, axis=1)
-
-        actor_loss_per_item = self._graph_fn__actor_loss(
-            alpha=alpha,
-            log_probs_sampled=log_probs_sampled,
-            q_values_sampled=q_values_sampled
-        )
-        actor_loss_per_item = tf.squeeze(actor_loss_per_item, axis=1)
-
-        if self.target_entropy is not None:
-            alpha_loss_per_item = self._graph_fn__alpha_loss(alpha=alpha, log_probs_sampled=log_probs_sampled)
-            alpha_loss_per_item = tf.squeeze(alpha_loss_per_item, axis=1)
-        else:
-            # TODO: optimize this path
-            alpha_loss_per_item = tf.zeros([tf.shape(rewards)[0]])
-
-        return actor_loss_per_item, critic_loss_per_item, alpha_loss_per_item
 
 
 class SyncSpecification(object):
@@ -284,17 +187,17 @@ class SACAgentComponent(Component):
     def get_losses(self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights):
         # TODO: internal states
 
-        samples_next = self._policy.get_action(preprocessed_next_states, deterministic=False)
+        samples_next = self._policy.get_action_and_log_prob(preprocessed_next_states, deterministic=False)
         next_sampled_actions = samples_next["action"]
-        log_probs_next_sampled = samples_next["log_probs"]
+        log_probs_next_sampled = samples_next["log_prob"]
 
         q_values_next_sampled = self._compute_q_values(
             self._target_q_functions, preprocessed_next_states, next_sampled_actions
         )
         q_values = self._compute_q_values(self._q_functions, preprocessed_states, actions)
-        samples = self._policy.get_action(preprocessed_states, deterministic=False)
+        samples = self._policy.get_action_and_log_prob(preprocessed_states, deterministic=False)
         sampled_actions = samples["action"]
-        log_probs_sampled = samples["log_probs"]
+        log_probs_sampled = samples["log_prob"]
         q_values_sampled = self._compute_q_values(self._q_functions, preprocessed_states, sampled_actions)
 
         alpha = self._graph_fn__compute_alpha()

@@ -23,6 +23,7 @@ from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
 from rlgraph.components.loss_functions.dqfd_loss_function import DQFDLossFunction
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.loss_functions.ppo_loss_function import PPOLossFunction
+from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 
 LossFunction.__lookup_classes__ = dict(
     actorcriticlossfunction=ActorCriticLossFunction,
@@ -30,6 +31,7 @@ LossFunction.__lookup_classes__ = dict(
     dqfdlossfunction=DQFDLossFunction,
     impalalossfunction=IMPALALossFunction,
     ppolossfunction=PPOLossFunction,
+    saclossfunction=SACLossFunction,
 )
 
 __all__ = ["LossFunction"] + \
