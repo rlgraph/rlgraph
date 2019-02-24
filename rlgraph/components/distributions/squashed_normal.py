@@ -18,18 +18,19 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.distributions.distribution import Distribution
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components.action_adapters import SquashedNormalAdapter
+from rlgraph.components.distributions.distribution import Distribution
+from rlgraph.spaces import Tuple, FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.util import SMALL_NUMBER
 
 
 if get_backend() == "tf":
     import tensorflow as tf
+    import tensorflow_probability as tfp
 elif get_backend() == "pytorch":
     import torch
-
-
-EPS = 1e-6
 
 
 class SquashedNormal(Distribution):
@@ -46,31 +47,40 @@ class SquashedNormal(Distribution):
     def check_input_spaces(self, input_spaces, action_space=None):
         # Must be a Tuple of len 2 (loc and scale).
         in_space = input_spaces["parameters"]
-        # Make sure input parameters has an even last rank for splitting into mean/stddev parameter values.
-        assert in_space.shape[-1] % 2 == 0, "ERROR: `parameters` in_space must have an even numbered last rank!"
+        sanity_check_space(in_space, allowed_types=[Tuple])
+        assert len(in_space) == 2, "ERROR: Expected Tuple of len=2 as input Space to SquashedNormal!"
+        sanity_check_space(in_space[0], allowed_types=[FloatBox])
+        sanity_check_space(in_space[1], allowed_types=[FloatBox])
 
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
-            mean, stddev = tf.split(parameters, num_or_size_splits=2, axis=-1)
-            return tf.distributions.Normal(loc=mean, scale=stddev)
+            return tfp.distributions.Normal(loc=parameters[0], scale=parameters[1])
         elif get_backend() == "pytorch":
-            mean, stddev = torch.split(parameters, 2, dim=-1)
-            return torch.distributions.Normal(mean, stddev)
+            return torch.distributions.Normal(parameters[0], parameters[1])
 
     @graph_fn
     def _graph_fn_squash(self, raw_values):
         if get_backend() == "tf":
             return (tf.tanh(raw_values) + 1.0) / 2.0 * (self.high - self.low) + self.low
+        elif get_backend() == "pytorch":
+            return (torch.tanh(raw_values) + 1.0) / 2.0 * (self.high - self.low) + self.low
 
     @graph_fn
     def _graph_fn_unsquash(self, values):
         if get_backend() == "tf":
             return tf.atanh((values - self.low) / (self.high - self.low) * 2.0 - 1.0)
+        elif get_backend() == "tf":
+            return torch.atanh((values - self.low) / (self.high - self.low) * 2.0 - 1.0)
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
-        return self._graph_fn_squash(distribution.mean())
+        mean = None
+        if get_backend() == "tf":
+            mean = distribution.mean()
+        elif get_backend() == "pytorch":
+            mean = distribution.mean
+        return self._graph_fn_squash(mean)
 
     @graph_fn
     def _graph_fn_sample_stochastic(self, distribution):
@@ -82,7 +92,10 @@ class SquashedNormal(Distribution):
     @graph_fn
     def _graph_fn_log_prob(self, distribution, values):
         log_prob = distribution.log_prob(value=self._graph_fn_unsquash(values))
-        log_prob -= tf.reduce_sum(tf.log(1 - values ** 2 + EPS), axis=1, keepdims=True)
+        if get_backend() == "tf":
+            log_prob -= tf.reduce_sum(tf.log(1 - values ** 2 + SMALL_NUMBER), axis=1, keepdims=True)
+        elif get_backend() == "pytorch":
+            log_prob -= torch.sum(tf.log(1 - values ** 2 + SMALL_NUMBER), axis=1, keepdims=True)
         return log_prob
 
     @graph_fn
@@ -93,6 +106,8 @@ class SquashedNormal(Distribution):
     def _graph_fn_kl_divergence(self, distribution, distribution_b):
         if get_backend() == "tf":
             return tf.no_op()
+        elif get_backend() == "pytorch":
+            return None
 
     @graph_fn
     def _graph_fn_sample_and_log_prob(self, distribution, deterministic):
@@ -104,7 +119,7 @@ class SquashedNormal(Distribution):
             )
             action = tf.tanh(raw_action)
             log_prob = distribution.log_prob(raw_action)
-            log_prob -= tf.reduce_sum(tf.log(1 - action ** 2 + EPS), axis=1, keepdims=True)
+            log_prob -= tf.reduce_sum(tf.log(1 - action ** 2 + SMALL_NUMBER), axis=1, keepdims=True)
             scaled_action = (action + 1) / 2 * (self.high - self.low) + self.low
             return scaled_action, log_prob
         elif get_backend() == "pytorch":
