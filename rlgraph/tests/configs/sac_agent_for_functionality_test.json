@@ -1,0 +1,54 @@
+{
+  "type": "sac-agent",
+  "discount": 0.99,
+  "memory_spec": {
+    "type": "replay-memory",
+    "capacity": 1000
+  },
+  "update_spec": {
+    "update_mode": "time_steps",
+    "do_updates": true,
+    "update_interval": 1,
+    "sync_interval": 1,
+    "sync_tau": 0.05,
+    "batch_size": 100,
+    "num_iterations": 1
+  },
+  "network_spec": [
+    {
+      "type": "dense",
+      "units": 8,
+      "activation": "tanh",
+      "scope": "hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 8,
+      "activation": "tanh",
+      "scope": "hidden2"
+    }
+  ],
+  "value_function_spec": [
+    {
+      "type": "dense",
+      "units": 8,
+      "activation": "tanh",
+      "scope": "vf-hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 8,
+      "activation": "tanh",
+      "scope": "vf-hidden2"
+    }
+  ],
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 3e-3
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 3e-3
+  },
+  "initial_alpha": 0.01
+}
