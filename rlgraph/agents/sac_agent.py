@@ -389,7 +389,7 @@ class SACAgent(Agent):
             optimizer=self.optimizer,
             vf_optimizer=self.value_function_optimizer,
             q_sync_spec=value_function_sync_spec,
-            num_q_functions=2 if self.double_q else 1
+            num_q_functions=2 if self.double_q is True else 1
         )
 
         self.build_options = dict(vf_optimizer=self.value_function_optimizer)
@@ -482,5 +482,6 @@ class SACAgent(Agent):
         self.graph_executor.execute(self.root_component.reset_targets)
 
     def __repr__(self):
-        return "SACAgent(double_q={}, initial_alpha={}, target_entropy={})".format(
-            self.double_q, self.initial_alpha, self.target_entropy)
+        return "SACAgent(double-q={}, initial-alpha={}, target-entropy={})".format(
+            self.double_q, self.initial_alpha, self.target_entropy
+        )

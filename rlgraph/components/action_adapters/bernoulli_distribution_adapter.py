@@ -16,14 +16,11 @@
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import ActionAdapter
 from rlgraph.utils.decorators import graph_fn
-from rlgraph.utils.util import SMALL_NUMBER
-
 
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
     import torch
-    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH
 
 
 class BernoulliDistributionAdapter(ActionAdapter):

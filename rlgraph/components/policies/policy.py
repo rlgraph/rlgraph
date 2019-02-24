@@ -431,19 +431,11 @@ class Policy(Component):
         for flat_key, action_space_component in self.action_space.flatten().items():
             low, high = action_space_component.tensor_backed_bounds()
             if flat_key == "":
-                ## For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
-                #if self.bounded_action_space[flat_key] is True:
-                #    actions = (actions - low) / (high - low)
                 if isinstance(parameters, FlattenedDataOp):
                     return self.distributions[flat_key].log_prob(parameters[flat_key], actions)
                 else:
                     return self.distributions[flat_key].log_prob(parameters, actions)
             else:
-                ## For bounded continuous action spaces, need to unscale (0.0 to 1.0 for beta distribution).
-                #action_value = actions.flat_key_lookup(flat_key)
-                #if self.bounded_action_space[flat_key] is True:
-                #    action_value = (action_value - low) / \
-                #               (high - low)
                 ret[flat_key] = self.distributions[flat_key].log_prob(
                     parameters.flat_key_lookup(flat_key), actions.flat_key_lookup(flat_key)
                 )
@@ -478,12 +470,6 @@ class Policy(Component):
                     else:
                         return self.distributions[flat_key].draw(parameters, deterministic)
 
-                #actions = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
-
-                # If a bounded space (Beta distribution output between 0.0 and 1.0) -> scale correctly.
-                #if self.bounded_action_space[flat_key] is True:
-                #    actions = actions * (self.action_space.high - self.action_space.low) + self.action_space.low
-
                 ret[flat_key] = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
 
         return ret
@@ -506,27 +492,14 @@ class Policy(Component):
             if isinstance(action_space_component, IntBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
                 ret[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(params), \
-                                tf.reduce_max(params, axis=-1, output_type=tf.int32)
-                #else:
-                #    ret[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(params), \
-                #        tf.reduce_max(params, axis=-1, output_type=tf.int32)
+                                tf.reduce_max(params, axis=-1)
             elif isinstance(action_space_component, BoolBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
-                #if flat_key == "":
-                #    return tf.greater(params, 0.5), params
-                #else:
                 ret[flat_key] = tf.greater(params, 0.5), params
             else:
-                #if flat_key == "":
-                #    # Still wrapped as FlattenedDataOp.
-                #    if isinstance(parameters, FlattenedDataOp):
-                #        return self.distributions[flat_key].sample_and_log_prob(parameters[flat_key], deterministic)
-                #    else:
-                #        return self.distributions[flat_key].sample_and_log_prob(parameters, deterministic)
                 ret[flat_key] = self.distributions[flat_key].sample_and_log_prob(params, deterministic)
 
         return ret[""] if len(ret) == 1 and "" in ret else ret
-        #return self.distributions[key].sample_and_log_prob(parameters, deterministic)
 
     @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_get_deterministic_action_wo_distribution(self, logits):

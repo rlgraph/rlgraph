@@ -13,10 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
+from math import log
+
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import ActionAdapter
 from rlgraph.utils.decorators import graph_fn
 from rlgraph.utils.ops import DataOpTuple
+from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -44,6 +47,7 @@ class NormalDistributionAdapter(ActionAdapter):
 
         if get_backend() == "tf":
             mean, log_sd = tf.split(last_nn_layer_output, num_or_size_splits=2, axis=-1)
+            log_sd = tf.clip_by_value(log_sd, log(SMALL_NUMBER), -log(SMALL_NUMBER))
 
             # Turn log sd into sd to ascertain always positive stddev values.
             sd = tf.exp(log_sd)
@@ -62,6 +66,7 @@ class NormalDistributionAdapter(ActionAdapter):
             mean, log_sd = torch.split(
                 last_nn_layer_output, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1
             )
+            log_sd = torch.clamp(log_sd, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER))
 
             # Turn log sd into sd.
             sd = torch.exp(log_sd)
