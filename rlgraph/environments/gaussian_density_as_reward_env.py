@@ -56,10 +56,9 @@ class GaussianDensityAsRewardEnvironment(Environment):
         self.loc = np.random.uniform(size=(1,)) * 2 - 1
         return self.loc, reward, self.episode_step >= self.episode_length, None
 
-    def __str__(self):
-        return self.__class__.__name__
-
     def get_max_reward(self):
         max_reward_per_step = stats.norm(loc=0.0, scale=self.scale).pdf(0.0)
         return self.episode_length * max_reward_per_step
 
+    def __str__(self):
+        return self.__class__.__name__ + "(episode-len={}, scale={})".format(self.episode_length, self.scale)

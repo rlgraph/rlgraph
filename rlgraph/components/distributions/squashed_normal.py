@@ -53,6 +53,12 @@ class SquashedNormal(Distribution):
         sanity_check_space(in_space[1], allowed_types=[FloatBox])
 
     @rlgraph_api
+    def sample_and_log_prob(self, parameters, deterministic=True):
+        distribution = self.get_distribution(parameters)
+        scaled_actions, log_prob = self._graph_fn_sample_and_log_prob(distribution, deterministic)
+        return scaled_actions, log_prob
+
+    @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
             return tfp.distributions.Normal(loc=parameters[0], scale=parameters[1])
