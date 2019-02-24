@@ -25,7 +25,6 @@ from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import SMALL_NUMBER
 
-
 if get_backend() == "tf":
     import tensorflow as tf
     import tensorflow_probability as tfp
