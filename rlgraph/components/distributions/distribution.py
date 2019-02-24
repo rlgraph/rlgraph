@@ -55,18 +55,6 @@ class Distribution(Component):
         # For define-by-run to avoid creating new objects when calling `get_distribution`.
         self.dist_object = None
 
-    #def check_input_spaces(self, input_spaces, action_space=None):
-    #    ## The first arg of all API-methods is always the distribution parameters. Check them for ContainerSpaces.
-    #    #for key in ["sample_stochastic", "sample_deterministic", "draw",
-    #    #            "entropy", "log_prob", "kl_divergence"]:
-    #    for key in ["distribution", "distribution_b"]:
-    #        if key in input_spaces:
-    #            parameter_space = input_spaces[key]
-    #            # Must not be ContainerSpace (not supported yet for Distributions, doesn't seem to make sense).
-    #            assert not isinstance(parameter_space, ContainerSpace),\
-    #                "ERROR: Cannot handle container parameter Spaces in distribution '{}' " \
-    #                "(atm; may soon do)!".format(self.name)
-
     def get_action_adapter_type(self):
         """Returns the type of the action adapter to be used for this distribution.
 
@@ -94,7 +82,9 @@ class Distribution(Component):
     @rlgraph_api
     def sample_and_log_prob(self, parameters, deterministic=True):
         distribution = self.get_distribution(parameters)
-        return self._graph_fn_sample_and_log_prob(distribution, deterministic)
+        actions = self._graph_fn_draw(distribution, deterministic)
+        log_probs = self._graph_fn_log_prob(distribution, actions)
+        return actions, log_probs
 
     @rlgraph_api
     def entropy(self, parameters):
@@ -186,12 +176,6 @@ class Distribution(Component):
             return distribution.sample(seed=self.seed)
         elif get_backend() == "pytorch":
             return distribution.sample()
-
-    @graph_fn
-    def _graph_fn_sample_and_log_prob(self, distribution, deterministic):
-        actions = self._graph_fn_draw(distribution, deterministic)
-        log_probs = self._graph_fn_log_prob(distribution, actions)
-        return actions, log_probs
 
     @graph_fn
     def _graph_fn_log_prob(self, distribution, values):
