@@ -26,8 +26,12 @@ from rlgraph.spaces import FloatBox
 
 class GaussianDensityAsRewardEnvironment(Environment):
     """
-    Dummy environment, the reward is probability density of the gaussian at the action.
-    So the optimal behavior would be to pick actions with small stddev parameters.
+    Environment where the reward is always the Gaussian probability density at the given
+    single-float action.
+    The state is a uniformly random value between -1 and 1 and determines the loc of the pdf.
+    The scale of the pdf is fixed in the ctor.
+
+    The optimal policy would be to pick actions that are closest to the current state.
     """
     def __init__(self, episode_length=5, scale=0.1):
         super(GaussianDensityAsRewardEnvironment, self).__init__(
@@ -50,7 +54,7 @@ class GaussianDensityAsRewardEnvironment(Environment):
         reward = stats.norm.pdf(actions, loc=self.loc, scale=self.scale)[0]
         self.episode_step += 1
         self.loc = np.random.uniform(size=(1,)) * 2 - 1
-        return self.loc, reward, self.episode_step >= self.episode_length, dict()
+        return self.loc, reward, self.episode_step >= self.episode_length, None
 
     def __str__(self):
         return self.__class__.__name__
