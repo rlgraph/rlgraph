@@ -52,9 +52,11 @@ class TestRayWorker(unittest.TestCase):
         """
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
-        ray_spec["worker_spec"]["worker_sample_size"] = 100
+
+        # 2 workers.
+        ray_spec["worker_spec"]["worker_sample_size"] = 50
         worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"],
-                                                   self.env_spec,  auto_build=True)
+                                                   self.env_spec)
 
         # Test when breaking on terminal.
         # Init remote task.
@@ -106,7 +108,7 @@ class TestRayWorker(unittest.TestCase):
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
 
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
-        ray_spec["worker_spec"]["worker_sample_size"] = 100
+        ray_spec["worker_spec"]["worker_sample_size"] = 50
         worker_spec = ray_spec["worker_spec"]
         worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"],
                                                    self.env_spec,  auto_build=True)
@@ -183,7 +185,7 @@ class TestRayWorker(unittest.TestCase):
 
         ray_spec["worker_spec"]["worker_sample_size"] = 50
         # Create a remote worker with the same agent config.
-        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], env_spec,  auto_build=True)
+        worker = RayValueWorker.as_remote().remote(agent_config, ray_spec["worker_spec"], env_spec)
 
         # This imitates the initial executor sync without ray.put
         weights = RayWeight(local_agent.get_weights())

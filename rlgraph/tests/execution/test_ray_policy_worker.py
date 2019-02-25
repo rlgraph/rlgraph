@@ -65,7 +65,7 @@ class TestRayPolicyWorker(unittest.TestCase):
         ray_spec["worker_spec"]["worker_sample_size"] = 50
         # Create a remote worker with the same agent config.
         worker = RayPolicyWorker.as_remote().remote(agent_config, ray_spec["worker_spec"],
-                                                   self.env_spec, auto_build=True)
+                                                   self.env_spec)
 
         # This imitates the initial executor sync without ray.put
         weights = RayWeight(local_agent.get_weights())
