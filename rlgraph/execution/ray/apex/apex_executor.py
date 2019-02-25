@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import random
+
+from rlgraph.environments import Environment
 from six.moves import queue
 from threading import Thread
 
@@ -86,15 +88,16 @@ class ApexExecutor(RayExecutor):
 
     def setup_execution(self):
         # Start Ray cluster and connect to it.
+        self.local_agent = Agent.from_spec(self.agent_config)
+
         self.ray_init()
 
         # Create local worker agent according to spec.
         # Extract states and actions space.
-        environment = RayExecutor.build_env_from_config(self.environment_spec)
+        environment = Environment.from_spec(self.environment_spec)
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
 
-        self.local_agent = self.build_agent_from_config(self.agent_config)
 
         # Set up worker thread for performing updates.
         self.update_worker = UpdateWorker(
