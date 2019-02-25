@@ -89,18 +89,16 @@ class RayExecutor(object):
         Creates Ray actors for remote execution.
 
         Args:
-            cls (RayValueWorker): Actor class, must be an instance of RayValueWorker.
-            num_actors (int): Num
+            cls (Union[RayValueWorker, RayPolicyWorker]): Actor class.
+            num_actors (int): Num actors to create.
             agent_config (dict): Agent config.
             worker_spec (dict): Worker spec.
-            *args (any): Arguments for RayValueWorker class.
+            *args (any): Arguments for worker class.
 
         Returns:
             list: Remote Ray actors.
         """
         workers = []
-        init_tasks = []
-
         cls_as_remote = cls.as_remote(num_cpus=self.num_cpus_per_worker, num_gpus=self.num_gpus_per_worker).remote
 
         # Create remote objects and schedule init tasks.
@@ -112,15 +110,7 @@ class RayExecutor(object):
             worker = cls_as_remote(deepcopy(agent_config), worker_spec, *args)
             self.worker_ids[worker] = "worker_{}".format(i)
             workers.append(worker)
-            build_result = worker.init_agent.remote()
-            init_tasks.append(build_result)
-
-        ready, not_ready = ray.wait(init_tasks, num_returns=len(init_tasks))
-
-        for i, res in enumerate(ready):
-            result = ray.get(res)
-            if result:
-                self.logger.info("Successfully built agent num {}.".format(i))
+            self.logger.info("Successfully built agent num {}.".format(i))
 
         return workers
 

@@ -121,7 +121,7 @@ class RayValueWorker(RayActor):
 
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
-        self.agent.reset()
+        self.agent.build()
 
         self.zero_batched_state = np.zeros((1,) + self.agent.preprocessed_state_space.shape)
         self.zero_unbatched_state = np.zeros(self.agent.preprocessed_state_space.shape)
@@ -147,14 +147,6 @@ class RayValueWorker(RayActor):
     @classmethod
     def as_remote(cls, num_cpus=None, num_gpus=None):
         return ray.remote(num_cpus=num_cpus, num_gpus=num_gpus)(cls)
-
-    def init_agent(self):
-        """
-        Builds the agent. This is done as a separate task because meta graph
-        generation can take long.
-        """
-        self.agent.build()
-        return True
 
     def setup_preprocessor(self, preprocessing_spec, in_space):
         if preprocessing_spec is not None:

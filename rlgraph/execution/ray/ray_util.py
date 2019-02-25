@@ -62,8 +62,8 @@ class RayTaskPool(object):
     """
 
     def __init__(self):
-        self.ray_tasks = dict()
-        self.ray_objects = dict()
+        self.ray_tasks = {}
+        self.ray_objects = {}
 
     def add_task(self, worker, ray_object_ids):
         """
