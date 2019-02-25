@@ -78,10 +78,6 @@ class TestApexAgentLongTaskLearning(unittest.TestCase):
         ray_spec["worker_spec"]["ray_exploration"] = 0.4
 
         worker = worker_cls(agent_config, ray_spec["worker_spec"], self.env_spec,)
-        build_result = worker.init_agent.remote()
-        ready, not_ready = ray.wait([build_result], num_returns=1)
-        result = ray.get(ready)
-        print(result)
         time.sleep(5)
 
         start = time.perf_counter()
