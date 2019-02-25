@@ -120,7 +120,6 @@ class RayValueWorker(RayActor):
 
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
-        self.agent.build()
 
         self.zero_batched_state = np.zeros((1,) + self.agent.preprocessed_state_space.shape)
         self.zero_unbatched_state = np.zeros(self.agent.preprocessed_state_space.shape)
