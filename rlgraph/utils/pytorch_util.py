@@ -44,7 +44,7 @@ class PyTorchVariable(object):
     def get_value(self):
         if get_backend() == "pytorch":
             if isinstance(self.ref, torch.nn.Module):
-                return self.ref.weight
+                return self.ref.weight.detach()
 
     def set_value(self, value):
         if get_backend() == "pytorch":
