@@ -130,11 +130,22 @@ class Policy(Component):
     def _is_action_bounded(action_component):
         if not isinstance(action_component, FloatBox):
             return False
+        if isinstance(action_component.low, (list, np.ndarray)) and np.rank(action_component.low) > 0:
+            # TODO: we need to properly split the action space in case *some* of the dimensions are bounded!
+            if (not np.all(np.isinf(action_component.low)) and np.any(np.isinf(action_component.low))) or \
+                    (not np.all(np.isinf(action_component.high)) and np.any(np.isinf(action_component.high))):
+                raise RLGraphError("Actions with mix of unbounded and bounded dimensions are not supported yet!"
+                                   "The boundaries are low={} high={}.".format(action_component.low, action_component.high))
+            low = action_component.low[0]
+            high = action_component.high[0]
+        else:
+            low = action_component.low
+            high = action_component.high
         # Unbounded.
-        if action_component.low == float("-inf") and action_component.high == float("inf"):
+        if low == float("-inf") and high == float("inf"):
             return False
         # Bounded.
-        elif action_component.low != float("-inf") and action_component.high != float("inf"):
+        elif low != float("-inf") and high != float("inf"):
             return True
         # TODO: Semi-bounded -> Exponential distribution.
         else:

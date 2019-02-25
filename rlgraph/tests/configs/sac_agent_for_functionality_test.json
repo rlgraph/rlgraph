@@ -50,5 +50,6 @@
     "type": "adam",
     "learning_rate": 3e-3
   },
-  "initial_alpha": 0.01
+  "initial_alpha": 0.01,
+  "target_entropy": -1.0
 }
