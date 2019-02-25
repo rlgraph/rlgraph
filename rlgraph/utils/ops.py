@@ -37,6 +37,9 @@ class TraceContext(object):
     # Prior caller.
     PREV_CALLER = None
 
+    # Define by run build tracing.
+    DEFINE_BY_RUN_CONTEXT = None
+
 
 class DataOp(object):
     """

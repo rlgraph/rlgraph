@@ -189,7 +189,9 @@ class RingBuffer(Memory):
 
             for name, variable in self.record_registry.items():
                 records[name] = self.read_variable(variable, indices, dtype=
-                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
+                                                   shape=self.flat_record_space[name].shape)
+
             records = define_by_run_unflatten(records)
             return records
 
@@ -237,6 +239,7 @@ class RingBuffer(Memory):
             records = OrderedDict()
             for name, variable in self.record_registry.items():
                 records[name] = self.read_variable(variable, indices, dtype=
-                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
+                                                   shape=self.flat_record_space[name].shape)
             records = define_by_run_unflatten(records)
             return records

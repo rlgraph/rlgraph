@@ -31,7 +31,7 @@ from rlgraph.utils.decorators import rlgraph_api, component_api_registry, compon
     define_api_method, define_graph_fn
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
+from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, TraceContext
 from rlgraph.utils import util
 
 if get_backend() == "tf":
@@ -1154,7 +1154,7 @@ class Component(Specifiable):
             ref.set_value(value)
 
     @staticmethod
-    def read_variable(variable, indices=None, dtype=None):
+    def read_variable(variable, indices=None, dtype=None, shape=None):
         """
         Reads a variable.
 
@@ -1162,7 +1162,7 @@ class Component(Specifiable):
             variable (DataOp): The variable whose value to read.
             indices (Optional[np.ndarray,tf.Tensor]): Indices (if any) to fetch from the variable.
             dtype (Optional[torch.dtype]): Optional dtype to convert read values to.
-
+            shape (Optional[tuple]): Optional default shape.
         Returns:
             any: Variable values.
         """
@@ -1180,6 +1180,10 @@ class Component(Specifiable):
             # Lists or numpy arrays may be used to store mutable state that does not need
             # tensor operations.
             elif isinstance(variable, list) or isinstance(variable, np.ndarray):
+                if TraceContext.DEFINE_BY_RUN_CONTEXT == "building" \
+                        and shape is not None and (indices is None or len(indices) == 0):
+                    return torch.zeros(shape, dtype=dtype)
+
                 if indices is not None:
                     ret = []
                     for i in indices:

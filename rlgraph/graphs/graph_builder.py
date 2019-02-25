@@ -35,7 +35,7 @@ from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
-from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op
+from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, TraceContext
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumn, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
 
@@ -1086,6 +1086,7 @@ class GraphBuilder(Specifiable):
         self.default_device = default_device
         self.device_map = device_map or {}
         self.phase = "building"
+        TraceContext.DEFINE_BY_RUN_CONTEXT = "building"
 
         # TODO device strategy in pytorch?
         # Build full registry of callable methods on root component.
@@ -1121,6 +1122,7 @@ class GraphBuilder(Specifiable):
         self.logger.info("Define-by-run computation-graph build completed in {} s ({} iterations).".
                          format(time_build, iterations))
         build_overhead = time_build - sum(self.graph_call_times) - sum(self.var_call_times)
+        TraceContext.DEFINE_BY_RUN_CONTEXT = "execution"
         return dict(
             build_overhead=build_overhead,
             total_build_time=time_build,
