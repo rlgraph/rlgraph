@@ -42,7 +42,7 @@ class RayValueWorker(RayActor):
     such as Ape-X.
     """
 
-    def __init__(self, agent_config, worker_spec, env_spec, frameskip=1, auto_build=False):
+    def __init__(self, agent_config, worker_spec, env_spec, frameskip=1):
         """
         Creates agent and environment for Ray worker.
 
@@ -64,7 +64,6 @@ class RayValueWorker(RayActor):
         self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
-        self.auto_build = auto_build
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
         # TODO from spec once we decided on generic vectorization.
@@ -197,7 +196,6 @@ class RayValueWorker(RayActor):
             agent_config.update(execution_spec=worker_exec_spec)
 
         # Build lazily per default.
-        agent_config.update(auto_build=self.auto_build)
         return RayExecutor.build_agent_from_config(agent_config)
 
     def execute_and_get_timesteps(
