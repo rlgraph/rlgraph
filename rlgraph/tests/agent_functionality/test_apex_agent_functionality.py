@@ -20,8 +20,7 @@ from __future__ import print_function
 import logging
 import unittest
 from rlgraph.agents import Agent
-import rlgraph.spaces as spaces
-from rlgraph.environments import RandomEnv
+from rlgraph.environments import OpenAIGymEnv
 from rlgraph.tests import recursive_assert_almost_equal
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
@@ -34,18 +33,20 @@ class TestApexAgentFunctionality(unittest.TestCase):
     root_logger.setLevel(level=logging.INFO)
 
     def test_apex_weight_syncing(self):
-        env = RandomEnv(state_space=spaces.IntBox(2), action_space=spaces.IntBox(2), deterministic=True)
+        agent_config = config_from_path("configs/ray_apex_for_pong.json")
+        agent_config["execution_spec"].pop("ray_spec")
+        environment = OpenAIGymEnv("Pong-v0", frameskip=4)
 
         agent = Agent.from_spec(
-            config_from_path("configs/apex_agent_for_random_env.json"),
-            state_space=env.state_space,
-            action_space=env.action_space
+            agent_config,
+            state_space=environment.state_space,
+            action_space=environment.action_space
         )
 
         weights = agent.get_weights()["policy_weights"]
-        print('weights: {}'.format(weights))
-
+        print("type weights = ", type(weights))
         for variable, value in weights.items():
+            print("Type value = ", type(value))
             value += 0.01
         agent.set_weights(weights)
 
