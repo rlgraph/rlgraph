@@ -77,7 +77,8 @@ class ApexAgent(DQNAgent):
                            batch["actions"],
                            batch["rewards"], batch["terminals"],
                            np.asarray(batch["next_states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
-                           batch["importance_weights"]]
+                           batch["importance_weights"],
+                           True]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):

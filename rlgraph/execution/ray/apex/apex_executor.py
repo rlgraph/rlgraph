@@ -75,7 +75,7 @@ class ApexExecutor(RayExecutor):
 
         # Necessary for target network updates.
         self.weight_syncs_executed = 0
-        self.steps_since_weights_synced = dict()
+        self.steps_since_weights_synced = {}
 
         # These are the tasks actually interacting with the environment.
         self.env_sample_tasks = RayTaskPool()
@@ -87,23 +87,21 @@ class ApexExecutor(RayExecutor):
         self.setup_execution()
 
     def setup_execution(self):
-        # Start Ray cluster and connect to it.
-        self.local_agent = Agent.from_spec(self.agent_config)
-
-        self.ray_init()
-
         # Create local worker agent according to spec.
         # Extract states and actions space.
         environment = Environment.from_spec(self.environment_spec)
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
 
+        # Start Ray cluster and connect to it.
+        self.local_agent = Agent.from_spec(self.agent_config)
 
         # Set up worker thread for performing updates.
         self.update_worker = UpdateWorker(
             agent=self.local_agent,
             in_queue_size=self.executor_spec["learn_queue_size"]
         )
+        self.ray_init()
 
         # Create remote sample workers based on ray cluster spec.
         self.num_replay_workers = self.executor_spec["num_replay_workers"]
