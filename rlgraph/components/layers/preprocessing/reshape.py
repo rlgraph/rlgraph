@@ -227,8 +227,13 @@ class ReShape(PreprocessLayer):
                 return torch.reshape(preprocessing_inputs, flattened_shape)
             # If new shape does not fit into old shape, batch inference failed -> try to restore:
             # Equal except batch rank -> return as is:
-            elif old_size != new_size and tuple(preprocessing_inputs.shape[1:]) == new_shape:
-                return preprocessing_inputs
+            elif old_size != new_size:
+                if tuple(preprocessing_inputs.shape[1:]) == new_shape:
+                    return preprocessing_inputs
+                else:
+                    # Attempt to rescue reshape by combining new shape with batch dim.
+                    full_new_shape = (preprocessing_inputs.shape[0], ) + new_shape
+                    return torch.reshape(preprocessing_inputs, full_new_shape)
             else:
                 return torch.reshape(preprocessing_inputs, new_shape)
 
