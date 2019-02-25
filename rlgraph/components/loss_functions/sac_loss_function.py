@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.loss_functions.loss_function import LossFunction
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
@@ -32,6 +33,24 @@ class SACLossFunction(LossFunction):
     def __init__(self, target_entropy=None, discount=0.99, scope="sac-loss-function", **kwargs):
         super(SACLossFunction, self).__init__(discount=discount, scope=scope, **kwargs)
         self.target_entropy = target_entropy
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        # All the following need a batch rank.
+        for in_space_name in ["log_probs_sampled", "log_probs_next_sampled", "q_values", "q_values_sampled",
+                              "q_values_next_sampled", "rewards", "terminals"]:
+            in_space = input_spaces[in_space_name]
+            sanity_check_space(in_space, must_have_batch_rank=True, must_have_time_rank=False)
+
+        # All the following need shape==().
+        for in_space_name in ["alpha", "rewards", "terminals"]:
+            in_space = input_spaces[in_space_name]
+            sanity_check_space(in_space, shape=())
+
+        # All the following need shape==(1,).
+        for in_space_name in ["log_probs_sampled", "log_probs_next_sampled", "q_values",
+                              "q_values_sampled", "q_values_next_sampled"]:
+            in_space = input_spaces[in_space_name]
+            sanity_check_space(in_space, shape=(1,))
 
     @rlgraph_api
     def loss(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
@@ -75,14 +94,6 @@ class SACLossFunction(LossFunction):
     @rlgraph_api
     def _graph_fn_loss_per_item(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
                                 q_values_sampled, rewards, terminals):
-        assert alpha.shape.as_list() == []
-        assert log_probs_next_sampled.shape.as_list() == [None, 1]
-        assert all(q.shape.as_list() == [None, 1] for q in q_values_next_sampled)
-        assert all(q.shape.as_list() == [None, 1] for q in q_values)
-        assert log_probs_sampled.shape.as_list() == [None, 1]
-        assert all(q.shape.as_list() == [None, 1] for q in q_values_sampled)
-        assert rewards.shape.as_list() == [None]
-        assert terminals.shape.as_list() == [None]
         rewards = tf.expand_dims(rewards, axis=-1)
         terminals = tf.expand_dims(terminals, axis=-1)
 
