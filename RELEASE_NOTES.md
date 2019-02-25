@@ -1,6 +1,15 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.3.3 - 25.2.2019
+
+- Added soft actor critic implementation (contributed by @janislavjankov) 
+- Separated out action adapters to be able to handle different bounded distributions
+- Added a number of torch test cases to continuous integration
+- Fixed a number of bugs in define-by-run mode related to arg splitting and merging.
+- Fixed a number of shape bugs in various torch implementations
+- Fixed a bug relating to assigning references instead of just copying weights when syncing torch Parmeter objects
+
 ## RLgraph 0.3.2 - 9.2.2019
 - Fixed a number of bugs in internal state management for PyTorch which now
   allow to unify variable creation in most components
