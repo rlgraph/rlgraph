@@ -1180,7 +1180,8 @@ class Component(Specifiable):
             # Lists or numpy arrays may be used to store mutable state that does not need
             # tensor operations.
             elif isinstance(variable, list) or isinstance(variable, np.ndarray):
-                if TraceContext.DEFINE_BY_RUN_CONTEXT == "building" and len(indices) == 0:
+                if TraceContext.DEFINE_BY_RUN_CONTEXT == "building" \
+                        and shape is not None and (indices is None or len(indices) == 0):
                     return torch.zeros(shape, dtype=dtype)
 
                 if indices is not None:
