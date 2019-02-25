@@ -152,15 +152,15 @@ class Exploration(Component):
                 )
         elif get_backend() == "pytorch":
             # N.b. different order versus TF because we dont want to execute the sampling below.
-            if use_exploration is False:
-                    return sample
+            if bool(use_exploration) is False:
+                return sample
 
             if self.sample_obj is None:
                 # Don't create new sample objects very time.
                 self.sample_obj = torch.distributions.Uniform(0, self.flat_action_space[key].num_categories)
 
             random_actions = self.sample_obj.sample(sample.shape).int()
-            if use_exploration is True:
+            if bool(use_exploration) is True:
                 return torch.where(epsilon_decisions, random_actions, sample)
             else:
                 if not isinstance(use_exploration, torch.ByteTensor):

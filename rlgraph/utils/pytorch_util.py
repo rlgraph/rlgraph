@@ -19,6 +19,8 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 import numpy as np
+import copy
+
 
 if get_backend() == "pytorch":
     import torch
@@ -47,10 +49,10 @@ class PyTorchVariable(object):
     def set_value(self, value):
         if get_backend() == "pytorch":
             if isinstance(self.ref, torch.nn.Module):
-                if isinstance(value, torch.Tensor):
-                    self.ref.weight = torch.nn.Parameter(value, requires_grad=True)
-                elif isinstance(value, torch.nn.Parameter):
-                    self.ref.weight = value
+                if isinstance(value, torch.nn.Parameter):
+                    self.ref.weight = copy.deepcopy(value)
+                elif isinstance(value, torch.Tensor):
+                    self.ref.weight = torch.nn.Parameter(copy.deepcopy(value), requires_grad=True)
                 else:
                     raise ValueError("Value assigned must be torch.Tensor or Parameter but is {}.".format(
                         type(value)
