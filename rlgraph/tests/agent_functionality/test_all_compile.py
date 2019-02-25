@@ -20,8 +20,8 @@ from __future__ import print_function
 import unittest
 
 from rlgraph import get_backend
-from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent, PPOAgent
-from rlgraph.environments import OpenAIGymEnv, GridWorld
+from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent, PPOAgent, SACAgent
+from rlgraph.environments import OpenAIGymEnv, GridWorld, GaussianDensityAsRewardEnvironment
 from rlgraph.spaces import FloatBox, Tuple
 from rlgraph.utils.util import default_dict
 from rlgraph.tests.test_util import config_from_path
@@ -187,3 +187,12 @@ class TestAllCompile(unittest.TestCase):
         #)
 
         learner_agent.terminate()
+
+    def test_sac_compilation(self):
+        env = GaussianDensityAsRewardEnvironment(episode_length=5)
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_for_functionality_test.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+        print("Compiled SACAgent. Test ok.")
