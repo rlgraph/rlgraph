@@ -60,7 +60,7 @@ class GumbelSoftmax(Distribution):
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
         if get_backend() == "tf":
-            return tf.argmax(input=distribution.probs, axis=-1, output_type=util.convert_dtype("int"))
+            return tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=util.convert_dtype("int"))
         elif get_backend() == "pytorch":
             return torch.argmax(distribution.probs, dim=-1).int()
 
