@@ -22,7 +22,7 @@ import numpy as np
 import os
 import unittest
 
-from rlgraph.environments import GaussianDensityAsRewardEnvironment
+from rlgraph.environments import GaussianDensityAsRewardEnvironment, OpenAIGymEnv
 from rlgraph.agents import SACAgent
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.utils import root_logger
@@ -60,4 +60,27 @@ class TestSACShortTaskLearning(unittest.TestCase):
         assert len(rewards) == 100
         evaluation_score = np.mean(rewards)
         assert .5 * env.get_max_reward() < evaluation_score <= env.get_max_reward()
+
+    def test_sac_on_pendulum(self):
+        """
+        Creates an SAC-Agent and runs it on Pendulum.
+        """
+        env = OpenAIGymEnv("Pendulum-v0")
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_pendulum.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env,
+            agent=agent,
+            worker_executes_preprocessing=False,
+            render=self.is_windows
+        )
+        results = worker.execute_episodes(50, use_exploration=True)
+
+        print(results)
+
+
 
