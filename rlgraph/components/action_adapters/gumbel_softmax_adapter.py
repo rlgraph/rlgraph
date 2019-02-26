@@ -18,11 +18,11 @@ from rlgraph import get_backend
 from rlgraph.components.action_adapters import ActionAdapter
 from rlgraph.utils import SMALL_NUMBER
 from rlgraph.utils.decorators import graph_fn
-from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH
 
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
+    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH
     import torch
 
 

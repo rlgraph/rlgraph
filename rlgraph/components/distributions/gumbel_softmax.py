@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.action_adapters import GumbelSoftmaxAdapter
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
@@ -88,6 +89,5 @@ class GumbelSoftmax(Distribution):
             return None
 
     def get_action_adapter_type(self):
-        pass
-        #return GumbelSoftmaxAdapter
+        return GumbelSoftmaxAdapter
 
