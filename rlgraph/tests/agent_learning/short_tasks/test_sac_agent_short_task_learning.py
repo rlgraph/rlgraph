@@ -78,9 +78,29 @@ class TestSACShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=False,
             render=self.is_windows
         )
+        # Note: SAC is more computationally expensive.
         results = worker.execute_episodes(50, use_exploration=True)
 
         print(results)
 
+    def test_sac_on_cartpole(self):
+        """
+        Creates an SAC-Agent and runs it on Pendulum.
+        """
+        env = OpenAIGymEnv("CartPole-v0")
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_cartpole.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
 
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env,
+            agent=agent,
+            worker_executes_preprocessing=False,
+            render=self.is_windows
+        )
+        results = worker.execute_episodes(50, use_exploration=True)
+
+        print(results)
 
