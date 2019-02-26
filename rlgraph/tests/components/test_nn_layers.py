@@ -163,9 +163,9 @@ class TestNNLayer(unittest.TestCase):
 
         # Batch of 2 samples to concatenate.
         inputs = (
-            np.array([[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], [[1.1, 2.1, 3.1], [4.1, 5.1, 6.1]]]),
-            np.array([[[1.0], [2.0]], [[3.0], [4.0]]]),
-            np.array([[[1.2, 2.2], [3.2, 4.2]], [[1.3, 2.3], [3.3, 4.3]]])
+            np.array([[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], [[1.1, 2.1, 3.1], [4.1, 5.1, 6.1]]], dtype=np.float32),
+            np.array([[[1.0], [2.0]], [[3.0], [4.0]]], dtype=np.float32),
+            np.array([[[1.2, 2.2], [3.2, 4.2]], [[1.3, 2.3], [3.3, 4.3]]], dtype=np.float32)
         )
         expected = np.concatenate((inputs[0], inputs[1], inputs[2]), axis=-1)
         test.test(("apply", inputs), expected_outputs=expected)
