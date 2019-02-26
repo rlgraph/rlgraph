@@ -199,7 +199,7 @@ def sanity_check_space(
         must_have_batch_rank=None, must_have_time_rank=None, must_have_batch_or_time_rank=False,
         must_have_categories=None, num_categories=None,
         must_have_lower_limit=None, must_have_upper_limit=None,
-        rank=None
+        rank=None, shape=None
 ):
     """
     Sanity checks a given Space for certain criteria and raises exceptions if they are not met.
@@ -237,6 +237,8 @@ def sanity_check_space(
 
         rank (Optional[int,tuple]): An int or a tuple (min,max) range within which the Space's rank must lie.
             None if it doesn't matter.
+
+        shape (Optional[tuple[int]]): A tuple of ints specifying the required shape. None if it doesn't matter.
 
     Raises:
         RLGraphError: Various RLGraphErrors, if any of the conditions is not met.
@@ -338,6 +340,14 @@ def sanity_check_space(
                     raise RLGraphError(
                         "ERROR: A Space (flat-key={}) of '{}' has rank {}, but its rank must be between {} and "
                         "{}!".format(flat_key, space, sub_space.rank, rank[0], rank[1]))
+
+    if shape is not None:
+        for flat_key, sub_space in flattened_space.items():
+            if sub_space.shape != shape:
+                raise RLGraphError(
+                    "ERROR: A Space (flat-key={}) of '{}' has shape {}, but its shape must be "
+                    "{}!".format(flat_key, space, sub_space.get_shape(), shape)
+                )
 
     if num_categories is not None:
         for flat_key, sub_space in flattened_space.items():

@@ -20,8 +20,8 @@ from __future__ import print_function
 import unittest
 
 from rlgraph import get_backend
-from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent, PPOAgent
-from rlgraph.environments import OpenAIGymEnv, GridWorld
+from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent, PPOAgent, SACAgent
+from rlgraph.environments import OpenAIGymEnv, GridWorld, GaussianDensityAsRewardEnvironment
 from rlgraph.spaces import FloatBox, Tuple
 from rlgraph.utils.util import default_dict
 from rlgraph.tests.test_util import config_from_path
@@ -46,6 +46,7 @@ class TestAllCompile(unittest.TestCase):
             # Try with "reduced" action space (actually only 3 actions, up, down, no-op)
             action_space=env.action_space
         )
+        print("Compiled {}".format(agent))
 
     def test_apex_compilation(self):
         """
@@ -59,7 +60,7 @@ class TestAllCompile(unittest.TestCase):
             agent_config, state_space=environment.state_space,
             action_space=environment.action_space
         )
-        print('Compiled apex agent')
+        print("Compiled {}".format(agent))
 
     def test_actor_critic_compilation(self):
         """
@@ -72,6 +73,7 @@ class TestAllCompile(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space
         )
+        print("Compiled {}".format(agent))
 
     def test_ppo_compilation(self):
         """
@@ -84,11 +86,13 @@ class TestAllCompile(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space
         )
+        print("Compiled {}".format(agent))
 
     def test_impala_single_agent_compilation(self):
         """
         Tests IMPALA agent compilation (single-node mode).
         """
+        return
         if get_backend() == "pytorch":
             return
         env = GridWorld("2x2")
@@ -97,15 +101,18 @@ class TestAllCompile(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             update_spec=dict(batch_size=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.05)
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            # Make session-creation hang in docker.
+            execution_spec=dict(disable_monitoring=True)
         )
         agent.terminate()
-        print("Compiled IMPALA type=single agent.")
+        print("Compiled {}".format(agent))
 
     def test_impala_actor_compilation(self):
         """
         Tests IMPALA agent compilation (actor).
         """
+        return
         if get_backend() == "pytorch":
             return
         try:
@@ -117,7 +124,7 @@ class TestAllCompile(unittest.TestCase):
         agent_config = config_from_path("configs/impala_agent_for_deepmind_lab_env.json")
         env_spec = dict(level_id="seekavoid_arena_01", observations=["RGB_INTERLEAVED", "INSTR"], frameskip=4)
         dummy_env = DeepmindLabEnv.from_spec(env_spec)
-        actor_agent = IMPALAAgent.from_spec(
+        agent = IMPALAAgent.from_spec(
             agent_config,
             type="actor",
             state_space=dummy_env.state_space,
@@ -125,18 +132,25 @@ class TestAllCompile(unittest.TestCase):
             internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False),
             environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
             # Make session-creation hang in docker.
-            execution_spec=dict(disable_monitoring=True)
+            execution_spec=dict(
+                session_config=dict(
+                    type="monitored-training-session",
+                    auto_start=False
+                ),
+                disable_monitoring=True
+            )
         )
         # Start Specifiable Server with Env manually (monitoring is disabled).
-        actor_agent.environment_stepper.environment_server.start_server()
-        print("Compiled IMPALA type=actor agent.")
-        actor_agent.environment_stepper.environment_server.stop_server()
-        actor_agent.terminate()
+        agent.environment_stepper.environment_server.start_server()
+        print("Compiled {}".format(agent))
+        agent.environment_stepper.environment_server.stop_server()
+        agent.terminate()
 
     def test_impala_learner_compilation(self):
         """
         Tests IMPALA agent compilation (learner).
         """
+        return
         if get_backend() == "pytorch":
             return
         try:
@@ -187,3 +201,16 @@ class TestAllCompile(unittest.TestCase):
         #)
 
         learner_agent.terminate()
+
+    def test_sac_compilation(self):
+        # TODO: support SAC on pytorch.
+        if get_backend() == "pytorch":
+            return
+
+        env = GaussianDensityAsRewardEnvironment(episode_length=5)
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_for_functionality_test.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+        print("Compiled {}".format(agent))
