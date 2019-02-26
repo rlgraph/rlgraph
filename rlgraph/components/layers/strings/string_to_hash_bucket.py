@@ -92,7 +92,7 @@ class StringToHashBucket(StringLayer):
             # Build a tensor of n rows (number of items in text_inputs) words with
             dense = tf.sparse_tensor_to_dense(sp_input=split_text_inputs, default_value="")
 
-            length = tf.reduce_sum(input_tensor=tf.to_int32(x=tf.not_equal(x=dense, y="")), axis=-1)
+            length = tf.reduce_sum(input_tensor=tf.cast(x=tf.not_equal(x=dense, y=""), dtype=tf.int32), axis=-1)
             if self.hash_function == "fast":
                 hash_bucket = tf.string_to_hash_bucket_fast(input=dense, num_buckets=self.num_hash_buckets)
             else:

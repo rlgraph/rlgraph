@@ -92,7 +92,7 @@ class EmbeddingLookup(Layer):
             )
             # Do we need to CONSTANT-pad (with 0s) if empty?
             if self.pad_empty:
-                padding = tf.to_int32(tf.equal(tf.shape(embedding_lookup_output)[1], 0))
+                padding = tf.cast(x=tf.equal(tf.shape(embedding_lookup_output)[1], 0), dtype=tf.int32)
                 embedding_lookup_output = tf.pad(embedding_lookup_output, [[0, 0], [0, padding], [0, 0]])
 
             if self.ids_space.has_time_rank is True:
