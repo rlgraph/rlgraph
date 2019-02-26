@@ -189,6 +189,10 @@ class TestAllCompile(unittest.TestCase):
         learner_agent.terminate()
 
     def test_sac_compilation(self):
+        # TODO: support SAC on pytorch.
+        if get_backend() == "pytorch":
+            return
+
         env = GaussianDensityAsRewardEnvironment(episode_length=5)
         agent = SACAgent.from_spec(
             config_from_path("configs/sac_agent_for_functionality_test.json"),
