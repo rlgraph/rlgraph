@@ -21,6 +21,7 @@ from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.bernoulli_distribution_adapter import BernoulliDistributionAdapter
 from rlgraph.components.action_adapters.beta_distribution_adapter import BetaDistributionAdapter
 from rlgraph.components.action_adapters.categorical_distribution_adapter import CategoricalDistributionAdapter
+from rlgraph.components.action_adapters.gumbel_softmax_adapter import GumbelSoftmaxAdapter
 from rlgraph.components.action_adapters.normal_distribution_adapter import NormalDistributionAdapter
 from rlgraph.components.action_adapters.squashed_normal_adapter import SquashedNormalAdapter
 
@@ -31,7 +32,8 @@ ActionAdapter.__lookup_classes__ = dict(
     categoricaldistributionadapter=CategoricalDistributionAdapter,
     betadistributionadapter=BetaDistributionAdapter,
     normaldistributionadapter=NormalDistributionAdapter,
-    squashednormaladapter=SquashedNormalAdapter
+    squashednormaladapter=SquashedNormalAdapter,
+    gumbelsoftmaxadapter=GumbelSoftmaxAdapter
 )
 
 __all__ = ["ActionAdapter"] + list(set(map(lambda x: x.__name__, ActionAdapter.__lookup_classes__.values())))
