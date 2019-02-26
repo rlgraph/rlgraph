@@ -274,7 +274,7 @@ class SACAgentComponent(Component):
     def _graph_fn__one_hot(self, tensor):
         backend = get_backend()
         if backend == "tf":
-            return tf.one_hot(tensor, depth=5)
+            return tf.one_hot(tf.cast(x=tensor, dtype=tf.int32), depth=5)
         elif backend == "pytorch":
             raise NotImplementedError("TODO: pytorch support")
 
@@ -343,8 +343,12 @@ class SACAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
             update_spec (dict): Here we can have sync_interval or sync_tau (for the value network update).
         """
+
         super(SACAgent, self).__init__(
-            policy_spec=dict(deterministic=False, bounded_distribution_type="squashed"),
+            # Continuous action space: Use squashed normal.
+            # Discrete: Gumbel-softmax.
+            policy_spec=dict(deterministic=False, bounded_distribution_type="squashed",
+                             discrete_distribution_type="gumbel_softmax"),
             name=kwargs.pop("name", "sac-agent"),
             **kwargs
         )

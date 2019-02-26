@@ -85,7 +85,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
     def test_sac_on_cartpole(self):
         """
-        Creates an SAC-Agent and runs it on Pendulum.
+        Creates an SAC-Agent and runs it on CartPole.
         """
         env = OpenAIGymEnv("CartPole-v0")
         agent = SACAgent.from_spec(
