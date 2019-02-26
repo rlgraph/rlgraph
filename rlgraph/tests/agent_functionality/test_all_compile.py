@@ -130,7 +130,13 @@ class TestAllCompile(unittest.TestCase):
             internal_states_space=Tuple(FloatBox(shape=(256,)), FloatBox(shape=(256,)), add_batch_rank=False),
             environment_spec=default_dict(dict(type="deepmind-lab"), env_spec),
             # Make session-creation hang in docker.
-            execution_spec=dict(disable_monitoring=True)
+            execution_spec=dict(
+                session_config=dict(
+                    type="monitored-training-session",
+                    auto_start=False
+                ),
+                disable_monitoring=True
+            )
         )
         # Start Specifiable Server with Env manually (monitoring is disabled).
         agent.environment_stepper.environment_server.start_server()
