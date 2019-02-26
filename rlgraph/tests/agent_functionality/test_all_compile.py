@@ -100,7 +100,9 @@ class TestAllCompile(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space,
             update_spec=dict(batch_size=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.05)
+            optimizer_spec=dict(type="adam", learning_rate=0.05),
+            # Make session-creation hang in docker.
+            execution_spec=dict(disable_monitoring=True)
         )
         agent.terminate()
         print("Compiled {}".format(agent))
