@@ -24,6 +24,7 @@ from rlgraph.components.distributions.categorical import Categorical
 from rlgraph.components.distributions.mixture_distribution import MixtureDistribution
 from rlgraph.components.distributions.multivariate_normal import MultivariateNormal
 from rlgraph.components.distributions.normal import Normal
+from rlgraph.components.distributions.squashed_normal import SquashedNormal
 
 Distribution.__lookup_classes__ = dict(
     bernoulli=Bernoulli,
@@ -38,7 +39,10 @@ Distribution.__lookup_classes__ = dict(
     multivariategaussian=MultivariateNormal,
     normaldistribution=Normal,
     beta=Beta,
-    betadistribution=Beta
+    betadistribution=Beta,
+    squashed=SquashedNormal,
+    squashednormal=SquashedNormal,
+    squashednormaldistribution=SquashedNormal,
 )
 
 __all__ = ["Distribution"] + list(set(map(lambda x: x.__name__, Distribution.__lookup_classes__.values())))

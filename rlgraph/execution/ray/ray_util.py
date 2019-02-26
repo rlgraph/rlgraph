@@ -62,8 +62,8 @@ class RayTaskPool(object):
     """
 
     def __init__(self):
-        self.ray_tasks = dict()
-        self.ray_objects = dict()
+        self.ray_tasks = {}
+        self.ray_objects = {}
 
     def add_task(self, worker, ray_object_ids):
         """
@@ -91,7 +91,7 @@ class RayTaskPool(object):
         pending_tasks = list(self.ray_tasks)
         if pending_tasks:
             # This ray function checks tasks and splits into ready and non-ready tasks.
-            ready, not_ready = ray.wait(pending_tasks, num_returns=len(pending_tasks), timeout=10)
+            ready, not_ready = ray.wait(pending_tasks, num_returns=len(pending_tasks), timeout=0.01)
             for obj_id in ready:
                 yield (self.ray_tasks.pop(obj_id), self.ray_objects.pop(obj_id))
 

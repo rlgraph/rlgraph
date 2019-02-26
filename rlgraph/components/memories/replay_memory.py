@@ -51,7 +51,6 @@ class ReplayMemory(Memory):
         super(ReplayMemory, self).__init__(capacity, scope=scope, **kwargs)
 
         self.index = None
-        self.size = None
         self.states = None
         self.flat_record_space = None
 
@@ -62,8 +61,6 @@ class ReplayMemory(Memory):
         assert 'terminals' in self.record_space
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
-        # Number of elements present.
-        self.size = self.get_variable(name="size", dtype=int, trainable=False, initializer=0)
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
@@ -113,13 +110,16 @@ class ReplayMemory(Memory):
             # Return default importance weight one.
             return self._read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)
         elif get_backend() == "pytorch":
-            indices = np.random.choice(np.arange(0, self.size), size=int(num_records))
-            indices = (self.index - 1 - indices) % self.capacity
+            indices = []
+            if self. size > 0:
+                indices = np.random.choice(np.arange(0, self.size), size=int(num_records))
+                indices = (self.index - 1 - indices) % self.capacity
             records = OrderedDict()
             for name, variable in self.record_registry.items():
                 records[name] = self.read_variable(variable, indices, dtype=
-                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
+                                                   shape=self.flat_record_space[name].shape)
             records = define_by_run_unflatten(records)
-            return records, indices, torch.ones(indices.shape, dtype=torch.float32)
-
-
+            weights = torch.ones(indices.shape, dtype=torch.float32) if len(indices) > 0 \
+                else torch.ones(1, dtype=torch.float32)
+            return records, indices, weights

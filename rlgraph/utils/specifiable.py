@@ -27,7 +27,7 @@ import yaml
 import logging
 
 from rlgraph.utils.rlgraph_errors import RLGraphError
-from rlgraph.utils.util import default_dict
+from rlgraph.utils.util import default_dict, force_list
 
 
 class Specifiable(object):
@@ -106,7 +106,7 @@ class Specifiable(object):
             specifiable_type = spec
             ctor_kwargs = kwargs
         # Special `_args` field in kwargs for *args-utilizing constructors.
-        ctor_args = ctor_kwargs.pop("_args", [])
+        ctor_args = force_list(ctor_kwargs.pop("_args", []))
 
         # Figure out the actual constructor (class) from `type_`.
         # None: Try __default__object (if no args/kwargs), only then constructor of cls (using args/kwargs).

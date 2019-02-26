@@ -36,6 +36,7 @@ class FIFOQueue(Memory):
         """
         Args:
             record_space (Space): The Space of a single record to be pushed to or pulled from the queue.
+
             only_insert_single_records (bool): Whether insertion will always only happen with single records.
                 If True, will add a batch=1 rank to each to-be-inserted sample.
         """

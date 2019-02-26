@@ -17,24 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from math import log
-
-from rlgraph import get_backend
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
-from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox, ContainerSpace
+from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
-from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
-from rlgraph.utils.util import SMALL_NUMBER
-
-if get_backend() == "tf":
-    import tensorflow as tf
-elif get_backend() == "pytorch":
-    import torch
-    from rlgraph.utils.pytorch_util import SMALL_NUMBER_TORCH
 
 
 # TODO: Create a more primitive base class only defining the API-methods.
@@ -79,33 +68,7 @@ class ActionAdapter(NeuralNetwork):
             assert not isinstance(self.action_space, ContainerSpace),\
                 "ERROR: ActionAdapter cannot handle ContainerSpaces!"
 
-        self.final_shape = final_shape
-
-        assert (self.action_space is None) != (self.final_shape is None),\
-            "ERROR: Exactly one of `action_space` or `final_shape` must be provided!"
-
-        # Calculate the number of nodes in the action layer (DenseLayer object) depending on our `self.action_space`
-        if self.final_shape is None:
-            # IntBoxes -> Categorical.
-            if isinstance(self.action_space, IntBox):
-                self.final_shape = self.action_space.get_shape(with_category_rank=True)
-            # BoolBoxes translate to single nodes (per output), which represent Bernoulli distribution parameters (p).
-            elif isinstance(self.action_space, BoolBox):
-                self.final_shape = self.action_space.get_shape()
-            # FloatBoxes.
-            else:
-                # Two slots for each action-component (mean and log sd).
-                if self.action_space.shape == ():
-                    self.final_shape = (2,)
-                else:
-                    self.final_shape = tuple(list(self.action_space.shape[:-1]) + [self.action_space.shape[-1] * 2])
-        else:
-            assert isinstance(self.final_shape, (tuple, list)), "ERROR: `final_shape` must be a list or a tuple!"
-
-        # Use `self.final_shape` for number of nodes calculation.
-        units = 1
-        for s in self.final_shape:
-            units *= s
+        units, self.final_shape = self.get_units_and_shape()
 
         action_layer = DenseLayer(
             units=units,
@@ -124,16 +87,24 @@ class ActionAdapter(NeuralNetwork):
 
         super(ActionAdapter, self).__init__(self.network, scope=scope, **kwargs)
 
+    def get_units_and_shape(self):
+        """
+        Returns the number of units in the layer that will be added and the shape of the output according to the
+        action space.
+
+        Returns:
+            Tuple:
+                int: The number of units for the action layer.
+                shape: The final shape for the output space.
+        """
+        raise NotImplementedError
+
     def check_input_spaces(self, input_spaces, action_space=None):
         # Check the input Space.
         last_nn_layer_space = input_spaces["nn_input"]  # type: Space
         sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
-
         # Check the action Space.
         #sanity_check_space(self.action_space, must_have_batch_rank=True)
-        # IntBoxes must have categories.
-        if isinstance(self.action_space, IntBox):
-            sanity_check_space(self.action_space, must_have_categories=True)
 
     @rlgraph_api
     def get_logits(self, nn_input, original_nn_input=None):
@@ -204,103 +175,4 @@ class ActionAdapter(NeuralNetwork):
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
                 log_probs (DataOp): Simply the log(parameters).
         """
-        parameters = None
-        log_probs = None
-
-        if get_backend() == "tf":
-            # Discrete actions.
-            if isinstance(self.action_space, IntBox):
-                parameters = tf.maximum(x=tf.nn.softmax(logits=logits, axis=-1), y=SMALL_NUMBER)
-                parameters._batch_rank = 0
-                # Log probs.
-                log_probs = tf.log(x=parameters)
-                log_probs._batch_rank = 0
-
-            # Bool actions -> Sigmoid (p for Bernoulli).
-            elif isinstance(self.action_space, BoolBox):
-                parameters = tf.nn.sigmoid(logits, axis=-1)
-                parameters._batch_rank = 0
-                # Log probs.
-                log_probs = tf.log(x=parameters)
-                log_probs._batch_rank = 0
-
-            # Continuous actions.
-            elif isinstance(self.action_space, FloatBox):
-                # Unbounded -> Normal distribution.
-                if self.action_space.unbounded:
-                    mean, log_sd = tf.split(logits, num_or_size_splits=2, axis=-1)
-
-                    # Turn log sd into sd to ascertain always positive stddev values.
-                    sd = tf.exp(log_sd)
-                    log_mean = tf.log(mean)
-
-                    mean._batch_rank = 0
-                    sd._batch_rank = 0
-                    log_mean._batch_rank = 0
-                    log_sd._batch_rank = 0
-
-                    parameters = DataOpTuple([mean, sd])
-                    log_probs = DataOpTuple([log_mean, log_sd])
-
-                # Bounded -> Beta distribution.
-                else:
-                    # Stabilize both alpha and beta (currently together in parameters).
-                    parameters = tf.clip_by_value(
-                        logits, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
-                    )
-                    parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
-                    alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
-                    alpha._batch_rank = 0
-                    beta._batch_rank = 0
-                    log_alpha = tf.log(alpha)
-                    log_beta = tf.log(beta)
-                    log_alpha._batch_rank = 0
-                    log_beta._batch_rank = 0
-
-                    parameters = DataOpTuple([alpha, beta])
-                    log_probs = DataOpTuple([log_alpha, log_beta])
-
-        elif get_backend() == "pytorch":
-            if isinstance(self.action_space, IntBox):
-                # Discrete actions.
-                softmax_logits = torch.softmax(logits, dim=-1)
-                parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
-                # Log probs.
-                log_probs = torch.log(parameters)
-
-            # Bool actions -> Sigmoid (p for Bernoulli).
-            elif isinstance(self.action_space, BoolBox):
-                parameters = torch.sigmoid(logits, dim=-1)
-                # Log probs.
-                log_probs = torch.log(parameters)
-
-            elif isinstance(self.action_space, FloatBox):
-                # Unbounded -> Normal distribution.
-                if self.action_space.unbounded:
-                    # Continuous actions.
-                    mean, log_sd = torch.split(logits, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1)
-
-                    # Turn log sd into sd.
-                    sd = torch.exp(log_sd)
-                    log_mean = torch.log(mean)
-
-                    parameters = DataOpTuple([mean, sd])
-                    log_probs = DataOpTuple([log_mean, log_sd])
-
-                # Bounded -> Beta distribution.
-                else:
-                    # Stabilize both alpha and beta (currently together in parameters).
-                    parameters = torch.clamp(
-                        logits, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
-                    )
-                    parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
-
-                    # Split in the middle.
-                    alpha, beta = torch.split(parameters, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1)
-                    log_alpha = torch.log(alpha)
-                    log_beta = torch.log(beta)
-
-                    parameters = DataOpTuple([alpha, beta])
-                    log_probs = DataOpTuple([log_alpha, log_beta])
-
-        return parameters, log_probs
+        raise NotImplementedError

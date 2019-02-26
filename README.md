@@ -18,7 +18,7 @@ multiple distributed backends and device execution strategies can be accessed wi
 agent definitions. This means it is especially suited for a smooth transition from applied use case prototypes
 to large scale distributed training.
 
-The current state of RLgraph in version 0.3.1 is alpha. The core engine is substantially complete
+The current state of RLgraph in version 0.3.3 is alpha. The core engine is substantially complete
 and works for TensorFlow and PyTorch (1.0). Distributed execution on Ray is exemplified via Distributed
 Prioritized Experience Replay (Ape-X), which also supports multi-gpu mode and solves e.g. Atari-Pong in ~1 hour
 on a single-node. Algorithms like Ape-X or PPO can be used both with PyTorch and TensorFlow. Distributed TensorFlow can
@@ -34,6 +34,7 @@ RLgraph currently implements the following algorithms:
 - Distributed prioritized experience replay (Ape-X) on Ray - via `apex_executor` - [paper](https://arxiv.org/abs/1803.00933)
 - Importance-weighted actor-learner architecture (IMPALA) on distributed TF/Multi-threaded single-node - ```impala_agents``` - [paper](https://arxiv.org/abs/1802.01561)
 - Proximal policy optimization with generalized advantage estimation - ```ppo_agent``` - [paper](https://arxiv.org/abs/1707.06347)
+- Soft Actor-Critic / SAC ```sac_agent``` - [paper](https://arxiv.org/abs/1801.01290)
 - Simple actor-critic for REINFORCE/A2C/A3C ```actor_critic_agent``` - [paper](https://arxiv.org/abs/1602.01783)
 
 The ```SingleThreadedWorker``` implements high-performance environment vectorisation, and a ```RayWorker``` can execute

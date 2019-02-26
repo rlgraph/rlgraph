@@ -32,8 +32,13 @@ if get_backend() == "tf":
 elif get_backend() == "pytorch":
     import torch
 
+# Some small floating point number. Can be used as a small epsilon for numerical stability purposes.
 SMALL_NUMBER = 1e-6
+# Some large int number. May be increased here, if needed.
 LARGE_INTEGER = 100000000
+# Min and Max outputs (clipped) from an NN-output layer interpreted as the log(stddev) of some loc + scale distribution.
+MIN_LOG_STDDEV = -20
+MAX_LOG_STDDEV = 2
 
 # Logging config for testing.
 logging_formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', datefmt='%y-%m-%d %H:%M:%S')

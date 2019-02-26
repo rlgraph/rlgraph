@@ -40,7 +40,7 @@ class RayPolicyWorker(RayActor):
     A Ray policy worker for distributed policy optimisation.
     """
 
-    def __init__(self, agent_config, worker_spec, env_spec, frameskip=1, auto_build=False):
+    def __init__(self, agent_config, worker_spec, env_spec, frameskip=1):
         """
         Creates agent and environment for Ray worker.
 
@@ -65,7 +65,6 @@ class RayPolicyWorker(RayActor):
         self.compress = worker_spec.pop("compress_states", False)
 
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
-        self.auto_build = auto_build
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
         self.vector_env = SequentialVectorEnv(self.num_environments, env_spec, num_background_envs)
@@ -104,7 +103,6 @@ class RayPolicyWorker(RayActor):
 
         # To continue running through multiple exec calls.
         self.last_states = self.vector_env.reset_all()
-        self.agent.reset()
 
         self.zero_batched_state = np.zeros((1,) + self.agent.preprocessed_state_space.shape)
         self.zero_unbatched_state = np.zeros(self.agent.preprocessed_state_space.shape)
@@ -130,14 +128,6 @@ class RayPolicyWorker(RayActor):
     @classmethod
     def as_remote(cls, num_cpus=None, num_gpus=None):
         return ray.remote(num_cpus=num_cpus, num_gpus=num_gpus)(cls)
-
-    def init_agent(self):
-        """
-        Builds the agent. This is done as a separate task because meta graph
-        generation can take long.
-        """
-        self.agent.build()
-        return True
 
     def setup_preprocessor(self, preprocessing_spec, in_space):
         if preprocessing_spec is not None:
@@ -171,7 +161,6 @@ class RayPolicyWorker(RayActor):
             agent_config.update(execution_spec=worker_exec_spec)
 
         # Build lazily per default.
-        agent_config.update(auto_build=self.auto_build)
         return RayExecutor.build_agent_from_config(agent_config)
 
     def execute_and_get_timesteps(

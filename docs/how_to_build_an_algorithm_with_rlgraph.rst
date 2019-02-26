@@ -1,4 +1,4 @@
-.. Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
+F.. Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -138,7 +138,7 @@ We will now, one by one, define the root component's API-methods for use in the 
             multi_gpu_syncer = self.sub_components["multi-gpu-synchronizer"]
             return multi_gpu_syncer.sync_target_qnets()
         else:
-            policy_vars = self.get_sub_component_by_name(policy_scope)._variables()
+            policy_vars = self.get_sub_component_by_name(policy_scope).variables()
             return self.get_sub_component_by_name("target-policy").sync(policy_vars)
 
     # Learn from memory.
@@ -183,7 +183,7 @@ We will now, one by one, define the root component's API-methods for use in the 
         )
 
         # Args are passed in again because some device strategies may want to split them to different devices.
-        policy_vars = self_.get_sub_component_by_name(policy_scope)._variables()
+        policy_vars = self_.get_sub_component_by_name(policy_scope).variables()
 
         step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
         return step_op, loss, loss_per_item, q_values_s

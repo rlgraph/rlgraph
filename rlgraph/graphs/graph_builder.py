@@ -35,7 +35,7 @@ from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.util import force_list, force_tuple, get_shape
-from rlgraph.utils.ops import is_constant, ContainerDataOp, flatten_op
+from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, TraceContext
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumn, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
 
@@ -313,7 +313,9 @@ class GraphBuilder(Specifiable):
                                                  is_input_feed=True, is_python=True)
         return placeholder
 
-    def build_component_when_input_complete(self, component):
+    def build_component_when_input_complete(self, component, check_sub_components=True):
+        graph_fn_requiring_var_completeness = [gf.name for gf in component.graph_fns.values() if
+                                               gf.requires_variable_completeness is True]
         # Not input complete yet -> Check now.
         if component.input_complete is False or component.built is False:
             component.check_input_completeness()
@@ -329,39 +331,41 @@ class GraphBuilder(Specifiable):
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
                     # Do not call _variables (only later, when Component is also variable-complete).
-                    if no_in_col.graph_fn.__name__ != "_graph_fn_variables":
+                    if no_in_col.graph_fn.__name__ not in graph_fn_requiring_var_completeness:
                         self.run_through_graph_fn_with_device_and_scope(no_in_col)
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
-        # Check variable-completeness and actually call the _variable graph_fn if not already done so.
-        # Collect sub-components and build them as well if they just became variable-complete.
-        sub_components = component.sub_components.values()
-        sub_components_not_var_complete = set()
-        for sub_component in sub_components:
-            if sub_component.variable_complete is False:
-                sub_components_not_var_complete.add(sub_component)
-
         if component.input_complete is True and component.check_variable_completeness():
-                # The graph_fn _variables has some in-op-columns that need to be run through the function.
-                if "_graph_fn_variables" in component.graph_fns:
-                    graph_fn_rec = component.graph_fns["_graph_fn_variables"]
-                    # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
-                    # TODO: Then link the first in-op-column (empty) to all out-op-columns.
-                    for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
-                        if in_op_col.already_sent is False:
-                            self.run_through_graph_fn_with_device_and_scope(in_op_col)
-                            # If graph_fn_rec doesn't know about the out-op-col yet, add it.
-                            if len(graph_fn_rec.out_op_columns) <= i:
-                                assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
-                                graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
-                            self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+            # The graph_fn _variables has some in-op-columns that need to be run through the function.
+            for graph_fn_name in graph_fn_requiring_var_completeness:
+                graph_fn_rec = component.graph_fns[graph_fn_name]
+                # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
+                # TODO: Then link the first in-op-column (empty) to all out-op-columns.
+                for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
+                    if in_op_col.already_sent is False and in_op_col.is_complete():
+                        self.run_through_graph_fn_with_device_and_scope(in_op_col)
+                        # If graph_fn_rec doesn't know about the out-op-col yet, add it.
+                        if len(graph_fn_rec.out_op_columns) <= i:
+                            assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
+                            graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
+                        self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+
+            if check_sub_components is True:
+                # Check variable-completeness and actually call the _variable graph_fn if not already done so.
+                # Collect sub-components and build them as well if they just became variable-complete.
+                sub_components = component.sub_components.values()
+                sub_components_not_var_complete = set()
+                for sub_component in sub_components:
+                    if sub_component.variable_complete is False:
+                        sub_components_not_var_complete.add(sub_component)
 
                 for sub_component in sub_components_not_var_complete:
                     self.build_component_when_input_complete(sub_component)
-                # Now that the component is variable-complete, the parent may have become variable-complete as well.
-                #if component.parent_component is not None:
-                #    self.build_component_when_input_complete(component.parent_component)
+
+            # Now that the component is variable-complete, the parent may have become variable-complete as well.
+            if component.parent_component is not None and component.parent_component.variable_complete is False:
+                self.build_component_when_input_complete(component.parent_component, check_sub_components=False)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column, create_new_out_column=None):
         """
@@ -723,7 +727,7 @@ class GraphBuilder(Specifiable):
                 # We have reached the beginning of the graph with a "variables:.."-dependent Space, so no op expected
                 # yet.
                 if isinstance(op_rec.space, str) and re.match(r'^variables:.+', op_rec.space):
-                    assert True, "  Needs error message here!"
+                    assert False, "  Needs error message here!"
 
                 else:
                     assert isinstance(op_rec.column, DataOpRecordColumnFromGraphFn),\
@@ -737,7 +741,7 @@ class GraphBuilder(Specifiable):
                             self._analyze_input_incomplete_component(op_rec.column.component)
                         else:
                             assert op_rec.column.component.variable_complete is False and \
-                                   op_rec.column.graph_fn_name == "_graph_fn_variables", \
+                                   op_rec.column.in_graph_fn_column.requires_variable_completeness is True, \
                                    "ERROR: Component '{}' was expected to be either input-incomplete or " \
                                    "variable-incomplete!".format(op_rec.column.component.global_scope)
                             self._analyze_variable_incomplete_component(op_rec.column.component)
@@ -855,8 +859,14 @@ class GraphBuilder(Specifiable):
             if isinstance(api_method_call, (list, tuple)):
                 api_method_name = api_method_call[0] if not callable(api_method_call[0]) else \
                     api_method_call[0].__name__
-                params = force_list(api_method_call[1]) if not isinstance(api_method_call[1], dict) else \
-                    [v for k, v in sorted(api_method_call[1].items())]
+                # If input is one dict: Check first placeholder for being a dict as well and if so, do a normal 1:1
+                # mapping, otherwise, roll out the input dict as a list.
+                if isinstance(api_method_call[1], dict) and \
+                        not isinstance(self.api[api_method_name][0][0].op, DataOpDict):
+                    params = [v for k, v in sorted(api_method_call[1].items())]
+                else:
+                    params = force_list(api_method_call[1])
+
                 return_ops = force_list(api_method_call[2]) if len(api_method_call) > 2 and \
                                                                api_method_call[2] is not None else None
             # Allow passing the function directly
@@ -954,10 +964,6 @@ class GraphBuilder(Specifiable):
         flatten_ops = options.pop("flatten_ops", False)
         split_ops = options.pop("split_ops", False)
         add_auto_key_as_first_param = options.pop("add_auto_key_as_first_param", False)
-        # print("################## ################## ##################")
-        # print("executing graph fn", graph_fn)
-        # print("raw args = ", args)
-        # print("raw kwargs = ", kwargs)
 
         # No container arg handling.
         if not flatten_ops:
@@ -985,7 +991,6 @@ class GraphBuilder(Specifiable):
                         flattened_kwargs[key] = arg
 
             # If splitting args, split then iterate and merge. Only split if some args were actually flattened.
-            # print("flattened args = ", flattened_args)
             if args_actually_flattened:
                 split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
                                                                  *flattened_args, **flattened_kwargs)
@@ -1081,6 +1086,7 @@ class GraphBuilder(Specifiable):
         self.default_device = default_device
         self.device_map = device_map or {}
         self.phase = "building"
+        TraceContext.DEFINE_BY_RUN_CONTEXT = "building"
 
         # TODO device strategy in pytorch?
         # Build full registry of callable methods on root component.
@@ -1116,6 +1122,7 @@ class GraphBuilder(Specifiable):
         self.logger.info("Define-by-run computation-graph build completed in {} s ({} iterations).".
                          format(time_build, iterations))
         build_overhead = time_build - sum(self.graph_call_times) - sum(self.var_call_times)
+        TraceContext.DEFINE_BY_RUN_CONTEXT = "execution"
         return dict(
             build_overhead=build_overhead,
             total_build_time=time_build,
@@ -1136,14 +1143,12 @@ class GraphBuilder(Specifiable):
                 isinstance(or_.column, (DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromAPIMethod)) for or_ in
                 op_records_list
             )
-            highest_nesting_of_callable_graph_fn_column = -1
-            if have_api_method_recs is False:
-                for or_ in op_records_list:
-                    if isinstance(or_.column, DataOpRecordColumnIntoGraphFn):
-                        col = or_.column
-                        if col.is_complete() and col.already_sent is False and \
-                                col.component.nesting_level > highest_nesting_of_callable_graph_fn_column:
-                            highest_nesting_of_callable_graph_fn_column = col.component.nesting_level
+            # Keep track of the highest nesting-level (depth of a component in the parent/child-component-tree) for
+            # a called graph_fn. Graph_fns with a lower nesting level will not be called in the same iteration.
+            # This allows for careful progress through the graph_fn-calls in case API methods of
+            # input/variable-incomplete components are called within these graph_fns (to be avoided at all costs
+            # as it will fail the build).
+            highest_nesting_of_called_graph_fn_column = -1
 
             # Collect op-recs to process in the next iteration.
             self.op_records_to_process = set()
@@ -1224,23 +1229,36 @@ class GraphBuilder(Specifiable):
                         self.op_records_to_process.add(op_rec)
                     # There are other graph_fn columns that have a higher Component nesting_level and are
                     # actually callable -> Call those first.
-                    elif highest_nesting_of_callable_graph_fn_column > op_rec.column.component.nesting_level:
+                    elif highest_nesting_of_called_graph_fn_column > op_rec.column.component.nesting_level:
                         # Recycle this op-rec.
                         self.op_records_to_process.add(op_rec)
                     # GraphFn column must be complete AND has not been sent through the graph_fn yet.
                     elif op_rec.column.is_complete() and op_rec.column.already_sent is False:
+                        do_call = False  # Do the actual graph_fn call?
+
                         # Only call the graph_fn if the Component is already input-complete.
-                        if op_rec.column.component.input_complete:
-                            # Call the graph_fn with the given column and call-options.
-                            self.run_through_graph_fn_with_device_and_scope(op_rec.column)
-                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
-                            self.op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
-                        # Component not input-complete. Recycle this op-rec.
+                        if op_rec.column.component.variable_complete or \
+                                (op_rec.column.requires_variable_completeness is False and
+                                 op_rec.column.component.input_complete):
+                            do_call = True
+                        # Component not input-/variable-complete yet. Recycle this op-rec.
                         else:
                             self.build_component_when_input_complete(op_rec.column.component)
                             self.op_records_to_process.add(op_rec)
                             if op_rec.column.component.input_complete is False:
                                 non_complete_components.add(op_rec.column.component.global_scope)
+                            # Call the graph_fn here right away iff component is ready now.
+                            elif op_rec.column.component.variable_complete or \
+                                    op_rec.column.requires_variable_completeness is False:
+                                do_call = True
+
+                        if do_call:
+                            # Call the graph_fn with the given column and call-options.
+                            self.run_through_graph_fn_with_device_and_scope(op_rec.column)
+                            # Store all resulting op_recs (returned by the graph_fn) to be processed next.
+                            self.op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
+                            highest_nesting_of_called_graph_fn_column = op_rec.column.component.nesting_level
+
                     # - There are still into-API-method-op-recs that should be handled first.
                     # - Op column is not complete yet: Discard this one (as others will keep coming in anyway).
                     # - Op column has already been sent (sibling ops may have arrived in same iteration).

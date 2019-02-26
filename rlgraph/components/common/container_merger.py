@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import re
 
-from rlgraph.components import Component
+from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import DataOpDict, DataOpTuple
 
@@ -65,7 +65,7 @@ class ContainerMerger(Component):
 
         len_ = len(self.dict_keys) if self.dict_keys else self.num_items
         assert len(spaces) == len_,\
-            "ERROR: Number of incoming Spaces ({}) does not match number of given `dict_keys/num_items` in" \
+            "ERROR: Number of incoming Spaces ({}) does not match number of given `dict_keys/num_items` ({}) in" \
             "ContainerMerger Component '{}'!".format(len(spaces), len_, self.global_scope)
 
     #    #for space in spaces:

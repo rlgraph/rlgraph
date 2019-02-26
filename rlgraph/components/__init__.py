@@ -29,6 +29,7 @@ from rlgraph.components.neural_networks import *
 from rlgraph.components.optimizers import *
 from rlgraph.components.policies import *
 from rlgraph.components.common import *
+
 from rlgraph.utils.util import default_dict
 
 # Create the lookup dict for Component.
@@ -36,6 +37,7 @@ Component.__lookup_classes__ = dict(
     containermerger=ContainerMerger,
     containersplitter=ContainerSplitter,
 )
+
 # Add all specific sub-classes to this one.
 default_dict(Component.__lookup_classes__, Distribution.__lookup_classes__)
 default_dict(Component.__lookup_classes__, Layer.__lookup_classes__)
