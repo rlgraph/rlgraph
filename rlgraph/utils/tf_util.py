@@ -44,7 +44,16 @@ if get_backend() == "tf":
 
 
 def ensure_batched(tensor):
-    if len(tensor.shape.as_list()) == 1:
+    """
+    Expands dim to batch dim if needed.
+
+    Args:
+        tensor (tf.Tensor): TensorFlow tensor.
+
+    Returns:
+        Tensor with batch dim added if input rank was 1.
+    """
+    if str(tensor.shape) == "<unknown>" or len(tensor.shape.as_list()) == 1:
         return tf.expand_dims(tensor, axis=1)
     else:
         return tensor
