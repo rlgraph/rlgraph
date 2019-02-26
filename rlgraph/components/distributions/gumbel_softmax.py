@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import GumbelSoftmaxAdapter
 from rlgraph.components.distributions.distribution import Distribution
+from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
@@ -59,9 +60,9 @@ class GumbelSoftmax(Distribution):
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
         if get_backend() == "tf":
-            return distribution.mean()
+            return tf.argmax(input=distribution.probs, axis=-1, output_type=util.convert_dtype("int"))
         elif get_backend() == "pytorch":
-            return distribution.mean
+            return torch.argmax(distribution.probs, dim=-1).int()
 
     @graph_fn
     def _graph_fn_sample_stochastic(self, distribution):
