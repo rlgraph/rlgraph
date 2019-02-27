@@ -62,15 +62,25 @@ class GumbelSoftmax(Distribution):
         if get_backend() == "tf":
             # Cast to float again because this is called rom a tf.cond where the other option calls a stochastic
             # sample returning a float.
-            return tf.cast(x=tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=tf.int32),
+            print("distribution._distribution.probs ", distribution._distribution.probs.shape)
+            sample = tf.cast(x=tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=tf.int32),
                            dtype=tf.float32)
+            # Argmax turns (?, n) into (?,), not (?, 1)
+            if len(sample.shape) == 1:
+                sample = tf.expand_dims(sample, -1)
+                print("stochastic sample shape ", sample.shape)
+                return sample
+            else:
+                return sample
         elif get_backend() == "pytorch":
             return torch.argmax(distribution.probs, dim=-1).int()
 
     @graph_fn
     def _graph_fn_sample_stochastic(self, distribution):
         if get_backend() == "tf":
-            return distribution.sample(seed=self.seed)
+            s = distribution.sample(seed=self.seed)
+            print("stochastic sample shape = ", s.shape)
+            return s
         elif get_backend() == "pytorch":
             return distribution.sample()
 

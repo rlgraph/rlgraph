@@ -54,6 +54,7 @@ def ensure_batched(tensor):
         Tensor with batch dim added if input rank was 1.
     """
     if str(tensor.shape) == "<unknown>" or len(tensor.shape.as_list()) == 1:
+        print("Adjusting tensor {}, shape = {} ".format(tensor, tensor.shape))
         return tf.expand_dims(tensor, axis=1)
     else:
         return tensor

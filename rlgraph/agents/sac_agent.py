@@ -266,6 +266,7 @@ class SACAgentComponent(Component):
     def _graph_fn__concat(self, *tensors):
         backend = get_backend()
         if backend == "tf":
+            print("concat tensors = ", tensors)
             return tf.concat([tf_util.ensure_batched(t) for t in tensors], axis=1)
         elif backend == "pytorch":
             raise NotImplementedError("TODO: pytorch support")

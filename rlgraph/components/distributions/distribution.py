@@ -135,11 +135,13 @@ class Distribution(Component):
             DataOp: The taken sample(s).
         """
         if get_backend() == "tf":
-            return tf.cond(
+            x= tf.cond(
                 pred=deterministic,
                 true_fn=lambda: self._graph_fn_sample_deterministic(distribution),
                 false_fn=lambda: self._graph_fn_sample_stochastic(distribution)
             )
+            print("draw = ", x.shape)
+            return x
         elif get_backend() == "pytorch":
             if deterministic:
                 return self._graph_fn_sample_deterministic(distribution)
@@ -173,7 +175,10 @@ class Distribution(Component):
             DataOp: The drawn sample.
         """
         if get_backend() == "tf":
-            return distribution.sample(seed=self.seed)
+            s =  distribution.sample(seed=self.seed)
+            print("stochastic sample shape = ", s.shape)
+
+            return s
         elif get_backend() == "pytorch":
             return distribution.sample()
 

@@ -48,7 +48,9 @@ class Categorical(Distribution):
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
         if get_backend() == "tf":
-            return tf.argmax(input=distribution.probs, axis=-1, output_type=util.convert_dtype("int"))
+            sample = tf.argmax(input=distribution.probs, axis=-1, output_type=util.convert_dtype("int"))
+            print("deterministic sample shape ", sample.shape)
+            return sample
         elif get_backend() == "pytorch":
             return torch.argmax(distribution.probs, dim=-1).int()
 
