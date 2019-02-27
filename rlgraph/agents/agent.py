@@ -281,7 +281,7 @@ class Agent(Specifiable):
                 add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
                 op_list = [add_op] + [other_step_op] if other_step_op is not None else []
                 with tf.control_dependencies(op_list):
-                    return tf.no_op()
+                    return tf.no_op() if other_step_op is None else other_step_op
             elif get_backend == "pytorch":
                 self.graph_executor.global_training_timestep += 1
                 return None

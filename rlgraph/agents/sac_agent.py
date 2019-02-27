@@ -145,8 +145,9 @@ class SACAgentComponent(Component):
         return result
 
     @rlgraph_api
-    def update_from_external_batch(self, preprocessed_states, actions, rewards, terminals,
-                                             preprocessed_s_prime, importance_weights):
+    def update_from_external_batch(
+            self, preprocessed_states, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+    ):
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
             self.get_losses(preprocessed_states, actions, rewards, terminals, preprocessed_s_prime, importance_weights)
 
@@ -168,6 +169,9 @@ class SACAgentComponent(Component):
         # TODO: optimizer for alpha
 
         sync_op = self.sync_targets()
+
+        # Increase the global training step counter.
+        alpha_step_op = self._graph_fn_training_step(alpha_step_op)
 
         return dict(
             actor_step_op=actor_step_op,
