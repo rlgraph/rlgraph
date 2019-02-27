@@ -264,6 +264,28 @@ class Agent(Specifiable):
                 return tf.group(*ops)
             return ops[0]
 
+        @graph_fn(component=self.root_component)
+        def _graph_fn_training_step(root, other_step_op=None):
+            """
+            Increases the global training timestep by 1. Should be called by all training API-methods to
+            timestamp each training/update step.
+
+            Args:
+                other_step_op (Optional[DataOp]): Another DataOp (e.g. a step_op) which should be
+                    executed before the increase takes place.
+
+            Returns:
+                DataOp: no_op.
+            """
+            if get_backend() == "tf":
+                add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
+                op_list = [add_op] + [other_step_op] if other_step_op is not None else []
+                with tf.control_dependencies(op_list):
+                    return tf.no_op()
+            elif get_backend == "pytorch":
+                self.graph_executor.global_training_timestep += 1
+                return None
+
         # To pre-process external data if needed.
         @rlgraph_api(component=self.root_component)
         def preprocess_states(root, states):
