@@ -3,14 +3,11 @@ import logging
 import numpy as np
 from scipy import stats
 
-from rlgraph.agents import Agent
 from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
     Synchronizable
-from rlgraph.environments import GaussianDensityAsRewardEnvironment
-from rlgraph.execution import SingleThreadedWorker
-from rlgraph.tests import ComponentTest, config_from_path
+from rlgraph.tests import ComponentTest
 from rlgraph.utils import root_logger
 
 
@@ -43,6 +40,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         )
 
         agent_component = SACAgentComponent(
+            agent=None,
             policy=policy,
             q_function=q_function,
             preprocessor=PreprocessorStack.from_spec([]),
