@@ -18,9 +18,8 @@ class TestSACAgentFunctionality(unittest.TestCase):
     root_logger.setLevel(level=logging.DEBUG)
 
     def test_sac_agent_component(self):
-        continuous_action_space = FloatBox(low=-1.0, high=1.0)
         state_space = FloatBox(shape=(1,))
-        action_space = continuous_action_space
+        continuous_action_space = FloatBox(low=-1.0, high=1.0)
         terminal_space = BoolBox(add_batch_rank=True)
         policy = Policy(
             network_spec=NeuralNetwork.from_spec([
@@ -28,7 +27,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 {"type": "dense", "units": 8, "activation": "relu", "scope": "h2"},
                 {"type": "dense", "units": 8, "activation": "relu", "scope": "h3"}
             ]),
-            action_space=action_space
+            action_space=continuous_action_space
         )
         policy.add_components(Synchronizable(), expose_apis="sync")
         q_function = ValueFunction(
@@ -59,7 +58,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
             input_spaces=dict(
                 states=state_space.with_batch_rank(add_batch_rank=True),
                 preprocessed_states=state_space.with_batch_rank(add_batch_rank=True),
-                actions=action_space.with_batch_rank(add_batch_rank=True),
+                actions=continuous_action_space.with_batch_rank(add_batch_rank=True),
                 rewards=FloatBox(add_batch_rank=True),
                 next_states=state_space.with_batch_rank(add_batch_rank=True),
                 terminals=terminal_space,
@@ -75,7 +74,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 #    q_1="variables:{}".format(agent_component._q_functions[1].scope),
                 #)
             ),
-            action_space=action_space,
+            action_space=continuous_action_space,
             build_kwargs=dict(
                 optimizer=agent_component._optimizer,
                 build_options=dict(
@@ -86,13 +85,17 @@ class TestSACAgentFunctionality(unittest.TestCase):
 
         policy_loss = []
         values_loss = []
+
+        # This test simulates an env that always requires actions to be close to the max-pdf
+        # value of a loc=0.5, scale=0.2 normal.
+        # The component should learn to produce actions like that (close to 0.5).
         true_mean = 0.5
         target_dist = stats.norm(loc=true_mean, scale=0.2)
         batch_size = 100
         for _ in range(1000):
-            action_sample = action_space.sample(batch_size)
+            action_sample = continuous_action_space.sample(batch_size)
             rewards = target_dist.pdf(action_sample)
-            result = test.graph_executor.execute((agent_component.update_from_external_batch, [
+            result = test.test(("update_from_external_batch", [
                 state_space.sample(batch_size),
                 action_sample,
                 rewards,
@@ -104,11 +107,11 @@ class TestSACAgentFunctionality(unittest.TestCase):
             values_loss.append(result["critic_loss"])
 
         action_sample = np.linspace(-1, 1, batch_size)
-        q_values = test.graph_executor.execute((agent_component.get_q_values, [state_space.sample(batch_size), action_sample]))
+        q_values = test.test(("get_q_values", [target_dist.rvs((batch_size, 1)), action_sample]))
         for q_val in q_values:
             q_val = q_val.flatten()
             np.testing.assert_allclose(q_val, target_dist.pdf(action_sample), atol=0.2)
 
-        action_sample, _ = test.graph_executor.execute((agent_component.action_from_preprocessed_state, [state_space.sample(batch_size), False]))
+        action_sample, _ = test.test(("action_from_preprocessed_state", [state_space.sample(batch_size), False]))
         action_sample = action_sample.flatten()
         np.testing.assert_allclose(np.mean(action_sample), true_mean, atol=0.1)

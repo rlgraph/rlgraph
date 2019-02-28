@@ -53,11 +53,11 @@ class TestSACShortTaskLearning(unittest.TestCase):
         )
         worker.execute_episodes(num_episodes=500)
         rewards = worker.finished_episode_rewards[0]  # 0=1st env in vector-env
-        assert np.mean(rewards[:100]) < np.mean(rewards[-100:])
+        self.assertTrue(np.mean(rewards[:100]) < np.mean(rewards[-100:]))
 
         worker.execute_episodes(num_episodes=100, use_exploration=False, update_spec=None)
         rewards = worker.finished_episode_rewards[0]
-        assert len(rewards) == 100
+        self.assertTrue(len(rewards) == 100)
         evaluation_score = np.mean(rewards)
-        assert .5 * env.get_max_reward() < evaluation_score <= env.get_max_reward()
+        self.assertTrue(.5 * env.get_max_reward() < evaluation_score <= env.get_max_reward())
 
