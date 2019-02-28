@@ -264,6 +264,12 @@ class Agent(Specifiable):
                 return tf.group(*ops)
             return ops[0]
 
+        # To pre-process external data if needed.
+        @rlgraph_api(component=self.root_component)
+        def preprocess_states(root, states):
+            preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
+            return preprocessor_stack.preprocess(states)
+
         @graph_fn(component=self.root_component)
         def _graph_fn_training_step(root, other_step_op=None):
             """
@@ -285,12 +291,6 @@ class Agent(Specifiable):
             elif get_backend == "pytorch":
                 self.graph_executor.global_training_timestep += 1
                 return None
-
-        # To pre-process external data if needed.
-        @rlgraph_api(component=self.root_component)
-        def preprocess_states(root, states):
-            preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
-            return preprocessor_stack.preprocess(states)
 
     def _build_graph(self, root_components, input_spaces, **kwargs):
         """

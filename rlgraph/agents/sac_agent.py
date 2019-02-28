@@ -52,9 +52,10 @@ class SyncSpecification(object):
 
 
 class SACAgentComponent(Component):
-    def __init__(self, policy, q_function, preprocessor, memory, discount,
+    def __init__(self, agent, policy, q_function, preprocessor, memory, discount,
                  initial_alpha, target_entropy, optimizer, vf_optimizer, q_sync_spec, num_q_functions=2):
         super(SACAgentComponent, self).__init__(nesting_level=0)
+        self.agent = agent
         self._policy = policy
         self._preprocessor = preprocessor
         self._memory = memory
@@ -274,6 +275,14 @@ class SACAgentComponent(Component):
         elif backend == "pytorch":
             raise NotImplementedError("TODO: pytorch support")
 
+    # TODO: Move this into generic AgentRootComponent.
+    @graph_fn
+    def _graph_fn_training_step(self, other_step_op=None):
+        add_op = tf.assign_add(self.agent.graph_executor.global_training_timestep, 1)
+        op_list = [add_op] + [other_step_op] if other_step_op is not None else []
+        with tf.control_dependencies(op_list):
+            return tf.no_op() if other_step_op is None else other_step_op
+
     @graph_fn
     def _graph_fn__one_hot(self, tensor):
         backend = get_backend()
@@ -403,7 +412,10 @@ class SACAgent(Agent):
             )
 
         self.memory = Memory.from_spec(memory_spec)
+        # TODO: Two options: a) Move all sub-components of the root into the root's ctor.
+        # TODO: b) Pass the agent into root (already done) and then add sub-components here into the root (after ctoring the root), then refer to all sub-components as "agent.[...]". This way, the agent itself does not carry any components, just agent settings such as discount, etc.
         self.root_component = SACAgentComponent(
+            agent=self,
             policy=self.policy,
             q_function=self.value_function,
             preprocessor=self.preprocessor,

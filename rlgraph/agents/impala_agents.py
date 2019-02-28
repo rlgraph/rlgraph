@@ -18,8 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import tensorflow as tf
 
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.container_merger import ContainerMerger
@@ -770,6 +771,14 @@ class SingleIMPALAAgent(IMPALAAgent):
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item, records
+
+        # TODO: Move this into generic AgentRootComponent.
+        @graph_fn(component=self.root_component)
+        def _graph_fn_training_step(root, other_step_op=None):
+            add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
+            op_list = [add_op] + [other_step_op] if other_step_op is not None else []
+            with tf.control_dependencies(op_list):
+                return tf.no_op() if other_step_op is None else other_step_op
 
     def __repr__(self):
         return "SingleIMPALAAgent()"
