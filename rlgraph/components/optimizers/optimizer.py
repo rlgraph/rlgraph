@@ -42,7 +42,7 @@ class Optimizer(Component):
         Applies an optimization step to a list of variables via a loss.
 
         Args:
-            \*inputs (SingleDataOp): Any args to the optimizer to be able to perform gradient calculations from
+            inputs (SingleDataOp): Any args to the optimizer to be able to perform gradient calculations from
                 losses and then apply these gradients to some variables.
 
         Returns:
@@ -57,7 +57,7 @@ class Optimizer(Component):
         specific input parameters).
 
         Args:
-            \*inputs (SingleDataOp): Custom SingleDataOp parameters, dependent on the optimizer type.
+            inputs (SingleDataOp): Custom SingleDataOp parameters, dependent on the optimizer type.
 
         Returns:
             DataOpTuple: The list of gradients and variables to be optimized.
