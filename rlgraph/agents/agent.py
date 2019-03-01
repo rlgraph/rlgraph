@@ -287,7 +287,7 @@ class Agent(Specifiable):
                 add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
                 op_list = [add_op] + [other_step_op] if other_step_op is not None else []
                 with tf.control_dependencies(op_list):
-                    if other_step_op is None or other_step_op.type == "NoOp":
+                    if other_step_op is None or hasattr(other_step_op, "type") and other_step_op.type == "NoOp":
                         return tf.no_op()
                     else:
                         return tf.identity(other_step_op)
