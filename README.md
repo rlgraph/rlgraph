@@ -5,7 +5,7 @@
 [![Build Status](https://travis-ci.org/rlgraph/rlgraph.svg?branch=master)](https://travis-ci.org/rlgraph/rlgraph)
 
 # RLgraph
-Flexible computation graphs for deep reinforcement learning.
+Modular computation graphs for deep reinforcement learning.
 
 RLgraph is a framework to quickly prototype, define and execute reinforcement learning
 algorithms both in research and practice. RLgraph is different from most other libraries as it can support
@@ -148,7 +148,7 @@ If you use RLgraph in your research, please cite the following paper: [link](htt
 ```
 @ARTICLE{Schaarschmidt2018rlgraph,
     author = {{Schaarschmidt}, M. and {Mika}, S. and {Fricke}, K. and {Yoneki}, E.},
-    title = "{RLgraph: Flexible Computation Graphs for Deep Reinforcement Learning}",
+    title = "{RLgraph: Modular Computation Graphs for Deep Reinforcement Learning}",
     journal = {ArXiv e-prints},
     archivePrefix = "arXiv",
     eprint = {1810.09028},
