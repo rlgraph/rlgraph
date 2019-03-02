@@ -671,7 +671,9 @@ class TensorFlowExecutor(GraphExecutor):
             batch_size (int): The batch size that needs to be split between the different GPUs.
             extra_build_args (Optional[dict]): Extra build elements to pass.
         """
-        self.optimizers = [root_optimizer]
+        self.optimizers = []
+        if root_optimizer is not None:
+            self.optimizers.append(root_optimizer)
         # Save separate vf optimizer if necessary.
         if extra_build_args is not None and "vf_optimizer" in extra_build_args:
             self.optimizers.append(extra_build_args["vf_optimizer"])
