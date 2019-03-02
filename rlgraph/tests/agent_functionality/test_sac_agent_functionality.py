@@ -3,14 +3,11 @@ import logging
 import numpy as np
 from scipy import stats
 
-from rlgraph.agents import Agent
 from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
     Synchronizable
-from rlgraph.environments import GaussianDensityAsRewardEnvironment
-from rlgraph.execution import SingleThreadedWorker
-from rlgraph.tests import ComponentTest, config_from_path
+from rlgraph.tests import ComponentTest
 from rlgraph.utils import root_logger
 
 
@@ -52,6 +49,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
             target_entropy=None,
             optimizer=AdamOptimizer(learning_rate=1e-2, scope="policy-optimizer"),
             vf_optimizer=AdamOptimizer(learning_rate=1e-2, scope="vf-optimizer"),
+            alpha_optimizer=None,  # No need to provide this optimizer as there is no target entropy
             q_sync_spec=SyncSpecification(sync_interval=10, sync_tau=1.0),
             num_q_functions=2
         )
