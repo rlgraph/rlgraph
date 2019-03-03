@@ -489,12 +489,12 @@ class SACAgent(Agent):
             # 0=preprocessed_states, 1=action
             return_ops
         ))
-        # We have a discrete action space -> Convert gumble sample back into int type.
+        # We have a discrete action space -> Convert Gumble (relaxed one-hot) sample back into int type.
         if isinstance(self.action_space, IntBox):
             if "preprocessed_states" in extra_returns:
-                ret = (ret[0].astype(np.int32), ret[1])
+                ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])
             else:
-                ret = ret.astype(np.int32)
+                ret = np.argmax(ret).astype(self.action_space.dtype)
 
         if remove_batch_rank:
             return strip_list(ret)
