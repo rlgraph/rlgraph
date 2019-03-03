@@ -18,15 +18,16 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import numpy as np
 import os
 import unittest
 
-from rlgraph.environments import GaussianDensityAsRewardEnvironment, OpenAIGymEnv
+import numpy as np
+
 from rlgraph.agents import SACAgent
+from rlgraph.environments import GaussianDensityAsRewardEnvironment, OpenAIGymEnv
 from rlgraph.execution import SingleThreadedWorker
-from rlgraph.utils import root_logger
 from rlgraph.tests.test_util import config_from_path
+from rlgraph.utils import root_logger
 
 
 class TestSACShortTaskLearning(unittest.TestCase):
@@ -79,9 +80,15 @@ class TestSACShortTaskLearning(unittest.TestCase):
             render=self.is_windows
         )
         # Note: SAC is more computationally expensive.
-        results = worker.execute_episodes(50, use_exploration=True)
+        episodes = 50
+        results = worker.execute_episodes(episodes, use_exploration=True)
 
         print(results)
+
+        self.assertTrue(results["timesteps_executed"] == episodes * 200)
+        self.assertTrue(results["episodes_executed"] == episodes)
+        self.assertGreater(results["final_episode_reward"], -300)
+        self.assertGreater(results["mean_episode_reward"], -800)
 
     def test_sac_on_cartpole(self):
         """
