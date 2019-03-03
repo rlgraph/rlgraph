@@ -429,7 +429,6 @@ class Policy(Component):
         """
         ret = FlattenedDataOp()
         for flat_key, action_space_component in self.action_space.flatten().items():
-            low, high = action_space_component.tensor_backed_bounds()
             if flat_key == "":
                 if isinstance(parameters, FlattenedDataOp):
                     return self.distributions[flat_key].log_prob(parameters[flat_key], actions)
