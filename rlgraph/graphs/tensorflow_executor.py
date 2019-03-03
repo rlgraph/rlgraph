@@ -570,10 +570,12 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             # If monitoring is disabled,
             if self.disable_monitoring:
-                self.logger.info("Setting up default session for non-distributed mode.")
+                self.logger.info("Setting up default session for non-distributed mode. Session config: {}".format(
+                    self.tf_session_config))
                 self.monitored_session = tf.Session(config=self.tf_session_config)
             else:
-                self.logger.info("Setting up singular monitored session for non-distributed mode.")
+                self.logger.info("Setting up singular monitored session for non-distributed mode. Session config: {}".
+                                 format(self.tf_session_config))
                 self.monitored_session = tf.train.SingularMonitoredSession(
                     hooks=hooks,
                     scaffold=self.scaffold,
