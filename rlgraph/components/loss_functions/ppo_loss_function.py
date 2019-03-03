@@ -78,14 +78,19 @@ class PPOLossFunction(LossFunction):
 
     @rlgraph_api
     def loss_per_item(self, log_probs, baseline_values, rewards, entropy):
-        loss_per_item = self._graph_fn_loss_per_item(log_probs, baseline_values, rewards, entropy)
+        # Get losses for each action.
+        loss_per_item = self._graph_fn_loss_per_item(log_probs, rewards, entropy)
+
+        # Baseline loss for V(s) does not depend on actions, only on state.
         baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, rewards)
+
+        # Average across actions.
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
 
         return loss_per_item, baseline_loss_per_item
 
-    @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_loss_per_item(self, log_probs, pg_advantages, entropy):
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    def _graph_fn_loss_per_item(self, key, log_probs, pg_advantages, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
@@ -100,14 +105,14 @@ class PPOLossFunction(LossFunction):
             # Sample action -> return policy log probs with action -> feed both back in from memory/via placeholders.
             # This creates the same effect as just stopping the gradients on the log-probs.
             # Saving them would however remove necessity for an extra forward pass.
-            prev_log_probs = tf.stop_gradient(log_probs)
 
+            prev_log_probs = tf.stop_gradient(log_probs[key])
             if self.standardize_advantages:
                 mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
                 pg_advantages = (pg_advantages - mean) / std
 
             # Likelihood ratio and clipped objective.
-            ratio = tf.exp(x=log_probs - prev_log_probs)
+            ratio = tf.exp(x=log_probs[key] - prev_log_probs)
             clipped_advantages = tf.where(
                 condition=pg_advantages > 0,
                 x=(1 + self.clip_ratio) * pg_advantages,
@@ -116,17 +121,15 @@ class PPOLossFunction(LossFunction):
 
             loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
             loss += self.weight_entropy * entropy
-
             return loss
-
         elif get_backend() == "pytorch":
             # Detach grads.
-            prev_log_probs = log_probs.detach()
+            prev_log_probs = log_probs[key].detach()
             if self.standardize_advantages:
                 pg_advantages = (pg_advantages - torch.mean(pg_advantages)) / torch.std(pg_advantages)
 
             # Likelihood ratio and clipped objective.
-            ratio = torch.exp(log_probs - prev_log_probs)
+            ratio = torch.exp(log_probs[key] - prev_log_probs)
             clipped_advantages = torch.where(
                 pg_advantages > 0,
                 (1 + self.clip_ratio) * pg_advantages,
