@@ -7,7 +7,7 @@
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 100000
+    "capacity": 1000
   },
 
   "preprocessing_spec":
@@ -24,33 +24,20 @@
   [
     {
       "type": "dense",
-      "units": 256,
-      "activation": "relu",
-      "scope": "hidden1"
-    },
-    {
-      "type": "dense",
-      "units": 256,
-      "activation": "relu",
-      "scope": "hidden2"
+      "units": 20,
+      "activation": "tanh",
+      "scope": "hidden"
     }
   ],
   "value_function_spec":
   [
     {
       "type": "dense",
-      "units": 256,
+      "units": 20,
       "activation": "relu",
-      "scope": "vf-hidden1"
-    },
-    {
-      "type": "dense",
-      "units": 256,
-      "activation": "relu",
-      "scope": "vf-hidden2"
+      "scope": "vf-hidden"
     }
   ],
-
 
   "update_spec": {
     "update_mode": "time_steps",
@@ -65,10 +52,10 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 3e-4
+    "learning_rate": 0.02
   },
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 3e-4
+    "learning_rate": 0.02
   }
 }

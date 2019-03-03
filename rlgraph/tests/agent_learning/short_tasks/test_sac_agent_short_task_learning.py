@@ -18,13 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import numpy as np
 import os
-from scipy import stats
 import unittest
 
+import numpy as np
+from scipy import stats
+
 from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
-from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
+from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, \
     Synchronizable
 from rlgraph.environments import GaussianDensityAsRewardEnvironment, OpenAIGymEnv
 from rlgraph.execution import SingleThreadedWorker
@@ -192,7 +193,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
         """
         env = OpenAIGymEnv("CartPole-v0")
         agent = SACAgent.from_spec(
-            config_from_path("configs/sac_agent_cartpole.json"),
+            config_from_path("configs/sac_agent_for_cartpole.json"),
             state_space=env.state_space,
             action_space=env.action_space
         )
@@ -203,7 +204,9 @@ class TestSACShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=False,
             render=self.is_windows
         )
-        results = worker.execute_timesteps(3000)
+
+        time_steps = 5000
+        results = worker.execute_timesteps(time_steps)
 
         print(results)
 

@@ -20,8 +20,8 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components import Component
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -179,10 +179,7 @@ class Distribution(Component):
             DataOp: The drawn sample.
         """
         if get_backend() == "tf":
-            s =  distribution.sample(seed=self.seed)
-            print("stochastic sample shape = ", s.shape)
-
-            return s
+            return distribution.sample(seed=self.seed)
         elif get_backend() == "pytorch":
             return distribution.sample()
 

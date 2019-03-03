@@ -92,9 +92,7 @@ class SquashedNormal(Distribution):
     @graph_fn
     def _graph_fn_sample_stochastic(self, distribution):
         if get_backend() == "tf":
-            x =  self._graph_fn_squash(distribution.sample(seed=self.seed))
-            print("stochastic sample shape = ", x.shape)
-            return x
+            return self._graph_fn_squash(distribution.sample(seed=self.seed))
         elif get_backend() == "pytorch":
             return self._graph_fn_squash(distribution.sample())
 

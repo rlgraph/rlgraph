@@ -508,6 +508,7 @@ class SACAgent(Agent):
             return_ops
         ))
         # We have a discrete action space -> Convert Gumble (relaxed one-hot) sample back into int type.
+        # TODO: Move this into the graph.
         if isinstance(self.action_space, IntBox):
             if "preprocessed_states" in extra_returns:
                 ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])
