@@ -1,12 +1,12 @@
-import unittest
 import logging
+import unittest
+
 import numpy as np
-from scipy import stats
 
 from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification
-from rlgraph.spaces import FloatBox, BoolBox
-from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
+from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, \
     Synchronizable
+from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
@@ -50,6 +50,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
             input_spaces=dict(
                 states=state_space.with_batch_rank(),
                 preprocessed_states=state_space.with_batch_rank(),
+                env_actions=continuous_action_space.with_batch_rank(),
                 actions=continuous_action_space.with_batch_rank(),
                 rewards=rewards_space,
                 next_states=state_space.with_batch_rank(),
