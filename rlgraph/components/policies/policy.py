@@ -482,7 +482,7 @@ class Policy(Component):
 
         return ret
 
-    @graph_fn(returns=2)
+    @graph_fn
     def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):
         action = FlattenedDataOp()
         log_prob = FlattenedDataOp()
