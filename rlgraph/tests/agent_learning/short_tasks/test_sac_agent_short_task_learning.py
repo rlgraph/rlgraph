@@ -81,7 +81,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
         )
         # Note: SAC is more computationally expensive.
         episodes = 50
-        results = worker.execute_episodes(episodes, use_exploration=True)
+        results = worker.execute_episodes(episodes)
 
         print(results)
 
@@ -107,7 +107,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=False,
             render=self.is_windows
         )
-        results = worker.execute_episodes(50, use_exploration=True)
+        results = worker.execute_timesteps(3000)
 
         print(results)
 
