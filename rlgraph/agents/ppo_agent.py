@@ -267,6 +267,7 @@ class PPOAgent(Agent):
                             baseline_values, sample_rewards, sample_terminals, sample_sequence_indices),
                         false_fn=lambda: sample_rewards
                     )
+                    sample_rewards.set_shape((agent.sample_size, ))
                     entropy = policy.get_entropy(sample_states)["entropy"]
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
