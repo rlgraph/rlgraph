@@ -27,7 +27,7 @@ from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.ops import FlattenedDataOp, ContainerDataOp
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -443,6 +443,8 @@ class Policy(Component):
     @graph_fn
     def _graph_fn_get_action_components(self, logits, parameters, deterministic):
         ret = FlattenedDataOp()
+
+        # TODO Clean up the checks in here wrt define-by-run processing.
         for flat_key, action_space_component in self.action_space.flatten().items():
             # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
             # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
@@ -469,8 +471,10 @@ class Policy(Component):
                     else:
                         return self.distributions[flat_key].draw(parameters, deterministic)
 
-                ret[flat_key] = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
-
+                if isinstance(parameters, ContainerDataOp):
+                    ret[flat_key] = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
+                else:
+                    ret[flat_key] = self.distributions[flat_key].draw(parameters[flat_key], deterministic)
         return ret
 
     @graph_fn(returns=2)
