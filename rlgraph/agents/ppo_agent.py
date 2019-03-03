@@ -25,6 +25,7 @@ from rlgraph.components import ContainerMerger, ContainerSplitter, Memory, RingB
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
+from rlgraph.utils.ops import flatten_op, DataOpDict
 from rlgraph.utils.util import strip_list
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -216,7 +217,9 @@ class PPOAgent(Agent):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
                     indices = tf.range(start=start, limit=start + agent.sample_size) % batch_size
                     sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                    sample_actions = tf.gather(params=actions, indices=indices)
+                    sample_actions = DataOpDict()
+                    for name, action in flatten_op(actions).items():
+                        sample_actions[name] = tf.gather(params=action, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
