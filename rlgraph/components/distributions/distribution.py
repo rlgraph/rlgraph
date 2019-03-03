@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components import Component
@@ -127,26 +129,28 @@ class Distribution(Component):
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution DataOp to use for
                 sampling. This is simply the output of `self._graph_fn_parameterize`.
-            deterministic (bool): Whether to return the maximum-likelihood result, instead of a random sample.
-                Can be used to pick deterministic actions from discrete ("greedy") or continuous (mean-value)
+
+            deterministic (Union[bool,DataOp]): Whether to return the maximum-likelihood result, instead of a random
+                sample. Can be used to pick deterministic actions from discrete ("greedy") or continuous (mean-value)
                 distributions.
 
         Returns:
             DataOp: The taken sample(s).
         """
+        # Fixed boolean input (not a DataOp/Tensor).
+        if get_backend() == "pytorch" or isinstance(deterministic, (bool, np.ndarray)):
+            if deterministic is True:
+                return self._graph_fn_sample_deterministic(distribution)
+            else:
+                return self._graph_fn_sample_stochastic(distribution)
+
+        # For static graphs, `deterministic` could be a tensor.
         if get_backend() == "tf":
-            x= tf.cond(
+            return tf.cond(
                 pred=deterministic,
                 true_fn=lambda: self._graph_fn_sample_deterministic(distribution),
                 false_fn=lambda: self._graph_fn_sample_stochastic(distribution)
             )
-            print("draw = ", x.shape)
-            return x
-        elif get_backend() == "pytorch":
-            if deterministic:
-                return self._graph_fn_sample_deterministic(distribution)
-            else:
-                return self._graph_fn_sample_stochastic(distribution)
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
