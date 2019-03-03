@@ -21,18 +21,17 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.agents import Agent
-from rlgraph.components import Component, Synchronizable, Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay
+from rlgraph.components import Component, Synchronizable, Memory, ContainerMerger, PrioritizedReplay
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.spaces import FloatBox, BoolBox, IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import flatten_op
-from rlgraph.utils.util import strip_list, convert_dtype
+from rlgraph.utils.util import strip_list
 
 if get_backend() == "tf":
     import tensorflow as tf
-    from rlgraph.utils import tf_util
 elif get_backend() == "pytorch":
     import torch
 
@@ -97,9 +96,13 @@ class SACAgentComponent(Component):
         self.steps_since_last_sync = None
         self.q_sync_spec = q_sync_spec
 
+        self.env_action_space = None
+
     def check_input_spaces(self, input_spaces, action_space=None):
-        for s in ["states", "actions", "preprocessed_states", "rewards", "terminals"]:
+        for s in ["states", "actions", "env_actions", "preprocessed_states", "rewards", "terminals"]:
             sanity_check_space(input_spaces[s], must_have_batch_rank=True)
+
+        self.env_action_space = input_spaces["env_actions"]
 
     def create_variables(self, input_spaces, action_space=None):
         self.steps_since_last_sync = self.get_variable("steps_since_last_sync", dtype="int", initializer=0)
@@ -133,8 +136,11 @@ class SACAgentComponent(Component):
         return self._preprocessor.preprocess(states)
 
     @rlgraph_api
-    def insert_records(self, preprocessed_states, actions, rewards, next_states, terminals):
-        records = self._merger.merge(preprocessed_states, actions, rewards, next_states, terminals)
+    def insert_records(self, preprocessed_states, env_actions, rewards, next_states, terminals):
+        records = self._merger.merge(preprocessed_states, env_actions, rewards, next_states, terminals)
+        #records = dict(
+        #    states=preprocessed_states, actions=actions, rewards=rewards, next_states=next_states, terminals=terminals
+        #)
         return self._memory.insert_records(records)
 
     @rlgraph_api
@@ -152,8 +158,11 @@ class SACAgentComponent(Component):
         return result
 
     @rlgraph_api
-    def update_from_external_batch(self, preprocessed_states, actions, rewards, terminals,
-                                             preprocessed_s_prime, importance_weights):
+    def update_from_external_batch(
+            self, preprocessed_states, env_actions, rewards, terminals, preprocessed_s_prime, importance_weights
+    ):
+        actions = self._graph_fn_one_hot(env_actions)
+
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
             self.get_losses(preprocessed_states, actions, rewards, terminals, preprocessed_s_prime, importance_weights)
 
@@ -321,6 +330,12 @@ class SACAgentComponent(Component):
     def _graph_fn_no_op(self):
         return tf.no_op()
 
+    @graph_fn
+    def _graph_fn_one_hot(self, env_actions):
+        if isinstance(self.env_action_space, IntBox):
+            return tf.one_hot(env_actions, depth=self.env_action_space.num_categories, axis=-1)
+        return env_actions
+
 
 class SACAgent(Agent):
     def __init__(self, double_q=True, initial_alpha=1.0, target_entropy=None, memory_spec=None, value_function_sync_spec=None, **kwargs):
@@ -375,9 +390,10 @@ class SACAgent(Agent):
 
         float_action_space = self.action_space.with_batch_rank()
         if isinstance(self.action_space, IntBox):
-            float_action_space = self.action_space.as_one_hot_float_space()
+            float_action_space = float_action_space.as_one_hot_float_space()
 
         self.input_spaces.update(dict(
+            env_actions=self.action_space.with_batch_rank(),
             actions=float_action_space,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
