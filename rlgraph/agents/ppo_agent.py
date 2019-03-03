@@ -339,8 +339,7 @@ class PPOAgent(Agent):
 
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
-                        policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                        sample_terminals, entropy
+                        policy_probs["action_log_probs"], baseline_values,  sample_rewards, entropy
                     )
 
                     # Do not need step op.
