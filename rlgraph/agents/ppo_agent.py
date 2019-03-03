@@ -251,6 +251,9 @@ class PPOAgent(Agent):
                         out["loss_per_item"].set_shape((agent.sample_size,))
 
                         with tf.control_dependencies([step_and_sync_op]):
+                            if index_ == 0:
+                                # Increase the global training step counter.
+                                out["loss"] = root._graph_fn_training_step(out["loss"])
                             return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
 
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
@@ -312,6 +315,8 @@ class PPOAgent(Agent):
                         loop_vars=init_loop_vars,
                         parallel_iterations=1
                     )
+                    # Increase the global training step counter.
+                    loss = root._graph_fn_training_step(loss)
                     return loss, loss_per_item, vf_loss, vf_loss_per_item
 
             elif get_backend() == "pytorch":

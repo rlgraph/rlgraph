@@ -1,0 +1,58 @@
+{
+  "policy": {
+    "network_spec": [
+      {
+        "type": "dense",
+        "units": 8,
+        "activation": "relu"
+      },
+      {
+        "type": "dense",
+        "units": 8,
+        "activation": "relu",
+        "scope": "h2"
+      },
+      {
+        "type": "dense",
+        "units": 8,
+        "activation": "relu",
+        "scope": "h3"
+      }
+    ]
+  },
+  "discount": 0.8,
+  "memory": {
+    "type": "replay-memory",
+    "capacity": 1000
+  },
+  "value_function": {
+    "network_spec": [
+      {
+        "type": "dense",
+        "units": 8,
+        "activation": "relu"
+      },
+      {
+        "type": "dense",
+        "units": 8,
+        "activation": "relu",
+        "scope": "h2"
+      },
+      {
+        "type": "dense",
+        "units": 8,
+        "activation": "relu",
+        "scope": "h3"
+      }
+    ]
+  },
+  "optimizer": {
+    "type": "adam",
+    "learning_rate": 1e-3
+  },
+  "value_function_optimizer": {
+    "type": "adam",
+    "learning_rate": 1e-3
+  },
+  "initial_alpha": 0.01
+}

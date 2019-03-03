@@ -270,6 +270,31 @@ class Agent(Specifiable):
             preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
             return preprocessor_stack.preprocess(states)
 
+        @graph_fn(component=self.root_component)
+        def _graph_fn_training_step(root, other_step_op=None):
+            """
+            Increases the global training timestep by 1. Should be called by all training API-methods to
+            timestamp each training/update step.
+
+            Args:
+                other_step_op (Optional[DataOp]): Another DataOp (e.g. a step_op) which should be
+                    executed before the increase takes place.
+
+            Returns:
+                DataOp: no_op.
+            """
+            if get_backend() == "tf":
+                add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
+                op_list = [add_op] + [other_step_op] if other_step_op is not None else []
+                with tf.control_dependencies(op_list):
+                    if other_step_op is None or hasattr(other_step_op, "type") and other_step_op.type == "NoOp":
+                        return tf.no_op()
+                    else:
+                        return tf.identity(other_step_op)
+            elif get_backend == "pytorch":
+                self.graph_executor.global_training_timestep += 1
+                return None
+
     def _build_graph(self, root_components, input_spaces, **kwargs):
         """
         Builds the internal graph from the RLGraph meta-graph via the graph executor..

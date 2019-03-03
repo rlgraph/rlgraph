@@ -5,7 +5,7 @@
 [![Build Status](https://travis-ci.org/rlgraph/rlgraph.svg?branch=master)](https://travis-ci.org/rlgraph/rlgraph)
 
 # RLgraph
-Flexible computation graphs for deep reinforcement learning.
+Modular computation graphs for deep reinforcement learning.
 
 RLgraph is a framework to quickly prototype, define and execute reinforcement learning
 algorithms both in research and practice. RLgraph is different from most other libraries as it can support
@@ -89,10 +89,12 @@ ray start --head --redis-port 6379
 python apex_pong.py
 ```
 
-You can also train a simple DQN agent locally on OpenAI gym environments such as CartPole (this doesn't require Ray):
+You can also train a simple DQN agent locally on OpenAI gym environments such as CartPole (this doesn't require Ray).
+The following example script also contains a simple tf-summary switch for adding neural net variables to
+your tensorboard reports (specify those Component by Perl-RegExp, whose variables you would like to see):
 
 ```bash
-python dqn_cartpole.py
+python dqn_cartpole_with_tf_summaries.py
 ```
 
 
@@ -148,7 +150,7 @@ If you use RLgraph in your research, please cite the following paper: [link](htt
 ```
 @ARTICLE{Schaarschmidt2018rlgraph,
     author = {{Schaarschmidt}, M. and {Mika}, S. and {Fricke}, K. and {Yoneki}, E.},
-    title = "{RLgraph: Flexible Computation Graphs for Deep Reinforcement Learning}",
+    title = "{RLgraph: Modular Computation Graphs for Deep Reinforcement Learning}",
     journal = {ArXiv e-prints},
     archivePrefix = "arXiv",
     eprint = {1810.09028},

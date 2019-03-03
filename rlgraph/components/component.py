@@ -430,7 +430,8 @@ class Component(Specifiable):
             else:
                 self.variable_registry[key] = var
                 # Auto-create the summary for the variable.
-                summary_name = var.name[len(self.global_scope) + (1 if self.global_scope else 0):]
+                scope_to_use = self.reuse_variable_scope or self.global_scope
+                summary_name = var.name[len(scope_to_use) + (1 if scope_to_use else 0):]
                 summary_name = re.sub(r':\d+$', "", summary_name)
                 self.create_summary(summary_name, var)
 
