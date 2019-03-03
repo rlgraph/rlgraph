@@ -218,9 +218,12 @@ class PPOAgent(Agent):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
                     indices = tf.range(start=start, limit=start + agent.sample_size) % batch_size
                     sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                    sample_actions = DataOpDict()
-                    for name, action in flatten_op(actions).items():
-                        sample_actions[name] = tf.gather(params=action, indices=indices)
+                    if isinstance(actions, dict):
+                        sample_actions = DataOpDict()
+                        for name, action in flatten_op(actions).items():
+                            sample_actions[name] = tf.gather(params=action, indices=indices)
+                    else:
+                        sample_actions = tf.gather(params=actions, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
@@ -331,9 +334,13 @@ class PPOAgent(Agent):
                     start = int(torch.rand(1) * (batch_size - 1))
                     indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
                     sample_states = torch.index_select(preprocessed_states, 0, indices)
-                    sample_actions = DataOpDict()
-                    for name, action in define_by_run_flatten(actions).items():
-                        sample_actions[name] = tf.gather(params=action, indices=indices)
+
+                    if isinstance(actions, dict):
+                        sample_actions = DataOpDict()
+                        for name, action in define_by_run_flatten(actions).items():
+                            sample_actions[name] = torch.index_select(action, 0, indices)
+                    else:
+                        sample_actions = torch.index_select(actions, 0, indices)
                     sample_rewards = torch.index_select(rewards, 0, indices)
                     sample_terminals = torch.index_select(terminals, 0, indices)
                     sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
