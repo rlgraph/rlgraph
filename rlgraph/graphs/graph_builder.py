@@ -326,7 +326,10 @@ class GraphBuilder(Specifiable):
                 device = self.get_device(component, variables=True)
                 # This builds variables which would have to be done either way:
                 call_time = time.perf_counter()
-                component.when_input_complete(input_spaces=None, action_space=self.action_space, device=device)
+                component.when_input_complete(
+                    input_spaces=None, action_space=self.action_space, device=device,
+                    summary_regexp=self.summary_spec["summary_regexp"]
+                )
                 self.var_call_times.append(time.perf_counter() - call_time)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:

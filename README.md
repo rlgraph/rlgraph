@@ -89,10 +89,12 @@ ray start --head --redis-port 6379
 python apex_pong.py
 ```
 
-You can also train a simple DQN agent locally on OpenAI gym environments such as CartPole (this doesn't require Ray):
+You can also train a simple DQN agent locally on OpenAI gym environments such as CartPole (this doesn't require Ray).
+The following example script also contains a simple tf-summary switch for adding neural net variables to
+your tensorboard reports (specify those Component by Perl-RegExp, whose variables you would like to see):
 
 ```bash
-python dqn_cartpole.py
+python dqn_cartpole_with_tf_summaries.py
 ```
 
 

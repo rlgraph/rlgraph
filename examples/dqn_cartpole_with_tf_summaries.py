@@ -18,11 +18,11 @@ Example script for training a DQN agent on an OpenAI gym environment.
 
 Usage:
 
-python dqn_cartpole.py [--config configs/dqn_cartpole.json] [--env CartPole-v0]
+python dqn_cartpole_with_tf_summaries.py [--config configs/dqn_cartpole.json] [--env CartPole-v0]
 
 ```
 # Run script
-python dqn_cartpole.py
+python dqn_cartpole_with_tf_summaries.py
 ```
 """
 
@@ -42,7 +42,8 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string('config', './configs/dqn_cartpole.json', 'Agent config file.')
 flags.DEFINE_string('env', 'CartPole-v0', 'gym environment ID.')
-flags.DEFINE_boolean('render', False, 'Render the environment.')
+flags.DEFINE_boolean('render', True, 'Render the environment.')
+flags.DEFINE_string('summary_regexp', 'neural-network', 'RegExp for component scopes to be included in tf-summaries.')
 
 
 def main(argv):
@@ -60,6 +61,9 @@ def main(argv):
 
     agent = Agent.from_spec(
         agent_config,
+        summary_spec=dict(
+            summary_regexp=FLAGS.summary_regexp
+        ),
         state_space=env.state_space,
         action_space=env.action_space
     )
@@ -73,8 +77,10 @@ def main(argv):
                 len(rewards), reward, np.mean(rewards[-10:])
             ))
 
-    worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=FLAGS.render, worker_executes_preprocessing=False,
-                                  episode_finish_callback=episode_finished_callback)
+    worker = SingleThreadedWorker(
+        env_spec=lambda: env, agent=agent, render=FLAGS.render, worker_executes_preprocessing=False,
+        episode_finish_callback=episode_finished_callback
+    )
     print("Starting workload, this will take some time for the agents to build.")
     results = worker.execute_episodes(200, use_exploration=True)
 
