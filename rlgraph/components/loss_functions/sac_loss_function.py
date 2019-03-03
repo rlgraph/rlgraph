@@ -47,8 +47,7 @@ class SACLossFunction(LossFunction):
             sanity_check_space(in_space, shape=())
 
         # All the following need shape==(1,).
-        for in_space_name in ["log_probs_sampled", "log_probs_next_sampled", "q_values",
-                              "q_values_sampled", "q_values_next_sampled"]:
+        for in_space_name in ["q_values", "q_values_sampled", "q_values_next_sampled"]:
             in_space = input_spaces[in_space_name]
             sanity_check_space(in_space, shape=(1,))
 
@@ -96,6 +95,11 @@ class SACLossFunction(LossFunction):
                                 q_values_sampled, rewards, terminals):
         rewards = tf.expand_dims(rewards, axis=-1)
         terminals = tf.expand_dims(terminals, axis=-1)
+
+        # In case log_probs come in as shape=(), expand last rank to 1.
+        if log_probs_sampled.shape.as_list()[-1] is None:
+            log_probs_sampled = tf.expand_dims(log_probs_sampled, axis=-1)
+            log_probs_next_sampled = tf.expand_dims(log_probs_next_sampled, axis=-1)
 
         critic_loss_per_item = self._graph_fn_critic_loss(
             alpha=alpha,
