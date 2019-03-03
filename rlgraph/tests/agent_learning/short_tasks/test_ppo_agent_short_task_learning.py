@@ -24,6 +24,7 @@ import unittest
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.agents import PPOAgent
 from rlgraph.execution import SingleThreadedWorker
+from rlgraph.spaces import FloatBox
 from rlgraph.utils import root_logger
 from rlgraph.tests.test_util import config_from_path
 
@@ -61,6 +62,33 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         # Assume we have learned something.
         self.assertGreater(results["mean_episode_reward"], -0.2)
+
+    def test_ppo_on_2x2_grid_world_with_container_actions(self):
+        """
+        Creates a PPO agent and runs it via a Runner on a simple 2x2 GridWorld using container actions.
+        """
+        # ftj = forward + turn + jump
+        env_spec = dict(world="2x2", action_type="ftj", state_representation="xy+orientation")
+        dummy_env = GridWorld.from_spec(env_spec)
+        agent_config = config_from_path("configs/ppo_agent_for_2x2_gridworld_with_container_actions.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
+
+        agent = PPOAgent.from_spec(
+            agent_config,
+            state_space=FloatBox(shape=(4,)),
+            action_space=dummy_env.action_space
+        )
+
+        time_steps = 10000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: GridWorld.from_spec(env_spec),
+            agent=agent,
+            preprocessing_spec=preprocessing_spec,
+            worker_executes_preprocessing=True,
+            render=False
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        print("Results =", results)
 
     def test_ppo_on_cart_pole(self):
         """

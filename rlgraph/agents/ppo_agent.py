@@ -25,6 +25,8 @@ from rlgraph.components import ContainerMerger, ContainerSplitter, Memory, RingB
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
+from rlgraph.utils.execution_util import define_by_run_flatten
+from rlgraph.utils.ops import flatten_op, DataOpDict
 from rlgraph.utils.util import strip_list
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -216,7 +218,12 @@ class PPOAgent(Agent):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
                     indices = tf.range(start=start, limit=start + agent.sample_size) % batch_size
                     sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                    sample_actions = tf.gather(params=actions, indices=indices)
+                    if isinstance(actions, dict):
+                        sample_actions = DataOpDict()
+                        for name, action in flatten_op(actions).items():
+                            sample_actions[name] = tf.gather(params=action, indices=indices)
+                    else:
+                        sample_actions = tf.gather(params=actions, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
@@ -264,12 +271,12 @@ class PPOAgent(Agent):
                             baseline_values, sample_rewards, sample_terminals, sample_sequence_indices),
                         false_fn=lambda: sample_rewards
                     )
+                    sample_rewards.set_shape((agent.sample_size, ))
                     entropy = policy.get_entropy(sample_states)["entropy"]
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
-                            policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                            sample_terminals, entropy
+                            policy_probs["action_log_probs"], baseline_values, sample_rewards,  entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
@@ -327,7 +334,13 @@ class PPOAgent(Agent):
                     start = int(torch.rand(1) * (batch_size - 1))
                     indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
                     sample_states = torch.index_select(preprocessed_states, 0, indices)
-                    sample_actions = torch.index_select(actions, 0, indices)
+
+                    if isinstance(actions, dict):
+                        sample_actions = DataOpDict()
+                        for name, action in define_by_run_flatten(actions).items():
+                            sample_actions[name] = torch.index_select(action, 0, indices)
+                    else:
+                        sample_actions = torch.index_select(actions, 0, indices)
                     sample_rewards = torch.index_select(rewards, 0, indices)
                     sample_terminals = torch.index_select(terminals, 0, indices)
                     sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
@@ -340,8 +353,7 @@ class PPOAgent(Agent):
 
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
-                        policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                        sample_terminals, entropy
+                        policy_probs["action_log_probs"], baseline_values,  sample_rewards, entropy
                     )
 
                     # Do not need step op.
