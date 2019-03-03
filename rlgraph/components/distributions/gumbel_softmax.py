@@ -20,7 +20,6 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import GumbelSoftmaxAdapter
 from rlgraph.components.distributions.distribution import Distribution
-from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
@@ -59,28 +58,33 @@ class GumbelSoftmax(Distribution):
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
+        """
+        Returns the argmax (int) of a relaxed one-hot vector. See `_graph_fn_sample_stochastic` for details.
+        """
         if get_backend() == "tf":
             # Cast to float again because this is called rom a tf.cond where the other option calls a stochastic
             # sample returning a float.
-            print("distribution._distribution.probs ", distribution._distribution.probs.shape)
-            sample = tf.cast(x=tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=tf.int32),
-                           dtype=tf.float32)
+            argmax = tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=tf.int32)
+            sample = tf.cast(argmax, dtype=tf.float32)
             # Argmax turns (?, n) into (?,), not (?, 1)
+            # TODO: What if we have a time rank as well?
             if len(sample.shape) == 1:
                 sample = tf.expand_dims(sample, -1)
-                print("stochastic sample shape ", sample.shape)
-                return sample
-            else:
                 return sample
         elif get_backend() == "pytorch":
+            # TODO: keepdims?
             return torch.argmax(distribution.probs, dim=-1).int()
 
     @graph_fn
     def _graph_fn_sample_stochastic(self, distribution):
+        """
+        Returns a relaxed one-hot vector representing a quasi-one-hot action.
+        To get the actual int action, one would have to take the argmax over
+        these output values. However, argmax would break the differentiability and should
+        thus only be used right before applying the action in e.g. an env.
+        """
         if get_backend() == "tf":
-            s = distribution.sample(seed=self.seed)
-            print("stochastic sample shape = ", s.shape)
-            return s
+            return distribution.sample(seed=self.seed)
         elif get_backend() == "pytorch":
             return distribution.sample()
 
