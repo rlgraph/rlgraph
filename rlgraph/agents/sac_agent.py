@@ -21,15 +21,14 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.agents import Agent
-from rlgraph.utils import RLGraphError
-from rlgraph.spaces import FloatBox, BoolBox, IntBox
-from rlgraph.components import Component, Synchronizable
+from rlgraph.components import Component, Synchronizable, Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
+from rlgraph.spaces import FloatBox, BoolBox, IntBox
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay
-from rlgraph.utils.util import strip_list
 from rlgraph.utils.ops import flatten_op
-
+from rlgraph.utils.util import strip_list, convert_dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -65,6 +64,10 @@ class SACAgentComponent(Component):
             # TODO: is there a better way to do this?
             if "synchronizable" not in q.sub_components:
                 q.add_components(Synchronizable(), expose_apis="sync")
+
+        # Set number of return values for get_q_values graph_fn.
+        self.graph_fn_num_outputs["_graph_fn_get_q_values"] = num_q_functions
+
         self._target_q_functions = [q.copy(scope="target-" + q.scope, trainable=True) for q in self._q_functions]
         for target_q in self._target_q_functions:
             # TODO: is there a better way to do this?
@@ -79,19 +82,24 @@ class SACAgentComponent(Component):
 
         memory_items = ["states", "actions", "rewards", "next_states", "terminals"]
         self._merger = ContainerMerger(*memory_items)
-        self._splitter = ContainerSplitter(*memory_items)
 
         q_names = ["q_{}".format(i) for i in range(len(self._q_functions))]
         self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
-        #self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
 
-        self.add_components(policy, preprocessor, memory, self._merger, self._splitter, self.loss_function,
-                            optimizer, vf_optimizer, self._q_vars_merger)#, self._q_vars_splitter)
+        self.add_components(
+            policy, preprocessor, memory, self._merger, #self._splitter,
+            self.loss_function,
+            optimizer, vf_optimizer, self._q_vars_merger
+        )
         self.add_components(*self._q_functions)
         self.add_components(*self._target_q_functions)
 
         self.steps_since_last_sync = None
         self.q_sync_spec = q_sync_spec
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        for s in ["states", "actions", "preprocessed_states", "rewards", "terminals"]:
+            sanity_check_space(input_spaces[s], must_have_batch_rank=True)
 
     def create_variables(self, input_spaces, action_space=None):
         self.steps_since_last_sync = self.get_variable("steps_since_last_sync", dtype="int", initializer=0)
@@ -130,12 +138,11 @@ class SACAgentComponent(Component):
         return self._memory.insert_records(records)
 
     @rlgraph_api
-    def update_from_memory(self, batch_size):
+    def update_from_memory(self, batch_size=64):
         records, sample_indices, importance_weights = self._memory.get_records(batch_size)
-        preprocessed_s, actions, rewards, preprocessed_s_prime, terminals = self._splitter.split(records)
-
         result = self.update_from_external_batch(
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+            records["states"], records["actions"], records["rewards"], records["terminals"],
+            records["next_states"], importance_weights
         )
 
         if isinstance(self._memory, PrioritizedReplay):
@@ -160,10 +167,10 @@ class SACAgentComponent(Component):
             self._optimizer.step(policy_vars, actor_loss, actor_loss_per_item)
 
         if self.target_entropy is not None:
-            alpha_step_op = self._graph_fn__no_op()
+            alpha_step_op = self._graph_fn_no_op()
             #alpha_step_op, alpha_loss, alpha_loss_per_item = self._optimizer.step(self.log_alpha, alpha_loss, alpha_loss_per_item)
         else:
-            alpha_step_op = self._graph_fn__no_op()
+            alpha_step_op = self._graph_fn_no_op()
 
         # TODO: optimizer for alpha
 
@@ -182,24 +189,6 @@ class SACAgentComponent(Component):
             alpha_loss_per_item=alpha_loss_per_item
         )
 
-    def _compute_q_values(self, q_functions, states, actions):
-        flat_actions = flatten_op(actions)
-        state_actions = [states]
-        for flat_key, action_component in self._policy.action_space.flatten().items():
-            if isinstance(action_component, IntBox):
-                state_actions.append(self._graph_fn__one_hot(flat_actions[flat_key]))
-            else:
-                state_actions.append(flat_actions[flat_key])
-        state_actions = self._graph_fn__concat(*state_actions)
-        return tuple(q.value_output(state_actions) for q in q_functions)
-
-    @rlgraph_api
-    def get_q_values(self, preprocessed_states, actions):
-        q_values = self._compute_q_values(
-            self._q_functions, preprocessed_states, actions
-        )
-        return q_values
-
     @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights):
         # TODO: internal states
@@ -208,16 +197,16 @@ class SACAgentComponent(Component):
         next_sampled_actions = samples_next["action"]
         log_probs_next_sampled = samples_next["log_prob"]
 
-        q_values_next_sampled = self._compute_q_values(
-            self._target_q_functions, preprocessed_next_states, next_sampled_actions
+        q_values_next_sampled = self.get_q_values(
+            preprocessed_next_states, next_sampled_actions, target=True
         )
-        q_values = self._compute_q_values(self._q_functions, preprocessed_states, actions)
+        q_values = self.get_q_values(preprocessed_states, actions)
         samples = self._policy.get_action_and_log_prob(preprocessed_states, deterministic=False)
         sampled_actions = samples["action"]
         log_probs_sampled = samples["log_prob"]
-        q_values_sampled = self._compute_q_values(self._q_functions, preprocessed_states, sampled_actions)
+        q_values_sampled = self.get_q_values(preprocessed_states, sampled_actions)
 
-        alpha = self._graph_fn__compute_alpha()
+        alpha = self._graph_fn_compute_alpha()
 
         return self.loss_function.loss(
             alpha,
@@ -247,40 +236,42 @@ class SACAgentComponent(Component):
 
     @rlgraph_api(requires_variable_completeness=True)
     def sync_targets(self):
-        should_sync = self._graph_fn_get__should_sync()
-        return self._graph_fn__sync(should_sync)
+        should_sync = self._graph_fn_get_should_sync()
+        return self._graph_fn_sync(should_sync)
 
     @rlgraph_api
     def get_memory_size(self):
         return self._memory.get_size()
 
+    @rlgraph_api  # `returns` are determined in ctor
+    def _graph_fn_get_q_values(self, states, actions, target=False):
+        backend = get_backend()
+
+        #tf.one_hot(tf.cast(x=tensor, dtype=tf.int32), depth=5)
+
+        flat_actions = flatten_op(actions)
+        state_actions = [states]
+        for flat_key, action_component in self._policy.action_space.flatten().items():
+            state_actions.append(flat_actions[flat_key])
+
+        if backend == "tf":
+            state_actions = tf.concat(state_actions, axis=-1)
+        elif backend == "pytorch":
+            state_actions = torch.cat(state_actions, dim=-1)
+
+        q_funcs = self._q_functions if target is False else self._target_q_functions
+        return tuple(q.value_output(state_actions) for q in q_funcs)
+
     @graph_fn
-    def _graph_fn__compute_alpha(self):
+    def _graph_fn_compute_alpha(self):
         backend = get_backend()
         if backend == "tf":
             return tf.exp(self.log_alpha)
         elif backend == "pytorch":
             return torch.exp(self.log_alpha)
 
-    @graph_fn(returns=1)
-    def _graph_fn__concat(self, *tensors):
-        backend = get_backend()
-        if backend == "tf":
-            print("concat tensors = ", tensors)
-            return tf.concat([tf_util.ensure_batched(t) for t in tensors], axis=1)
-        elif backend == "pytorch":
-            raise NotImplementedError("TODO: pytorch support")
-
-    @graph_fn
-    def _graph_fn__one_hot(self, tensor):
-        backend = get_backend()
-        if backend == "tf":
-            return tf.one_hot(tf.cast(x=tensor, dtype=tf.int32), depth=5)
-        elif backend == "pytorch":
-            raise NotImplementedError("TODO: pytorch support")
-
     @graph_fn(returns=1, requires_variable_completeness=True)
-    def _graph_fn_get__should_sync(self):
+    def _graph_fn_get_should_sync(self):
         if get_backend() == "tf":
             inc_op = tf.assign_add(self.steps_since_last_sync, 1)
             should_sync = inc_op >= self.q_sync_spec.sync_interval
@@ -301,7 +292,7 @@ class SACAgentComponent(Component):
             raise NotImplementedError("TODO")
 
     @graph_fn(returns=1, requires_variable_completeness=True)
-    def _graph_fn__sync(self, should_sync):
+    def _graph_fn_sync(self, should_sync):
         assign_ops = []
         tau = self.q_sync_spec.sync_tau
         if tau != 1.0:
@@ -327,7 +318,7 @@ class SACAgentComponent(Component):
             return tf.no_op()
 
     @graph_fn
-    def _graph_fn__no_op(self):
+    def _graph_fn_no_op(self):
         return tf.no_op()
 
 
@@ -382,8 +373,12 @@ class SACAgent(Agent):
         self.iterations = self.update_spec["num_iterations"]
         self.batch_size = self.update_spec["batch_size"]
 
+        float_action_space = self.action_space.with_batch_rank()
+        if isinstance(self.action_space, IntBox):
+            float_action_space = self.action_space.as_one_hot_float_space()
+
         self.input_spaces.update(dict(
-            actions=self.action_space.with_batch_rank(),
+            actions=float_action_space,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
@@ -428,6 +423,8 @@ class SACAgent(Agent):
             )
             self.graph_built = True
 
+    # TODO: Get rid of this method for all other Agents as well by separating root-component
+    # TODO: from the Agent.
     def define_graph_api(self, *args, **kwargs):
         pass
 
@@ -476,6 +473,13 @@ class SACAgent(Agent):
             # 0=preprocessed_states, 1=action
             return_ops
         ))
+        # We have a discrete action space -> Convert gumble sample back into int type.
+        if isinstance(self.action_space, IntBox):
+            if "preprocessed_states" in extra_returns:
+                ret = (ret[0].astype(np.int32), ret[1])
+            else:
+                ret = ret.astype(np.int32)
+
         if remove_batch_rank:
             return strip_list(ret)
         else:
