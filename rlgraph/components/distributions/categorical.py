@@ -18,10 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.action_adapters import CategoricalDistributionAdapter
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.components.action_adapters import CategoricalDistributionAdapter
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -48,9 +48,7 @@ class Categorical(Distribution):
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
         if get_backend() == "tf":
-            sample = tf.argmax(input=distribution.probs, axis=-1, output_type=util.convert_dtype("int"))
-            print("deterministic sample shape ", sample.shape)
-            return sample
+            return tf.argmax(input=distribution.probs, axis=-1, output_type=util.convert_dtype("int"))
         elif get_backend() == "pytorch":
             return torch.argmax(distribution.probs, dim=-1).int()
 

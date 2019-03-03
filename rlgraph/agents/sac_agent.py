@@ -511,8 +511,12 @@ class SACAgent(Agent):
         # TODO: Move this into the graph.
         if isinstance(self.action_space, IntBox):
             if "preprocessed_states" in extra_returns:
+                # try categorical re-sampling from relaxed one-hot vector.
+                #ret = (np.asarray(np.random.choice(self.action_space.num_categories, p=ret[0][0])),
+                #       ret[1])
                 ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])
             else:
+                #ret = np.asarray(np.random.choice(self.action_space.num_categories, p=ret[0]))
                 ret = np.argmax(ret).astype(self.action_space.dtype)
 
         if remove_batch_rank:

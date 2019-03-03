@@ -85,9 +85,7 @@ class SquashedNormal(Distribution):
             mean = distribution.mean()
         elif get_backend() == "pytorch":
             mean = distribution.mean
-        x =  self._graph_fn_squash(mean)
-        print("deterministic sample shape = ", x.shape)
-        return x
+        return self._graph_fn_squash(mean)
 
     @graph_fn
     def _graph_fn_sample_stochastic(self, distribution):

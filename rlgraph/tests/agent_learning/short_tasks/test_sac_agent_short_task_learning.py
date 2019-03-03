@@ -165,7 +165,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
         """
         env = OpenAIGymEnv("Pendulum-v0")
         agent = SACAgent.from_spec(
-            config_from_path("configs/sac_agent_pendulum.json"),
+            config_from_path("configs/sac_agent_for_pendulum.json"),
             state_space=env.state_space,
             action_space=env.action_space
         )
@@ -205,7 +205,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             render=self.is_windows
         )
 
-        time_steps = 5000
+        time_steps = 10000
         results = worker.execute_timesteps(time_steps)
 
         print(results)
