@@ -100,7 +100,7 @@ class Component(Specifiable):
         # self.logger = logging.getLogger(__name__)
         self.scope = kwargs.pop("scope", "")
 
-        assert re.match(r'^[\w\-]*$', self.scope), \
+        assert re.match(r'^[\w\-.]*$', self.scope), \
             "ERROR: scope {} does not match scope-pattern! Needs to be \\w or '-'.".format(self.scope)
         # The global scope string defining the exact nested position of this Component in the Graph.
         # e.g. "/core/component1/sub-component-a"
@@ -313,7 +313,7 @@ class Component(Specifiable):
 
         # Simply check all direct sub-Components for variable-completeness.
         for direct_child in self.sub_components.values():
-            if re.search(r'^_helper-', direct_child.scope):
+            if re.search(r'^\.helper-', direct_child.scope):
                 continue
             if not direct_child.check_variable_completeness():
                 return False
@@ -1257,7 +1257,7 @@ class Component(Specifiable):
         Returns:
             Component: The helper component.
         """
-        name = "_helper-"+type_+"-{}".format(uuid.uuid4())
+        name = ".helper-"+type_+"-{}".format(uuid.uuid4())
         helper = self.sub_components.get(name)
         if helper is None:
             kwargs.update(dict(type=type_, scope=name))
