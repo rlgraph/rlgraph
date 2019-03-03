@@ -102,9 +102,9 @@ class SquashedNormal(Distribution):
     def _graph_fn_log_prob(self, distribution, values):
         log_prob = distribution.log_prob(value=self._graph_fn_unsquash(values))
         if get_backend() == "tf":
-            log_prob -= tf.reduce_sum(tf.log(1 - values ** 2 + SMALL_NUMBER), axis=1, keepdims=True)
+            log_prob -= tf.reduce_sum(tf.log(1 - values ** 2 + SMALL_NUMBER), axis=-1, keepdims=True)
         elif get_backend() == "pytorch":
-            log_prob -= torch.sum(tf.log(1 - values ** 2 + SMALL_NUMBER), axis=1, keepdims=True)
+            log_prob -= torch.sum(tf.log(1 - values ** 2 + SMALL_NUMBER), axis=-1, keepdims=True)
         return log_prob
 
     @graph_fn
@@ -128,7 +128,7 @@ class SquashedNormal(Distribution):
             )
             action = tf.tanh(raw_action)
             log_prob = distribution.log_prob(raw_action)
-            log_prob -= tf.reduce_sum(tf.log(1 - action ** 2 + SMALL_NUMBER), axis=1, keepdims=True)
+            log_prob -= tf.reduce_sum(tf.log(1 - action ** 2 + SMALL_NUMBER), axis=-1, keepdims=True)
             scaled_action = (action + 1) / 2 * (self.high - self.low) + self.low
             return scaled_action, log_prob
         elif get_backend() == "pytorch":
