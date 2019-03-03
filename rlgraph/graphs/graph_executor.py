@@ -60,6 +60,9 @@ class GraphExecutor(Specifiable):
         self.summary_spec = self.graph_builder.summary_spec
         self.execution_spec = parse_execution_spec(execution_spec)  # sanitize again (after Agent); one never knows
 
+        # A global training/update counter. Should be increased by 1 each update/learning step.
+        self.global_training_timestep = None
+
         self.logger.info("Execution spec is: {}".format(self.execution_spec))
 
         self.load_from_file = load_from_file

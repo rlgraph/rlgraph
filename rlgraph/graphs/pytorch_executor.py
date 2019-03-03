@@ -38,6 +38,8 @@ class PyTorchExecutor(GraphExecutor):
     def __init__(self, **kwargs):
         super(PyTorchExecutor, self).__init__(**kwargs)
 
+        self.global_training_timestep = 0
+
         self.cuda_enabled = torch.cuda.is_available()
 
         # In PyTorch, tensors are default created on the CPU unless assigned to a visible CUDA device,

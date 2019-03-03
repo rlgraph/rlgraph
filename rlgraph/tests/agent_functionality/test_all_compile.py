@@ -209,7 +209,7 @@ class TestAllCompile(unittest.TestCase):
 
         env = GaussianDensityAsRewardEnvironment(episode_length=5)
         agent = SACAgent.from_spec(
-            config_from_path("configs/sac_agent_for_functionality_test.json"),
+            config_from_path("configs/sac_agent_for_gaussian_density_env.json"),
             state_space=env.state_space,
             action_space=env.action_space
         )

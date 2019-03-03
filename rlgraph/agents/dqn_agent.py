@@ -207,7 +207,7 @@ class DQNAgent(Agent):
                 apply_postprocessing
             )
 
-            # TODO this is really annoying.. will be solved once we have dict returns.
+            # TODO this is really annoying. Will be solved once we have dict returns.
             if isinstance(agent.memory, PrioritizedReplay):
                 update_pr_step_op = agent.memory.update_records(sample_indices, loss_per_item)
                 return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
@@ -231,6 +231,8 @@ class DQNAgent(Agent):
                 )
                 avg_grads_and_vars = agent.vars_splitter.split(out["avg_grads_and_vars_by_component"])
                 step_op = agent.optimizer.apply_gradients(avg_grads_and_vars)
+                # Increase the global training step counter.
+                step_op = root._graph_fn_training_step(step_op)
                 step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
                     step_op, all_vars
                 )
@@ -268,6 +270,8 @@ class DQNAgent(Agent):
                 return grads_and_vars_by_component, loss, loss_per_item, q_values_s
             else:
                 step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+                # Increase the global training step counter.
+                step_op = root._graph_fn_training_step(step_op)
                 return step_op, loss, loss_per_item, q_values_s
 
         @rlgraph_api(component=self.root_component)

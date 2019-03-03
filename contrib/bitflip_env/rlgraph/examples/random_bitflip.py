@@ -18,11 +18,11 @@ Example script for training a DQN agent on an OpenAI gym environment.
 
 Usage:
 
-python dqn_cartpole.py [--config configs/dqn_cartpole.json] [--env CartPole-v0]
+python dqn_cartpole_with_tf_summaries.py [--config configs/dqn_cartpole.json] [--env CartPole-v0]
 
 ```
 # Run script
-python dqn_cartpole.py
+python dqn_cartpole_with_tf_summaries.py
 ```
 """
 

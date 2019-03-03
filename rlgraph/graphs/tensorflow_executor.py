@@ -47,7 +47,6 @@ class TensorFlowExecutor(GraphExecutor):
     """
     def __init__(self, **kwargs):
         super(TensorFlowExecutor, self).__init__(**kwargs)
-        self.global_training_timestep = None
         self.session_config = self.execution_spec["session_config"]
 
         # The tf.Graph object to be run in a tf session.
@@ -282,8 +281,8 @@ class TensorFlowExecutor(GraphExecutor):
 
     def init_execution(self):
         """
-        Creates and stores a tf server (and optionally joins it if we are a parameter-server).
-        Only relevant, if we are running in distributed mode.
+        Creates and sets up the distributed backend.
+        Also creates the global time step variable.
         """
         if self.execution_mode == "distributed":
             if get_distributed_backend() == "distributed_tf":
@@ -341,10 +340,18 @@ class TensorFlowExecutor(GraphExecutor):
             return assignments
 
     def setup_graph(self):
-        # Generate the tf-Graph object and enter its scope as default graph.
+        """
+        Generates the tf-Graph object and enters its scope as default graph.
+        Also creates the global time step variable.
+        """
         self.graph = tf.Graph()
         self.graph_default_context = self.graph.as_default()
         self.graph_default_context.__enter__()
+
+        self.global_training_timestep = tf.get_variable(
+            name="global-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,
+            collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
+
         # Set the random seed graph-wide.
         if self.seed is not None:
             self.logger.info("Initializing TensorFlow graph with seed {}".format(self.seed))
@@ -443,10 +450,6 @@ class TensorFlowExecutor(GraphExecutor):
         """
         # Determine init_op and ready_op.
         var_list = list(self.graph_builder.root_component.variable_registry.values())
-
-        self.global_training_timestep = tf.get_variable(
-            name="global-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,
-            collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
         var_list.append(self.global_training_timestep)
 
         # We can not fetch optimizer vars.

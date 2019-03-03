@@ -246,6 +246,8 @@ class DQFDAgent(Agent):
                         preprocessed_next_states, importance_weights, apply_demo_loss
                     )
                 step_op = agent.optimizer.apply_gradients(grads_and_vars)
+                # Increase the global training step counter.
+                step_op = root._graph_fn_training_step(step_op)
                 step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
                     step_op, main_policy_vars
                 )
@@ -276,6 +278,8 @@ class DQFDAgent(Agent):
                 return grads_and_vars, loss, loss_per_item, q_values_s
             else:
                 step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+                # Increase the global training step counter.
+                step_op = root._graph_fn_training_step(step_op)
                 return step_op, loss, loss_per_item, q_values_s
 
         @rlgraph_api(component=self.root_component)
