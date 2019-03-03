@@ -20,14 +20,14 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical, Distribution, Beta, Bernoulli
-from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.component import Component
+from rlgraph.components.distributions import Normal, Distribution, Bernoulli
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
-from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -113,7 +113,7 @@ class Policy(Component):
             self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
 
     def _get_distribution(self, i, action_component):
-        # IntBox: Categorical.
+        # IntBox: Categorical (default) or Gumble-Softmax.
         if isinstance(action_component, IntBox):
             scope = "{}-{}".format(self.discrete_distribution_type, i)
             spec = dict(type=self.discrete_distribution_type, scope=scope)
@@ -121,12 +121,12 @@ class Policy(Component):
         # BoolBox: Bernoulli.
         elif isinstance(action_component, BoolBox):
             return Bernoulli(scope="bernoulli-{}".format(i))
-        # Continuous action space: Normal/Beta/etc. distribution.
+        # Continuous action spaces.
         elif isinstance(action_component, FloatBox):
             # Unbounded -> Normal distribution.
             if not self._is_action_bounded(action_component):
                 return Normal(scope="normal-{}".format(i))
-            # Bounded -> according to the bounded_distribution parameter.
+            # Bounded -> Beta (default) or Squashed Normal.
             else:
                 scope = "{}-{}".format(self.bounded_distribution_type, i)
                 spec = dict(
