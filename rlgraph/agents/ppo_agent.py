@@ -268,8 +268,7 @@ class PPOAgent(Agent):
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
-                            policy_probs["action_log_probs"], baseline_values, actions, sample_rewards,
-                            sample_terminals, entropy
+                            policy_probs["action_log_probs"], baseline_values, sample_rewards,  entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:

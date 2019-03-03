@@ -57,7 +57,7 @@ class PPOLossFunction(LossFunction):
         self.action_space = action_space
 
     @rlgraph_api
-    def loss(self, log_probs, baseline_values, actions, rewards, terminals, logits):
+    def loss(self, log_probs, baseline_values, rewards, entropy):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -68,7 +68,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, baseline_values, actions, rewards, terminals, logits
+            log_probs, baseline_values, rewards, entropy
         )
         total_loss = self.loss_average(loss_per_item)
 
@@ -77,25 +77,19 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def loss_per_item(self, log_probs, baseline_values, actions, rewards, terminals, logits):
-        loss_per_item = self._graph_fn_loss_per_item(log_probs, baseline_values, actions, rewards, terminals, logits)
+    def loss_per_item(self, log_probs, baseline_values, rewards, entropy):
+        loss_per_item = self._graph_fn_loss_per_item(log_probs, baseline_values, rewards, entropy)
         baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, rewards)
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
 
         return loss_per_item, baseline_loss_per_item
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, pg_advantages, terminals,
-                                entropy):
+    def _graph_fn_loss_per_item(self, log_probs, pg_advantages, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
-            actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             pg_advantages (SingleDataOp): The batch of post-processed advantages.
-
-            terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
-                (from a memory).
-
             entropy (SingleDataOp): Policy entropy.
 
         Returns:
