@@ -84,7 +84,7 @@ class PPOLossFunction(LossFunction):
 
         return loss_per_item, baseline_loss_per_item
 
-    @rlgraph_api
+    @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, pg_advantages, terminals,
                                 entropy):
         """
@@ -153,7 +153,7 @@ class PPOLossFunction(LossFunction):
             pg_advantages (SingleDataOp): Advantage values.
 
         Returns:
-
+            SingleDataOp: Baseline loss per item.
         """
         v_targets = None
         if get_backend() == "tf":
