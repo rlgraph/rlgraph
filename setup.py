@@ -50,7 +50,7 @@ extras_require = {
 setup(
     name='rlgraph',
     version=version_vars['__version__'],
-    description='A Framework for Flexible Deep Reinforcement Learning Graphs',
+    description='A Framework for Modular Deep Reinforcement Learning',
     url='https://rlgraph.org',
     author='The RLgraph development team',
     author_email='rlgraph@rlgraph.org',

@@ -18,8 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import tensorflow as tf
 
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.container_merger import ContainerMerger
@@ -375,7 +376,7 @@ class IMPALAAgent(Agent):
         """
         # Perform n-steps in the env and insert the results into our FIFO-queue.
         @rlgraph_api(component=self.root_component)
-        def perform_n_steps_and_insert_into_fifo(self_):
+        def perform_n_steps_and_insert_into_fifo(root):
             # Take n steps in the environment.
             step_results = env_stepper.step()
 
@@ -419,11 +420,11 @@ class IMPALAAgent(Agent):
             optimizer (Optimizer): The optimizer that we use to calculate an update and apply it.
         """
         @rlgraph_api(component=self.root_component)
-        def get_queue_size(self_):
+        def get_queue_size(root):
             return fifo_queue.get_size()
 
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(self_):
+        def update_from_memory(root):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
             # This is done by the network itself for all network inputs:
@@ -484,6 +485,9 @@ class IMPALAAgent(Agent):
 
             # Pass vars and loss values into optimizer.
             step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+
+            # Increase the global training step counter.
+            step_op = root._graph_fn_training_step(step_op)
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
@@ -680,7 +684,6 @@ class SingleIMPALAAgent(IMPALAAgent):
                     out_op_columns[0].op_records[0].op
 
     def define_graph_api(self):
-
         agent = self
 
         @rlgraph_api(component=self.root_component)
@@ -762,10 +765,20 @@ class SingleIMPALAAgent(IMPALAAgent):
 
             # Pass vars and loss values into optimizer.
             step_op, loss, loss_per_item = agent.optimizer.step(policy_vars, loss, loss_per_item)
+            # Increase the global training step counter.
+            step_op = root._graph_fn_training_step(step_op)
 
             # Return optimizer op and all loss values.
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item, records
+
+        # TODO: Move this into generic AgentRootComponent.
+        @graph_fn(component=self.root_component)
+        def _graph_fn_training_step(root, other_step_op=None):
+            add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
+            op_list = [add_op] + [other_step_op] if other_step_op is not None else []
+            with tf.control_dependencies(op_list):
+                return tf.no_op() if other_step_op is None else other_step_op
 
     def __repr__(self):
         return "SingleIMPALAAgent()"
