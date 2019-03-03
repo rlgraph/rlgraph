@@ -25,6 +25,7 @@ from rlgraph.components import ContainerMerger, ContainerSplitter, Memory, RingB
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
+from rlgraph.utils.execution_util import define_by_run_flatten
 from rlgraph.utils.ops import flatten_op, DataOpDict
 from rlgraph.utils.util import strip_list
 from rlgraph.utils.decorators import rlgraph_api
@@ -330,7 +331,9 @@ class PPOAgent(Agent):
                     start = int(torch.rand(1) * (batch_size - 1))
                     indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
                     sample_states = torch.index_select(preprocessed_states, 0, indices)
-                    sample_actions = torch.index_select(actions, 0, indices)
+                    sample_actions = DataOpDict()
+                    for name, action in define_by_run_flatten(actions).items():
+                        sample_actions[name] = tf.gather(params=action, indices=indices)
                     sample_rewards = torch.index_select(rewards, 0, indices)
                     sample_terminals = torch.index_select(terminals, 0, indices)
                     sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
