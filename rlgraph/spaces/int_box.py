@@ -20,6 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.spaces.box_space import BoxSpace
+from rlgraph.spaces.float_box import FloatBox
 from rlgraph.utils.util import convert_dtype as dtype_, LARGE_INTEGER
 
 
@@ -65,6 +66,19 @@ class IntBox(BoxSpace):
         if with_category_rank is not False:
             return shape + ((self.num_categories,) if self.num_categories is not None else ())
         return shape
+
+    def as_one_hot_float_space(self):
+        """
+        Returns a new FloatBox Space resulting from one-hot flattening out this space
+        along its number of categories.
+
+        Returns:
+            FloatBox: The resulting FloatBox Space (with the same batch and time-rank settings).
+        """
+        return FloatBox(
+            low=0.0, high=1.0, shape=self.get_shape(with_category_rank=True),
+            add_batch_rank=self.has_batch_rank, add_time_rank=self.has_time_rank
+        )
 
     @property
     def flat_dim_with_categories(self):
