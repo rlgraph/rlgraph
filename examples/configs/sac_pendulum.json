@@ -60,8 +60,7 @@
     "sync_interval": 1,
     "sync_tau": 5e-3,
     "batch_size": 256,
-    "num_iterations": 1,
-    "sample_size": 50
+    "num_iterations": 1
   },
 
   "optimizer_spec": {
