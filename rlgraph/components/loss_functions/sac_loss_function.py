@@ -47,8 +47,7 @@ class SACLossFunction(LossFunction):
             sanity_check_space(in_space, shape=())
 
         # All the following need shape==(1,).
-        for in_space_name in ["log_probs_sampled", "log_probs_next_sampled", "q_values",
-                              "q_values_sampled", "q_values_next_sampled"]:
+        for in_space_name in ["q_values", "q_values_sampled", "q_values_next_sampled"]:
             in_space = input_spaces[in_space_name]
             sanity_check_space(in_space, shape=(1,))
 
@@ -87,13 +86,17 @@ class SACLossFunction(LossFunction):
 
     @graph_fn
     def _graph_fn__alpha_loss(self, alpha, log_probs_sampled):
-        loss = -alpha * tf.stop_gradient(log_probs_sampled + self.target_entropy)
+        # in the paper this is -alpha * (log_pi + target entropy), however the implementation uses log_alpha
+        # see the discussion in https://github.com/rail-berkeley/softlearning/issues/37
+        loss = -tf.log(alpha) * tf.stop_gradient(log_probs_sampled + self.target_entropy)
         loss = tf.identity(loss, "alpha_loss_per_item")
         return loss
 
     @rlgraph_api
     def _graph_fn_loss_per_item(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
                                 q_values_sampled, rewards, terminals):
+        log_probs_next_sampled = tf.reduce_sum(log_probs_next_sampled, axis=1, keepdims=True)
+        log_probs_sampled = tf.reduce_sum(log_probs_sampled, axis=1, keepdims=True)
         rewards = tf.expand_dims(rewards, axis=-1)
         terminals = tf.expand_dims(terminals, axis=-1)
 

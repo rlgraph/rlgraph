@@ -72,7 +72,7 @@ class TestSACLossFunction(unittest.TestCase):
 
         policy_loss_per_item = [.35] * batch_size
         values_loss_per_item = [.2696] * batch_size
-        alpha_loss_per_item = [-.54] * batch_size
+        alpha_loss_per_item = [.06321] * batch_size
 
         test.test(
             (loss_function.loss, inputs),

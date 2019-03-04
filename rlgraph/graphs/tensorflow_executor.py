@@ -79,8 +79,7 @@ class TensorFlowExecutor(GraphExecutor):
         # The optimizer is a somewhat privileged graph component because it must manage
         # devices depending on the device strategy and we hence keep an instance here to be able
         # to request special device init ops.
-        self.optimizer = None
-        self.vf_optimizer = None
+        self.optimizers = None
 
         self.graph_default_context = None
         self.local_device_protos = device_lib.list_local_devices()
@@ -454,11 +453,9 @@ class TensorFlowExecutor(GraphExecutor):
 
         # We can not fetch optimizer vars.
         # TODO let graph builder do this
-        if self.optimizer is not None:
-            var_list.extend(self.optimizer.get_optimizer_variables())
-            # If the VF has a separate optimizer (non-shared network), we need to fetch its vars here as well.
-            if self.vf_optimizer is not None:
-                var_list.extend(self.vf_optimizer.get_optimizer_variables())
+        if self.optimizers is not None:
+            for optimizer in self.optimizers:
+                var_list.extend(optimizer.get_optimizer_variables())
 
         if self.execution_mode == "single":
             self.init_op = tf.variables_initializer(var_list=var_list)
@@ -679,10 +676,14 @@ class TensorFlowExecutor(GraphExecutor):
             batch_size (int): The batch size that needs to be split between the different GPUs.
             extra_build_args (Optional[dict]): Extra build elements to pass.
         """
-        self.optimizer = root_optimizer
+        self.optimizers = []
+        if root_optimizer is not None:
+            self.optimizers.append(root_optimizer)
         # Save separate vf optimizer if necessary.
         if extra_build_args is not None and "vf_optimizer" in extra_build_args:
-            self.vf_optimizer = extra_build_args["vf_optimizer"]
+            self.optimizers.append(extra_build_args["vf_optimizer"])
+        if extra_build_args is not None and "optimizers" in extra_build_args:
+            self.optimizers.extend(extra_build_args["optimizers"])
 
         if self.device_strategy == "multi_gpu_sync":
             assert self.num_gpus > 1 or (self.fake_gpus is True and self.max_usable_gpus > 0), \

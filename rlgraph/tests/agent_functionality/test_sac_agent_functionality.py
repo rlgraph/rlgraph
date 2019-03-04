@@ -1,14 +1,13 @@
 import unittest
 import logging
 import numpy as np
-from scipy import stats
 
 from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification
 from rlgraph.spaces import FloatBox, BoolBox
-from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
-    Synchronizable
+from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
+
 from rlgraph.utils import root_logger
 
 
@@ -41,6 +40,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
             target_entropy=None,
             optimizer=AdamOptimizer.from_spec(config["optimizer"]),
             vf_optimizer=AdamOptimizer.from_spec(config["value_function_optimizer"], scope="vf-optimizer"),
+            alpha_optimizer=None,
             q_sync_spec=SyncSpecification(sync_interval=10, sync_tau=1.0),
             num_q_functions=2
         )

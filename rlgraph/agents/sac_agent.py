@@ -28,7 +28,7 @@ from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay
 from rlgraph.utils.util import strip_list
-from rlgraph.utils.ops import flatten_op
+from rlgraph.utils.ops import flatten_op, DataOpTuple
 
 
 if get_backend() == "tf":
@@ -52,8 +52,9 @@ class SyncSpecification(object):
 
 
 class SACAgentComponent(Component):
-    def __init__(self, agent, policy, q_function, preprocessor, memory, discount,
-                 initial_alpha, target_entropy, optimizer, vf_optimizer, q_sync_spec, num_q_functions=2):
+
+    def __init__(self, agent, policy, q_function, preprocessor, memory, discount, initial_alpha, target_entropy,
+                 optimizer, vf_optimizer, alpha_optimizer, q_sync_spec, num_q_functions=2):
         super(SACAgentComponent, self).__init__(nesting_level=0)
         self.agent = agent
         self._policy = policy
@@ -73,6 +74,7 @@ class SACAgentComponent(Component):
                 target_q.add_components(Synchronizable(), expose_apis="sync")
         self._optimizer = optimizer
         self.vf_optimizer = vf_optimizer
+        self.alpha_optimizer = alpha_optimizer
         self.initial_alpha = initial_alpha
         self.log_alpha = None
         self.target_entropy = target_entropy
@@ -84,12 +86,14 @@ class SACAgentComponent(Component):
 
         q_names = ["q_{}".format(i) for i in range(len(self._q_functions))]
         self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
-        #self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
+        # self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
 
         self.add_components(policy, preprocessor, memory, self._merger, self._splitter, self.loss_function,
-                            optimizer, vf_optimizer, self._q_vars_merger)#, self._q_vars_splitter)
+                            optimizer, vf_optimizer, self._q_vars_merger)  # , self._q_vars_splitter)
         self.add_components(*self._q_functions)
         self.add_components(*self._target_q_functions)
+        if self.alpha_optimizer is not None:
+            self.add_components(self.alpha_optimizer)
 
         self.steps_since_last_sync = None
         self.q_sync_spec = q_sync_spec
@@ -162,11 +166,9 @@ class SACAgentComponent(Component):
             self._optimizer.step(policy_vars, actor_loss, actor_loss_per_item)
 
         if self.target_entropy is not None:
-            alpha_step_op = self._graph_fn__no_op()
-            #alpha_step_op, alpha_loss, alpha_loss_per_item = self._optimizer.step(self.log_alpha, alpha_loss, alpha_loss_per_item)
+            alpha_step_op = self._graph_fn__update_alpha(alpha_loss, alpha_loss_per_item)
         else:
             alpha_step_op = self._graph_fn__no_op()
-
         # TODO: optimizer for alpha
 
         sync_op = self.sync_targets()
@@ -186,6 +188,12 @@ class SACAgentComponent(Component):
             alpha_loss=alpha_loss,
             alpha_loss_per_item=alpha_loss_per_item
         )
+
+    @graph_fn(requires_variable_completeness=True)
+    def _graph_fn__update_alpha(self, alpha_loss, alpha_loss_per_item):
+        alpha_step_op, _, _ = self.alpha_optimizer.step(
+            DataOpTuple([self.log_alpha]), alpha_loss, alpha_loss_per_item)
+        return alpha_step_op
 
     def _compute_q_values(self, q_functions, states, actions):
         flat_actions = flatten_op(actions)
@@ -415,6 +423,7 @@ class SACAgent(Agent):
             )
 
         self.memory = Memory.from_spec(memory_spec)
+        self.alpha_optimizer = self.optimizer.copy(scope="alpha-" + self.optimizer.scope) if self.target_entropy is not None else None
         # TODO: Two options: a) Move all sub-components of the root into the root's ctor.
         # TODO: b) Pass the agent into root (already done) and then add sub-components here into the root (after ctoring the root), then refer to all sub-components as "agent.[...]". This way, the agent itself does not carry any components, just agent settings such as discount, etc.
         self.root_component = SACAgentComponent(
@@ -428,11 +437,15 @@ class SACAgent(Agent):
             target_entropy=target_entropy,
             optimizer=self.optimizer,
             vf_optimizer=self.value_function_optimizer,
+            alpha_optimizer=self.alpha_optimizer,
             q_sync_spec=value_function_sync_spec,
             num_q_functions=2 if self.double_q is True else 1
         )
 
-        self.build_options = dict(vf_optimizer=self.value_function_optimizer)
+        extra_optimizers = [self.value_function_optimizer]
+        if self.alpha_optimizer is not None:
+            extra_optimizers.append(self.alpha_optimizer)
+        self.build_options = dict(optimizers=extra_optimizers)
 
         if self.auto_build:
             self._build_graph(

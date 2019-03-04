@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import SquashedNormalAdapter
 from rlgraph.components.distributions.distribution import Distribution
@@ -38,7 +40,7 @@ class SquashedNormal(Distribution):
     """
     def __init__(self, scope="squashed-normal", low=-1.0, high=1.0, **kwargs):
         # Do not flatten incoming DataOps as we need more than one parameter in our parameterize graph_fn.
-        assert low < high
+        assert np.all(np.less(low, high))
         self.low = low
         self.high = high
         super(SquashedNormal, self).__init__(scope=scope, **kwargs)
