@@ -45,6 +45,8 @@ that we run tests on TensorFlow and have not reached full coverage/test compatib
 For more detailed documentation on RLgraph and its API-reference, please visit
 [our readthedocs page here](https://rlgraph.readthedocs.io).
 
+Below be show some training results on gym tasks:
+
 ![Learning results](https://user-images.githubusercontent.com/14904111/53730353-fab97800-3e77-11e9-974c-69b21f1522d0.png)
 
 **Left:** Soft Actor Critic on Pendulum-v0 (10 seeds). **Right:** Multi-GPU Ape-X on Pong-v0 (10 seeds).
