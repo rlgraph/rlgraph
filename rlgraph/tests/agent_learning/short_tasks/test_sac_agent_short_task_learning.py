@@ -64,6 +64,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             target_entropy=None,
             optimizer=AdamOptimizer.from_spec(config["optimizer"]),
             vf_optimizer=AdamOptimizer.from_spec(config["value_function_optimizer"], scope="vf-optimizer"),
+            alpha_optimizer=None,
             q_sync_spec=SyncSpecification(sync_interval=10, sync_tau=1.0),
             num_q_functions=2
         )

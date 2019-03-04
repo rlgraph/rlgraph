@@ -53,8 +53,8 @@ class SyncSpecification(object):
 
 class SACAgentComponent(Component):
 
-  def __init__(self, policy, q_function, preprocessor, memory, discount, initial_alpha, target_entropy, optimizer,
-                 vf_optimizer, alpha_optimizer, q_sync_spec, num_q_functions=2):
+    def __init__(self, agent, policy, q_function, preprocessor, memory, discount, initial_alpha, target_entropy,
+                 optimizer, vf_optimizer, alpha_optimizer, q_sync_spec, num_q_functions=2):
         super(SACAgentComponent, self).__init__(nesting_level=0)
         self.agent = agent
         self._policy = policy
@@ -86,10 +86,10 @@ class SACAgentComponent(Component):
 
         q_names = ["q_{}".format(i) for i in range(len(self._q_functions))]
         self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
-        #self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
+        # self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
 
         self.add_components(policy, preprocessor, memory, self._merger, self._splitter, self.loss_function,
-                            optimizer, vf_optimizer, self._q_vars_merger)#, self._q_vars_splitter)
+                            optimizer, vf_optimizer, self._q_vars_merger)  # , self._q_vars_splitter)
         self.add_components(*self._q_functions)
         self.add_components(*self._target_q_functions)
         if self.alpha_optimizer is not None:
@@ -442,7 +442,10 @@ class SACAgent(Agent):
             num_q_functions=2 if self.double_q is True else 1
         )
 
-        self.build_options = dict(optimizers=[self.value_function_optimizer, self.alpha_optimizer])
+        extra_optimizers = [self.value_function_optimizer]
+        if self.alpha_optimizer is not None:
+            extra_optimizers.append(self.alpha_optimizer)
+        self.build_options = dict(optimizers=extra_optimizers)
 
         if self.auto_build:
             self._build_graph(
