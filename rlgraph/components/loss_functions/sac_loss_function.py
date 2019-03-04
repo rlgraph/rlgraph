@@ -95,6 +95,11 @@ class SACLossFunction(LossFunction):
     @rlgraph_api
     def _graph_fn_loss_per_item(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
                                 q_values_sampled, rewards, terminals):
+        # In case log_probs come in as shape=(), expand last rank to 1.
+        if log_probs_sampled.shape.as_list()[-1] is None:
+            log_probs_sampled = tf.expand_dims(log_probs_sampled, axis=-1)
+            log_probs_next_sampled = tf.expand_dims(log_probs_next_sampled, axis=-1)
+
         log_probs_next_sampled = tf.reduce_sum(log_probs_next_sampled, axis=1, keepdims=True)
         log_probs_sampled = tf.reduce_sum(log_probs_sampled, axis=1, keepdims=True)
         rewards = tf.expand_dims(rewards, axis=-1)
