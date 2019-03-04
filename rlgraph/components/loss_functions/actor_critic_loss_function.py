@@ -20,9 +20,9 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import IntBox
+from rlgraph.spaces import IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -71,7 +71,7 @@ class ActorCriticLossFunction(LossFunction):
         )
 
     @rlgraph_api
-    def loss(self, logits_actions_pi, action_probs_mu, values, actions, rewards, terminals):
+    def loss(self, log_probs, values, rewards, entropy):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -82,7 +82,7 @@ class ActorCriticLossFunction(LossFunction):
             SingleDataOp: The tensor specifying the final loss (over the entire batch).
         """
         loss_per_item, vf_loss_per_item = self.loss_per_item(
-            logits_actions_pi, action_probs_mu, values, actions, rewards, terminals
+            log_probs, values, rewards, entropy
         )
         total_loss = self.loss_average(loss_per_item)
         vf_total_loss = self.loss_average(vf_loss_per_item)
@@ -90,29 +90,32 @@ class ActorCriticLossFunction(LossFunction):
         return total_loss, loss_per_item, vf_total_loss, vf_loss_per_item
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, log_probs, entropy, baseline_values, actions,
-                                pg_advantages, terminals):
+    def loss_per_item(self, log_probs, baseline_values, rewards, entropy):
+        # Get losses for each action.
+        # Baseline loss for V(s) does not depend on actions, only on state.
+        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, rewards)
+        loss_per_item = self._graph_fn_loss_per_item(log_probs, rewards, entropy)
+
+        # Average across actions.
+        loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
+
+        return loss_per_item, baseline_loss_per_item
+
+    @graph_fn(flatten_ops=True, split_ops=True)
+    def _graph_fn_loss_per_item(self, log_probs, pg_advantages, entropy):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
 
         Args:
             log_probs (DataOp): Log-likelihood of actions.
-            entropy (DataOp): Policy entropy
-            baseline_values (DataOp): The state value estimates coming from baseline node of the learner's policy (pi).
-            actions (DataOp): The actually taken (already one-hot flattened) actions.
             pg_advantages (DataOp): The received rewards.
-            terminals (DataOp): The observed terminal signals.
+            entropy (DataOp): Policy entropy
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
         if get_backend() == "tf":
             # # Let the gae-helper function calculate the pg-advantages.
-            baseline_values = tf.squeeze(input=baseline_values, axis=-1)
-
-            # Make sure vs and advantage values are treated as constants for the gradient calculation.
-            v_targets = pg_advantages + baseline_values
-            v_targets = tf.stop_gradient(v_targets)
             pg_advantages = tf.stop_gradient(pg_advantages)
 
             # The policy gradient loss.
@@ -120,20 +123,11 @@ class ActorCriticLossFunction(LossFunction):
             if self.weight_pg != 1.0:
                 loss = self.weight_pg * loss
 
-            # The value-function baseline loss.
-            baseline_loss = (v_targets - baseline_values) ** 2
-
             # The entropy regularizer term.
             loss += self.weight_entropy * entropy
 
-            return loss, baseline_loss
+            return loss
         elif get_backend() == "pytorch":
-            # # Let the gae-helper function calculate the pg-advantages.
-            baseline_values = torch.squeeze(baseline_values, -1)
-
-            # Make sure vs and advantage values are treated as constants for the gradient calculation.
-            v_targets = pg_advantages + baseline_values
-            v_targets = v_targets.detach()
             pg_advantages = pg_advantages.detach()
 
             # The policy gradient loss.
@@ -141,9 +135,44 @@ class ActorCriticLossFunction(LossFunction):
             if self.weight_pg != 1.0:
                 loss = self.weight_pg * loss
 
-            # The value-function baseline loss.
-            baseline_loss = (v_targets - baseline_values) ** 2
-
             # The entropy regularizer term.
             loss += self.weight_entropy * entropy
-            return loss, baseline_loss
+            return loss
+
+    @rlgraph_api
+    def _graph_fn_baseline_loss_per_item(self, baseline_values, pg_advantages):
+        """
+        Computes the loss for V(s).
+
+        Args:
+            baseline_values (SingleDataOp): Baseline predictions V(s).
+            pg_advantages (SingleDataOp): Advantage values.
+
+        Returns:
+            SingleDataOp: Baseline loss per item.
+        """
+        v_targets = None
+        if get_backend() == "tf":
+            baseline_values = tf.squeeze(input=baseline_values, axis=-1)
+            v_targets = pg_advantages + baseline_values
+            v_targets = tf.stop_gradient(input=v_targets)
+        elif get_backend() == "pytorch":
+            baseline_values = torch.squeeze(baseline_values, dim=-1)
+            v_targets = pg_advantages + baseline_values
+            v_targets = v_targets.detach()
+
+        baseline_loss = (v_targets - baseline_values) ** 2
+        return baseline_loss
+
+    @graph_fn(flatten_ops=True)
+    def _graph_fn_average_over_container_keys(self, loss_per_item):
+        if get_backend() == "tf":
+            if isinstance(self.action_space, ContainerSpace):
+                loss_per_item = tf.stack(list(loss_per_item.values()))
+                loss_per_item = tf.reduce_mean(loss_per_item, axis=0)
+            return loss_per_item
+        elif get_backend() == "pytorch":
+            if isinstance(self.action_space, ContainerSpace):
+                loss_per_item = torch.stack(list(loss_per_item.values()))
+                loss_per_item = torch.mean(loss_per_item, 0)
+            return loss_per_item

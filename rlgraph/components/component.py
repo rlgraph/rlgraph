@@ -265,6 +265,7 @@ class Component(Specifiable):
                 # This one is not defined yet -> Component is not input-complete.
                 if self.api_method_inputs[input_name] is None:
                     self.input_complete = False
+                    self.logger.debug("Found incomplete input_name {} for method {}.".format(input_name, method_name))
                     return False
                 # API-method has a var-positional parameter (*args): Check whether it has been called at
                 # least once (in which case we have Space information stored under "args[0]").
@@ -280,9 +281,14 @@ class Component(Specifiable):
                             # No input defined (has not been called) -> Not input complete.
                             else:
                                 self.input_complete = False
+                                self.logger.debug(
+                                    "Found incomplete flex key {} for method {}.".format(key, method_name))
+
                                 return False
                         elif self.api_method_inputs[key] is None:
                             self.input_complete = False
+                            self.logger.debug(
+                                "Found incomplete flex key {} for method {}.".format(key, method_name))
                             return False
                         idx += 1
                 # API-method has **kwargs parameters: Check whether it has been called at
@@ -292,6 +298,8 @@ class Component(Specifiable):
                     # Check all keys "input_name[n]" for any None. If one None found -> input incomplete.
                     for key in keys:
                         if self.api_method_inputs[key] is None:
+                            self.logger.debug(
+                                "Found incomplete kwargs key {} for method {}.".format(key, method_name))
                             self.input_complete = False
                             return False
         return True
