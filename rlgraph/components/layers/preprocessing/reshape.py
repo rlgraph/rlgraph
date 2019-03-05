@@ -231,7 +231,7 @@ class ReShape(PreprocessLayer):
                     return preprocessing_inputs
                 else:
                     # Attempt to rescue reshape by combining new shape with batch dim.
-                    full_new_shape = (preprocessing_inputs.shape[0], ) + new_shape
+                    full_new_shape = (preprocessing_inputs.shape[0],) + new_shape
                     return torch.reshape(preprocessing_inputs, full_new_shape)
             else:
                 return torch.reshape(preprocessing_inputs, new_shape)

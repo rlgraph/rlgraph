@@ -179,9 +179,7 @@ def get_space_from_op(op):
                                 time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # IntBox
             elif "int" in base_dtype_str:
-                high = None
-                if hasattr(op._num_categories):
-                    high = op._num_categories
+                high = getattr(op, "_num_categories", None)
                 return IntBox(high, shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                               time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # a BoolBox
