@@ -17,27 +17,25 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import inspect
 import logging
 import re
 import time
-
-import inspect
 from collections import OrderedDict
 
 from rlgraph import get_backend
-from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten, \
-    define_by_run_unpack
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
-from rlgraph.utils.specifiable import Specifiable
-
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
+from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten, \
+    define_by_run_unpack
 from rlgraph.utils.input_parsing import parse_summary_spec
-from rlgraph.utils.util import force_list, force_tuple, get_shape
-from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, TraceContext
-from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumn, DataOpRecordColumnIntoGraphFn, \
+from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
+from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, TraceContext
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
+from rlgraph.utils.specifiable import Specifiable
+from rlgraph.utils.util import force_list, force_tuple, get_shape
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -1173,11 +1171,23 @@ class GraphBuilder(Specifiable):
                             assert next_op_rec.op is None or is_constant(next_op_rec.op) or next_op_rec.op is op_rec.op
                             self.op_records_to_process.add(next_op_rec)
                         # Push op and Space into next op-record.
-                        # With op-instructions instructions?
+                        # With op-instructions?
                         if next_op_rec.op_instructions is not None:
                             mo = re.match(r'^key-lookup:(.+)$', next_op_rec.op_instructions)
                             if mo:
                                 lookup_key = mo.group(1)
+                                if isinstance(lookup_key, str) and (not isinstance(op_rec.op, dict) or lookup_key
+                                                                    not in op_rec.op):
+                                    raise RLGraphError(
+                                        "op_rec.op ({}) is not a dict or does not contain the lookup key '{}'!". \
+                                        format(op_rec.op, lookup_key)
+                                    )
+                                elif isinstance(lookup_key, int) and (not isinstance(op_rec.op, (list, tuple)) or
+                                                                      lookup_key >= len(op_rec.op)):
+                                    raise RLGraphError(
+                                        "op_rec.op ({}) is not a list/tuple or contains not enough items for lookup "
+                                        "index '{}'!".format(op_rec.op, lookup_key)
+                                    )
                                 next_op_rec.op = op_rec.op[lookup_key]
                                 next_op_rec.space = op_rec.space[lookup_key]
                         # No instructions -> simply pass on.

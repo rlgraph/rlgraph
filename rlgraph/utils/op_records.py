@@ -18,12 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 import inspect
-import numpy as np
 
+import numpy as np
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import convert_dtype
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 
 
 class DataOpRecord(object):
@@ -129,9 +129,18 @@ class DataOpRecordColumn(object):
                         continue
                     op_rec = DataOpRecord(op=None, column=self, position=i)
 
+                    # Dict instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
+                    # ContainerMerger Component.
+                    if isinstance(args[i], dict):
+                        first_element = next(iter(args[i].values()))
+                        if isinstance(first_element, DataOpRecord):
+                            merger_component = first_element.column.component.get_helper_component(
+                                "container-merger", _args=list(args[i].keys())
+                            )
+                            args[i] = merger_component.merge(*list(args[i].values()))
                     # Tuple instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
                     # ContainerMerger Component.
-                    if isinstance(args[i], tuple) and isinstance(args[i][0], DataOpRecord):
+                    elif isinstance(args[i], tuple) and isinstance(args[i][0], DataOpRecord):
                         merger_component = args[i][0].column.component.get_helper_component(
                             "container-merger", _args=len(args[i])
                         )
