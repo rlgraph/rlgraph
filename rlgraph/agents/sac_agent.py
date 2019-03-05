@@ -64,6 +64,10 @@ class SACAgentComponent(Component):
         self._q_functions = [q_function]
         self._q_functions += [q_function.copy(scope="{}-{}".format(q_function.scope, i + 1), trainable=True)
                               for i in range(num_q_functions - 1)]
+
+        # Set number of return values for get_q_values graph_fn.
+        self.graph_fn_num_outputs["_graph_fn_get_q_values"] = num_q_functions
+
         for q in self._q_functions:
             # TODO: is there a better way to do this?
             if "synchronizable" not in q.sub_components:
@@ -158,7 +162,7 @@ class SACAgentComponent(Component):
 
     @rlgraph_api
     def update_from_external_batch(
-            self, preprocessed_states, env_actions, rewards, terminals, preprocessed_s_prime, importance_weights
+        self, preprocessed_states, env_actions, rewards, terminals, preprocessed_s_prime, importance_weights
     ):
         actions = self._graph_fn_one_hot(env_actions)
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
@@ -174,7 +178,7 @@ class SACAgentComponent(Component):
             self._optimizer.step(policy_vars, actor_loss, actor_loss_per_item)
 
         if self.target_entropy is not None:
-            alpha_step_op = self._graph_fn__update_alpha(alpha_loss, alpha_loss_per_item)
+            alpha_step_op = self._graph_fn_update_alpha(alpha_loss, alpha_loss_per_item)
         else:
             alpha_step_op = self._graph_fn_no_op()
         # TODO: optimizer for alpha
@@ -236,13 +240,13 @@ class SACAgentComponent(Component):
         log_probs_next_sampled = samples_next["log_prob"]
 
         q_values_next_sampled = self.get_q_values(
-            preprocessed_next_states, preprocessed_next_states, next_sampled_actions
+            preprocessed_next_states, next_sampled_actions, target=True
         )
-        q_values = self.get_q_values(self._q_functions, preprocessed_states, actions)
+        q_values = self.get_q_values(preprocessed_states, actions)
         samples = self._policy.get_action_and_log_prob(preprocessed_states, deterministic=False)
         sampled_actions = samples["action"]
         log_probs_sampled = samples["log_prob"]
-        q_values_sampled = self.get_q_values(self._q_functions, preprocessed_states, sampled_actions)
+        q_values_sampled = self.get_q_values(preprocessed_states, sampled_actions)
 
         alpha = self._graph_fn_compute_alpha()
 
