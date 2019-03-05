@@ -40,7 +40,8 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 deterministic=True, scope="policy", bounded_distribution_type="beta", **kwargs):
+                 deterministic=True, scope="policy", bounded_distribution_type="beta",
+                 discrete_distribution_type="categorical", **kwargs):
         """
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
@@ -57,6 +58,11 @@ class Policy(Component):
             bounded_distribution_type(str): The class of distributions to use for bounded action spaces. For options
                 check the components.distributions package. Default: beta.
 
+            discrete_distribution_type(str): The class of distributions to use for discrete action spaces. For options
+                check the components.distributions package. Default: categorical. Agents requiring reparameterization
+                may require a GumbelSoftmax distribution instead.
+
+
             batch_apply (bool): Whether to wrap both the NN and the ActionAdapter with a BatchApply Component in order
                 to fold time rank into batch rank before a forward pass.
         """
@@ -67,6 +73,8 @@ class Policy(Component):
         self.action_adapters = dict()
         self.distributions = dict()
         self.bounded_distribution_type = bounded_distribution_type
+        self.discrete_distribution_type = discrete_distribution_type
+
         self._create_action_adapters_and_distributions(
             action_space=action_space, action_adapter_spec=action_adapter_spec
         )
@@ -108,7 +116,9 @@ class Policy(Component):
     def _get_distribution(self, i, action_component):
         # IntBox: Categorical.
         if isinstance(action_component, IntBox):
-            return Categorical(scope="categorical-{}".format(i))
+            scope = "{}-{}".format(self.discrete_distribution_type, i)
+            spec = dict(type=self.discrete_distribution_type, scope=scope)
+            return Distribution.from_spec(spec=spec)
         # BoolBox: Bernoulli.
         elif isinstance(action_component, BoolBox):
             return Bernoulli(scope="bernoulli-{}".format(i))

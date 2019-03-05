@@ -368,7 +368,10 @@ class SACAgent(Agent):
             update_spec (dict): Here we can have sync_interval or sync_tau (for the value network update).
         """
         super(SACAgent, self).__init__(
-            policy_spec=dict(deterministic=False, bounded_distribution_type="squashed"),
+            # Continuous action space: Use squashed normal.
+            # Discrete: Gumbel-softmax.
+            policy_spec=dict(deterministic=False, bounded_distribution_type="squashed",
+                             discrete_distribution_type="gumbel_softmax"),
             name=kwargs.pop("name", "sac-agent"),
             **kwargs
         )
