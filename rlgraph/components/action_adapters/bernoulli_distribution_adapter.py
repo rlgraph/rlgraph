@@ -25,7 +25,7 @@ elif get_backend() == "pytorch":
 
 class BernoulliDistributionAdapter(ActionAdapter):
     """
-    Action adapter for the Bernoulli distribution
+    Action adapter for the Bernoulli distribution.
     """
     def get_units_and_shape(self):
         units = self.action_space.flat_dim

@@ -29,9 +29,8 @@ elif get_backend() == "pytorch":
 
 class CategoricalDistributionAdapter(ActionAdapter):
     """
-    Action adapter for the Categorical distribution
+    Action adapter for the Categorical distribution.
     """
-
     def check_input_spaces(self, input_spaces, action_space=None):
         super(CategoricalDistributionAdapter, self).check_input_spaces(input_spaces, action_space)
         # IntBoxes must have categories.

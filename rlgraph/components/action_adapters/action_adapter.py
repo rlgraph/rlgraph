@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import graph_fn, rlgraph_api
@@ -38,16 +38,16 @@ class ActionAdapter(NeuralNetwork):
     - Reshaping (according to the action Space).
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
     """
-    def __init__(self, action_space=None, final_shape=None, weights_spec=None, biases_spec=None, activation=None,
+    def __init__(self, action_space=None, weights_spec=None, biases_spec=None, activation=None,
                  pre_network_spec=None, scope="action-adapter", **kwargs):
         """
         Args:
             action_space (Optional[Space]): The action Space within which this Component will create actions.
                 NOTE: Exactly one of `action_space` of `final_shape` must be provided.
 
-            final_shape (Optional[Tuple[int]): An optional final output shape (in case action_space is not provided).
-                If None, will calculate the shape automatically from the given `action_space`.
-                NOTE: Exactly one of `action_space` of `final_shape` must be provided.
+            #final_shape (Optional[Tuple[int]): An optional final output shape (in case action_space is not provided).
+            #    If None, will calculate the shape automatically from the given `action_space`.
+            #    NOTE: Exactly one of `action_space` of `final_shape` must be provided.
 
             weights_spec (Optional[any]): An optional RLGraph Initializer spec that will be used to initialize the
                 weights of `self.action layer`. Default: None (use default initializer).
@@ -62,11 +62,11 @@ class ActionAdapter(NeuralNetwork):
                 last action layer. If None, only the action layer itself is applied.
         """
         # Build the action layer for this adapter based on the given action-space.
-        self.action_space = None
-        if action_space is not None:
-            self.action_space = action_space.with_batch_rank()
-            assert not isinstance(self.action_space, ContainerSpace),\
-                "ERROR: ActionAdapter cannot handle ContainerSpaces!"
+        #self.action_space = None
+        #if action_space is not None:
+        self.action_space = action_space.with_batch_rank()
+        assert not isinstance(self.action_space, ContainerSpace),\
+            "ERROR: ActionAdapter cannot handle ContainerSpaces!"
 
         units, self.final_shape = self.get_units_and_shape()
 

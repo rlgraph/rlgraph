@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from math import log
-
 from rlgraph import get_backend
 from rlgraph.components.action_adapters import ActionAdapter
 from rlgraph.utils.decorators import graph_fn
@@ -30,7 +28,7 @@ elif get_backend() == "pytorch":
 
 class SquashedNormalAdapter(ActionAdapter):
     """
-    Action adapter for the Squashed-normal distribution
+    Action adapter for the Squashed-normal distribution.
     """
     def get_units_and_shape(self):
         # Add moments (2x for each action item).

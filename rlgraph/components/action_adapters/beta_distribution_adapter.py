@@ -21,7 +21,6 @@ from rlgraph.utils.decorators import graph_fn
 from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.util import SMALL_NUMBER
 
-
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
@@ -29,8 +28,9 @@ elif get_backend() == "pytorch":
 
 
 class BetaDistributionAdapter(ActionAdapter):
-    """Action adapter for the Beta distribution"""
-
+    """
+    Action adapter for the Beta distribution
+    """
     def get_units_and_shape(self):
         units = 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
         # Add moments (2x for each action item).

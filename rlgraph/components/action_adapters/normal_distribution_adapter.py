@@ -32,8 +32,8 @@ class NormalDistributionAdapter(ActionAdapter):
     Action adapter for the Normal distribution
     """
     def get_units_and_shape(self):
-        # Add moments (2x for each action item).
-        units = 2 * self.action_space.flat_dim  # Those two dimensions are the mean and log sd
+        # Mean and log sd.
+        units = 2 * self.action_space.flat_dim
         if self.action_space.shape == ():
             new_shape = (2,)
         else:
