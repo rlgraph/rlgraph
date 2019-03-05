@@ -17,10 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph import get_backend
-from six.moves import xrange as range_
 import numpy as np
-
+from rlgraph import get_backend
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
 from rlgraph.spaces.containers import Dict, Tuple
@@ -28,6 +26,7 @@ from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
 from rlgraph.utils.util import RLGraphError, convert_dtype, get_shape, LARGE_INTEGER
+from six.moves import xrange as range_
 
 if get_backend() == "pytorch":
     import torch
@@ -180,7 +179,10 @@ def get_space_from_op(op):
                                 time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # IntBox
             elif "int" in base_dtype_str:
-                return IntBox(shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                high = None
+                if hasattr(op._num_categories):
+                    high = op._num_categories
+                return IntBox(high, shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                               time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # a BoolBox
             elif "bool" in base_dtype_str:

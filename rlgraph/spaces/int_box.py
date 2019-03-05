@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
+from rlgraph import get_backend
 from rlgraph.spaces.box_space import BoxSpace
 from rlgraph.utils.util import convert_dtype as dtype_, LARGE_INTEGER
 
@@ -84,6 +84,18 @@ class IntBox(BoxSpace):
             sample_ = fill_value if shape == () or shape is None else np.full(shape=shape, fill_value=fill_value)
 
         return np.asarray(sample_, dtype=self.dtype)
+
+    def get_variable(
+            self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None, time_major=None, is_python=False,
+            local=False, **kwargs
+    ):
+        variable = super(IntBox, self).get_variable(
+            name, is_input_feed, add_batch_rank, add_time_rank, time_major, is_python, local, **kwargs
+        )
+        # Add num_categories information to placeholder.
+        if get_backend() == "tf":
+            variable._num_categories = self.num_categories
+        return variable
 
     def contains(self, sample):
         # If int: Check for int type in given sample.
