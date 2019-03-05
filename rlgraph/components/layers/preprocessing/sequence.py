@@ -20,14 +20,13 @@ from __future__ import print_function
 from collections import deque
 
 import numpy as np
-from six.moves import xrange as range_
-
 from rlgraph import get_backend
+from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import FlattenedDataOp, unflatten_op
-from rlgraph.utils.util import get_rank, get_shape, force_list
-from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.utils.util import get_rank, force_list
+from six.moves import xrange as range_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -244,9 +243,12 @@ class Sequence(PreprocessLayer):
 
                     # Must pass the sequence through a placeholder_with_default dummy to set back the
                     # batch rank to '?', instead of 1 (1 would confuse the auto Space inference).
-                    sequences[key] = tf.placeholder_with_default(
-                        sequence, shape=(None,) + tuple(get_shape(sequence)[1:])
-                    )
+                    #sequences[key] = tf.placeholder_with_default(
+                    #    sequence, shape=(None,) + tuple(get_shape(sequence)[1:])
+                    #)
+                    sequence._batch_rank = 0
+                    sequences[key] = sequence
+
             # TODO implement transpose
                 return sequences
 

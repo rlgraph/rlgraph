@@ -18,15 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph import get_backend
-from rlgraph.utils import pytorch_one_hot
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space, get_space_from_op
+from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.ops import unflatten_op
 from rlgraph.utils.numpy import one_hot
+from rlgraph.utils.ops import unflatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -282,8 +281,11 @@ class ReShape(PreprocessLayer):
 
             # Have to place the time rank back in as unknown (for the auto Space inference).
             if type(self.unfold_time_rank) == int:
+                reshaped._batch_rank = 0
+                reshaped._time_rank = 1
+                return reshaped
                 # TODO: replace placeholder with default value by _batch_rank/_time_rank properties.
-                return tf.placeholder_with_default(reshaped, shape=(None, None) + new_shape[2:])
+                #return tf.placeholder_with_default(reshaped, shape=(None, None) + new_shape[2:])
             else:
                 # TODO: add other cases of reshaping and fix batch/time rank hints.
                 if self.fold_time_rank:

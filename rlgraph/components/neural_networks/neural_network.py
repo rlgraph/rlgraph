@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import Component
-from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
+from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.utils import force_tuple, force_list
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -105,10 +105,11 @@ class NeuralNetwork(Stack):
             @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
             def apply(self_, nn_input, *nn_inputs, **kwargs):
                 inputs = [nn_input] + list(nn_inputs)
+                original_input = inputs[0]
+
                 # Keep track of the folding status.
                 fold_status = "unfolded" if self.has_rnn() else None
                 # Fold time rank? For now only support 1st arg folding/unfolding.
-                original_input = inputs[0]
                 if fold_time_rank is True:
                     args_ = tuple([self.folder.apply(original_input)] + list(inputs[1:]))
                     fold_status = "folded"

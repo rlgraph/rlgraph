@@ -17,18 +17,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.utils.util import default_dict
-
 # Basics.
 from rlgraph.components.layers.layer import Layer
-# Preprocessing Layers.
-from rlgraph.components.layers.preprocessing import *
 # NN-Layers.
 from rlgraph.components.layers.nn import *
+# Preprocessing Layers.
+from rlgraph.components.layers.preprocessing import *
 # String Layers.
 from rlgraph.components.layers.strings import *
+from rlgraph.utils.util import default_dict
 
-# The Layers (Layers are also Stacks).
+# The Layers.
 Layer.__lookup_classes__ = dict(
     nnlayer=NNLayer,
     preprocesslayer=PreprocessLayer
