@@ -21,6 +21,7 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.agents import Agent
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import RLGraphError
 from rlgraph.spaces import FloatBox, BoolBox, IntBox
 from rlgraph.components import Component, Synchronizable
@@ -97,6 +98,13 @@ class SACAgentComponent(Component):
 
         self.steps_since_last_sync = None
         self.q_sync_spec = q_sync_spec
+        self.env_action_space = None
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        for s in ["states", "actions", "env_actions", "preprocessed_states", "rewards", "terminals"]:
+            sanity_check_space(input_spaces[s], must_have_batch_rank=True)
+
+        self.env_action_space = input_spaces["env_actions"]
 
     def create_variables(self, input_spaces, action_space=None):
         self.steps_since_last_sync = self.get_variable("steps_since_last_sync", dtype="int", initializer=0)
@@ -130,17 +138,16 @@ class SACAgentComponent(Component):
         return self._preprocessor.preprocess(states)
 
     @rlgraph_api
-    def insert_records(self, preprocessed_states, actions, rewards, next_states, terminals):
-        records = self._merger.merge(preprocessed_states, actions, rewards, next_states, terminals)
+    def insert_records(self, preprocessed_states, env_actions, rewards, next_states, terminals):
+        records = self._merger.merge(preprocessed_states, env_actions, rewards, next_states, terminals)
         return self._memory.insert_records(records)
 
     @rlgraph_api
-    def update_from_memory(self, batch_size):
+    def update_from_memory(self, batch_size=64):
         records, sample_indices, importance_weights = self._memory.get_records(batch_size)
-        preprocessed_s, actions, rewards, preprocessed_s_prime, terminals = self._splitter.split(records)
-
         result = self.update_from_external_batch(
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+            records["states"], records["actions"], records["rewards"], records["terminals"],
+            records["next_states"], importance_weights
         )
 
         if isinstance(self._memory, PrioritizedReplay):
@@ -151,8 +158,9 @@ class SACAgentComponent(Component):
 
     @rlgraph_api
     def update_from_external_batch(
-            self, preprocessed_states, actions, rewards, terminals, preprocessed_s_prime, importance_weights
+            self, preprocessed_states, env_actions, rewards, terminals, preprocessed_s_prime, importance_weights
     ):
+        actions = self._graph_fn_one_hot(env_actions)
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
             self.get_losses(preprocessed_states, actions, rewards, terminals, preprocessed_s_prime, importance_weights)
 
@@ -168,7 +176,7 @@ class SACAgentComponent(Component):
         if self.target_entropy is not None:
             alpha_step_op = self._graph_fn__update_alpha(alpha_loss, alpha_loss_per_item)
         else:
-            alpha_step_op = self._graph_fn__no_op()
+            alpha_step_op = self._graph_fn_no_op()
         # TODO: optimizer for alpha
 
         sync_op = self.sync_targets()
@@ -189,48 +197,54 @@ class SACAgentComponent(Component):
             alpha_loss_per_item=alpha_loss_per_item
         )
 
+    @graph_fn
+    def _graph_fn_one_hot(self, env_actions):
+        if isinstance(self.env_action_space, IntBox):
+            return tf.one_hot(env_actions, depth=self.env_action_space.num_categories, axis=-1)
+        return env_actions
+
     @graph_fn(requires_variable_completeness=True)
-    def _graph_fn__update_alpha(self, alpha_loss, alpha_loss_per_item):
+    def _graph_fn_update_alpha(self, alpha_loss, alpha_loss_per_item):
         alpha_step_op, _, _ = self.alpha_optimizer.step(
             DataOpTuple([self.log_alpha]), alpha_loss, alpha_loss_per_item)
         return alpha_step_op
 
-    def _compute_q_values(self, q_functions, states, actions):
+    @rlgraph_api  # `returns` are determined in ctor
+    def _graph_fn_get_q_values(self, states, actions, target=False):
+        backend = get_backend()
+
+        #tf.one_hot(tf.cast(x=tensor, dtype=tf.int32), depth=5)
+
         flat_actions = flatten_op(actions)
         state_actions = [states]
         for flat_key, action_component in self._policy.action_space.flatten().items():
-            if isinstance(action_component, IntBox):
-                state_actions.append(self._graph_fn__one_hot(flat_actions[flat_key]))
-            else:
-                state_actions.append(flat_actions[flat_key])
-        state_actions = self._graph_fn__concat(*state_actions)
-        return tuple(q.value_output(state_actions) for q in q_functions)
+            state_actions.append(flat_actions[flat_key])
 
-    @rlgraph_api
-    def get_q_values(self, preprocessed_states, actions):
-        q_values = self._compute_q_values(
-            self._q_functions, preprocessed_states, actions
-        )
-        return q_values
+        if backend == "tf":
+            state_actions = tf.concat(state_actions, axis=-1)
+        elif backend == "pytorch":
+            state_actions = torch.cat(state_actions, dim=-1)
+
+        q_funcs = self._q_functions if target is False else self._target_q_functions
+        return tuple(q.value_output(state_actions) for q in q_funcs)
 
     @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights):
         # TODO: internal states
-
         samples_next = self._policy.get_action_and_log_prob(preprocessed_next_states, deterministic=False)
         next_sampled_actions = samples_next["action"]
         log_probs_next_sampled = samples_next["log_prob"]
 
-        q_values_next_sampled = self._compute_q_values(
-            self._target_q_functions, preprocessed_next_states, next_sampled_actions
+        q_values_next_sampled = self.get_q_values(
+            preprocessed_next_states, preprocessed_next_states, next_sampled_actions
         )
-        q_values = self._compute_q_values(self._q_functions, preprocessed_states, actions)
+        q_values = self.get_q_values(self._q_functions, preprocessed_states, actions)
         samples = self._policy.get_action_and_log_prob(preprocessed_states, deterministic=False)
         sampled_actions = samples["action"]
         log_probs_sampled = samples["log_prob"]
-        q_values_sampled = self._compute_q_values(self._q_functions, preprocessed_states, sampled_actions)
+        q_values_sampled = self.get_q_values(self._q_functions, preprocessed_states, sampled_actions)
 
-        alpha = self._graph_fn__compute_alpha()
+        alpha = self._graph_fn_compute_alpha()
 
         return self.loss_function.loss(
             alpha,
@@ -260,15 +274,15 @@ class SACAgentComponent(Component):
 
     @rlgraph_api(requires_variable_completeness=True)
     def sync_targets(self):
-        should_sync = self._graph_fn_get__should_sync()
-        return self._graph_fn__sync(should_sync)
+        should_sync = self._graph_fn_get_should_sync()
+        return self._graph_fn_sync(should_sync)
 
     @rlgraph_api
     def get_memory_size(self):
         return self._memory.get_size()
 
     @graph_fn
-    def _graph_fn__compute_alpha(self):
+    def _graph_fn_compute_alpha(self):
         backend = get_backend()
         if backend == "tf":
             return tf.exp(self.log_alpha)
@@ -303,7 +317,7 @@ class SACAgentComponent(Component):
             raise NotImplementedError("TODO: pytorch support")
 
     @graph_fn(returns=1, requires_variable_completeness=True)
-    def _graph_fn_get__should_sync(self):
+    def _graph_fn_get_should_sync(self):
         if get_backend() == "tf":
             inc_op = tf.assign_add(self.steps_since_last_sync, 1)
             should_sync = inc_op >= self.q_sync_spec.sync_interval
@@ -324,7 +338,7 @@ class SACAgentComponent(Component):
             raise NotImplementedError("TODO")
 
     @graph_fn(returns=1, requires_variable_completeness=True)
-    def _graph_fn__sync(self, should_sync):
+    def _graph_fn_sync(self, should_sync):
         assign_ops = []
         tau = self.q_sync_spec.sync_tau
         if tau != 1.0:
@@ -350,7 +364,7 @@ class SACAgentComponent(Component):
             return tf.no_op()
 
     @graph_fn
-    def _graph_fn__no_op(self):
+    def _graph_fn_no_op(self):
         return tf.no_op()
 
 
@@ -403,9 +417,14 @@ class SACAgent(Agent):
 
         self.iterations = self.update_spec["num_iterations"]
         self.batch_size = self.update_spec["batch_size"]
+        float_action_space = self.action_space.with_batch_rank()
+
+        if isinstance(self.action_space, IntBox):
+            float_action_space = float_action_space.as_one_hot_float_space()
 
         self.input_spaces.update(dict(
-            actions=self.action_space.with_batch_rank(),
+            env_actions=self.action_space.with_batch_rank(),
+            actions=float_action_space,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
@@ -427,8 +446,7 @@ class SACAgent(Agent):
 
         self.memory = Memory.from_spec(memory_spec)
         self.alpha_optimizer = self.optimizer.copy(scope="alpha-" + self.optimizer.scope) if self.target_entropy is not None else None
-        # TODO: Two options: a) Move all sub-components of the root into the root's ctor.
-        # TODO: b) Pass the agent into root (already done) and then add sub-components here into the root (after ctoring the root), then refer to all sub-components as "agent.[...]". This way, the agent itself does not carry any components, just agent settings such as discount, etc.
+
         self.root_component = SACAgentComponent(
             agent=self,
             policy=self.policy,
@@ -506,6 +524,13 @@ class SACAgent(Agent):
             # 0=preprocessed_states, 1=action
             return_ops
         ))
+        # We have a discrete action space -> Convert Gumble (relaxed one-hot) sample back into int type.
+        if isinstance(self.action_space, IntBox):
+            if "preprocessed_states" in extra_returns:
+                ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])
+            else:
+                ret = np.argmax(ret).astype(self.action_space.dtype)
+
         if remove_batch_rank:
             return strip_list(ret)
         else:
