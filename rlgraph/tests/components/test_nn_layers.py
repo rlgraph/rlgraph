@@ -18,8 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-import numpy as np
 
+import numpy as np
 from rlgraph.components.layers.nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer, MaxPool2DLayer, \
     LSTMLayer, ResidualLayer, LocalResponseNormalizationLayer
 from rlgraph.spaces import FloatBox, Dict
@@ -129,7 +129,6 @@ class TestNNLayer(unittest.TestCase):
         expected = np.array([[[[item0_ch0, item0_ch1, item0_ch2]]], [[[item1_ch0, item1_ch1, item1_ch2]]]])
         test.test(("apply", input_), expected_outputs=expected)
 
-
     def test_local_response_normalization_layer(self):
         space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
 
@@ -184,7 +183,7 @@ class TestNNLayer(unittest.TestCase):
         # Batch of n samples to concatenate.
         inputs = input_space.sample(4)
         expected = np.concatenate((inputs["c"], inputs["a"], inputs["b"]), axis=-1)
-        test.test(("apply", inputs), expected_outputs=expected)
+        test.test(("apply", tuple([inputs])), expected_outputs=expected)
 
     def test_residual_layer(self):
         # Input space to residual layer (with 2-repeat [simple Conv2D layer]-residual-unit).

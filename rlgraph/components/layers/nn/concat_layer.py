@@ -56,28 +56,34 @@ class ConcatLayer(NNLayer):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
         # Make sure all inputs have the same shape except for the last rank.
         if self.dict_keys:
-            self.in_space_0 = input_spaces["input_dict[{}]".format(self.dict_keys[0])]
+            self.in_space_0 = input_spaces["inputs[0]"][self.dict_keys[0]]
         else:
             self.in_space_0 = input_spaces["inputs[0]"]
         self.time_major = self.in_space_0.time_major
         # Loop through either all args or all kwargs Spaces.
         idx = 0
         while self.dict_keys is None or len(self.dict_keys) > idx:
-            key = "inputs[{}]".format(idx) if self.dict_keys is None else "input_dict[{}]".format(self.dict_keys[idx])
-            if key not in input_spaces:
-                break
+            if self.dict_keys is None:
+                key = input_spaces["inputs[{}]".format(idx)]
+                if key not in input_spaces:
+                    break
+                in_space = input_spaces[key]
+            else:
+                in_space = input_spaces["inputs[0]"][self.dict_keys[idx]]
+
             # Make sure the shapes match (except for last rank).
-            assert self.in_space_0.shape[:-1] == input_spaces[key].shape[:-1], \
+            assert self.in_space_0.shape[:-1] == in_space.shape[:-1], \
                 "ERROR: Input spaces to ConcatLayer must have same shape except for last rank! " \
                 "0th input's shape is {}, but {}st input's shape is {} (all shapes here are without " \
-                "batch/time-ranks).".format(self.in_space_0.shape, idx, input_spaces[key].shape)
+                "batch/time-ranks).".format(self.in_space_0.shape, idx, in_space.shape)
             idx += 1
 
     @rlgraph_api
-    def _graph_fn_apply(self, *inputs, **input_dict):
+    def _graph_fn_apply(self, *inputs):  #, **input_dict):
         # Simple translation from dict to tuple-input.
         if self.dict_keys is not None:
-            inputs = [input_dict[key] for key in self.dict_keys]
+            #inputs = [input_dict[key] for key in self.dict_keys]
+            inputs = [inputs[0][key] for key in self.dict_keys]
 
         if get_backend() == "tf":
             concat_output = tf.concat(values=inputs, axis=self.axis)

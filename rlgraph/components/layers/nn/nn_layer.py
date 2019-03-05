@@ -73,10 +73,12 @@ class NNLayer(Layer):
                     key = "inputs[{}]".format(idx)
                     if key not in input_spaces:
                         break
-                    sanity_check_space(input_spaces[key], allowed_types=[FloatBox, IntBox], must_have_batch_rank=True)
+                    sanity_check_space(
+                        input_spaces[key], allowed_sub_types=[FloatBox, IntBox], must_have_batch_rank=True
+                    )
                     # Make sure all concat inputs have same batch-/time-ranks.
                     assert self.in_space_0.has_batch_rank == input_spaces[key].has_batch_rank and \
-                           self.in_space_0.has_time_rank == input_spaces[key].has_time_rank, \
+                        self.in_space_0.has_time_rank == input_spaces[key].has_time_rank, \
                         "ERROR: Input spaces to '{}' must have same batch-/time-rank structure! " \
                         "0th input is batch-rank={} time-rank={}, but {}st input is batch-rank={} " \
                         "time-rank={}.".format(
