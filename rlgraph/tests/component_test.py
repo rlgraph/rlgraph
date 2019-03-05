@@ -17,15 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import random
 
+import numpy as np
 from rlgraph import get_backend
-from rlgraph.utils import root_logger, PyTorchVariable
-from rlgraph.utils.input_parsing import parse_execution_spec
 from rlgraph.graphs import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.utils import root_logger, PyTorchVariable
+from rlgraph.utils.input_parsing import parse_execution_spec
 
 
 class ComponentTest(object):
@@ -172,6 +172,9 @@ class ComponentTest(object):
         Returns:
             any: Values of the variables provided.
         """
+        # No variables given: Read all variables of our component.
+        if len(variables) == 0:
+            variables = self.component.variable_registry
         ret = self.graph_executor.read_variable_values(variables)
         if len(variables) == 1:
             return ret[0]
