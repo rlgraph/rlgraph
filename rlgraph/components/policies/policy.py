@@ -18,16 +18,15 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph import get_backend
-from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical, Distribution, Beta, Bernoulli
-from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.component import Component
+from rlgraph.components.distributions import Normal, Categorical, Distribution, Bernoulli
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
-from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -91,18 +90,20 @@ class Policy(Component):
             if distribution is None:
                 raise RLGraphError("ERROR: `action_component` is of type {} and not allowed in {} Component!".
                                    format(type(action_space).__name__, self.name))
-            action_adapter_type = distribution.get_action_adapter_type()
             # Spec dict.
             if isinstance(action_adapter_spec, dict):
                 aa_spec = action_adapter_spec.get(flat_key, action_adapter_spec)
-                aa_spec["type"] = action_adapter_type
                 aa_spec["action_space"] = action_component
             # Simple type spec.
             elif not isinstance(action_adapter_spec, ActionAdapter):
-                aa_spec = dict(type=action_adapter_type, action_space=action_component)
+                aa_spec = dict(action_space=action_component)
             # Direct object.
             else:
                 aa_spec = action_adapter_spec
+
+            if isinstance(aa_spec,  dict) and "type" not in aa_spec:
+                aa_spec["type"] = distribution.get_action_adapter_type()
+
             self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
 
     def _get_distribution(self, i, action_component):
