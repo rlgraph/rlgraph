@@ -18,21 +18,19 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.common.batch_apply import BatchApply
+from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.components.common.container_splitter import ContainerSplitter
-from rlgraph.components.common.dict_merger import DictMerger
-from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.common.decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay, \
     ConstantDecay
+from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.components.common.noise_components import NoiseComponent, ConstantNoise, GaussianNoise, \
     OrnsteinUhlenbeckNoise
+from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.sampler import Sampler
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
-from rlgraph.components.common.repeater_stack import RepeaterStack
-from rlgraph.components.common.batch_splitter import BatchSplitter
-from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
-
+from rlgraph.components.common.synchronizable import Synchronizable
 
 DecayComponent.__lookup_classes__ = dict(
     lineardecay=LinearDecay,
@@ -51,9 +49,9 @@ NoiseComponent.__lookup_classes__ = dict(
 NoiseComponent.__default_constructor__ = GaussianNoise
 
 
-__all__ = ["BatchApply", "ContainerMerger", "ContainerSplitter", "DictMerger",
+__all__ = ["BatchApply", "ContainerMerger", "ContainerSplitter",
            "Synchronizable", "RepeaterStack", "Slice",
            "DecayComponent", "ConstantDecay", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
-            "Sampler", "BatchSplitter", "MultiGpuSynchronizer"]
+           "Sampler", "BatchSplitter", "MultiGpuSynchronizer"]
 
