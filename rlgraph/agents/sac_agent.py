@@ -87,13 +87,11 @@ class SACAgentComponent(Component):
 
         memory_items = ["states", "actions", "rewards", "next_states", "terminals"]
         self._merger = ContainerMerger(*memory_items)
-        self._splitter = ContainerSplitter(*memory_items)
 
         q_names = ["q_{}".format(i) for i in range(len(self._q_functions))]
         self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
-        # self._q_vars_splitter = ContainerSplitter(*q_names, scope="q_vars_splitter")
 
-        self.add_components(policy, preprocessor, memory, self._merger, self._splitter, self.loss_function,
+        self.add_components(policy, preprocessor, memory, self._merger, self.loss_function,
                             optimizer, vf_optimizer, self._q_vars_merger)  # , self._q_vars_splitter)
         self.add_components(*self._q_functions)
         self.add_components(*self._target_q_functions)

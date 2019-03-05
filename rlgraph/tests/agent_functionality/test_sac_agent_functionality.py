@@ -22,7 +22,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
 
         # Arbitrary state space, state should not be used in this example.
         state_space = FloatBox(shape=(8,))
-        continuous_action_space = FloatBox(low=-2.0, high=2.0)
+        continuous_action_space = FloatBox(shape=(1,), low=-2.0, high=2.0)
         terminal_space = BoolBox(add_batch_rank=True)
         rewards_space = FloatBox(add_batch_rank=True)
         policy = Policy.from_spec(config["policy"], action_space=continuous_action_space)
@@ -50,6 +50,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
             input_spaces=dict(
                 states=state_space.with_batch_rank(),
                 preprocessed_states=state_space.with_batch_rank(),
+                env_actions=continuous_action_space.with_batch_rank(),
                 actions=continuous_action_space.with_batch_rank(),
                 rewards=rewards_space,
                 next_states=state_space.with_batch_rank(),
@@ -76,7 +77,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         )
 
         batch_size = 10
-        action_sample = continuous_action_space.sample(batch_size)
+        action_sample = continuous_action_space.with_batch_rank().sample(batch_size)
         rewards = rewards_space.sample(batch_size)
         # Check, whether an update runs ok.
         result = test.test(("update_from_external_batch", [
@@ -90,7 +91,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         self.assertTrue(result["actor_loss"].dtype == np.float32)
         self.assertTrue(result["critic_loss"].dtype == np.float32)
 
-        action_sample = np.linspace(-1, 1, batch_size)
+        action_sample = np.linspace(-1, 1, batch_size).reshape((batch_size, 1))
         q_values = test.test(("get_q_values", [state_space.sample(batch_size), action_sample]))
         for q_val in q_values:
             self.assertTrue(q_val.dtype == np.float32)
