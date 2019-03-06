@@ -17,14 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-from six.moves import xrange as range_
 import re
 
+import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
-from rlgraph.utils.util import convert_dtype
-from rlgraph.utils.initializer import Initializer
 from rlgraph.spaces import Space
+from rlgraph.utils.initializer import Initializer
+from rlgraph.utils.util import convert_dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -182,6 +183,10 @@ class BoxSpace(Space):
             name = re.sub(r'^/_?', "", name)
             if is_input_feed:
                 variable = tf.placeholder(dtype=convert_dtype(self.dtype), shape=shape, name=name)
+                if self.has_batch_rank:
+                    variable._batch_rank = self.has_batch_rank
+                if self.has_time_rank:
+                    variable._time_rank = self.has_time_rank
             else:
                 init_spec = kwargs.pop("initializer", None)
                 # Bools should be initializable via 0 or not 0.
