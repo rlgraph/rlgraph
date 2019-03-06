@@ -20,6 +20,7 @@ from __future__ import print_function
 import inspect
 
 import numpy as np
+
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import convert_dtype
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
@@ -56,7 +57,7 @@ class DataOpRecord(object):
         self.op = op
         # Some instruction on how to derive the `op` property of this record (other than just: pass along).
         # e.g. "key-lookup: [some key]" if previous op is a DataOpDict.
-        self.op_instructions = None
+        self.op_instructions = dict()
         # Whether the op in this record is one of the last in the graph (a core API-method returned op).
         self.is_terminal_op = False
 
@@ -86,18 +87,21 @@ class DataOpRecord(object):
 
     def __getitem__(self, key):
         """
-        Returns new DataOpRecordColumn with
+        Creates new DataOpRecordColumn with a single op-rec pointing via its `op_instruction` dict
+        back to the previous column's op-rec (this one). This can be used to instruct the building process to
+        do tuple/dict lookups during the build process to implicitly use ContainerMerger/Splitter helper components
+        for a more intuitive handling of DataOpRecords within Component API methods.
 
         Args:
             key (str): The lookup key
 
         Returns:
-
+            A new DataOpRecord with the op_instructions set to do a tuple (idx) or dict (key) lookup at build time.
         """
         column = DataOpRecordColumn(
             self.column.component, args=[self]
         )
-        column.op_records[0].op_instructions = "key-lookup:{}".format(key)
+        column.op_records[0].op_instructions["key-lookup"] = key
         return column.op_records[0]
 
     def __str__(self):

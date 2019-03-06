@@ -1172,24 +1172,22 @@ class GraphBuilder(Specifiable):
                             self.op_records_to_process.add(next_op_rec)
                         # Push op and Space into next op-record.
                         # With op-instructions?
-                        if next_op_rec.op_instructions is not None:
-                            mo = re.match(r'^key-lookup:(.+)$', next_op_rec.op_instructions)
-                            if mo:
-                                lookup_key = mo.group(1)
-                                if isinstance(lookup_key, str) and (not isinstance(op_rec.op, dict) or lookup_key
-                                                                    not in op_rec.op):
-                                    raise RLGraphError(
-                                        "op_rec.op ({}) is not a dict or does not contain the lookup key '{}'!". \
-                                        format(op_rec.op, lookup_key)
-                                    )
-                                elif isinstance(lookup_key, int) and (not isinstance(op_rec.op, (list, tuple)) or
-                                                                      lookup_key >= len(op_rec.op)):
-                                    raise RLGraphError(
-                                        "op_rec.op ({}) is not a list/tuple or contains not enough items for lookup "
-                                        "index '{}'!".format(op_rec.op, lookup_key)
-                                    )
-                                next_op_rec.op = op_rec.op[lookup_key]
-                                next_op_rec.space = op_rec.space[lookup_key]
+                        if "key-lookup" in next_op_rec.op_instructions:
+                            lookup_key = next_op_rec.op_instructions["key-lookup"]
+                            if isinstance(lookup_key, str) and (not isinstance(op_rec.op, dict) or lookup_key
+                                                                not in op_rec.op):
+                                raise RLGraphError(
+                                    "op_rec.op ({}) is not a dict or does not contain the lookup key '{}'!". \
+                                    format(op_rec.op, lookup_key)
+                                )
+                            elif isinstance(lookup_key, int) and (not isinstance(op_rec.op, (list, tuple)) or
+                                                                  lookup_key >= len(op_rec.op)):
+                                raise RLGraphError(
+                                    "op_rec.op ({}) is not a list/tuple or contains not enough items for lookup "
+                                    "index '{}'!".format(op_rec.op, lookup_key)
+                                )
+                            next_op_rec.op = op_rec.op[lookup_key]
+                            next_op_rec.space = op_rec.space[lookup_key]
                         # No instructions -> simply pass on.
                         else:
                             next_op_rec.op = op_rec.op
