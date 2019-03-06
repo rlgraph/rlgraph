@@ -20,7 +20,6 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import force_list
-
 from .nn_layer import NNLayer
 
 if get_backend() == "tf":
@@ -64,7 +63,7 @@ class ConcatLayer(NNLayer):
         idx = 0
         while self.dict_keys is None or len(self.dict_keys) > idx:
             if self.dict_keys is None:
-                key = input_spaces["inputs[{}]".format(idx)]
+                key = "inputs[{}]".format(idx)
                 if key not in input_spaces:
                     break
                 in_space = input_spaces[key]
