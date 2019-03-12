@@ -21,7 +21,7 @@ import numpy as np
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical, Distribution, Bernoulli
+from rlgraph.components.distributions import Normal, Distribution, Bernoulli
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -39,7 +39,8 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 deterministic=True, scope="policy", bounded_distribution_type="beta", **kwargs):
+                 deterministic=True, scope="policy", bounded_distribution_type="beta",
+                 discrete_distribution_type="categorical", **kwargs):
         """
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
@@ -56,6 +57,10 @@ class Policy(Component):
             bounded_distribution_type(str): The class of distributions to use for bounded action spaces. For options
                 check the components.distributions package. Default: beta.
 
+            discrete_distribution_type(str): The class of distributions to use for discrete action spaces. For options
+                check the components.distributions package. Default: categorical. Agents requiring reparameterization
+                may require a GumbelSoftmax distribution instead.
+
             batch_apply (bool): Whether to wrap both the NN and the ActionAdapter with a BatchApply Component in order
                 to fold time rank into batch rank before a forward pass.
         """
@@ -63,9 +68,11 @@ class Policy(Component):
 
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
         self.deterministic = deterministic
-        self.action_adapters = dict()
-        self.distributions = dict()
+        self.action_adapters = {}
+        self.distributions = {}
         self.bounded_distribution_type = bounded_distribution_type
+        self.discrete_distribution_type = discrete_distribution_type
+
         self._create_action_adapters_and_distributions(
             action_space=action_space, action_adapter_spec=action_adapter_spec
         )
@@ -107,18 +114,20 @@ class Policy(Component):
             self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
 
     def _get_distribution(self, i, action_component):
-        # IntBox: Categorical.
+        # IntBox: Categorical (default) or Gumble-Softmax.
         if isinstance(action_component, IntBox):
-            return Categorical(scope="categorical-{}".format(i))
+            scope = "{}-{}".format(self.discrete_distribution_type, i)
+            spec = dict(type=self.discrete_distribution_type, scope=scope)
+            return Distribution.from_spec(spec=spec)
         # BoolBox: Bernoulli.
         elif isinstance(action_component, BoolBox):
             return Bernoulli(scope="bernoulli-{}".format(i))
-        # Continuous action space: Normal/Beta/etc. distribution.
+        # Continuous action spaces.
         elif isinstance(action_component, FloatBox):
             # Unbounded -> Normal distribution.
             if not self._is_action_bounded(action_component):
                 return Normal(scope="normal-{}".format(i))
-            # Bounded -> according to the bounded_distribution parameter.
+            # Bounded -> Beta (default) or Squashed Normal.
             else:
                 scope = "{}-{}".format(self.bounded_distribution_type, i)
                 spec = dict(
@@ -430,7 +439,6 @@ class Policy(Component):
         """
         ret = FlattenedDataOp()
         for flat_key, action_space_component in self.action_space.flatten().items():
-            low, high = action_space_component.tensor_backed_bounds()
             if flat_key == "":
                 if isinstance(parameters, FlattenedDataOp):
                     return self.distributions[flat_key].log_prob(parameters[flat_key], actions)
@@ -475,7 +483,7 @@ class Policy(Component):
 
         return ret
 
-    @graph_fn(returns=2)
+    @graph_fn
     def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):
         action = FlattenedDataOp()
         log_prob = FlattenedDataOp()

@@ -18,15 +18,16 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import numpy as np
 import os
-from scipy import stats
 import unittest
 
+import numpy as np
+from scipy import stats
+
 from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
-from rlgraph.components import Policy, NeuralNetwork, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer,\
+from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, \
     Synchronizable
-from rlgraph.environments import GaussianDensityAsRewardEnvironment
+from rlgraph.environments import GaussianDensityAsRewardEnvironment, OpenAIGymEnv
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest
@@ -157,4 +158,55 @@ class TestSACShortTaskLearning(unittest.TestCase):
         self.assertTrue(len(rewards) == 100)
         evaluation_score = np.mean(rewards)
         self.assertTrue(.5 * env.get_max_reward() < evaluation_score <= env.get_max_reward())
+
+    def test_sac_on_pendulum(self):
+        """
+        Creates an SAC-Agent and runs it on Pendulum.
+        """
+        env = OpenAIGymEnv("Pendulum-v0")
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_for_pendulum.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env,
+            agent=agent,
+            worker_executes_preprocessing=False,
+            render=self.is_windows
+        )
+        # Note: SAC is more computationally expensive.
+        episodes = 50
+        results = worker.execute_episodes(episodes)
+
+        print(results)
+
+        self.assertTrue(results["timesteps_executed"] == episodes * 200)
+        self.assertTrue(results["episodes_executed"] == episodes)
+        self.assertGreater(results["final_episode_reward"], -300)
+        self.assertGreater(results["mean_episode_reward"], -800)
+
+    def test_sac_on_cartpole(self):
+        """
+        Creates an SAC-Agent and runs it on CartPole.
+        """
+        env = OpenAIGymEnv("CartPole-v0")
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_for_cartpole.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env,
+            agent=agent,
+            worker_executes_preprocessing=False,
+            render=self.is_windows
+        )
+
+        time_steps = 10000
+        results = worker.execute_timesteps(time_steps)
+
+        print(results)
 

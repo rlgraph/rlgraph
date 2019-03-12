@@ -18,10 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.action_adapters import CategoricalDistributionAdapter
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.components.action_adapters import CategoricalDistributionAdapter
 
 if get_backend() == "tf":
     import tensorflow as tf

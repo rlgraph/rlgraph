@@ -55,6 +55,8 @@ class DenseLayer(NNLayer):
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs[0]"]
+        # print(input_spaces)
+        # print("global scope = {}, layer name = {}".format(self.global_scope, self.name))
         assert in_space.rank > 0, "ERROR: Must have input Space ({}) with rank larger 0!".format(in_space)
 
         # Create weights matrix and (maybe) biases vector.
