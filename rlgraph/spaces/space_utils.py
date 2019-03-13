@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
@@ -26,7 +28,6 @@ from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
 from rlgraph.utils.util import RLGraphError, convert_dtype, get_shape, LARGE_INTEGER
-from six.moves import xrange as range_
 
 if get_backend() == "pytorch":
     import torch
@@ -165,6 +166,8 @@ def get_space_from_op(op):
                 else:
                     shape = shape[1:]
                 add_batch_rank = True
+
+            # TODO: If op._batch_rank and/or op._time_rank are not set, set them now.
 
             base_dtype = op.dtype.base_dtype if hasattr(op.dtype, "base_dtype") else op.dtype
             # PyTorch does not have a bool type
@@ -444,3 +447,46 @@ def try_space_inference_from_list(list_op):
             return FloatBox(shape=(batch_shape,))
     else:
         raise ValueError("List inference should only be attempted on the Python backend.")
+
+
+def get_default_distribution_from_space(box_space, bounded_distribution_type="beta"):
+    """
+    Args:
+        box_space (BoxSpace): The primitive Space for which to derive a default distribution spec.
+        bounded_distribution_type (str): The lookup class string for a bounded FloatBox distribution.
+            Default: "beta".
+
+    Returns:
+        Dict: A Spec dict, from which a valid default distribution object can be created.
+    """
+    # IntBox: Categorical.
+    if isinstance(box_space, IntBox):
+        return dict(type="categorical")
+    # BoolBox: Bernoulli.
+    elif isinstance(box_space, BoolBox):
+        return dict(type="bernoulli")
+    # Continuous action space: Normal/Beta/etc. distribution.
+    elif isinstance(box_space, FloatBox):
+        # Unbounded -> Normal distribution.
+        if not is_bounded_space(box_space):
+            return dict(type="normal")
+        # Bounded -> according to the bounded_distribution parameter.
+        else:
+            return dict(type=bounded_distribution_type, low=box_space.low, high=box_space.high)
+
+
+def is_bounded_space(box_space):
+    if not isinstance(box_space, FloatBox):
+        return False
+    # Unbounded.
+    if box_space.low == float("-inf") and box_space.high == float("inf"):
+        return False
+    # Bounded.
+    elif box_space.low != float("-inf") and box_space.high != float("inf"):
+        return True
+    # TODO: Semi-bounded -> Exponential distribution.
+    else:
+        raise RLGraphError(
+            "Semi-bounded spaces for distribution-generation are not supported yet! You passed in low={} high={}.".
+            format(box_space.low, box_space.high)
+        )

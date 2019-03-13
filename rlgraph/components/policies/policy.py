@@ -18,12 +18,16 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
+    get_distribution_spec_from_action_adapter_type
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Distribution, Bernoulli
+from rlgraph.components.distributions import Distribution
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
+from rlgraph.spaces import Space, BoolBox, IntBox
+from rlgraph.spaces.space_utils import get_default_distribution_from_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.rlgraph_errors import RLGraphError
@@ -93,10 +97,6 @@ class Policy(Component):
 
         # Figure out our Distributions.
         for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
-            distribution = self.distributions[flat_key] = self._get_distribution(i, action_component)
-            if distribution is None:
-                raise RLGraphError("ERROR: `action_component` is of type {} and not allowed in {} Component!".
-                                   format(type(action_space).__name__, self.name))
             # Spec dict.
             if isinstance(action_adapter_spec, dict):
                 aa_spec = action_adapter_spec.get(flat_key, action_adapter_spec)
@@ -108,50 +108,28 @@ class Policy(Component):
             else:
                 aa_spec = action_adapter_spec
 
-            if isinstance(aa_spec,  dict) and "type" not in aa_spec:
-                aa_spec["type"] = distribution.get_action_adapter_type()
-
-            self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
-
-    def _get_distribution(self, i, action_component):
-        # IntBox: Categorical (default) or Gumble-Softmax.
-        if isinstance(action_component, IntBox):
-            scope = "{}-{}".format(self.discrete_distribution_type, i)
-            spec = dict(type=self.discrete_distribution_type, scope=scope)
-            return Distribution.from_spec(spec=spec)
-        # BoolBox: Bernoulli.
-        elif isinstance(action_component, BoolBox):
-            return Bernoulli(scope="bernoulli-{}".format(i))
-        # Continuous action spaces.
-        elif isinstance(action_component, FloatBox):
-            # Unbounded -> Normal distribution.
-            if not self._is_action_bounded(action_component):
-                return Normal(scope="normal-{}".format(i))
-            # Bounded -> Beta (default) or Squashed Normal.
-            else:
-                scope = "{}-{}".format(self.bounded_distribution_type, i)
-                spec = dict(
-                    type=self.bounded_distribution_type, scope=scope, low=action_component.low,
-                    high=action_component.high
+            if isinstance(aa_spec, dict) and "type" not in aa_spec:
+                dist_spec = get_default_distribution_from_space(
+                    action_component, self.bounded_distribution_type
                 )
-                return Distribution.from_spec(spec=spec)
-
-    @staticmethod
-    def _is_action_bounded(action_component):
-        if not isinstance(action_component, FloatBox):
-            return False
-        # Unbounded.
-        if action_component.low == float("-inf") and action_component.high == float("inf"):
-            return False
-        # Bounded.
-        elif action_component.low != float("-inf") and action_component.high != float("inf"):
-            return True
-        # TODO: Semi-bounded -> Exponential distribution.
-        else:
-            raise RLGraphError(
-                "Semi-bounded action spaces are not supported yet! You passed in low={} high={}.".
-                format(action_component.low, action_component.high)
-            )
+                self.distributions[flat_key] = Distribution.from_spec(
+                    dist_spec, scope="{}-{}".format(dist_spec["type"], i)
+                )
+                if self.distributions[flat_key] is None:
+                    raise RLGraphError(
+                        "ERROR: `action_component` is of type {} and not allowed in {} Component!".
+                        format(type(action_space).__name__, self.name)
+                    )
+                aa_spec["type"] = get_action_adapter_type_from_distribution_type(
+                    type(self.distributions[flat_key]).__name__
+                )
+                self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
+            else:
+                self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
+                dist_spec = get_distribution_spec_from_action_adapter_type(
+                    type(self.action_adapters[flat_key]).__name__
+                )
+                self.distributions[flat_key] = Distribution.from_spec(dist_spec)
 
     # Define our interface.
     @rlgraph_api

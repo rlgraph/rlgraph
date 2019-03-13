@@ -39,4 +39,6 @@ ActionAdapter.__lookup_classes__ = dict(
     squashednormaldistributionadapter=SquashedNormalDistributionAdapter,
 )
 
-__all__ = ["ActionAdapter"] + list(set(map(lambda x: x.__name__, ActionAdapter.__lookup_classes__.values())))
+__all__ = ["ActionAdapter", "get_action_adapter_type_from_distribution_type",
+           "get_distribution_spec_from_action_adapter_type"] + \
+          list(set(map(lambda x: x.__name__, ActionAdapter.__lookup_classes__.values())))
