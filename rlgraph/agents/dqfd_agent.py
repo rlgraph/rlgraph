@@ -80,7 +80,9 @@ class DQFDAgent(Agent):
         self.double_q = double_q
         self.dueling_q = dueling_q
         self.huber_loss = huber_loss
-        self.demo_batch_size = int(demo_sample_ratio * self.update_spec['batch_size'] / (1.0 - demo_sample_ratio))
+
+        self.batch_size = self.update_spec["batch_size"]
+        self.demo_batch_size = int(demo_sample_ratio * self.update_spec["batch_size"] / (1.0 - demo_sample_ratio))
         self.shared_container_action_target = shared_container_action_target
 
         # Debugging tools.
@@ -203,7 +205,7 @@ class DQFDAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def update_from_memory(root, apply_demo_loss):
             # Sample from online memory.
-            records, sample_indices, importance_weights = agent.memory.get_records(self.demo_batch_size)
+            records, sample_indices, importance_weights = agent.memory.get_records(self.batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.split(records)
 
             # Do not apply demo loss to online experience.
