@@ -18,22 +18,25 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
+from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
+    get_distribution_spec_from_action_adapter_type
 from rlgraph.components.action_adapters.bernoulli_distribution_adapter import BernoulliDistributionAdapter
 from rlgraph.components.action_adapters.beta_distribution_adapter import BetaDistributionAdapter
 from rlgraph.components.action_adapters.categorical_distribution_adapter import CategoricalDistributionAdapter
-from rlgraph.components.action_adapters.gumbel_softmax_adapter import GumbelSoftmaxAdapter
+from rlgraph.components.action_adapters.gumbel_softmax_distribution_adapter import GumbelSoftmaxDistributionAdapter
 from rlgraph.components.action_adapters.normal_distribution_adapter import NormalDistributionAdapter
-from rlgraph.components.action_adapters.squashed_normal_adapter import SquashedNormalAdapter
-
+from rlgraph.components.action_adapters.squashed_normal_distribution_adapter import SquashedNormalDistributionAdapter
 
 ActionAdapter.__lookup_classes__ = dict(
     actionadapter=ActionAdapter,
     bernoullidistributionadapter=BernoulliDistributionAdapter,
     categoricaldistributionadapter=CategoricalDistributionAdapter,
     betadistributionadapter=BetaDistributionAdapter,
+    gumbelsoftmaxdistributionadapter=GumbelSoftmaxDistributionAdapter,
+    gumbelsoftmaxadapter=GumbelSoftmaxDistributionAdapter,
     normaldistributionadapter=NormalDistributionAdapter,
-    squashednormaladapter=SquashedNormalAdapter,
-    gumbelsoftmaxadapter=GumbelSoftmaxAdapter
+    squashednormaladapter=SquashedNormalDistributionAdapter,
+    squashednormaldistributionadapter=SquashedNormalDistributionAdapter,
 )
 
 __all__ = ["ActionAdapter"] + list(set(map(lambda x: x.__name__, ActionAdapter.__lookup_classes__.values())))

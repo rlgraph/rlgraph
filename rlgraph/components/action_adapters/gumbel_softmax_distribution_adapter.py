@@ -26,7 +26,7 @@ elif get_backend() == "pytorch":
     import torch
 
 
-class GumbelSoftmaxAdapter(ActionAdapter):
+class GumbelSoftmaxDistributionAdapter(ActionAdapter):
     """
     Action adapter for the GumbelSoftmax distribution
     """

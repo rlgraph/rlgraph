@@ -26,7 +26,7 @@ elif get_backend() == "pytorch":
     import torch
 
 
-class SquashedNormalAdapter(ActionAdapter):
+class SquashedNormalDistributionAdapter(ActionAdapter):
     """
     Action adapter for the Squashed-normal distribution.
     """
