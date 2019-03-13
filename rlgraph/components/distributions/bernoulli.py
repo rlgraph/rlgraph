@@ -18,10 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.util import convert_dtype
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components.distributions.distribution import Distribution
-from rlgraph.components.action_adapters import CategoricalDistributionAdapter
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.util import convert_dtype
 
 if get_backend() == "tf":
     import tensorflow_probability as tfp
@@ -50,6 +49,3 @@ class Bernoulli(Distribution):
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
         return distribution.prob(True) >= 0.5
-
-    def get_action_adapter_type(self):
-        return CategoricalDistributionAdapter

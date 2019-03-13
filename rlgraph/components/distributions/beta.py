@@ -18,10 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.action_adapters import BetaDistributionAdapter
 from rlgraph.components.distributions.distribution import Distribution
-from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.spaces import Tuple, FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
@@ -92,6 +91,3 @@ class Beta(Distribution):
     def _graph_fn_log_prob(self, distribution, values):
         raw_values = self._graph_fn_unsquash(values)
         return super(Beta, self)._graph_fn_log_prob(distribution, raw_values)
-
-    def get_action_adapter_type(self):
-        return BetaDistributionAdapter

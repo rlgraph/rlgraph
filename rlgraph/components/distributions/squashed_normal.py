@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.action_adapters import SquashedNormalAdapter
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.spaces import Tuple, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
@@ -134,6 +133,3 @@ class SquashedNormal(Distribution):
                 raw_action = distribution.sample()
             # TODO: ...
             raise NotImplementedError
-
-    def get_action_adapter_type(self):
-        return SquashedNormalAdapter

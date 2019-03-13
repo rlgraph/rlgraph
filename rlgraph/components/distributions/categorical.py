@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.action_adapters import CategoricalDistributionAdapter
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -51,6 +50,3 @@ class Categorical(Distribution):
             return tf.argmax(input=distribution.probs, axis=-1, output_type=util.convert_dtype("int"))
         elif get_backend() == "pytorch":
             return torch.argmax(distribution.probs, dim=-1).int()
-
-    def get_action_adapter_type(self):
-        return CategoricalDistributionAdapter

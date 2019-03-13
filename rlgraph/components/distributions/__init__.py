@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.components.distributions.bernoulli import Bernoulli
 from rlgraph.components.distributions.beta import Beta
 from rlgraph.components.distributions.categorical import Categorical
+from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.components.distributions.gumbel_softmax import GumbelSoftmax
 from rlgraph.components.distributions.mixture_distribution import MixtureDistribution
 from rlgraph.components.distributions.multivariate_normal import MultivariateNormal
@@ -34,18 +34,19 @@ Distribution.__lookup_classes__ = dict(
     categoricaldistribution=Categorical,
     gaussian=Normal,
     gaussiandistribution=Normal,
+    gumbelsoftmax=GumbelSoftmax,
+    gumbelsoftmaxdistribution=GumbelSoftmax,
     mixed=MixtureDistribution,
     mixeddistribution=MixtureDistribution,
     multivariatenormal=MultivariateNormal,
     multivariategaussian=MultivariateNormal,
+    normal=Normal,
     normaldistribution=Normal,
     beta=Beta,
     betadistribution=Beta,
     squashed=SquashedNormal,
     squashednormal=SquashedNormal,
-    squashednormaldistribution=SquashedNormal,
-    gumbelsoftmax=GumbelSoftmax,
-    gumbelsoftmaxdistribution=GumbelSoftmax
+    squashednormaldistribution=SquashedNormal
 )
 
 __all__ = ["Distribution"] + list(set(map(lambda x: x.__name__, Distribution.__lookup_classes__.values())))
