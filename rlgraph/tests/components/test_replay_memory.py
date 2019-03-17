@@ -22,7 +22,7 @@ import unittest
 from rlgraph.components.memories.replay_memory import ReplayMemory
 from rlgraph.spaces import Dict, BoolBox
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import non_terminal_records, terminal_records
+from rlgraph.tests.test_util import non_terminal_records
 
 
 class TestReplayMemory(unittest.TestCase):
