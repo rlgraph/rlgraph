@@ -243,3 +243,12 @@ class RingBuffer(Memory):
                                                    shape=self.flat_record_space[name].shape)
             records = define_by_run_unflatten(records)
             return records
+
+    def get_state(self):
+        return {
+            "index": self.index,
+            "size": self.size,
+            "num_episodes": self.num_episodes,
+            "episode_indices": self.episode_indices,
+            "record_registry": self.record_registry
+        }
