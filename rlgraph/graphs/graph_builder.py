@@ -474,64 +474,6 @@ class GraphBuilder(Specifiable):
 
         return device
 
-    def get_subgraph(self, api_methods):
-        """
-        Computes and returns the sub-graph necessary to compute provided API methods.
-
-        Args:
-            api_methods Union[list,str]: Api method(s) considered for the subgraph.
-
-        Returns:
-            Component: Container component holding the subgraph.
-        """
-        if isinstance(api_methods, str):
-            api_methods = [api_methods]
-
-        subgraph_container = Component(scope="sub_graph")
-        subgraph_components = set()
-
-        # For every api method, trace forward from inputs until all relevant components identified.
-        for api_method in api_methods:
-            # Start with the input set for this method.
-            api_input_records = self.root_component.api_methods[api_method].in_op_columns[0].op_records
-            op_records_list = self._sort_op_recs(api_input_records)
-
-            # Re-iterate until our bag of op-recs to process is empty.
-            loop_counter = 0
-            while len(op_records_list) > 0:
-                new_op_records_to_process = set()
-                for op_rec in op_records_list:  # type: DataOpRecord
-                    # There are next records:
-                    if len(op_rec.next) > 0:
-                        # Push the op-record forward one step.
-                        for next_op_rec in self._sort_op_recs(op_rec.next):  # type: DataOpRecord
-                            # If not last op in this API-method ("done") -> continue.
-                            # Otherwise, replace "done" with actual op.
-                            if next_op_rec.op != "done":
-                                assert next_op_rec.op is None
-
-                            # Did we enter a new Component? If yes, add current component.
-                            # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
-                            # placeholder).
-                            self.logger.debug("Subgraph component: current op record component: {}, next: {}".format(
-                                op_rec.column.component, next_op_rec.column.component
-                            ))
-                            if op_rec.column is None or op_rec.column.component is not next_op_rec.column.component:
-                                # Add this component to the sub-graph.
-                                if op_rec.column.component not in subgraph_components:
-                                    subgraph_container.add_components(op_rec.column.component)
-
-                    # No next records:
-                    # - Op belongs to a column going into a graph_fn.
-                    elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
-                        new_op_records_to_process.update(op_rec.column.out_graph_fn_column.op_records)
-
-                # No sanity checks because meta graph was already built successfully.
-                new_op_records_list = self._sort_op_recs(new_op_records_to_process)
-                op_records_list = new_op_records_list
-                loop_counter += 1
-        return subgraph_container
-
     def run_through_graph_fn(self, op_rec_column, create_new_out_column=None):
         """
         Pushes all ops in the column through the respective graph_fn (graph_fn-spec and call-options are part of
