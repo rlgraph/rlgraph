@@ -741,7 +741,7 @@ class Component(Specifiable):
                 names = names[0]
             # print("names = ", names)
             state = None
-            if hasattr(self, "get_state"):
+            if  TraceContext.DEFINE_BY_RUN_CONTEXT == "execution" and hasattr(self, "get_state"):
                 state = self.get_state()
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
@@ -1259,7 +1259,22 @@ class Component(Specifiable):
         """
         Optionally execute post-build calls.
         """
+        # Try resetting state.
+        component_state = self.get_state()
+        if component_state is not None:
+            for name in component_state.keys():
+                if hasattr(self, name) and isinstance(getattr(self, name), (float, int)):
+                    self.__setattr__(name, 0)
+
+    def get_state(self):
+        """
+        Optionally provide define-by-run state as dict.
+
+        Returns:
+            dict: Names and values of variables.
+        """
         pass
+
 
     def get_helper_component(self, type_, *args, **kwargs):
         """
