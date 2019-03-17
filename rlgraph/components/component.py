@@ -741,12 +741,17 @@ class Component(Specifiable):
                 names = names[0]
             # print("names = ", names)
             state = None
-            if  TraceContext.DEFINE_BY_RUN_CONTEXT == "execution" and hasattr(self, "get_state"):
+            if TraceContext.DEFINE_BY_RUN_CONTEXT == "execution" and hasattr(self, "get_state"):
                 state = self.get_state()
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-                if state is not None and name in state:
-                    variables[name] = state[name]
+                if state is not None:
+                    # Generally using underscores in attribute names, not scope separates
+                    lookup = name.replace("-", "_")
+                    if lookup in state:
+                        variables[name] = state[lookup]
+                    elif name in state:
+                        variables[name] = state[name]
                 elif name in self.variable_registry:
                     if get_ref:
                         variables[re.sub(r'/', custom_scope_separator, name)] = self.variable_registry[name]
@@ -914,16 +919,16 @@ class Component(Specifiable):
         return_ = False
         # This is the final-return recursive call-level.
         if list_ is None:
-            list_ = dict()
+            list_ = {}
             return_ = True
         if level_ not in list_:
-            list_[level_] = list()
+            list_[level_] = []
         list_[level_].append(self)
         level_ += 1
         for sub_component in self.sub_components.values():
             sub_component.get_all_sub_components(list_, level_)
         if return_:
-            ret = list()
+            ret = []
             for l in sorted(list_.keys(), reverse=True):
                 ret.extend(sorted(list_[l], key=lambda c: c.scope))
             if exclude_self:
@@ -1274,7 +1279,6 @@ class Component(Specifiable):
             dict: Names and values of variables.
         """
         pass
-
 
     def get_helper_component(self, type_, *args, **kwargs):
         """
