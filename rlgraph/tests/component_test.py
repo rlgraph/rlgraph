@@ -177,6 +177,26 @@ class ComponentTest(object):
             return ret[0]
         return ret
 
+    def get_variable_values(self, component, names):
+        """
+        Reads value of component state for given component and names.
+
+        Args:
+            component (Component):
+            *names (list): List of strings.
+
+        Returns:
+            list: Variable values.
+        """
+        variables = component.get_variables(names, global_scope=False)
+        if get_backend() == "tf":
+            ret = self.graph_executor.read_variable_values(variables)
+            if len(variables) == 1:
+                return ret[0]
+            return ret
+        else:
+            return [variables[name] for name in names]
+
     @staticmethod
     def read_params(name, params, transpose_torch_params=True):
         """
