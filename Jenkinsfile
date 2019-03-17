@@ -106,6 +106,8 @@ pipeline {
               // Test All compilations.
               sh 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_all_compile.py';
               sh 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_dqn_loss_functions.py';
+              sh 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_replay_memory.py';
+              sh 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_ring_buffer.py';
             }
         }
     }
