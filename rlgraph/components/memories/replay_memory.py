@@ -65,7 +65,6 @@ class ReplayMemory(Memory):
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         num_records = get_batch_size(records["terminals"])
-
         if get_backend() == "tf":
             # List of indices to update (insert from `index` forward and roll over at `self.capacity`).
             update_indices = tf.range(start=self.index, limit=self.index + num_records) % self.capacity
@@ -123,3 +122,10 @@ class ReplayMemory(Memory):
             weights = torch.ones(indices.shape, dtype=torch.float32) if len(indices) > 0 \
                 else torch.ones(1, dtype=torch.float32)
             return records, indices, weights
+
+    def get_state(self):
+        return {
+            "index": self.index,
+            "size": self.size,
+            "record_registry": self.record_registry
+        }

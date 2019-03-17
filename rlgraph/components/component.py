@@ -740,9 +740,14 @@ class Component(Specifiable):
             if isinstance(names, tuple) and len(names) == 1:
                 names = names[0]
             # print("names = ", names)
+            state = None
+            if hasattr(self, "get_state"):
+                state = self.get_state()
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-                if name in self.variable_registry:
+                if state is not None and name in state:
+                    variables[name] = state[name]
+                elif name in self.variable_registry:
                     if get_ref:
                         variables[re.sub(r'/', custom_scope_separator, name)] = self.variable_registry[name]
                     else:
@@ -760,6 +765,7 @@ class Component(Specifiable):
                             variables[name] = self.variable_registry[global_scope_name]
                         else:
                             variables[name] = self.read_variable(self.variable_registry[global_scope_name])
+
         return variables
 
     def create_summary(self, name, values, summary_type="histogram"):
