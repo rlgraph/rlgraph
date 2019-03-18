@@ -144,3 +144,9 @@ class MemPrioritizedReplay(Memory):
             self.merged_segment_tree.insert(index, priority)
             self.max_priority = max(self.max_priority, priority)
 
+    def get_state(self):
+        return {
+            "size": self.size,
+            "index": self.index,
+            "max_priority": self.max_priority
+        }
