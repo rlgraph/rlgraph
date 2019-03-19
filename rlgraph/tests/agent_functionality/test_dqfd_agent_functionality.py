@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+import numpy as np
 
 from rlgraph.agents import DQFDAgent
 from rlgraph.environments import OpenAIGymEnv
@@ -196,7 +197,7 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
         )
 
         # Fit demos.
-        agent.update_from_demos(num_updates=1000, batch_size=20)
+        agent.update_from_demos(num_updates=5000, batch_size=20)
 
         # Evaluate demos:
         agent_actions = agent.get_action(demo_states, apply_preprocessing=False, use_exploration=False)
@@ -235,3 +236,72 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
         )
         # Call update.
         agent.update()
+
+    def test_custom_margin_demos_with_container_actions(self):
+        # Tests if using different margins per sample works.
+        # Same state, but different
+        vocab_size = 100
+        embed_dim = 8
+        # ID/state space.
+        state_space = IntBox(vocab_size, shape=(10,))
+        # Container action space.
+        actions_space = {}
+        num_outputs = 3
+        for i in range(3):
+            actions_space['action_{}'.format(i)] = IntBox(
+                low=0,
+                high=num_outputs
+            )
+        actions_space = Dict(actions_space)
+
+        agent_config = config_from_path("configs/dqfd_container.json")
+        agent_config["network_spec"] = [
+            dict(type="embedding", embed_dim=embed_dim, vocab_size=vocab_size),
+            dict(type="reshape", flatten=True),
+            dict(type="dense", units=embed_dim, activation="relu", scope="dense_1")
+        ]
+        agent = DQFDAgent.from_spec(
+            agent_config,
+            state_space=state_space,
+            action_space=actions_space
+        )
+        terminals = BoolBox(add_batch_rank=True)
+        rewards = FloatBox(add_batch_rank=True)
+
+        # Create a set of demos.
+        demo_states = agent.preprocessed_state_space.with_batch_rank().sample(2)
+        # Same state.
+        demo_states[1] = demo_states[0]
+        demo_actions = actions_space.with_batch_rank().sample(2)
+
+        for name, action in actions_space.items():
+            demo_actions[name][0] = 0
+            demo_actions[name][1] = 1
+
+        demo_rewards = rewards.sample(2, fill_value=.0)
+        # One action has positive reward, one negative
+        demo_rewards[0] = 0
+        demo_rewards[1] = 0
+
+        # One action is encouraged, one is discouraged.
+        margins = np.asarray([0.5, -0.5])
+
+        demo_next_states = agent.preprocessed_state_space.with_batch_rank().sample(2)
+        demo_terminals = terminals.sample(2, fill_value=False)
+
+        # When using margins, need to use external batch.
+        batch = dict(
+            states=demo_states,
+            actions=demo_actions,
+            rewards=demo_rewards,
+            next_states=demo_next_states,
+            importance_weights=np.ones_like(demo_rewards),
+            terminals=demo_terminals,
+        )
+        # Fit demos with custom margins.
+        for _ in range(10000):
+            agent.update(batch=batch, update_from_demos=False, apply_demo_loss_to_batch=True, expert_margins=margins)
+
+        # Evaluate demos for the state -> should have action with positive reward.
+        agent_actions = agent.get_action(np.array([demo_states[0]]), apply_preprocessing=False, use_exploration=False)
+        print("learned action = ", agent_actions)

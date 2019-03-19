@@ -35,7 +35,7 @@ class DQFDAgent(Agent):
     https://arxiv.org/abs/1704.03732
     """
     def __init__(self, expert_margin=0.5, supervised_weight=1.0, double_q=True, dueling_q=True,
-                 huber_loss=False, n_step=1, shared_container_action_target=True,
+                 huber_loss=False, n_step=1, shared_container_action_target=False,
                  memory_spec=None, demo_memory_spec=None,
                  demo_sample_ratio=0.2, store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         # TODO Most of this is DQN duplicate but the way the loss function is instantiated, inheriting
@@ -80,8 +80,11 @@ class DQFDAgent(Agent):
         self.double_q = double_q
         self.dueling_q = dueling_q
         self.huber_loss = huber_loss
+        self.expert_margin = expert_margin
 
         self.batch_size = self.update_spec["batch_size"]
+        self.default_margins = np.asarray([self.expert_margin] * self.batch_size)
+
         self.demo_batch_size = int(demo_sample_ratio * self.update_spec["batch_size"] / (1.0 - demo_sample_ratio))
         self.shared_container_action_target = shared_container_action_target
 
@@ -107,6 +110,7 @@ class DQFDAgent(Agent):
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
+            expert_margins=FloatBox(add_batch_rank=True),
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=weight_space
@@ -131,7 +135,7 @@ class DQFDAgent(Agent):
 
         use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQFDLossFunction(
-            expert_margin=expert_margin, supervised_weight=supervised_weight,
+            supervised_weight=supervised_weight,
             discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
             shared_container_action_target=shared_container_action_target,
             importance_weights=use_importance_weights, n_step=n_step
@@ -203,14 +207,15 @@ class DQFDAgent(Agent):
 
         # Learn from online memory AND demo memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root, apply_demo_loss):
+        def update_from_memory(root, apply_demo_loss, expert_margins):
             # Sample from online memory.
             records, sample_indices, importance_weights = agent.memory.get_records(self.batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.split(records)
 
             # Do not apply demo loss to online experience.
             online_step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss
+                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss,
+                expert_margins
             )
 
             if isinstance(agent.memory, PrioritizedReplay):
@@ -222,12 +227,13 @@ class DQFDAgent(Agent):
 
         # Learn from demo-data.
         @rlgraph_api(component=self.root_component)
-        def update_from_demos(root, demo_batch_size, apply_demo_loss):
+        def update_from_demos(root, demo_batch_size, apply_demo_loss, expert_margins):
             # Sample from demo memory.
             records, sample_indices, importance_weights = agent.demo_memory.get_records(demo_batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.split(records)
             step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss
+                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss,
+                expert_margins
             )
             return step_op, loss, loss_per_item, records, q_values_s
 
@@ -235,7 +241,7 @@ class DQFDAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
                 root, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights,
-                apply_demo_loss
+                apply_demo_loss, expert_margins
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -245,7 +251,7 @@ class DQFDAgent(Agent):
                 grads_and_vars, loss, loss_per_item, q_values_s = \
                     root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                         dict(policy=main_policy_vars), preprocessed_states, actions, rewards, terminals,
-                        preprocessed_next_states, importance_weights, apply_demo_loss
+                        preprocessed_next_states, importance_weights, apply_demo_loss, expert_margins
                     )
                 step_op = agent.optimizer.apply_gradients(grads_and_vars)
                 # Increase the global training step counter.
@@ -270,7 +276,8 @@ class DQFDAgent(Agent):
                 q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss
+                q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins, q_values_sp,
+                importance_weights, apply_demo_loss
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -286,7 +293,7 @@ class DQFDAgent(Agent):
 
         @rlgraph_api(component=self.root_component)
         def get_td_loss(root, preprocessed_states, actions, rewards,
-                        terminals, preprocessed_next_states, importance_weights, apply_demo_loss):
+                        terminals, preprocessed_next_states, importance_weights, apply_demo_loss, expert_margins):
 
             policy = root.get_sub_component_by_name(agent.policy.scope)
             target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
@@ -301,7 +308,8 @@ class DQFDAgent(Agent):
                 q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss
+                q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins,
+                q_values_sp, importance_weights, apply_demo_loss
             )
             return loss, loss_per_item
 
@@ -349,7 +357,24 @@ class DQFDAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None, update_from_demos=False):
+    def update(self, batch=None, update_from_demos=False, expert_margins=None, apply_demo_loss_to_batch=False):
+        """
+        Updates from external batch or replay memory.
+        Args:
+            batch (Optional[dict]): Optional dict to use for updating. If false, samples from replay memory
+            update_from_demos (bool): If true, also updates from demo memory by sampling demonstrations from
+                demo memory. Default false (only updating from main replay memory).
+            expert_margins (SingleDataOp): The expert margin enforces a distance in Q-values between expert action and
+                all other actions.
+           apply_demo_loss_to_batch (bool): If true and an external batch is given, demo loss is applied to this
+                batch. Can be combined with external per-sample expert margins. The purpose of this is to update
+                from external demonstration data where each sample has a different margin. If false and an
+                external batch is given, the agent updates this with the normal Double/Dueling-q loss. Default
+                false. Only valid if batch is not None.
+        Returns:
+            tuple: Loss and loss per item.
+        """
+
         # Should we sync the target net?
         self.steps_since_target_net_sync += self.update_spec["update_interval"]
         if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
@@ -358,10 +383,14 @@ class DQFDAgent(Agent):
         else:
             sync_call = None
 
+        if expert_margins is None:
+            expert_margins = self.default_margins
+
         # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
         return_ops = [0, 1, 2]
         q_table = None
 
+        # Update from replay memory.  Potentially also update from demo memory with default margins.
         if batch is None:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
@@ -372,8 +401,10 @@ class DQFDAgent(Agent):
             # Combine: Update from memory (apply_demo_loss=False), update_from_demo (apply=True).
             # Otherwise only update from online memory.
             if update_from_demos:
-                ret = self.graph_executor.execute(("update_from_memory", False, return_ops),
-                                                  ("update_from_demos", [self.demo_batch_size, True], return_ops),
+                # Use default margins whe sampling from memory.
+                ret = self.graph_executor.execute(("update_from_memory", [False, self.default_margins], return_ops),
+                                                  ("update_from_demos", [self.demo_batch_size, True,
+                                                                         self.default_margins], return_ops),
                                                   sync_call)
             else:
                 ret = self.graph_executor.execute(("update_from_memory", False, return_ops), sync_call)
@@ -389,19 +420,24 @@ class DQFDAgent(Agent):
                     q_values=ret[4]
                 )
         else:
+            # Update from external batch, optionally applying demo loss. Also optionally
+            # sample demos from separate demo memory.
+
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
                 return_ops += [3]  # 3=q-values
 
-            # Add false: no demo loss.
+            # Apply demo loss to external flag depending on batch.
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"], False]
+                           batch["next_states"], batch["importance_weights"], apply_demo_loss_to_batch, expert_margins]
 
             if update_from_demos:
                 ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops),
-                                                  ("update_from_demos", [self.demo_batch_size, True], return_ops),
+                                                  ("update_from_demos", [self.demo_batch_size, True,
+                                                                         self.default_margins], return_ops),
                                                   sync_call)
             else:
+                # Only update from external batch (which may use demo loss depending on flag.
                 ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
@@ -436,15 +472,16 @@ class DQFDAgent(Agent):
     def update_from_demos(self, num_updates=1, batch_size=None):
         """
         Executes a number of updates by sampling from the expert memory.
+
         Args:
             num_updates (int): The number of samples to execute.
             batch_size (Optional[int]): Sampling batch size to use. If None, uses the demo
-                batch size computed via the sampling ratio /
+                batch size computed via the sampling ratio.
         """
         if batch_size is None:
             batch_size = self.demo_batch_size
         for _ in range(num_updates):
-            self.graph_executor.execute(("update_from_demos", [batch_size, True]))
+            self.graph_executor.execute(("update_from_demos", [batch_size, True, self.default_margins]))
 
     def observe_demos(self, preprocessed_states, actions, rewards, next_states, terminals):
         """
