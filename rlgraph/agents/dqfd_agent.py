@@ -407,7 +407,8 @@ class DQFDAgent(Agent):
                                                                          self.default_margins], return_ops),
                                                   sync_call)
             else:
-                ret = self.graph_executor.execute(("update_from_memory", False, return_ops), sync_call)
+                ret = self.graph_executor.execute(("update_from_memory",  [False, self.default_margins], return_ops),
+                                                  sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
