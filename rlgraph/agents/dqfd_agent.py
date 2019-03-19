@@ -390,6 +390,7 @@ class DQFDAgent(Agent):
         return_ops = [0, 1, 2]
         q_table = None
 
+        # Update from replay memory.  Potentially also update from demo memory with default margins.
         if batch is None:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
@@ -419,6 +420,9 @@ class DQFDAgent(Agent):
                     q_values=ret[4]
                 )
         else:
+            # Update from external batch, optionally applying demo loss. Also optionally
+            # sample demos from separate demo memory.
+
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
                 return_ops += [3]  # 3=q-values
@@ -433,6 +437,7 @@ class DQFDAgent(Agent):
                                                                          self.default_margins], return_ops),
                                                   sync_call)
             else:
+                # Only update from external batch (which may use demo loss depending on flag.
                 ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
@@ -467,6 +472,7 @@ class DQFDAgent(Agent):
     def update_from_demos(self, num_updates=1, batch_size=None):
         """
         Executes a number of updates by sampling from the expert memory.
+
         Args:
             num_updates (int): The number of samples to execute.
             batch_size (Optional[int]): Sampling batch size to use. If None, uses the demo
