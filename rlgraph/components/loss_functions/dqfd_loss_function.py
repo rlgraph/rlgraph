@@ -48,8 +48,8 @@ class DQFDLossFunction(DQNLossFunction):
     def loss(self, q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins,
              q_values_sp=None, importance_weights=None, apply_demo_loss=False):
         loss_per_item = self.loss_per_item(
-            q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, expert_margins,
-            importance_weights, apply_demo_loss,
+            q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins, q_values_sp,
+            importance_weights, apply_demo_loss
         )
         total_loss = self.loss_average(loss_per_item)
         return total_loss, loss_per_item
@@ -64,8 +64,8 @@ class DQFDLossFunction(DQNLossFunction):
             td_targets = self._graph_fn_average_over_container_keys(td_targets)
 
         # Calculate the loss per item.
-        loss_per_item = self._graph_fn_loss_per_item(td_targets, q_values_s, actions,
-                                                     importance_weights, apply_demo_loss, expert_margins)
+        loss_per_item = self._graph_fn_loss_per_item(td_targets, q_values_s, actions, expert_margins,
+                                                     importance_weights, apply_demo_loss)
         # Average over container sub-actions.
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
 
@@ -108,7 +108,9 @@ class DQFDLossFunction(DQNLossFunction):
 
             # Margin mask: allow custom per-sample expert margins -> requires creating a margin matrix.
             # Instead of applying the same margin to all samples, users can pass a margin vector.
+            print("Expert margins = ", expert_margins)
             margin_mask = expert_margins - one_hot
+            print("margin mask = ", margin_mask)
             margin_mask = tf.Print(margin_mask, [margin_mask], summarize=100, message="margin mask =")
             supervised_loss = tf.reduce_max(input_tensor=q_values_s + action_mask * margin_mask, axis=-1)
 

@@ -276,8 +276,8 @@ class DQFDAgent(Agent):
                 q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss,
-                expert_margins
+                q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins, q_values_sp,
+                importance_weights, apply_demo_loss
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -293,7 +293,7 @@ class DQFDAgent(Agent):
 
         @rlgraph_api(component=self.root_component)
         def get_td_loss(root, preprocessed_states, actions, rewards,
-                        terminals, preprocessed_next_states, importance_weights, apply_demo_loss):
+                        terminals, preprocessed_next_states, importance_weights, apply_demo_loss, expert_margins):
 
             policy = root.get_sub_component_by_name(agent.policy.scope)
             target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
@@ -308,7 +308,8 @@ class DQFDAgent(Agent):
                 q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, apply_demo_loss
+                q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins,
+                q_values_sp, importance_weights, apply_demo_loss
             )
             return loss, loss_per_item
 
