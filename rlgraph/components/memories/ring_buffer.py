@@ -75,7 +75,7 @@ class RingBuffer(Memory):
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
-            insert_terminal_slice = self.read_variable(self.record_registry['terminals'], update_indices)
+            insert_terminal_slice = self.read_variable(self.memory['terminals'], update_indices)
 
             # Shift episode indices.
             with tf.control_dependencies([update_indices, index, prev_num_episodes, insert_terminal_slice]):
@@ -124,9 +124,9 @@ class RingBuffer(Memory):
             # Updates all the necessary sub-variables in the record.
             with tf.control_dependencies(index_updates):
                 record_updates = []
-                for key in self.record_registry:
+                for key in self.memory:
                     record_updates.append(self.scatter_update_variable(
-                        variable=self.record_registry[key],
+                        variable=self.memory[key],
                         indices=update_indices,
                         updates=records[key]
                     ))
@@ -147,7 +147,7 @@ class RingBuffer(Memory):
             episodes_in_insert_range = 0
             # Count terminals in inserted range.
             for index in update_indices:
-                episodes_in_insert_range += int(self.record_registry["terminals"][index])
+                episodes_in_insert_range += int(self.memory["terminals"][index])
             num_episode_update = self.num_episodes - episodes_in_insert_range + inserted_episodes
             self.episode_indices[:self.num_episodes - episodes_in_insert_range] = \
                 self.episode_indices[episodes_in_insert_range:self.num_episodes]
@@ -167,9 +167,9 @@ class RingBuffer(Memory):
             self.size = min(self.size + num_records, self.capacity)
 
             # Updates all the necessary sub-variables in the record.
-            for key in self.record_registry:
+            for key in self.memory:
                 for i, val in zip(update_indices, records[key]):
-                    self.record_registry[key][i] = val
+                    self.memory[key][i] = val
 
             # The TF version returns no-op, return None so return-val inference system does not throw error.
             return None
@@ -187,7 +187,7 @@ class RingBuffer(Memory):
             indices = np.arange(self.index - available_records, self.index) % self.capacity
             records = OrderedDict()
 
-            for name, variable in self.record_registry.items():
+            for name, variable in self.memory.items():
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
                                                    shape=self.flat_record_space[name].shape)
@@ -237,7 +237,7 @@ class RingBuffer(Memory):
             indices = torch.arange(start, limit + 1) % self.capacity
 
             records = OrderedDict()
-            for name, variable in self.record_registry.items():
+            for name, variable in self.memory.items():
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
                                                    shape=self.flat_record_space[name].shape)
@@ -250,5 +250,5 @@ class RingBuffer(Memory):
             "size": self.size,
             "num_episodes": self.num_episodes,
             "episode_indices": self.episode_indices,
-            "record_registry": self.record_registry
+            "memory": self.memory
         }

@@ -111,9 +111,9 @@ class PrioritizedReplay(Memory):
 
         # Updates all the necessary sub-variables in the record.
         record_updates = list()
-        for key in self.record_registry:
+        for key in self.memory:
             record_updates.append(self.scatter_update_variable(
-                variable=self.record_registry[key],
+                variable=self.memory[key],
                 indices=update_indices,
                 updates=records[key]
             ))

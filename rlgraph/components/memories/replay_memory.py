@@ -71,9 +71,9 @@ class ReplayMemory(Memory):
 
             # Updates all the necessary sub-variables in the record.
             record_updates = []
-            for key in self.record_registry:
+            for key in self.memory:
                 record_updates.append(self.scatter_update_variable(
-                    variable=self.record_registry[key],
+                    variable=self.memory[key],
                     indices=update_indices,
                     updates=records[key]
                 ))
@@ -89,9 +89,9 @@ class ReplayMemory(Memory):
                 return tf.no_op()
         elif get_backend() == "pytorch":
             update_indices = torch.arange(self.index, self.index + num_records) % self.capacity
-            for key in self.record_registry:
+            for key in self.memory:
                 for i, val in zip(update_indices, records[key]):
-                    self.record_registry[key][i] = val
+                    self.memory[key][i] = val
             self.index = (self.index + num_records) % self.capacity
             self.size = min(self.size + num_records, self.capacity)
             return None
@@ -114,7 +114,7 @@ class ReplayMemory(Memory):
                 indices = np.random.choice(np.arange(0, self.size), size=int(num_records))
                 indices = (self.index - 1 - indices) % self.capacity
             records = OrderedDict()
-            for name, variable in self.record_registry.items():
+            for name, variable in self.memory.items():
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
                                                    shape=self.flat_record_space[name].shape)
@@ -127,5 +127,5 @@ class ReplayMemory(Memory):
         return {
             "index": self.index,
             "size": self.size,
-            "record_registry": self.record_registry
+            "memory": self.memory
         }
