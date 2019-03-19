@@ -88,7 +88,7 @@ class DQFDLossFunction(DQNLossFunction):
                 apply to the losses.
             apply_demo_loss (Optional[SingleDataOp]): If 'apply_demo_loss' is True: The large-margin loss is applied.
                 Should be set to True when updating from demo data, False when updating from online data.
-            expert_margin (float): The expert margin enforces a distance in Q-values between expert action and
+            expert_margins (SingleDataOp): The expert margin enforces a distance in Q-values between expert action and
                 all other actions.
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).

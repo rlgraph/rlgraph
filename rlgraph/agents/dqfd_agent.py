@@ -35,7 +35,7 @@ class DQFDAgent(Agent):
     https://arxiv.org/abs/1704.03732
     """
     def __init__(self, expert_margin=0.5, supervised_weight=1.0, double_q=True, dueling_q=True,
-                 huber_loss=False, n_step=1, shared_container_action_target=True,
+                 huber_loss=False, n_step=1, shared_container_action_target=False,
                  memory_spec=None, demo_memory_spec=None,
                  demo_sample_ratio=0.2, store_last_memory_batch=False, store_last_q_table=False, **kwargs):
         # TODO Most of this is DQN duplicate but the way the loss function is instantiated, inheriting
@@ -357,7 +357,24 @@ class DQFDAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None, update_from_demos=False):
+    def update(self, batch=None, update_from_demos=False, expert_margins=None, apply_demo_loss_to_batch=False):
+        """
+        Updates from external batch or replay memory.
+        Args:
+            batch (Optional[dict]): Optional dict to use for updating. If false, samples from replay memory
+            update_from_demos (bool): If true, also updates from demo memory by sampling demonstrations from
+                demo memory. Default false (only updating from main replay memory).
+            expert_margins (SingleDataOp): The expert margin enforces a distance in Q-values between expert action and
+                all other actions.
+           apply_demo_loss_to_batch (bool): If true and an external batch is given, demo loss is applied to this
+                batch. Can be combined with external per-sample expert margins. The purpose of this is to update
+                from external demonstration data where each sample has a different margin. If false and an
+                external batch is given, the agent updates this with the normal Double/Dueling-q loss. Default
+                false. Only valid if batch is not None.
+        Returns:
+            tuple: Loss and loss per item.
+        """
+
         # Should we sync the target net?
         self.steps_since_target_net_sync += self.update_spec["update_interval"]
         if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
@@ -365,6 +382,9 @@ class DQFDAgent(Agent):
             self.steps_since_target_net_sync = 0
         else:
             sync_call = None
+
+        if expert_margins is None:
+            expert_margins = self.default_margins
 
         # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
         return_ops = [0, 1, 2]
@@ -403,9 +423,9 @@ class DQFDAgent(Agent):
             if self.store_last_q_table is True:
                 return_ops += [3]  # 3=q-values
 
-            # Add false: no demo loss.
+            # Apply demo loss to external flag depending on batch.
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"], False, self.default_margins]
+                           batch["next_states"], batch["importance_weights"], apply_demo_loss_to_batch, expert_margins]
 
             if update_from_demos:
                 ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops),
@@ -444,23 +464,18 @@ class DQFDAgent(Agent):
         if self.preprocessing_required and len(self.preprocessor.variable_registry) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
-    def update_from_demos(self, num_updates=1, batch_size=None, expert_margins=None):
+    def update_from_demos(self, num_updates=1, batch_size=None):
         """
         Executes a number of updates by sampling from the expert memory.
         Args:
             num_updates (int): The number of samples to execute.
             batch_size (Optional[int]): Sampling batch size to use. If None, uses the demo
                 batch size computed via the sampling ratio.
-            expert_margins (Optional[(ndarray)]): The expert margin enforces a distance in Q-values between expert
-                action and all other actions. This option allows passing in a vector to define a custom expert
-                margin per sample to allow distinguishing confidence in demostrations.
         """
         if batch_size is None:
             batch_size = self.demo_batch_size
-        if expert_margins is None:
-            expert_margins = np.asarray([self.expert_margin] * batch_size)
         for _ in range(num_updates):
-            self.graph_executor.execute(("update_from_demos", [batch_size, True, expert_margins]))
+            self.graph_executor.execute(("update_from_demos", [batch_size, True, self.default_margins]))
 
     def observe_demos(self, preprocessed_states, actions, rewards, next_states, terminals):
         """
