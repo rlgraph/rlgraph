@@ -108,10 +108,11 @@ class DQFDLossFunction(DQNLossFunction):
 
             # Margin mask: allow custom per-sample expert margins -> requires creating a margin matrix.
             # Instead of applying the same margin to all samples, users can pass a margin vector.
-            print("Expert margins = ", expert_margins)
+            # Broadcast to one hot shape
+            expert_margins = tf.expand_dims(expert_margins, -1)
+            expert_margins = tf.broadcast_to(input=expert_margins, shape=tf.shape(one_hot))
             margin_mask = expert_margins - one_hot
-            print("margin mask = ", margin_mask)
-            margin_mask = tf.Print(margin_mask, [margin_mask], summarize=100, message="margin mask =")
+            # margin_mask = tf.Print(margin_mask, [margin_mask], summarize=100, message="margin mask =")
             supervised_loss = tf.reduce_max(input_tensor=q_values_s + action_mask * margin_mask, axis=-1)
 
             # Subtract Q-values of action actually taken.
@@ -131,6 +132,3 @@ class DQFDLossFunction(DQNLossFunction):
                 return importance_weights * td_delta
             else:
                 return td_delta
-
-
-
