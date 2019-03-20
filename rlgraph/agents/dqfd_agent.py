@@ -86,6 +86,7 @@ class DQFDAgent(Agent):
         self.default_margins = np.asarray([self.expert_margin] * self.batch_size)
 
         self.demo_batch_size = int(demo_sample_ratio * self.update_spec["batch_size"] / (1.0 - demo_sample_ratio))
+        self.demo_margins =  np.asarray([self.expert_margin] * self.demo_batch_size)
         self.shared_container_action_target = shared_container_action_target
 
         # Debugging tools.
@@ -383,9 +384,6 @@ class DQFDAgent(Agent):
         else:
             sync_call = None
 
-        if expert_margins is None:
-            expert_margins = self.default_margins
-
         # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
         return_ops = [0, 1, 2]
         q_table = None
@@ -404,7 +402,7 @@ class DQFDAgent(Agent):
                 # Use default margins whe sampling from memory.
                 ret = self.graph_executor.execute(("update_from_memory", [False, self.default_margins], return_ops),
                                                   ("update_from_demos", [self.demo_batch_size, True,
-                                                                         self.default_margins], return_ops),
+                                                                         self.demo_margins], return_ops),
                                                   sync_call)
             else:
                 ret = self.graph_executor.execute(("update_from_memory",  [False, self.default_margins], return_ops),
@@ -428,14 +426,19 @@ class DQFDAgent(Agent):
             if self.store_last_q_table is True:
                 return_ops += [3]  # 3=q-values
 
+            if expert_margins is None:
+                # Default margins with correct len.
+                expert_margins = np.asarray([self.expert_margin] * len(batch["terminals"]))
+
             # Apply demo loss to external flag depending on batch.
+            # Expert margins only have effect if True.
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"], apply_demo_loss_to_batch, expert_margins]
 
             if update_from_demos:
                 ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops),
                                                   ("update_from_demos", [self.demo_batch_size, True,
-                                                                         self.default_margins], return_ops),
+                                                                         self.demo_margins], return_ops),
                                                   sync_call)
             else:
                 # Only update from external batch (which may use demo loss depending on flag.
@@ -482,7 +485,7 @@ class DQFDAgent(Agent):
         if batch_size is None:
             batch_size = self.demo_batch_size
         for _ in range(num_updates):
-            self.graph_executor.execute(("update_from_demos", [batch_size, True, self.default_margins]))
+            self.graph_executor.execute(("update_from_demos", [batch_size, True, self.demo_margins]))
 
     def observe_demos(self, preprocessed_states, actions, rewards, next_states, terminals):
         """
