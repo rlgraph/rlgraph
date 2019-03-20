@@ -66,7 +66,7 @@ class RingBuffer(Memory):
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
         if get_backend() == "tf":
-            num_records = get_batch_size(records["terminals"])
+            num_records = get_batch_size(records["/terminals"])
             index = self.read_variable(self.index)
 
             # Episodes before inserting these records.
@@ -75,14 +75,14 @@ class RingBuffer(Memory):
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
-            insert_terminal_slice = self.read_variable(self.memory['terminals'], update_indices)
+            insert_terminal_slice = self.read_variable(self.memory['/terminals'], update_indices)
 
             # Shift episode indices.
             with tf.control_dependencies([update_indices, index, prev_num_episodes, insert_terminal_slice]):
                 index_updates = []
 
                 # Newly inserted episodes.
-                inserted_episodes = tf.reduce_sum(input_tensor=tf.cast(records['terminals'], dtype=tf.int32), axis=0)
+                inserted_episodes = tf.reduce_sum(input_tensor=tf.cast(records['/terminals'], dtype=tf.int32), axis=0)
                 episodes_in_insert_range = tf.reduce_sum(
                     input_tensor=tf.cast(insert_terminal_slice, dtype=tf.int32), axis=0
                 )
@@ -106,7 +106,7 @@ class RingBuffer(Memory):
                 index_updates = []
 
                 # Actually update indices.
-                mask = tf.boolean_mask(tensor=update_indices, mask=records['terminals'])
+                mask = tf.boolean_mask(tensor=update_indices, mask=records['/terminals'])
                 # mask = tf.Print(mask, [self.episode_indices, update_indices, mask, slice_start, slice_end],
                 #                 summarize=100, message="update, mask, start, end")
                 index_updates.append(self.assign_variable(
@@ -136,18 +136,18 @@ class RingBuffer(Memory):
                 return tf.no_op()
         elif get_backend() == "pytorch":
             # TODO: Unclear if we should do this in numpy and then convert to torch once we sample.
-            num_records = get_batch_size(records["terminals"])
+            num_records = get_batch_size(records["/terminals"])
             update_indices = torch.arange(self.index, self.index + num_records) % self.capacity
 
             # Newly inserted episodes.
-            inserted_episodes = torch.sum(records['terminals'].int(), 0)
+            inserted_episodes = torch.sum(records['/terminals'].int(), 0)
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
             episodes_in_insert_range = 0
             # Count terminals in inserted range.
             for index in update_indices:
-                episodes_in_insert_range += int(self.memory["terminals"][index])
+                episodes_in_insert_range += int(self.memory["/terminals"][index])
             num_episode_update = self.num_episodes - episodes_in_insert_range + inserted_episodes
             self.episode_indices[:self.num_episodes - episodes_in_insert_range] = \
                 self.episode_indices[episodes_in_insert_range:self.num_episodes]
@@ -157,7 +157,7 @@ class RingBuffer(Memory):
             slice_start = self.num_episodes - episodes_in_insert_range
             slice_end = num_episode_update
 
-            byte_terminals = records["terminals"].byte()
+            byte_terminals = records["/terminals"].byte()
             mask = torch.masked_select(update_indices, byte_terminals)
             self.episode_indices[slice_start:slice_end] = mask
 

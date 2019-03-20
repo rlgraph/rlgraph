@@ -77,9 +77,9 @@ class MemPrioritizedReplay(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        if records is None or get_rank(records['rewards']) == 0:
+        if records is None or get_rank(records['/rewards']) == 0:
             return
-        num_records = len(records['rewards'])
+        num_records = len(records['/rewards'])
 
         if num_records == 1:
             if self.index >= self.size:
@@ -92,7 +92,7 @@ class MemPrioritizedReplay(Memory):
             i = 0
             for insert_index in insert_indices:
                 self.merged_segment_tree.insert(insert_index, self.default_new_weight)
-                record = dict()
+                record = {}
                 for name, record_values in records.items():
                     record[name] = record_values[i]
                 if insert_index >= self.size:
