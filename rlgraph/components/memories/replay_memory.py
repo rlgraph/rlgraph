@@ -64,7 +64,7 @@ class ReplayMemory(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        num_records = get_batch_size(records["/terminals"])
+        num_records = get_batch_size(records[self.terminal_key])
         if get_backend() == "tf":
             # List of indices to update (insert from `index` forward and roll over at `self.capacity`).
             update_indices = tf.range(start=self.index, limit=self.index + num_records) % self.capacity

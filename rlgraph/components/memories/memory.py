@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.utils.ops import FLATTEN_SCOPE_PREFIX
+
 from rlgraph.components.component import Component, rlgraph_api
 from rlgraph.utils import FlattenedDataOp
 
@@ -43,6 +45,9 @@ class Memory(Component):
         self.capacity = capacity
         # The current size of the memory.
         self.size = None
+
+        # Use this to get batch size.
+        self.terminal_key = FLATTEN_SCOPE_PREFIX + "terminals"
 
     def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.

@@ -77,9 +77,9 @@ class MemPrioritizedReplay(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        if records is None or get_rank(records['/rewards']) == 0:
+        if records is None or get_rank(records[self.terminal_key]) == 0:
             return
-        num_records = len(records['/rewards'])
+        num_records = len(records[self.terminal_key])
 
         if num_records == 1:
             if self.index >= self.size:
