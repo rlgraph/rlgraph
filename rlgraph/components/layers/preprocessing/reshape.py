@@ -88,7 +88,7 @@ class ReShape(PreprocessLayer):
 
     def get_preprocessed_space(self, space):
         ret = {}
-        for key, single_space in space.flatten(scope_separator_at_start=False).items():
+        for key, single_space in space.flatten().items():
             class_ = type(single_space)
 
             # Determine the actual shape (not batch/time ranks).
@@ -131,6 +131,8 @@ class ReShape(PreprocessLayer):
         if self.flatten_categories is True and isinstance(single_space, IntBox):
             num_categories = single_space.flat_dim_with_categories
         elif isinstance(self.flatten_categories, dict):
+            if key.startswith("/"):
+                key = key[1:]
             num_categories = self.flatten_categories.get(key, 1)
         else:
             num_categories = self.flatten_categories
