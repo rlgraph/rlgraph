@@ -199,6 +199,8 @@ def unflatten_op(op):
         op_type = None
 
         # N.b. removed this because we do not prepend / any more before first key.
+        if op_name.startswith("/"):
+            op_name = op_name[1:]
         op_key_list = op_name.split("/")  # skip 1st char (/)
         for sub_key in op_key_list:
             mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
