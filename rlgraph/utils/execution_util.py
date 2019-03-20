@@ -57,7 +57,7 @@ def print_call_chain(profile_data, sort=True, filter_threshold=None):
         print("({}.{}: {} s)".format(v[0], v[1], v[2]))
 
 
-def define_by_run_flatten(container, key_scope="", tensor_tuple_list=None, scope_separator_at_start=False):
+def define_by_run_flatten(container, key_scope="", tensor_tuple_list=None, scope_separator_at_start=True):
     """
     Flattens a native python dict/tuple into a flat dict with auto-key generation. Run-time equivalent
     to build-time flatten operation.
@@ -203,6 +203,8 @@ def define_by_run_unflatten(result_dict):
         current_structure = None
         op_type = None
 
+        if op_name.startswith("/"):
+            op_name = op_name[1:]
         # N.b. removed this because we do not prepend / any more before first key.
         op_key_list = op_name.split("/")  # skip 1st char (/)
         for sub_key in op_key_list:
