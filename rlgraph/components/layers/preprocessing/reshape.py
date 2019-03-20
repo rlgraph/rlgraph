@@ -88,7 +88,7 @@ class ReShape(PreprocessLayer):
 
     def get_preprocessed_space(self, space):
         ret = {}
-        for key, single_space in space.flatten().items():
+        for key, single_space in space.flatten(scope_separator_at_start=False).items():
             class_ = type(single_space)
 
             # Determine the actual shape (not batch/time ranks).
