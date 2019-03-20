@@ -70,8 +70,8 @@ class Policy(Component):
 
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
         self.deterministic = deterministic
-        self.action_adapters = dict()
-        self.distributions = dict()
+        self.action_adapters = {}
+        self.distributions = {}
         self.bounded_distribution_type = bounded_distribution_type
         self.discrete_distribution_type = discrete_distribution_type
 
@@ -89,7 +89,7 @@ class Policy(Component):
             self.action_space = adapter.action_space
             # Assert single component action space.
             assert len(self.action_space.flatten()) == 1,\
-                "ERROR: Action space must not be ContainerSpace if no `action_space` is given in Policy c'tor!"
+                "ERROR: Action space must not be ContainerSpace if no `action_space` is given in Policy constructor!"
         else:
             self.action_space = Space.from_spec(action_space)
 
@@ -449,7 +449,7 @@ class Policy(Component):
                 to structure of `self.action_space`.
         """
         ret = FlattenedDataOp()
-        for flat_key, action_space_component in self.action_space.flatten().items():
+        for flat_key, action_space_component in self.action_space.flatten(scope_separator_at_start=False).items():
             if flat_key == "":
                 if isinstance(parameters, FlattenedDataOp):
                     return self.distributions[flat_key].log_prob(parameters[flat_key], actions)
@@ -466,7 +466,7 @@ class Policy(Component):
         ret = FlattenedDataOp()
 
         # TODO Clean up the checks in here wrt define-by-run processing.
-        for flat_key, action_space_component in self.action_space.flatten().items():
+        for flat_key, action_space_component in self.action_space.flatten(scope_separator_at_start=False).items():
             # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
             # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
             # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
@@ -502,7 +502,7 @@ class Policy(Component):
     def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):
         action = FlattenedDataOp()
         log_prob = FlattenedDataOp()
-        for flat_key, action_space_component in self.action_space.flatten().items():
+        for flat_key, action_space_component in self.action_space.flatten(scope_separator_at_start=False).items():
             # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
             # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
             # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
