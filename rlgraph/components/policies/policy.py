@@ -449,7 +449,7 @@ class Policy(Component):
                 to structure of `self.action_space`.
         """
         ret = FlattenedDataOp()
-        for flat_key, action_space_component in self.action_space.flatten(scope_separator_at_start=False).items():
+        for flat_key, action_space_component in self.action_space.flatten().items():
             if flat_key == "":
                 if isinstance(parameters, FlattenedDataOp):
                     return self.distributions[flat_key].log_prob(parameters[flat_key], actions)
@@ -466,7 +466,7 @@ class Policy(Component):
         ret = FlattenedDataOp()
 
         # TODO Clean up the checks in here wrt define-by-run processing.
-        for flat_key, action_space_component in self.action_space.flatten(scope_separator_at_start=False).items():
+        for flat_key, action_space_component in self.action_space.flatten().items():
             # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
             # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
             # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).
@@ -502,7 +502,7 @@ class Policy(Component):
     def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):
         action = FlattenedDataOp()
         log_prob = FlattenedDataOp()
-        for flat_key, action_space_component in self.action_space.flatten(scope_separator_at_start=False).items():
+        for flat_key, action_space_component in self.action_space.flatten().items():
             # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
             # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
             # over the logits, which is the same as the argmax over the probabilities (or log-probabilities)).

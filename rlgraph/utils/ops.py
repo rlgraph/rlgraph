@@ -72,6 +72,8 @@ class ContainerDataOp(DataOp):
         Returns:
 
         """
+        if flat_key.startswith("/"):
+            flat_key = flat_key[1:]
         key_sequence = flat_key.split("/")
         result = self
         for key in key_sequence:
