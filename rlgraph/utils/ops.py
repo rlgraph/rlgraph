@@ -119,7 +119,7 @@ class FlattenedDataOp(DataOp, OrderedDict):
     pass
 
 
-def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=False):
+def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=True):
     """
     Flattens a single ContainerDataOp or a native python dict/tuple into a FlattenedDataOp with auto-key generation.
 
