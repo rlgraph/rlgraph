@@ -21,7 +21,7 @@ import re
 from collections import OrderedDict
 
 from rlgraph import get_backend
-from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, deep_tuple, FlattenedDataOp
+from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, deep_tuple, FlattenedDataOp, FLATTEN_SCOPE_PREFIX
 
 if get_backend() == "pytorch":
     import torch
@@ -83,7 +83,7 @@ def define_by_run_flatten(container, key_scope="", tensor_tuple_list=None, scope
 
     if isinstance(container, dict):
         if scope_separator_at_start:
-            key_scope += "/"
+            key_scope += FLATTEN_SCOPE_PREFIX
         else:
             key_scope = ""
         for key in sorted(container.keys()):
@@ -92,7 +92,7 @@ def define_by_run_flatten(container, key_scope="", tensor_tuple_list=None, scope
             define_by_run_flatten(container[key], key_scope=scope, tensor_tuple_list=tensor_tuple_list, scope_separator_at_start=True)
     elif isinstance(container, tuple):
         if scope_separator_at_start:
-            key_scope += "/" + FLAT_TUPLE_OPEN
+            key_scope += FLATTEN_SCOPE_PREFIX + FLAT_TUPLE_OPEN
         else:
             key_scope += "" + FLAT_TUPLE_OPEN
         for i, c in enumerate(container):
@@ -203,10 +203,10 @@ def define_by_run_unflatten(result_dict):
         current_structure = None
         op_type = None
 
-        if op_name.startswith("/"):
+        if op_name.startswith(FLATTEN_SCOPE_PREFIX):
             op_name = op_name[1:]
         # N.b. removed this because we do not prepend / any more before first key.
-        op_key_list = op_name.split("/")  # skip 1st char (/)
+        op_key_list = op_name.split(FLATTEN_SCOPE_PREFIX)  # skip 1st char (/)
         for sub_key in op_key_list:
             mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), sub_key)
             if mo:

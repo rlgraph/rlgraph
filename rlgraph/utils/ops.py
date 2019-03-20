@@ -25,6 +25,7 @@ import re
 # _T\d+_
 FLAT_TUPLE_OPEN = "_T"
 FLAT_TUPLE_CLOSE = "_"
+FLATTEN_SCOPE_PREFIX = "/"
 
 
 class TraceContext(object):
@@ -72,9 +73,9 @@ class ContainerDataOp(DataOp):
         Returns:
 
         """
-        if flat_key.startswith("/"):
+        if flat_key.startswith(FLATTEN_SCOPE_PREFIX):
             flat_key = flat_key[1:]
-        key_sequence = flat_key.split("/")
+        key_sequence = flat_key.split(FLATTEN_SCOPE_PREFIX)
         result = self
         for key in key_sequence:
             mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key)
@@ -147,7 +148,7 @@ def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=Tr
 
     if isinstance(op, dict):
         if scope_separator_at_start:
-            key_scope += "/"
+            key_scope += FLATTEN_SCOPE_PREFIX
         else:
             key_scope = ""
         for key in sorted(op.keys()):
@@ -156,7 +157,7 @@ def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=Tr
             flatten_op(op[key], key_scope=scope, op_tuple_list=op_tuple_list, scope_separator_at_start=True)
     elif isinstance(op, tuple):
         if scope_separator_at_start:
-            key_scope += "/" + FLAT_TUPLE_OPEN
+            key_scope += FLATTEN_SCOPE_PREFIX + FLAT_TUPLE_OPEN
         else:
             key_scope += "" + FLAT_TUPLE_OPEN
         for i, c in enumerate(op):
@@ -201,7 +202,7 @@ def unflatten_op(op):
         op_type = None
 
         # N.b. removed this because we do not prepend / any more before first key.
-        if op_name.startswith("/"):
+        if op_name.startswith(FLATTEN_SCOPE_PREFIX):
             op_name = op_name[1:]
         op_key_list = op_name.split("/")  # skip 1st char (/)
         for sub_key in op_key_list:
