@@ -42,7 +42,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string('config', './configs/dqn_cartpole.json', 'Agent config file.')
 flags.DEFINE_string('env', 'CartPole-v0', 'gym environment ID.')
-flags.DEFINE_boolean('render', True, 'Render the environment.')
+flags.DEFINE_boolean('render', False, 'Render the environment.')
 flags.DEFINE_string('summary_regexp', 'neural-network', 'RegExp for component scopes to be included in tf-summaries.')
 
 
