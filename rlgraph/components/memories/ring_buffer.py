@@ -241,6 +241,7 @@ class RingBuffer(Memory):
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
                                                    shape=self.flat_record_space[name].shape)
+            records = define_by_run_unflatten(records)
             return records
 
     def get_state(self):

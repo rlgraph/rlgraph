@@ -134,6 +134,7 @@ class MemPrioritizedReplay(Memory):
         for name, variable in self.memory.items():
             records[name] = self.read_variable(variable, indices, dtype=
             util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
+        records = define_by_run_unflatten(records)
         return records, indices, weights
 
     @rlgraph_api(must_be_complete=False)
