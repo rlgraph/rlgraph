@@ -517,10 +517,17 @@ class Policy(Component):
             if isinstance(action_space_component, IntBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
                 action[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(params)
-                log_prob[flat_key] = tf.reduce_max(params, axis=-1)
+                if get_backend() == "tf":
+                    log_prob[flat_key] = tf.reduce_max(params, axis=-1)
+                elif get_backend() == "pytorch":
+                    log_prob[flat_key] = torch.max(params, dim=-1)[0]
             elif isinstance(action_space_component, BoolBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
-                action[flat_key] = tf.greater(params, 0.5)
+                if get_backend() == "tf":
+                    action[flat_key] = tf.greater(params, 0.5)
+                elif get_backend() == "pytorch":
+                    action[flat_key] = torch.gt(params, 0.5)
+
                 log_prob[flat_key] = params
             else:
                 action[flat_key], log_prob[flat_key] = self.distributions[flat_key].sample_and_log_prob(
