@@ -480,10 +480,16 @@ class Policy(Component):
                     )
             elif isinstance(action_space_component, BoolBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
-                if flat_key == "":
-                    return tf.greater(logits, 0.5)
-                else:
-                    ret[flat_key] = tf.greater(logits.flat_key_lookup(flat_key), 0.5)
+                if get_backend() == "tf":
+                    if flat_key == "":
+                        return tf.greater(logits, 0.5)
+                    else:
+                        ret[flat_key] = tf.greater(logits.flat_key_lookup(flat_key), 0.5)
+                elif get_backend() == "pytorch":
+                    if flat_key == "":
+                        return torch.gt(logits, 0.5)
+                    else:
+                        ret[flat_key] = torch.gt(logits.flat_key_lookup(flat_key), 0.5)
             else:
                 if flat_key == "":
                     # Still wrapped as FlattenedDataOp.
