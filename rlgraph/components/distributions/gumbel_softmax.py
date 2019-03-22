@@ -36,7 +36,7 @@ class GumbelSoftmax(Distribution):
 
     Concrete: https://arxiv.org/abs/1611.00712
     """
-    def __init__(self, scope="gumbel-softmax", temperature=0.1, **kwargs):
+    def __init__(self, scope="gumbel-softmax", temperature=1.0, **kwargs):
         """
 
         Args:
@@ -44,7 +44,6 @@ class GumbelSoftmax(Distribution):
                 a categorical random variable. For high temperatures, the expected value approaches a uniform
                 distribution.
         """
-        assert 0.0 < temperature < 1.0
         self.temperature = temperature
         super(GumbelSoftmax, self).__init__(scope=scope, **kwargs)
 
