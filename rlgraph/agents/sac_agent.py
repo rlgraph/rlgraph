@@ -83,7 +83,8 @@ class SACAgentComponent(Component):
         self.initial_alpha = initial_alpha
         self.log_alpha = None
         self.target_entropy = target_entropy
-        self.loss_function = SACLossFunction(target_entropy=target_entropy, discount=discount)
+        self.loss_function = SACLossFunction(target_entropy=target_entropy, discount=discount,
+                                             num_q_functions=num_q_functions)
 
         memory_items = ["states", "actions", "rewards", "next_states", "terminals"]
         self._merger = ContainerMerger(*memory_items)

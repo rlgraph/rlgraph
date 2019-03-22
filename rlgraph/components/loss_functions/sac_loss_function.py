@@ -30,8 +30,9 @@ class SACLossFunction(LossFunction):
     """
     TODO: docs
     """
-    def __init__(self, target_entropy=None, discount=0.99, scope="sac-loss-function", **kwargs):
+    def __init__(self, target_entropy=None, discount=0.99, num_q_functions=2, scope="sac-loss-function", **kwargs):
         super(SACLossFunction, self).__init__(discount=discount, scope=scope, **kwargs)
+        self.num_q_functions = num_q_functions
         self.target_entropy = target_entropy
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -70,6 +71,8 @@ class SACLossFunction(LossFunction):
         soft_state_value = q_min_next - alpha * log_probs_next_sampled
         q_target = rewards + self.discount * (1.0 - tf.cast(terminals, tf.float32)) * soft_state_value
         total_loss = 0.0
+        if self.num_q_functions < 2:
+            q_values = [q_values]
         for i, q_value in enumerate(q_values):
             loss = 0.5 * (q_value - tf.stop_gradient(q_target)) ** 2
             loss = tf.identity(loss, "critic_loss_per_item_{}".format(i + 1))
