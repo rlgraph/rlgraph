@@ -449,19 +449,24 @@ def try_space_inference_from_list(list_op):
         raise ValueError("List inference should only be attempted on the Python backend.")
 
 
-def get_default_distribution_from_space(box_space, bounded_distribution_type="beta"):
+def get_default_distribution_from_space(box_space, bounded_distribution_type="beta",
+                                        discrete_distribution_type="categorical"):
     """
     Args:
         box_space (BoxSpace): The primitive Space for which to derive a default distribution spec.
         bounded_distribution_type (str): The lookup class string for a bounded FloatBox distribution.
             Default: "beta".
+        discrete_distribution_type(str): The class of distributions to use for discrete action spaces. For options
+                check the components.distributions package. Default: categorical. Agents requiring reparameterization
+                may require a GumbelSoftmax distribution instead.
+
 
     Returns:
         Dict: A Spec dict, from which a valid default distribution object can be created.
     """
     # IntBox: Categorical.
     if isinstance(box_space, IntBox):
-        return dict(type="categorical")
+        return dict(type=discrete_distribution_type)
     # BoolBox: Bernoulli.
     elif isinstance(box_space, BoolBox):
         return dict(type="bernoulli")
