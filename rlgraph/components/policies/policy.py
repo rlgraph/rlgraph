@@ -64,17 +64,16 @@ class Policy(Component):
                 to fold time rank into batch rank before a forward pass.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
-
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
         self.deterministic = deterministic
         self.action_adapters = {}
         self.distributions = {}
 
-        self.distributions_spec = distributions_spec
-        self.bounded_distribution_type = distributions_spec.get("bounded_distribution_type", "beta")
-        self.discrete_distribution_type = distributions_spec.get("discrete_distribution_type", "categorical")
+        self.distributions_spec = distributions_spec if distributions_spec is not None else {}
+        self.bounded_distribution_type = self.distributions_spec.get("bounded_distribution_type", "beta")
+        self.discrete_distribution_type = self.distributions_spec.get("discrete_distribution_type", "categorical")
         # For discrete approximations.
-        self.gumbel_softmax_temperature = distributions_spec.get("gumbel_softmax_temperature", 1.0)
+        self.gumbel_softmax_temperature = self.distributions_spec.get("gumbel_softmax_temperature", 1.0)
 
         self._create_action_adapters_and_distributions(
             action_space=action_space, action_adapter_spec=action_adapter_spec
