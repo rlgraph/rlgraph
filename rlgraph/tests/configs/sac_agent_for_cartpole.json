@@ -1,69 +1,57 @@
 {
   "type": "sac",
   "discount": 0.99,
-  "initial_alpha": 0.5,
+  "initial_alpha": 0.2,
   "double_q": true,
 
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 1000
+    "capacity": 64
   },
 
   "preprocessing_spec":
   [],
 
   "observe_spec": {
-    "buffer_size": 200
+    "buffer_size": 8
   },
 
   "network_spec":
   [
     {
       "type": "dense",
-      "units": 32,
-      "activation": "tanh",
+      "units": 16,
+      "activation": "relu",
       "scope": "hidden"
-    },
-    {
-      "type": "dense",
-      "units": 32,
-      "activation": "tanh",
-      "scope": "hidden-1"
     }
   ],
   "value_function_spec":
   [
     {
       "type": "dense",
-      "units": 32,
+      "units": 16,
       "activation": "relu",
       "scope": "vf-hidden"
-    },
-    {
-      "type": "dense",
-      "units": 32,
-      "activation": "relu",
-      "scope": "vf-hidden-1"
     }
   ],
 
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 4,
-    "sync_interval": 32,
-    "sync_tau": 5e-3,
+    "update_interval": 1,
+    "sync_interval": 1,
+    "sync_tau": 0.005,
     "batch_size": 32,
     "num_iterations": 1
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0025
+    "learning_rate": 0.0002
   },
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0025
+    "learning_rate": 0.0004
   }
 }
