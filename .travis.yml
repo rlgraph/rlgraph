@@ -34,6 +34,7 @@ script:
   # SAC: GaussianDensityAsRewardEnv.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_sac_agent_short_task_learning.py::TestSACShortTaskLearning::test_sac_learning_on_gaussian_density_as_reward_env';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_sac_agent_short_task_learning.py::TestSACShortTaskLearning::test_sac_on_pendulum';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_sac_agent_short_task_learning.py::TestSACShortTaskLearning::test_sac_on_cartpole';
 
   # Test Agent functionalities.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_functionality/test_all_compile.py';
