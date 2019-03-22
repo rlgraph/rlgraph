@@ -225,7 +225,7 @@ class Space(Specifiable):
         """
         raise NotImplementedError
 
-    def flatten(self, mapping=None, custom_scope_separator='/', scope_separator_at_start=False,
+    def flatten(self, mapping=None, custom_scope_separator='/', scope_separator_at_start=True,
                 scope_=None, list_=None):
         """
         A mapping function to flatten this Space into an OrderedDict whose only values are

@@ -1,7 +1,7 @@
 {
   "type": "sac",
   "discount": 0.99,
-  "initial_alpha": 1.0,
+  "initial_alpha": 0.5,
   "double_q": true,
 
   "memory_spec":
@@ -21,13 +21,13 @@
   [
     {
       "type": "dense",
-      "units": 256,
+      "units": 32,
       "activation": "tanh",
       "scope": "hidden"
     },
     {
       "type": "dense",
-      "units": 256,
+      "units": 32,
       "activation": "tanh",
       "scope": "hidden-1"
     }
@@ -36,13 +36,13 @@
   [
     {
       "type": "dense",
-      "units": 256,
+      "units": 32,
       "activation": "relu",
       "scope": "vf-hidden"
     },
     {
       "type": "dense",
-      "units": 256,
+      "units": 32,
       "activation": "relu",
       "scope": "vf-hidden-1"
     }
@@ -55,16 +55,15 @@
     "sync_interval": 32,
     "sync_tau": 5e-3,
     "batch_size": 32,
-    "num_iterations": 1,
-    "sample_size": 8
+    "num_iterations": 1
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.001
+    "learning_rate": 0.0025
   },
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.001
+    "learning_rate": 0.0025
   }
 }

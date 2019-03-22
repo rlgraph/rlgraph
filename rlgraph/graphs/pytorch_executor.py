@@ -25,6 +25,7 @@ from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
+from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_unflatten
 from rlgraph.utils.util import force_torch_tensors
 
 if get_backend() == "pytorch":
@@ -146,13 +147,10 @@ class PyTorchExecutor(GraphExecutor):
         return ret
 
     def clean_results(self, ret, to_return):
-        # print("to_return = ", to_return)
         for result in to_return:
             if isinstance(result, dict):
                 cleaned_dict = {k: v for k, v in result.items() if v is not None}
-                for key, val in cleaned_dict.items():
-                    if isinstance(val, torch.Tensor):
-                        cleaned_dict[key] = val.detach().numpy()
+                cleaned_dict = self.clean_dict(cleaned_dict)
                 ret.append(cleaned_dict)
             elif self.remove_batch_dims and isinstance(result, np.ndarray):
                 ret.append(np.array(np.squeeze(result)))
@@ -160,6 +158,28 @@ class PyTorchExecutor(GraphExecutor):
                 ret.append(np.array(result.numpy()))
             else:
                 ret.append(result)
+
+    @staticmethod
+    def clean_dict(tensor_dict):
+        """
+        Detach tensor values in nested dict.
+        Args:
+            tensor_dict (dict): Dict containing torch tensor.
+
+        Returns:
+            dict: Dict containing numpy arrays.
+        """
+        # Un-nest.
+        param = define_by_run_flatten(tensor_dict)
+        ret = {}
+
+        # Detach tensor values.
+        for key, value in param.items():
+            if isinstance(value, torch.Tensor):
+                ret[key] = value.detach().numpy()
+
+        # Pack again.
+        return define_by_run_unflatten(ret)
 
     def read_variable_values(self, variables):
         # For test compatibility.

@@ -180,6 +180,23 @@ class ComponentTest(object):
             return ret[0]
         return ret
 
+    def get_variable_values(self, component, names):
+        """
+        Reads value of component state for given component and names.
+
+        Args:
+            component (Component):
+            *names (list): List of strings.
+
+        Returns:
+            Dict: Variable values.
+        """
+        variables = component.get_variables(names, global_scope=False)
+        if get_backend() == "tf":
+            return self.graph_executor.read_variable_values(variables)
+        else:
+            return variables
+
     @staticmethod
     def read_params(name, params, transpose_torch_params=True):
         """

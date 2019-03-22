@@ -65,6 +65,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             target_entropy=None,
             optimizer=AdamOptimizer.from_spec(config["optimizer"]),
             vf_optimizer=AdamOptimizer.from_spec(config["value_function_optimizer"], scope="vf-optimizer"),
+            alpha_optimizer=None,
             q_sync_spec=SyncSpecification(sync_interval=10, sync_tau=1.0),
             num_q_functions=2
         )
@@ -184,7 +185,6 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
         self.assertTrue(results["timesteps_executed"] == episodes * 200)
         self.assertTrue(results["episodes_executed"] == episodes)
-        self.assertGreater(results["final_episode_reward"], -300)
         self.assertGreater(results["mean_episode_reward"], -800)
 
     def test_sac_on_cartpole(self):

@@ -169,7 +169,7 @@ class ActorCriticAgent(Agent):
             log_probs = agent.policy.get_action_log_probs(preprocessed_states, actions)["action_log_probs"]
             entropy = agent.policy.get_entropy(preprocessed_states)["entropy"]
             loss, loss_per_item, vf_loss, vf_loss_per_item = agent.loss_function.loss(
-                log_probs, entropy, baseline_values, actions, rewards, terminals
+                log_probs, baseline_values, rewards, entropy
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.

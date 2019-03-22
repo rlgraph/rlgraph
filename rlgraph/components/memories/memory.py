@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.utils.ops import FLATTEN_SCOPE_PREFIX
+
 from rlgraph.components.component import Component, rlgraph_api
 from rlgraph.utils import FlattenedDataOp
 
@@ -38,11 +40,14 @@ class Memory(Component):
 
         # Variables (will be populated in create_variables).
         self.record_space = None
-        self.record_registry = None
+        self.memory = None
         self.flat_record_space = None
         self.capacity = capacity
         # The current size of the memory.
         self.size = None
+
+        # Use this to get batch size.
+        self.terminal_key = FLATTEN_SCOPE_PREFIX + "terminals"
 
     def create_variables(self, input_spaces, action_space=None):
         # Store our record-space for convenience.
@@ -50,7 +55,7 @@ class Memory(Component):
         self.flat_record_space = self.record_space.flatten()
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
-        self.record_registry = self.get_variable(
+        self.memory = self.get_variable(
             name="memory", trainable=False,
             from_space=self.record_space,
             flatten=True,
@@ -116,7 +121,7 @@ class Memory(Component):
              FlattenedDataOp: Record value dict.
         """
         records = FlattenedDataOp()
-        for name, variable in self.record_registry.items():
+        for name, variable in self.memory.items():
             records[name] = self.read_variable(variable, indices)
         return records
 

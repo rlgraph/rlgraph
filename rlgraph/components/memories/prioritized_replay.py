@@ -105,15 +105,15 @@ class PrioritizedReplay(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        num_records = get_batch_size(records["terminals"])
+        num_records = get_batch_size(records[self.terminal_key])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
         # Updates all the necessary sub-variables in the record.
         record_updates = list()
-        for key in self.record_registry:
+        for key in self.memory:
             record_updates.append(self.scatter_update_variable(
-                variable=self.record_registry[key],
+                variable=self.memory[key],
                 indices=update_indices,
                 updates=records[key]
             ))

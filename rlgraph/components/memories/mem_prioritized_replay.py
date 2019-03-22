@@ -77,9 +77,9 @@ class MemPrioritizedReplay(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        if records is None or get_rank(records['rewards']) == 0:
+        if records is None or get_rank(records[self.terminal_key]) == 0:
             return
-        num_records = len(records['rewards'])
+        num_records = len(records[self.terminal_key])
 
         if num_records == 1:
             if self.index >= self.size:
@@ -92,7 +92,7 @@ class MemPrioritizedReplay(Memory):
             i = 0
             for insert_index in insert_indices:
                 self.merged_segment_tree.insert(insert_index, self.default_new_weight)
-                record = dict()
+                record = {}
                 for name, record_values in records.items():
                     record[name] = record_values[i]
                 if insert_index >= self.size:
@@ -131,7 +131,7 @@ class MemPrioritizedReplay(Memory):
             weights = np.asarray(weights)
 
         records = OrderedDict()
-        for name, variable in self.record_registry.items():
+        for name, variable in self.memory.items():
             records[name] = self.read_variable(variable, indices, dtype=
             util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"))
         records = define_by_run_unflatten(records)
@@ -144,3 +144,9 @@ class MemPrioritizedReplay(Memory):
             self.merged_segment_tree.insert(index, priority)
             self.max_priority = max(self.max_priority, priority)
 
+    def get_state(self):
+        return {
+            "size": self.size,
+            "index": self.index,
+            "max_priority": self.max_priority
+        }

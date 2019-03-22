@@ -24,12 +24,12 @@ from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
     get_distribution_spec_from_action_adapter_type
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Distribution
+from rlgraph.components.distributions import Normal, Categorical, Distribution, Beta, Bernoulli
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.spaces import Space, BoolBox, IntBox
+from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
 from rlgraph.spaces.space_utils import get_default_distribution_from_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import FlattenedDataOp
+from rlgraph.utils.ops import FlattenedDataOp, ContainerDataOp
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
@@ -65,6 +65,7 @@ class Policy(Component):
                 check the components.distributions package. Default: categorical. Agents requiring reparameterization
                 may require a GumbelSoftmax distribution instead.
 
+
             batch_apply (bool): Whether to wrap both the NN and the ActionAdapter with a BatchApply Component in order
                 to fold time rank into batch rank before a forward pass.
         """
@@ -91,7 +92,7 @@ class Policy(Component):
             self.action_space = adapter.action_space
             # Assert single component action space.
             assert len(self.action_space.flatten()) == 1,\
-                "ERROR: Action space must not be ContainerSpace if no `action_space` is given in Policy c'tor!"
+                "ERROR: Action space must not be ContainerSpace if no `action_space` is given in Policy constructor!"
         else:
             self.action_space = Space.from_spec(action_space)
 
@@ -433,6 +434,8 @@ class Policy(Component):
     @graph_fn
     def _graph_fn_get_action_components(self, logits, parameters, deterministic):
         ret = FlattenedDataOp()
+
+        # TODO Clean up the checks in here wrt define-by-run processing.
         for flat_key, action_space_component in self.action_space.flatten().items():
             # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
             # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
@@ -447,10 +450,16 @@ class Policy(Component):
                     )
             elif isinstance(action_space_component, BoolBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
-                if flat_key == "":
-                    return tf.greater(logits, 0.5)
-                else:
-                    ret[flat_key] = tf.greater(logits.flat_key_lookup(flat_key), 0.5)
+                if get_backend() == "tf":
+                    if flat_key == "":
+                        return tf.greater(logits, 0.5)
+                    else:
+                        ret[flat_key] = tf.greater(logits.flat_key_lookup(flat_key), 0.5)
+                elif get_backend() == "pytorch":
+                    if flat_key == "":
+                        return torch.gt(logits, 0.5)
+                    else:
+                        ret[flat_key] = torch.gt(logits.flat_key_lookup(flat_key), 0.5)
             else:
                 if flat_key == "":
                     # Still wrapped as FlattenedDataOp.
@@ -459,11 +468,13 @@ class Policy(Component):
                     else:
                         return self.distributions[flat_key].draw(parameters, deterministic)
 
-                ret[flat_key] = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
-
+                if isinstance(parameters, ContainerDataOp):
+                    ret[flat_key] = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
+                else:
+                    ret[flat_key] = self.distributions[flat_key].draw(parameters[flat_key], deterministic)
         return ret
 
-    @graph_fn
+    @graph_fn(returns=2)
     def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):
         action = FlattenedDataOp()
         log_prob = FlattenedDataOp()
@@ -482,10 +493,17 @@ class Policy(Component):
             if isinstance(action_space_component, IntBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
                 action[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(params)
-                log_prob[flat_key] = tf.reduce_max(params, axis=-1)
+                if get_backend() == "tf":
+                    log_prob[flat_key] = tf.reduce_max(params, axis=-1)
+                elif get_backend() == "pytorch":
+                    log_prob[flat_key] = torch.max(params, dim=-1)[0]
             elif isinstance(action_space_component, BoolBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
-                action[flat_key] = tf.greater(params, 0.5)
+                if get_backend() == "tf":
+                    action[flat_key] = tf.greater(params, 0.5)
+                elif get_backend() == "pytorch":
+                    action[flat_key] = torch.gt(params, 0.5)
+
                 log_prob[flat_key] = params
             else:
                 action[flat_key], log_prob[flat_key] = self.distributions[flat_key].sample_and_log_prob(

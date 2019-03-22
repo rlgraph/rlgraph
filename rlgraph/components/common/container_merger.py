@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import re
 
+from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import DataOpDict, DataOpTuple
@@ -85,13 +86,16 @@ class ContainerMerger(Component):
             ContainerDataOp: The DataOpDict or DataOpTuple as a merger of all *inputs.
         """
         if self.num_items is not None:
-            ret = list()
+            ret = []
             for op in inputs:
                 ret.append(op)
             return DataOpTuple(ret)
         else:
             ret = DataOpDict()
             for i, op in enumerate(inputs):
-                ret[self.dict_keys[i]] = op
+                if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
+                    ret["/" + self.dict_keys[i]] = op
+                else:
+                    ret[self.dict_keys[i]] = op
             return ret
 

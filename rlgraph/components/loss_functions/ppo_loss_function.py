@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.spaces import ContainerSpace
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -45,10 +45,19 @@ class PPOLossFunction(LossFunction):
         self.clip_ratio = clip_ratio
         self.standardize_advantages = standardize_advantages
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
+        self.action_space = None
+
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
+    def check_input_spaces(self, input_spaces, action_space=None):
+        """
+        Do some sanity checking on the incoming Spaces:
+        """
+        assert action_space is not None
+        self.action_space = action_space
+
     @rlgraph_api
-    def loss(self, log_probs, baseline_values, actions, rewards, terminals, logits):
+    def loss(self, log_probs, baseline_values, rewards, entropy):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -59,7 +68,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, baseline_values, actions, rewards, terminals, logits
+            log_probs, baseline_values, rewards, entropy
         )
         total_loss = self.loss_average(loss_per_item)
         total_baseline_loss = self.loss_average(baseline_loss_per_item)
@@ -67,17 +76,23 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, log_probs, baseline_values, actions, pg_advantages, terminals,
-                                entropy):
+    def loss_per_item(self, log_probs, baseline_values, rewards, entropy):
+        # Get losses for each action.
+        # Baseline loss for V(s) does not depend on actions, only on state.
+        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, rewards)
+        loss_per_item = self._graph_fn_loss_per_item(log_probs, rewards, entropy)
+
+        # Average across actions.
+        loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
+
+        return loss_per_item, baseline_loss_per_item
+
+    @graph_fn(flatten_ops=True, split_ops=True)
+    def _graph_fn_loss_per_item(self, log_probs, pg_advantages, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
-            actions (SingleDataOp): The batch of actions that were actually taken in states s (from a memory).
             pg_advantages (SingleDataOp): The batch of post-processed advantages.
-
-            terminals (SingleDataOp): The batch of terminal signals that we received after having taken a in s
-                (from a memory).
-
             entropy (SingleDataOp): Policy entropy.
 
         Returns:
@@ -89,14 +104,9 @@ class PPOLossFunction(LossFunction):
             # This creates the same effect as just stopping the gradients on the log-probs.
             # Saving them would however remove necessity for an extra forward pass.
             prev_log_probs = tf.stop_gradient(log_probs)
-            baseline_values = tf.squeeze(input=baseline_values, axis=-1)
-
             if self.standardize_advantages:
                 mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
                 pg_advantages = (pg_advantages - mean) / std
-
-            v_targets = pg_advantages + baseline_values
-            v_targets = tf.stop_gradient(input=v_targets)
 
             # Likelihood ratio and clipped objective.
             ratio = tf.exp(x=log_probs - prev_log_probs)
@@ -108,21 +118,12 @@ class PPOLossFunction(LossFunction):
 
             loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
             loss += self.weight_entropy * entropy
-
-            baseline_loss = (v_targets - baseline_values) ** 2
-
-            return loss, baseline_loss
-
+            return loss
         elif get_backend() == "pytorch":
             # Detach grads.
             prev_log_probs = log_probs.detach()
-            baseline_values = torch.squeeze(baseline_values, dim=-1)
-
             if self.standardize_advantages:
                 pg_advantages = (pg_advantages - torch.mean(pg_advantages)) / torch.std(pg_advantages)
-
-            v_targets = pg_advantages + baseline_values
-            v_targets = v_targets.detach()
 
             # Likelihood ratio and clipped objective.
             ratio = torch.exp(log_probs - prev_log_probs)
@@ -134,6 +135,42 @@ class PPOLossFunction(LossFunction):
 
             loss = -torch.min(ratio * pg_advantages, clipped_advantages)
             loss += self.weight_entropy * entropy
+            return loss
 
-            baseline_loss = (v_targets - baseline_values) ** 2
-            return loss, baseline_loss
+    @rlgraph_api
+    def _graph_fn_baseline_loss_per_item(self, baseline_values, pg_advantages):
+        """
+        Computes the loss for V(s).
+
+        Args:
+            baseline_values (SingleDataOp): Baseline predictions V(s).
+            pg_advantages (SingleDataOp): Advantage values.
+
+        Returns:
+            SingleDataOp: Baseline loss per item.
+        """
+        v_targets = None
+        if get_backend() == "tf":
+            baseline_values = tf.squeeze(input=baseline_values, axis=-1)
+            v_targets = pg_advantages + baseline_values
+            v_targets = tf.stop_gradient(input=v_targets)
+        elif get_backend() == "pytorch":
+            baseline_values = torch.squeeze(baseline_values, dim=-1)
+            v_targets = pg_advantages + baseline_values
+            v_targets = v_targets.detach()
+
+        baseline_loss = (v_targets - baseline_values) ** 2
+        return baseline_loss
+
+    @graph_fn(flatten_ops=True)
+    def _graph_fn_average_over_container_keys(self, loss_per_item):
+        if get_backend() == "tf":
+            if isinstance(self.action_space, ContainerSpace):
+                loss_per_item = tf.stack(list(loss_per_item.values()))
+                loss_per_item = tf.reduce_mean(loss_per_item, axis=0)
+            return loss_per_item
+        elif get_backend() == "pytorch":
+            if isinstance(self.action_space, ContainerSpace):
+                loss_per_item = torch.stack(list(loss_per_item.values()))
+                loss_per_item = torch.mean(loss_per_item, 0)
+            return loss_per_item

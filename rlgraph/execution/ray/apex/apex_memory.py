@@ -31,14 +31,12 @@ class ApexMemory(Specifiable):
     """
     Apex prioritized replay implementing compression.
     """
-    def __init__(self, capacity=1000, alpha=1.0, beta=1.0, n_step_adjustment=1):
+    def __init__(self, capacity=1000, alpha=1.0, beta=1.0):
         """
-        TODO: documentation.
         Args:
-            capacity ():
-            alpha ():
-            beta ():
-            n_step_adjustment ():
+            capacity (int): Max capacity.
+            alpha (float): Initial weight.
+            beta (float): Prioritisation factor.
         """
         super(ApexMemory, self).__init__()
 
@@ -49,10 +47,6 @@ class ApexMemory(Specifiable):
         self.max_priority = 1.0
         self.alpha = alpha
         self.beta = beta
-        # TODO this is not used here any more
-        # assert n_step_adjustment > 0, "ERROR: n-step adjustment must be at least 1 where 1 corresponds" \
-        #     "to the direct next state."
-        self.n_step_adjustment = n_step_adjustment
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
         self.priority_capacity = 1

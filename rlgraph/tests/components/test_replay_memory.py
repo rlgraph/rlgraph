@@ -22,7 +22,7 @@ import unittest
 from rlgraph.components.memories.replay_memory import ReplayMemory
 from rlgraph.spaces import Dict, BoolBox
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import non_terminal_records, terminal_records
+from rlgraph.tests.test_util import non_terminal_records
 
 
 class TestReplayMemory(unittest.TestCase):
@@ -69,11 +69,9 @@ class TestReplayMemory(unittest.TestCase):
         )
         test = ComponentTest(component=memory, input_spaces=self.input_spaces)
         # Internal state variables.
-        memory_variables = memory.get_variables(self.memory_variables, global_scope=False)
-        buffer_size = memory_variables['size']
-        buffer_index = memory_variables['index']
-        size_value, index_value = test.read_variable_values(buffer_size, buffer_index)
-
+        variables = test.get_variable_values(memory, self.memory_variables)
+        size_value = variables["size"]
+        index_value = variables["index"]
         # Assert indices 0 before insert.
         self.assertEqual(size_value, 0)
         self.assertEqual(index_value, 0)
@@ -82,7 +80,9 @@ class TestReplayMemory(unittest.TestCase):
         observation = self.record_space.sample(size=self.capacity + 1)
         test.test(("insert_records", observation), expected_outputs=None)
 
-        size_value, index_value = test.read_variable_values(buffer_size, buffer_index)
+        variables = test.get_variable_values(memory, self.memory_variables)
+        size_value = variables["size"]
+        index_value = variables["index"]
         # Size should be equivalent to capacity when full.
         self.assertEqual(size_value, self.capacity)
 

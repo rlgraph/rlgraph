@@ -105,7 +105,7 @@ class TestSpaces(unittest.TestCase):
             return primitive_space.flat_dim
 
         result = ""
-        flat_space_and_mapped = space.flatten(mapping=mapping_func)
+        flat_space_and_mapped = space.flatten(mapping=mapping_func, scope_separator_at_start=False)
         for key, value in flat_space_and_mapped.items():
             result += "{}:{},".format(key, value)
 

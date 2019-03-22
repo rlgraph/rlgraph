@@ -51,6 +51,7 @@
   },
 
   "optimizer_spec": {
+    "type": "adam",
     "learning_rate": 0.5
   },
 

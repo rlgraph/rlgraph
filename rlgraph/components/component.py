@@ -265,6 +265,7 @@ class Component(Specifiable):
                 # This one is not defined yet -> Component is not input-complete.
                 if self.api_method_inputs[input_name] is None:
                     self.input_complete = False
+                    self.logger.debug("Found incomplete input_name {} for method {}.".format(input_name, method_name))
                     return False
                 # API-method has a var-positional parameter (*args): Check whether it has been called at
                 # least once (in which case we have Space information stored under "args[0]").
@@ -280,9 +281,14 @@ class Component(Specifiable):
                             # No input defined (has not been called) -> Not input complete.
                             else:
                                 self.input_complete = False
+                                self.logger.debug(
+                                    "Found incomplete flex key {} for method {}.".format(key, method_name))
+
                                 return False
                         elif self.api_method_inputs[key] is None:
                             self.input_complete = False
+                            self.logger.debug(
+                                "Found incomplete flex key {} for method {}.".format(key, method_name))
                             return False
                         idx += 1
                 # API-method has **kwargs parameters: Check whether it has been called at
@@ -292,6 +298,8 @@ class Component(Specifiable):
                     # Check all keys "input_name[n]" for any None. If one None found -> input incomplete.
                     for key in keys:
                         if self.api_method_inputs[key] is None:
+                            self.logger.debug(
+                                "Found incomplete kwargs key {} for method {}.".format(key, method_name))
                             self.input_complete = False
                             return False
         return True
@@ -732,9 +740,19 @@ class Component(Specifiable):
             if isinstance(names, tuple) and len(names) == 1:
                 names = names[0]
             # print("names = ", names)
+            state = None
+            if TraceContext.DEFINE_BY_RUN_CONTEXT == "execution" and hasattr(self, "get_state"):
+                state = self.get_state()
             for name in names:
                 global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-                if name in self.variable_registry:
+                if state is not None:
+                    # Generally using underscores in attribute names, not scope separates
+                    lookup = name.replace("-", "_")
+                    if lookup in state:
+                        variables[name] = state[lookup]
+                    elif name in state:
+                        variables[name] = state[name]
+                elif name in self.variable_registry:
                     if get_ref:
                         variables[re.sub(r'/', custom_scope_separator, name)] = self.variable_registry[name]
                     else:
@@ -752,6 +770,7 @@ class Component(Specifiable):
                             variables[name] = self.variable_registry[global_scope_name]
                         else:
                             variables[name] = self.read_variable(self.variable_registry[global_scope_name])
+
         return variables
 
     def create_summary(self, name, values, summary_type="histogram"):
@@ -900,16 +919,16 @@ class Component(Specifiable):
         return_ = False
         # This is the final-return recursive call-level.
         if list_ is None:
-            list_ = dict()
+            list_ = {}
             return_ = True
         if level_ not in list_:
-            list_[level_] = list()
+            list_[level_] = []
         list_[level_].append(self)
         level_ += 1
         for sub_component in self.sub_components.values():
             sub_component.get_all_sub_components(list_, level_)
         if return_:
-            ret = list()
+            ret = []
             for l in sorted(list_.keys(), reverse=True):
                 ret.extend(sorted(list_[l], key=lambda c: c.scope))
             if exclude_self:
@@ -1244,6 +1263,20 @@ class Component(Specifiable):
     def post_define_by_run_build(self):
         """
         Optionally execute post-build calls.
+        """
+        # Try resetting state.
+        component_state = self.get_state()
+        if component_state is not None:
+            for name in component_state.keys():
+                if hasattr(self, name) and isinstance(getattr(self, name), (float, int)):
+                    self.__setattr__(name, 0)
+
+    def get_state(self):
+        """
+        Optionally provide define-by-run state as dict.
+
+        Returns:
+            dict: Names and values of variables.
         """
         pass
 

@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
@@ -25,7 +26,7 @@ from rlgraph.spaces.space_utils import sanity_check_space, get_space_from_op
 from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.numpy import one_hot
-from rlgraph.utils.ops import unflatten_op
+from rlgraph.utils.ops import unflatten_op, FLATTEN_SCOPE_PREFIX
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -130,6 +131,8 @@ class ReShape(PreprocessLayer):
         if self.flatten_categories is True and isinstance(single_space, IntBox):
             num_categories = single_space.flat_dim_with_categories
         elif isinstance(self.flatten_categories, dict):
+            if key.startswith(FLATTEN_SCOPE_PREFIX):
+                key = key[1:]
             num_categories = self.flatten_categories.get(key, 1)
         else:
             num_categories = self.flatten_categories
