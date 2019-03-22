@@ -129,7 +129,9 @@ class Policy(Component):
                 dist_spec = get_distribution_spec_from_action_adapter_type(
                     type(self.action_adapters[flat_key]).__name__
                 )
-                self.distributions[flat_key] = Distribution.from_spec(dist_spec)
+                self.distributions[flat_key] = Distribution.from_spec(
+                    dist_spec, scope="{}-{}".format(dist_spec, i)
+                )
 
     # Define our interface.
     @rlgraph_api

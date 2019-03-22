@@ -20,6 +20,7 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
+
 from rlgraph.components.layers.nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer, MaxPool2DLayer, \
     LSTMLayer, ResidualLayer, LocalResponseNormalizationLayer
 from rlgraph.spaces import FloatBox, Dict
@@ -133,6 +134,7 @@ class TestNNLayer(unittest.TestCase):
         space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
 
         # Todo: This is a very simple example ignoring the depth radius, which is the main idea of this normalization
+        # Also, 0.0 depth_radius doesn't run on GPU with cuDNN
         depth_radius = 0.0
         bias = np.random.random() + 1.0
         alpha = np.random.random() + 1.0
@@ -178,7 +180,7 @@ class TestNNLayer(unittest.TestCase):
         }, add_batch_rank=True)
 
         concat_layer = ConcatLayer(dict_keys=["c", "a", "b"])  # some crazy order
-        test = ComponentTest(component=concat_layer, input_spaces=dict(input_dict=input_space))
+        test = ComponentTest(component=concat_layer, input_spaces=dict(inputs=input_space))
 
         # Batch of n samples to concatenate.
         inputs = input_space.sample(4)
