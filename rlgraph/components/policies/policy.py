@@ -70,6 +70,7 @@ class Policy(Component):
         self.action_adapters = {}
         self.distributions = {}
 
+        self.distributions_spec = distributions_spec
         self.bounded_distribution_type = distributions_spec.get("bounded_distribution_type", "beta")
         self.discrete_distribution_type = distributions_spec.get("discrete_distribution_type", "categorical")
         # For discrete approximations.
@@ -108,8 +109,10 @@ class Policy(Component):
 
             if isinstance(aa_spec, dict) and "type" not in aa_spec:
                 dist_spec = get_default_distribution_from_space(
-                    action_component, self.bounded_distribution_type, self.discrete_distribution_type
+                    action_component, self.bounded_distribution_type, self.discrete_distribution_type,
+                    self.gumbel_softmax_temperature
                 )
+
                 self.distributions[flat_key] = Distribution.from_spec(
                     dist_spec, scope="{}-{}".format(dist_spec["type"], i)
                 )

@@ -2,6 +2,7 @@
   "type": "sac",
   "discount": 0.99,
   "initial_alpha": 0.2,
+  "gumbel_softmax_temperature": 1.0,
   "double_q": false,
 
   "memory_spec":
