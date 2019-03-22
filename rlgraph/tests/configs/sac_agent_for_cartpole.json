@@ -2,7 +2,7 @@
   "type": "sac",
   "discount": 0.99,
   "initial_alpha": 0.2,
-  "double_q": true,
+  "double_q": false,
 
   "memory_spec":
   {
@@ -13,26 +13,22 @@
   "preprocessing_spec":
   [],
 
-  "observe_spec": {
-    "buffer_size": 8
-  },
-
   "network_spec":
   [
     {
       "type": "dense",
-      "units": 16,
+      "units": 32,
       "activation": "relu",
-      "scope": "hidden"
+      "scope": "hidden1"
     }
   ],
   "value_function_spec":
   [
     {
       "type": "dense",
-      "units": 16,
+      "units": 32,
       "activation": "relu",
-      "scope": "vf-hidden"
+      "scope": "vf-hidden1"
     }
   ],
 
