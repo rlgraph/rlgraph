@@ -27,7 +27,7 @@ from rlgraph.spaces.containers import Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
-from rlgraph.utils.util import RLGraphError, convert_dtype, get_shape, LARGE_INTEGER
+from rlgraph.utils.util import RLGraphError, convert_dtype, get_shape, LARGE_INTEGER, force_tuple
 
 if get_backend() == "pytorch":
     import torch
@@ -250,22 +250,22 @@ def sanity_check_space(
 
     # Check the types.
     if allowed_types is not None:
-        if not isinstance(space, tuple(allowed_types)):
+        if not isinstance(space, force_tuple(allowed_types)):
             raise RLGraphError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
 
     if allowed_sub_types is not None:
         for flat_key, sub_space in flattened_space.items():
-            if not isinstance(sub_space, tuple(allowed_sub_types)):
+            if not isinstance(sub_space, force_tuple(allowed_sub_types)):
                 raise RLGraphError("ERROR: sub-Space '{}' ({}) is not an instance of "
                                    "{}!".format(flat_key, sub_space, allowed_sub_types))
 
     if non_allowed_types is not None:
-        if isinstance(space, tuple(non_allowed_types)):
+        if isinstance(space, force_tuple(non_allowed_types)):
             raise RLGraphError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
 
     if non_allowed_sub_types is not None:
         for flat_key, sub_space in flattened_space.items():
-            if isinstance(sub_space, tuple(non_allowed_sub_types)):
+            if isinstance(sub_space, force_tuple(non_allowed_sub_types)):
                 raise RLGraphError("ERROR: sub-Space '{}' ({}) must not be an instance of "
                                    "{}!".format(flat_key, sub_space, non_allowed_sub_types))
 
