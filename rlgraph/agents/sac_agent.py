@@ -372,7 +372,8 @@ class SACAgentComponent(Component):
 
 
 class SACAgent(Agent):
-    def __init__(self, double_q=True, initial_alpha=1.0, target_entropy=None, memory_spec=None, value_function_sync_spec=None, **kwargs):
+    def __init__(self, double_q=True, initial_alpha=1.0, gumbel_softmax_temperature=1.0, target_entropy=None,
+                 memory_spec=None, value_function_sync_spec=None, **kwargs):
         """
         This is an implementation of the Soft-Actor Critic algorithm.
 
@@ -380,15 +381,22 @@ class SACAgent(Agent):
 
         Args:
             double_q (bool): Whether to train two q networks independently.
-            initial_alpha (float): "The temperature parameter α determines the relative importance of the entropy term against the reward".
+            initial_alpha (float): "The temperature parameter α determines the
+                relative importance of the entropy term against the reward".
+            gumbel_softmax_temperature (float): Temperature parameter for the Gumbel-Softmax distribution used
+                for discrete actions.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
             update_spec (dict): Here we can have sync_interval or sync_tau (for the value network update).
         """
         super(SACAgent, self).__init__(
             # Continuous action space: Use squashed normal.
             # Discrete: Gumbel-softmax.
-            policy_spec=dict(deterministic=False, bounded_distribution_type="squashed",
-                             discrete_distribution_type="gumbel_softmax"),
+            policy_spec=dict(deterministic=False,
+                             distributions_spec=dict(
+                                bounded_distribution_type="squashed",
+                                discrete_distribution_type="gumbel_softmax",
+                                gumbel_softmax_temperature=gumbel_softmax_temperature
+                             )),
             name=kwargs.pop("name", "sac-agent"),
             **kwargs
         )

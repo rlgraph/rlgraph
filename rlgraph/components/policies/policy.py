@@ -43,8 +43,7 @@ class Policy(Component):
     A Policy is a wrapper Component that contains a NeuralNetwork, an ActionAdapter and a Distribution Component.
     """
     def __init__(self, network_spec, action_space=None, action_adapter_spec=None,
-                 deterministic=True, scope="policy", bounded_distribution_type="beta",
-                 discrete_distribution_type="categorical", **kwargs):
+                 deterministic=True, scope="policy", distributions_spec=None, **kwargs):
         """
         Args:
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
@@ -58,13 +57,8 @@ class Policy(Component):
             deterministic (bool): Whether to pick actions according to the max-likelihood value or via sampling.
                 Default: True.
 
-            bounded_distribution_type(str): The class of distributions to use for bounded action spaces. For options
-                check the components.distributions package. Default: beta.
-
-            discrete_distribution_type(str): The class of distributions to use for discrete action spaces. For options
-                check the components.distributions package. Default: categorical. Agents requiring reparameterization
-                may require a GumbelSoftmax distribution instead.
-
+            distributions_spec (dict): Specifies bounded and discrete distribution types, and optionally additional
+                configuration parameters such as temperature.
 
             batch_apply (bool): Whether to wrap both the NN and the ActionAdapter with a BatchApply Component in order
                 to fold time rank into batch rank before a forward pass.
@@ -75,8 +69,11 @@ class Policy(Component):
         self.deterministic = deterministic
         self.action_adapters = {}
         self.distributions = {}
-        self.bounded_distribution_type = bounded_distribution_type
-        self.discrete_distribution_type = discrete_distribution_type
+
+        self.bounded_distribution_type = distributions_spec.get("bounded_distribution_type", "beta")
+        self.discrete_distribution_type = distributions_spec.get("discrete_distribution_type", "categorical")
+        # For discrete approximations.
+        self.gumbel_softmax_temperature = distributions_spec.get("gumbel_softmax_temperature", 1.0)
 
         self._create_action_adapters_and_distributions(
             action_space=action_space, action_adapter_spec=action_adapter_spec
