@@ -111,7 +111,7 @@ class Policy(Component):
 
             if isinstance(aa_spec, dict) and "type" not in aa_spec:
                 dist_spec = get_default_distribution_from_space(
-                    action_component, self.bounded_distribution_type
+                    action_component, self.bounded_distribution_type, self.discrete_distribution_type
                 )
                 self.distributions[flat_key] = Distribution.from_spec(
                     dist_spec, scope="{}-{}".format(dist_spec["type"], i)

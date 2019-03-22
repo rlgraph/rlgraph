@@ -32,7 +32,7 @@ def get_action_adapter_type_from_distribution_type(distribution_type_str):
     # IntBox: Categorical.
     if distribution_type_str == "Categorical":
         return "categorical-distribution-adapter"
-    elif distribution_type_str == "GumbelSoftax":
+    elif distribution_type_str == "GumbelSoftmax":
         return "gumbel-softmax-distribution-adapter"
     # BoolBox: Bernoulli.
     elif distribution_type_str == "Bernoulli":
