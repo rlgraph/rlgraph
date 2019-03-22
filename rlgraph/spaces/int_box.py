@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.spaces.box_space import BoxSpace
 from rlgraph.spaces.float_box import FloatBox
@@ -107,7 +108,7 @@ class IntBox(BoxSpace):
             name, is_input_feed, add_batch_rank, add_time_rank, time_major, is_python, local, **kwargs
         )
         # Add num_categories information to placeholder.
-        if get_backend() == "tf":
+        if get_backend() == "tf" and is_python is False:
             variable._num_categories = self.num_categories
         return variable
 
