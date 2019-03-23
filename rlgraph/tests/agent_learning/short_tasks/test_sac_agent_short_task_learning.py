@@ -27,7 +27,7 @@ from scipy import stats
 from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
 from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, \
     Synchronizable
-from rlgraph.environments import GaussianDensityAsRewardEnvironment, OpenAIGymEnv
+from rlgraph.environments import GaussianDensityAsRewardEnvironment, OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest
@@ -210,3 +210,30 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
         print(results)
 
+    def test_sac_2x2_grid_world_with_container_actions(self):
+        """
+        Creates a SAC agent and runs it via a Runner on a simple 2x2 GridWorld using container actions.
+        """
+        # ftj = forward + turn + jump
+        env_spec = dict(world="2x2", action_type="ftj", state_representation="xy+orientation")
+        dummy_env = GridWorld.from_spec(env_spec)
+        agent_config = config_from_path("configs/sac_agent_for_2x2_gridworld_with_container_actions.json")
+        preprocessing_spec = agent_config.pop("preprocessing_spec")
+
+        agent = SACAgent.from_spec(
+            agent_config,
+            double_q=True,
+            state_space=FloatBox(shape=(4,)),
+            action_space=dummy_env.action_space,
+        )
+
+        time_steps = 10000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: GridWorld.from_spec(env_spec),
+            agent=agent,
+            preprocessing_spec=preprocessing_spec,
+            worker_executes_preprocessing=True,
+            render=False
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        print(results)
