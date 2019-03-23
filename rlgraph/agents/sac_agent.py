@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import RLGraphError
-from rlgraph.spaces import FloatBox, BoolBox, IntBox
+from rlgraph.spaces import FloatBox, BoolBox, IntBox, Dict
 from rlgraph.components import Component, Synchronizable
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -430,7 +430,11 @@ class SACAgent(Agent):
         self.batch_size = self.update_spec["batch_size"]
         float_action_space = self.action_space.with_batch_rank()
 
-        if isinstance(self.action_space, IntBox):
+        if isinstance(self.action_space, Dict):
+            for name, space in float_action_space.flatten(scope_separator_at_start=False).items():
+                if isinstance(space, IntBox):
+                    float_action_space[name] = space.as_one_hot_float_space()
+        elif isinstance(self.action_space, IntBox):
             float_action_space = float_action_space.as_one_hot_float_space()
 
         self.input_spaces.update(dict(
