@@ -11,8 +11,12 @@
     "capacity": 64
   },
 
-  "preprocessing_spec":
-  [],
+  "preprocessing_spec": [
+    {
+      "type": "convert-type",
+      "to_dtype": "float32"
+    }
+  ],
 
   "network_spec":
   [
