@@ -86,7 +86,7 @@ class SACLossFunction(LossFunction):
 
         return actor_loss_per_item, critic_loss_per_item, alpha_loss_per_item
 
-    @graph_fn(flatten_ops=True, split_ops=True)
+    @graph_fn(flatten_ops={0}, split_ops=True)
     def _graph_fn_critic_loss(self, log_probs_next_sampled, q_values_next_sampled, q_values, rewards, terminals, alpha):
         # In case log_probs come in as shape=(), expand last rank to 1.
         if log_probs_next_sampled.shape.as_list()[-1] is None:
@@ -109,7 +109,7 @@ class SACLossFunction(LossFunction):
             total_loss += loss
         return tf.squeeze(total_loss, axis=1)
 
-    @graph_fn(flatten_ops=True, split_ops=True)
+    @graph_fn(flatten_ops={0}, split_ops=True)
     def _graph_fn_actor_loss(self, log_probs_sampled, q_values_sampled, alpha):
         if log_probs_sampled.shape.as_list()[-1] is None:
             log_probs_sampled = tf.expand_dims(log_probs_sampled, axis=-1)
