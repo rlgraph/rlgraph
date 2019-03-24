@@ -340,7 +340,8 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
 
         # We have one or many (matching) ContainerDataOps: Split the calls.
         print("ops = ", ops)
-        print("flatteed = ", flattened)
+        print("kwarg ops ", kwarg_ops)
+        print("flattened = ", flattened)
         if len(flattened) > 0:
             # The first op that is a FlattenedDataOp.
             guide_op = next(op for op in ops if len(op) > 1 or "" not in op)
@@ -350,23 +351,19 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
             for key in guide_op.keys():
                 # Prep input params for a single call.
                 params = [key] if self.add_auto_key_as_first_param is True else []
+                kwargs = {}
                 for op in ops:
-                    if key in op:
-                        params.append(op[key])
-                    elif isinstance(op, dict):
-                        # Flattened with single key.
-                        params.append(op[""])
+                    # Check first, do not try to check key into tensor (not iterable):
+                    if isinstance(op, dict):
+                        params.append(op[key] if key in op else op[""])
                     else:
                         # E.g. tuple args.
                         params.append(op)
                 # Add kwarg_ops
                 for kwarg_key, kwarg_op in kwarg_ops.items():
-                    params.append(tuple([
-                        kwarg_key,
-                        kwarg_ops[kwarg_key][key] if key in kwarg_ops[kwarg_key] else kwarg_ops[kwarg_key][""]
-                    ]))
+                    kwargs[kwarg_key] =  kwarg_ops[kwarg_key][key] if key in kwarg_ops[kwarg_key] else kwarg_ops[kwarg_key][""]
                 # Now do the single call.
-                collected_call_params[key] = params
+                collected_call_params[key] = (params, kwargs)
             return collected_call_params
         # We don't have any container ops: No splitting possible. Return args and kwargs as is.
         else:
