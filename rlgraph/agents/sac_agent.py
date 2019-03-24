@@ -207,7 +207,7 @@ class SACAgentComponent(Component):
         if isinstance(self.env_action_space, Dict):
             for name, space in self.env_action_space.flatten(scope_separator_at_start=False).items():
                 if isinstance(space, IntBox):
-                    env_actions[name] = tf.one_hot(env_actions, depth=space.num_categories, axis=-1)
+                    env_actions[name] = tf.one_hot(env_actions[name], depth=space.num_categories, axis=-1)
         elif isinstance(self.env_action_space, IntBox):
             return tf.one_hot(env_actions, depth=self.env_action_space.num_categories, axis=-1)
         return env_actions
@@ -223,7 +223,6 @@ class SACAgentComponent(Component):
         backend = get_backend()
 
         #tf.one_hot(tf.cast(x=tensor, dtype=tf.int32), depth=5)
-
         flat_actions = flatten_op(actions)
         state_actions = [states]
         for flat_key, action_component in self._policy.action_space.flatten().items():
@@ -244,6 +243,7 @@ class SACAgentComponent(Component):
         next_sampled_actions = samples_next["action"]
         log_probs_next_sampled = samples_next["log_prob"]
 
+        print("next sampled actions = ", next_sampled_actions)
         q_values_next_sampled = self.get_q_values(
             preprocessed_next_states, next_sampled_actions, target=True
         )

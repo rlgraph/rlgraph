@@ -74,33 +74,20 @@ class SACLossFunction(LossFunction):
     @rlgraph_api
     def loss_per_item(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
                       q_values_sampled, rewards, terminals):
-        critic_loss_per_item = self._graph_fn_critic_loss(
-            alpha=alpha,
-            log_probs_next_sampled=log_probs_next_sampled,
-            q_values_next_sampled=q_values_next_sampled,
-            q_values=q_values,
-            rewards=rewards,
-            terminals=terminals
-        )
+        critic_loss_per_item = self._graph_fn_critic_loss(log_probs_next_sampled, q_values_next_sampled,
+            q_values, rewards, terminals, alpha)
         critic_loss_per_item = self._graph_fn_average_over_container_keys(critic_loss_per_item)
 
-        actor_loss_per_item = self._graph_fn_actor_loss(
-            alpha=alpha,
-            log_probs_sampled=log_probs_sampled,
-            q_values_sampled=q_values_sampled
-        )
+        actor_loss_per_item = self._graph_fn_actor_loss(log_probs_sampled, q_values_sampled, alpha)
         actor_loss_per_item = self._graph_fn_average_over_container_keys(actor_loss_per_item)
 
-        alpha_loss_per_item = self._graph_fn_alpha_loss(
-            alpha=alpha,
-            log_probs_sampled=log_probs_sampled
-        )
+        alpha_loss_per_item = self._graph_fn_alpha_loss(log_probs_sampled, alpha)
         alpha_loss_per_item = self._graph_fn_average_over_container_keys(alpha_loss_per_item)
 
         return actor_loss_per_item, critic_loss_per_item, alpha_loss_per_item
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_critic_loss(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, rewards, terminals):
+    def _graph_fn_critic_loss(self, log_probs_next_sampled, q_values_next_sampled, q_values, rewards, terminals, alpha):
         # In case log_probs come in as shape=(), expand last rank to 1.
         if log_probs_next_sampled.shape.as_list()[-1] is None:
             log_probs_next_sampled = tf.expand_dims(log_probs_next_sampled, axis=-1)
@@ -123,10 +110,11 @@ class SACLossFunction(LossFunction):
         return tf.squeeze(total_loss, axis=1)
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_actor_loss(self, alpha, log_probs_sampled, q_values_sampled):
+    def _graph_fn_actor_loss(self, log_probs_sampled, q_values_sampled, alpha):
         if log_probs_sampled.shape.as_list()[-1] is None:
             log_probs_sampled = tf.expand_dims(log_probs_sampled, axis=-1)
         log_probs_sampled = tf.reduce_sum(log_probs_sampled, axis=1, keepdims=True)
+
         q_min = tf.reduce_min(tf.concat(q_values_sampled, axis=1), axis=1, keepdims=True)
         assert q_min.shape.as_list() == [None, 1]
         loss = alpha * log_probs_sampled - q_min
@@ -134,7 +122,7 @@ class SACLossFunction(LossFunction):
         return tf.squeeze(loss, axis=1)
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_alpha_loss(self, alpha, log_probs_sampled):
+    def _graph_fn_alpha_loss(self, log_probs_sampled, alpha):
         if self.target_entropy is None:
             return tf.zeros([tf.shape(log_probs_sampled)[0]])
         else:
