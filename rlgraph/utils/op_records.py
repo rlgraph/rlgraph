@@ -323,7 +323,11 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         assert all(op is not None for op in ops)  # just make sure
 
         # Collect FlattenedDataOp for checking their keys (must match).
-        flattened = [op.items() for op in ops if len(op) > 1 or "" not in op]
+        flattened = []
+        for op in ops:
+            if isinstance(op, dict) and (len(op) > 1 or "" not in op):
+                flattened.append(op)
+
         # If it's more than 1, make sure they match. If they don't match: raise Error.
         if len(flattened) > 1:
             # Loop through the non-first ones and make sure all keys match vs the first one.
@@ -335,6 +339,8 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                         raise RLGraphError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
 
         # We have one or many (matching) ContainerDataOps: Split the calls.
+        print("ops = ", ops)
+        print("flatteed = ", flattened)
         if len(flattened) > 0:
             # The first op that is a FlattenedDataOp.
             guide_op = next(op for op in ops if len(op) > 1 or "" not in op)
@@ -345,7 +351,14 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                 # Prep input params for a single call.
                 params = [key] if self.add_auto_key_as_first_param is True else []
                 for op in ops:
-                    params.append(op[key] if key in op else op[""])
+                    if key in op:
+                        params.append(op[key])
+                    elif isinstance(op, dict):
+                        # Flattened with single key.
+                        params.append(op[""])
+                    else:
+                        # E.g. tuple args.
+                        params.append(op)
                 # Add kwarg_ops
                 for kwarg_key, kwarg_op in kwarg_ops.items():
                     params.append(tuple([
