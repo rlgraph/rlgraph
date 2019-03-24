@@ -506,7 +506,6 @@ class GraphBuilder(Specifiable):
             flattened_args, flattened_kwargs = op_rec_column.flatten_input_ops(*args, **kwargs)
             # Split into SingleDataOps?
             if op_rec_column.split_ops:
-                print("running through op rec column =", op_rec_column)
                 split_args_and_kwargs = op_rec_column.split_flattened_input_ops(*flattened_args, **flattened_kwargs)
                 # There is some splitting to do. Call graph_fn many times (one for each split).
                 if isinstance(split_args_and_kwargs, FlattenedDataOp):
@@ -515,8 +514,6 @@ class GraphBuilder(Specifiable):
                     for key, params in split_args_and_kwargs.items():
                         params_args = params[0]
                         params_kwargs = params[1]
-                        print("param args = ", params_args)
-                        print("param kwargs = ", params_kwargs)
                         if is_build_time:
                             call_time = time.perf_counter()
                         ops[key] = force_tuple(op_rec_column.graph_fn(op_rec_column.component,

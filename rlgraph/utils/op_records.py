@@ -339,9 +339,6 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                         raise RLGraphError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
 
         # We have one or many (matching) ContainerDataOps: Split the calls.
-        print("ops = ", ops)
-        print("kwarg ops ", kwarg_ops)
-        print("flattened = ", flattened)
         if len(flattened) > 0:
             # The first op that is a FlattenedDataOp.
             guide_op = next(op for op in ops if len(op) > 1 or "" not in op)
@@ -361,14 +358,15 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                         params.append(op)
                 # Add kwarg_ops
                 for kwarg_key, kwarg_op in kwarg_ops.items():
-                    kwargs[kwarg_key] =  kwarg_ops[kwarg_key][key] if key in kwarg_ops[kwarg_key] else kwarg_ops[kwarg_key][""]
+                    kwargs[kwarg_key] = kwarg_ops[kwarg_key][key] if key in kwarg_ops[kwarg_key] else kwarg_ops[kwarg_key][""]
                 # Now do the single call.
                 collected_call_params[key] = (params, kwargs)
             return collected_call_params
         # We don't have any container ops: No splitting possible. Return args and kwargs as is.
         else:
-            return tuple(([""] if self.add_auto_key_as_first_param is True else []) + [op[""] for op in ops]),\
-                   {key: value[""] for key, value in kwarg_ops.items()}
+            params = [""] if self.add_auto_key_as_first_param is True else []
+            params += [op[""] if isinstance(op, dict) else op for op in ops]
+            return tuple(params), {key: value[""] for key, value in kwarg_ops.items()}
 
     @staticmethod
     def unflatten_output_ops(*ops):
