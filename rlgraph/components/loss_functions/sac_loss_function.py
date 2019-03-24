@@ -19,11 +19,14 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.loss_functions.loss_function import LossFunction
+from rlgraph.spaces import ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class SACLossFunction(LossFunction):
@@ -34,9 +37,11 @@ class SACLossFunction(LossFunction):
         super(SACLossFunction, self).__init__(discount=discount, scope=scope, **kwargs)
         self.num_q_functions = num_q_functions
         self.target_entropy = target_entropy
+        self.action_space = None
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # All the following need a batch rank.
+        self.action_space = action_space
         for in_space_name in ["log_probs_sampled", "log_probs_next_sampled", "q_values", "q_values_sampled",
                               "q_values_next_sampled", "rewards", "terminals"]:
             in_space = input_spaces[in_space_name]
@@ -59,13 +64,51 @@ class SACLossFunction(LossFunction):
             alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
             q_values_sampled, rewards, terminals
         )
+
+        # Average across batch.
         actor_loss = self.loss_average(actor_loss_per_item)
         critic_loss = self.loss_average(critic_loss_per_item)
         alpha_loss = self.loss_average(alpha_loss_per_item)
         return actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item
 
-    @graph_fn
-    def _graph_fn__critic_loss(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, rewards, terminals):
+    @rlgraph_api
+    def loss_per_item(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
+                      q_values_sampled, rewards, terminals):
+        critic_loss_per_item = self._graph_fn_critic_loss(
+            alpha=alpha,
+            log_probs_next_sampled=log_probs_next_sampled,
+            q_values_next_sampled=q_values_next_sampled,
+            q_values=q_values,
+            rewards=rewards,
+            terminals=terminals
+        )
+        critic_loss_per_item = self._graph_fn_average_over_container_keys(critic_loss_per_item)
+
+        actor_loss_per_item = self._graph_fn_actor_loss(
+            alpha=alpha,
+            log_probs_sampled=log_probs_sampled,
+            q_values_sampled=q_values_sampled
+        )
+        actor_loss_per_item = self._graph_fn_average_over_container_keys(actor_loss_per_item)
+
+        alpha_loss_per_item = self._graph_fn_alpha_loss(
+            alpha=alpha,
+            log_probs_sampled=log_probs_sampled
+        )
+        alpha_loss_per_item = self._graph_fn_average_over_container_keys(alpha_loss_per_item)
+
+        return actor_loss_per_item, critic_loss_per_item, alpha_loss_per_item
+
+    @graph_fn(flatten_ops=True, split_ops=True)
+    def _graph_fn_critic_loss(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, rewards, terminals):
+        # In case log_probs come in as shape=(), expand last rank to 1.
+        if log_probs_next_sampled.shape.as_list()[-1] is None:
+            log_probs_next_sampled = tf.expand_dims(log_probs_next_sampled, axis=-1)
+
+        log_probs_next_sampled = tf.reduce_sum(log_probs_next_sampled, axis=1, keepdims=True)
+        rewards = tf.expand_dims(rewards, axis=-1)
+        terminals = tf.expand_dims(terminals, axis=-1)
+
         q_min_next = tf.reduce_min(tf.concat(q_values_next_sampled, axis=1), axis=1, keepdims=True)
         assert q_min_next.shape.as_list() == [None, 1]
         soft_state_value = q_min_next - alpha * log_probs_next_sampled
@@ -77,59 +120,39 @@ class SACLossFunction(LossFunction):
             loss = 0.5 * (q_value - tf.stop_gradient(q_target)) ** 2
             loss = tf.identity(loss, "critic_loss_per_item_{}".format(i + 1))
             total_loss += loss
-        return total_loss
+        return tf.squeeze(total_loss, axis=1)
 
-    @graph_fn
-    def _graph_fn__actor_loss(self, alpha, log_probs_sampled, q_values_sampled):
+    @graph_fn(flatten_ops=True, split_ops=True)
+    def _graph_fn_actor_loss(self, alpha, log_probs_sampled, q_values_sampled):
+        if log_probs_sampled.shape.as_list()[-1] is None:
+            log_probs_sampled = tf.expand_dims(log_probs_sampled, axis=-1)
+        log_probs_sampled = tf.reduce_sum(log_probs_sampled, axis=1, keepdims=True)
         q_min = tf.reduce_min(tf.concat(q_values_sampled, axis=1), axis=1, keepdims=True)
         assert q_min.shape.as_list() == [None, 1]
         loss = alpha * log_probs_sampled - q_min
         loss = tf.identity(loss, "actor_loss_per_item")
-        return loss
+        return tf.squeeze(loss, axis=1)
 
-    @graph_fn
-    def _graph_fn__alpha_loss(self, alpha, log_probs_sampled):
-        # in the paper this is -alpha * (log_pi + target entropy), however the implementation uses log_alpha
-        # see the discussion in https://github.com/rail-berkeley/softlearning/issues/37
-        loss = -tf.log(alpha) * tf.stop_gradient(log_probs_sampled + self.target_entropy)
-        loss = tf.identity(loss, "alpha_loss_per_item")
-        return loss
-
-    @rlgraph_api
-    def _graph_fn_loss_per_item(self, alpha, log_probs_next_sampled, q_values_next_sampled, q_values, log_probs_sampled,
-                                q_values_sampled, rewards, terminals):
-        # In case log_probs come in as shape=(), expand last rank to 1.
-        if log_probs_sampled.shape.as_list()[-1] is None:
-            log_probs_sampled = tf.expand_dims(log_probs_sampled, axis=-1)
-            log_probs_next_sampled = tf.expand_dims(log_probs_next_sampled, axis=-1)
-
-        log_probs_next_sampled = tf.reduce_sum(log_probs_next_sampled, axis=1, keepdims=True)
-        log_probs_sampled = tf.reduce_sum(log_probs_sampled, axis=1, keepdims=True)
-        rewards = tf.expand_dims(rewards, axis=-1)
-        terminals = tf.expand_dims(terminals, axis=-1)
-
-        critic_loss_per_item = self._graph_fn__critic_loss(
-            alpha=alpha,
-            log_probs_next_sampled=log_probs_next_sampled,
-            q_values_next_sampled=q_values_next_sampled,
-            q_values=q_values,
-            rewards=rewards,
-            terminals=terminals
-        )
-        critic_loss_per_item = tf.squeeze(critic_loss_per_item, axis=1)
-
-        actor_loss_per_item = self._graph_fn__actor_loss(
-            alpha=alpha,
-            log_probs_sampled=log_probs_sampled,
-            q_values_sampled=q_values_sampled
-        )
-        actor_loss_per_item = tf.squeeze(actor_loss_per_item, axis=1)
-
-        if self.target_entropy is not None:
-            alpha_loss_per_item = self._graph_fn__alpha_loss(alpha=alpha, log_probs_sampled=log_probs_sampled)
-            alpha_loss_per_item = tf.squeeze(alpha_loss_per_item, axis=1)
+    @graph_fn(flatten_ops=True, split_ops=True)
+    def _graph_fn_alpha_loss(self, alpha, log_probs_sampled):
+        if self.target_entropy is None:
+            return tf.zeros([tf.shape(log_probs_sampled)[0]])
         else:
-            # TODO: optimize this path
-            alpha_loss_per_item = tf.zeros([tf.shape(rewards)[0]])
+            # in the paper this is -alpha * (log_pi + target entropy), however the implementation uses log_alpha
+            # see the discussion in https://github.com/rail-berkeley/softlearning/issues/37
+            loss = -tf.log(alpha) * tf.stop_gradient(log_probs_sampled + self.target_entropy)
+            loss = tf.identity(loss, "alpha_loss_per_item")
+            return tf.squeeze(loss, axis=1)
 
-        return actor_loss_per_item, critic_loss_per_item, alpha_loss_per_item
+    @graph_fn(flatten_ops=True)
+    def _graph_fn_average_over_container_keys(self, loss_per_item):
+        if get_backend() == "tf":
+            if isinstance(self.action_space, ContainerSpace):
+                loss_per_item = tf.stack(list(loss_per_item.values()))
+                loss_per_item = tf.reduce_mean(loss_per_item, axis=0)
+            return loss_per_item
+        elif get_backend() == "pytorch":
+            if isinstance(self.action_space, ContainerSpace):
+                loss_per_item = torch.stack(list(loss_per_item.values()))
+                loss_per_item = torch.mean(loss_per_item, 0)
+            return loss_per_item
