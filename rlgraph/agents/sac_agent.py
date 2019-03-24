@@ -202,7 +202,13 @@ class SACAgentComponent(Component):
 
     @graph_fn
     def _graph_fn_one_hot(self, env_actions):
-        if isinstance(self.env_action_space, IntBox):
+        # TODO move to util
+        # Checking this separately because env actions will be a raw tensor in define-by-run.
+        if isinstance(self.env_action_space, Dict):
+            for name, space in self.env_action_space.flatten(scope_separator_at_start=False).items():
+                if isinstance(space, IntBox):
+                    env_actions[name] = tf.one_hot(env_actions, depth=space.num_categories, axis=-1)
+        elif isinstance(self.env_action_space, IntBox):
             return tf.one_hot(env_actions, depth=self.env_action_space.num_categories, axis=-1)
         return env_actions
 
