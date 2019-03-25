@@ -159,7 +159,10 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
             params = [key] if add_auto_key_as_first_param is True else []
 
             for arg in flattened_args:
-                params.append(arg[key] if key in arg else arg[""])
+                if isinstance(arg, dict):
+                    params.append(arg[key] if key in arg else arg[""])
+                else:
+                    params.append(arg)
 
             # Add kwarg_ops
             for kwarg_key, kwarg_op in kwargs.items():
