@@ -232,7 +232,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             env_spec=lambda: GridWorld.from_spec(env_spec),
             agent=agent,
             preprocessing_spec=preprocessing_spec,
-            worker_executes_preprocessing=True,
+            worker_executes_preprocessing=False,
             render=False
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)

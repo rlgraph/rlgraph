@@ -243,7 +243,6 @@ class SACAgentComponent(Component):
         next_sampled_actions = samples_next["action"]
         log_probs_next_sampled = samples_next["log_prob"]
 
-        print("next sampled actions = ", next_sampled_actions)
         q_values_next_sampled = self.get_q_values(
             preprocessed_next_states, next_sampled_actions, target=True
         )
@@ -550,7 +549,7 @@ class SACAgent(Agent):
             actions = ret[0] if "preprocessed_states" in extra_returns else ret
             for name, space in self.action_space.flatten(scope_separator_at_start=False).items():
                 if isinstance(space, IntBox):
-                    actions[name] = np.argmax(actions[name][0]).astype(space.dtype)
+                    actions[name] = np.array([np.argmax(actions[name][0]).astype(space.dtype)])
         elif isinstance(self.action_space, IntBox):
             if "preprocessed_states" in extra_returns:
                 ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])

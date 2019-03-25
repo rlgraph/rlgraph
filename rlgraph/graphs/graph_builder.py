@@ -502,6 +502,9 @@ class GraphBuilder(Specifiable):
 
         # Build the ops from this input-combination.
         # Flatten input items.
+        # print("calling graph_fn = ", op_rec_column.graph_fn)
+        # print("args = ", args)
+        # print("kwargs = ", kwargs)
         if op_rec_column.flatten_ops is not False:
             flattened_args, flattened_kwargs = op_rec_column.flatten_input_ops(*args, **kwargs)
             # Split into SingleDataOps?
