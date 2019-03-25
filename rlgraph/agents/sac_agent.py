@@ -299,7 +299,7 @@ class SACAgentComponent(Component):
             return torch.exp(self.log_alpha)
 
     @graph_fn(returns=1)
-    def _graph_fn__concat(self, *tensors):
+    def _graph_fn_concat(self, *tensors):
         backend = get_backend()
         if backend == "tf":
             return tf.concat([tf_util.ensure_batched(t) for t in tensors], axis=1)
@@ -318,7 +318,7 @@ class SACAgentComponent(Component):
             return tf.no_op() if other_step_op is None else other_step_op
 
     @graph_fn
-    def _graph_fn__one_hot(self, tensor):
+    def _graph_fn_one_hot(self, tensor):
         backend = get_backend()
         if backend == "tf":
             return tf.one_hot(tensor, depth=5)
@@ -538,7 +538,7 @@ class SACAgent(Agent):
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
+        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]
         ret = self.graph_executor.execute((
             call_method,
             [batched_states, not use_exploration],  # deterministic = not use_exploration
@@ -546,7 +546,12 @@ class SACAgent(Agent):
             return_ops
         ))
         # We have a discrete action space -> Convert Gumble (relaxed one-hot) sample back into int type.
-        if isinstance(self.action_space, IntBox):
+        if isinstance(self.action_space, Dict):
+            actions = ret[0] if "preprocessed_states" in extra_returns else ret
+            for name, space in self.action_space.flatten(scope_separator_at_start=False).items():
+                if isinstance(space, IntBox):
+                    actions[name] = np.argmax(actions[name][0]).astype(space.dtype)
+        elif isinstance(self.action_space, IntBox):
             if "preprocessed_states" in extra_returns:
                 ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])
             else:
