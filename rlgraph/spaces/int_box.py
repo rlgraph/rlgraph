@@ -40,9 +40,11 @@ class IntBox(BoxSpace):
         NOTE: The `high` value for IntBoxes is excluded. Valid values thus are from the interval: [low,high[
         """
         if low is None:
-            assert high is None, "ERROR: If `low` is None, `high` must be None as well!"
-            low = -LARGE_INTEGER
-            high = LARGE_INTEGER
+            if high is not None:
+                low = 0
+            else:
+                low = -LARGE_INTEGER
+                high = LARGE_INTEGER
         # support calls like (IntBox(5) -> low=0, high=5)
         elif high is None:
             high = low
