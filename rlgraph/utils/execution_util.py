@@ -170,7 +170,10 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
                 kwargs[key] = kwargs[kwarg_key][key] if key in kwargs[kwarg_key] else kwargs[kwarg_key][""]
 
             params = params[0] if len(params) == 1 else params
-            collected_call_params[key] = (params, kwargs)
+            if kwargs:
+                collected_call_params[key] = (params, kwargs)
+            else:
+                collected_call_params[key] = params
         return collected_call_params
     # We don't have any containers: No splitting possible. Return args and kwargs as is.
     else:

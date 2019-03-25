@@ -947,8 +947,13 @@ class GraphBuilder(Specifiable):
                     ops = {}
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
-                        params_args = params[0]
-                        params_kwargs = params[1]
+                        # Are there any kwargs?
+                        if isinstance(params, tuple):
+                            params_args = params[0]
+                            params_kwargs = params[1]
+                        else:
+                            params_args = params
+                            params_kwargs = {}
                         ops[key] = graph_fn(component, *params_args, **params_kwargs)
                         if hasattr(ops[key], "shape"):
                             num_return_values = 1
