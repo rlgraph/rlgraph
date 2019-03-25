@@ -29,6 +29,7 @@ from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.spaces import Space, BoolBox, IntBox
 from rlgraph.spaces.space_utils import get_default_distribution_from_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.execution_util import define_by_run_unflatten
 from rlgraph.utils.ops import FlattenedDataOp, DataOpDict, ContainerDataOp, flat_key_lookup, unflatten_op
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
@@ -89,7 +90,7 @@ class Policy(Component):
             adapter = ActionAdapter.from_spec(action_adapter_spec)
             self.action_space = adapter.action_space
             # Assert single component action space.
-            assert len(self.action_space.flatten()) == 1,\
+            assert len(self.action_space.flatten()) == 1, \
                 "ERROR: Action space must not be ContainerSpace if no `action_space` is given in Policy constructor!"
         else:
             self.action_space = Space.from_spec(action_space)
@@ -119,7 +120,7 @@ class Policy(Component):
                 if self.distributions[flat_key] is None:
                     raise RLGraphError(
                         "ERROR: `action_component` is of type {} and not allowed in {} Component!".
-                        format(type(action_space).__name__, self.name)
+                            format(type(action_space).__name__, self.name)
                     )
                 aa_spec["type"] = get_action_adapter_type_from_distribution_type(
                     type(self.distributions[flat_key]).__name__
@@ -431,7 +432,7 @@ class Policy(Component):
 
     @graph_fn
     def _graph_fn_get_action_components(self, logits, parameters, deterministic):
-        ret = FlattenedDataOp()
+        ret = {}
 
         # TODO Clean up the checks in here wrt define-by-run processing.
         for flat_key, action_space_component in self.action_space.flatten().items():
@@ -471,7 +472,11 @@ class Policy(Component):
                     ret[flat_key] = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
                 else:
                     ret[flat_key] = self.distributions[flat_key].draw(parameters[flat_key], deterministic)
-        return unflatten_op(ret)
+
+        if get_backend() == "pytorch":
+            return DataOpDict(unflatten_op(ret))
+        elif get_backend() == "pytorch":
+            return DataOpDict(define_by_run_unflatten(ret))
 
     @graph_fn(returns=2)
     def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):

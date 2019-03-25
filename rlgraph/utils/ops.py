@@ -256,13 +256,13 @@ def flat_key_lookup(container, flat_key, default=None):
 
 def deep_tuple(x):
     """
-    Converts an input list of list (of list, etc..) into the respective nested DataOpTuple.
+    Converts all lists inside the input into a DataOpTuple.
 
     Args:
-        x (list): The input list to be converted into a tuple.
+        x (list): The arbitrarily nested input structure to be converted.
 
     Returns:
-        tuple: The corresponding tuple to x.
+        any: The corresponding new structure for x.
     """
     # A list -> convert to DataOpTuple.
     if isinstance(x, list):
