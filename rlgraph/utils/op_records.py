@@ -331,10 +331,11 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         # If it's more than 1, make sure they match. If they don't match: raise Error.
         if len(flattened) > 1:
             # Loop through the non-first ones and make sure all keys match vs the first one.
+            lead_arg_dict = flattened[0]
             for other in flattened[1:]:
                 other_arg_iter = iter(other)
-                for key, value in flattened[0]:
-                    k_other, v_other = next(other_arg_iter)
+                for key in lead_arg_dict.keys():
+                    k_other = next(other_arg_iter)
                     if key != k_other:  # or get_shape(v_other) != get_shape(value):
                         raise RLGraphError("ERROR: Flattened ops have a key mismatch ({} vs {})!".format(key, k_other))
 
