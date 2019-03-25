@@ -357,9 +357,11 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
                     else:
                         # E.g. tuple args.
                         params.append(op)
-                # Add kwarg_ops
+
+                # Add kwarg_ops.
                 for kwarg_key, kwarg_op in kwarg_ops.items():
-                    kwargs[kwarg_key] = kwarg_ops[kwarg_key][key] if key in kwarg_ops[kwarg_key] else kwarg_ops[kwarg_key][""]
+                    kwargs[kwarg_key] = kwarg_ops[kwarg_key][key] \
+                        if key in kwarg_ops[kwarg_key] else kwarg_ops[kwarg_key][""]
                 # Now do the single call.
                 collected_call_params[key] = (params, kwargs)
             return collected_call_params
