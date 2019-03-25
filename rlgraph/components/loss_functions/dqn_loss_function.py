@@ -72,7 +72,6 @@ class DQNLossFunction(LossFunction):
 
         super(DQNLossFunction, self).__init__(scope=scope, **kwargs)
 
-        self.action_space = None
         self.flat_action_space = None
         self.ranks_to_reduce = 0  # How many ranks do we have to reduce to get down to the final loss per batch item?
 
@@ -320,16 +319,3 @@ class DQNLossFunction(LossFunction):
                 )
             else:
                 return 0.5 * td_delta * td_delta
-
-    @graph_fn(flatten_ops=True)
-    def _graph_fn_average_over_container_keys(self, loss_per_item):
-        if get_backend() == "tf":
-            if isinstance(self.action_space, ContainerSpace):
-                loss_per_item = tf.stack(list(loss_per_item.values()))
-                loss_per_item = tf.reduce_mean(loss_per_item, axis=0)
-            return loss_per_item
-        elif get_backend() == "pytorch":
-            if isinstance(self.action_space, ContainerSpace):
-                loss_per_item = torch.stack(list(loss_per_item.values()))
-                loss_per_item = torch.mean(loss_per_item, 0)
-            return loss_per_item

@@ -45,7 +45,6 @@ class PPOLossFunction(LossFunction):
         self.clip_ratio = clip_ratio
         self.standardize_advantages = standardize_advantages
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
-        self.action_space = None
 
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
@@ -161,16 +160,3 @@ class PPOLossFunction(LossFunction):
 
         baseline_loss = (v_targets - baseline_values) ** 2
         return baseline_loss
-
-    @graph_fn(flatten_ops=True)
-    def _graph_fn_average_over_container_keys(self, loss_per_item):
-        if get_backend() == "tf":
-            if isinstance(self.action_space, ContainerSpace):
-                loss_per_item = tf.stack(list(loss_per_item.values()))
-                loss_per_item = tf.reduce_mean(loss_per_item, axis=0)
-            return loss_per_item
-        elif get_backend() == "pytorch":
-            if isinstance(self.action_space, ContainerSpace):
-                loss_per_item = torch.stack(list(loss_per_item.values()))
-                loss_per_item = torch.mean(loss_per_item, 0)
-            return loss_per_item
