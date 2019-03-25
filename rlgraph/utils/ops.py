@@ -17,9 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
 import re
-
+from collections import OrderedDict
 
 # Defines how to generate auto-keys for flattened Tuple-Space items.
 # _T\d+_
@@ -73,19 +72,7 @@ class ContainerDataOp(DataOp):
         Returns:
 
         """
-        if flat_key.startswith(FLATTEN_SCOPE_PREFIX):
-            flat_key = flat_key[1:]
-        key_sequence = flat_key.split(FLATTEN_SCOPE_PREFIX)
-        result = self
-        for key in key_sequence:
-            mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key)
-            # Tuple
-            if mo is not None:
-                result = result[int(mo.group(1))]
-            # Dict
-            else:
-                result = result[key]
-        return result
+        return flat_key_lookup(self, flat_key)
 
 
 class DataOpDict(ContainerDataOp, dict):
@@ -244,6 +231,27 @@ def unflatten_op(op):
 
     # Deep conversion from list to tuple.
     return deep_tuple(base_structure)
+
+
+def flat_key_lookup(container, flat_key, default=None):
+    if flat_key.startswith(FLATTEN_SCOPE_PREFIX):
+        flat_key = flat_key[1:]
+    key_sequence = flat_key.split(FLATTEN_SCOPE_PREFIX)
+    result = container
+    for key in key_sequence:
+        mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key)
+        # Tuple
+        if mo is not None:
+            slot = int(mo.group(1))
+            if len(result) > slot and default is not None:
+                return default
+            result = result[slot]
+        # Dict
+        else:
+            if key not in result and default is not None:
+                return default
+            result = result[key]
+    return result
 
 
 def deep_tuple(x):

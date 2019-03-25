@@ -24,12 +24,12 @@ from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
     get_distribution_spec_from_action_adapter_type
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical, Distribution, Beta, Bernoulli
+from rlgraph.components.distributions import Distribution
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
+from rlgraph.spaces import Space, BoolBox, IntBox
 from rlgraph.spaces.space_utils import get_default_distribution_from_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import FlattenedDataOp, ContainerDataOp
+from rlgraph.utils.ops import FlattenedDataOp, ContainerDataOp, flat_key_lookup
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
@@ -97,7 +97,7 @@ class Policy(Component):
         for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
             # Spec dict.
             if isinstance(action_adapter_spec, dict):
-                aa_spec = action_adapter_spec.get(flat_key, action_adapter_spec)
+                aa_spec = flat_key_lookup(action_adapter_spec, flat_key, action_adapter_spec)
                 aa_spec["action_space"] = action_component
             # Simple type spec.
             elif not isinstance(action_adapter_spec, ActionAdapter):
