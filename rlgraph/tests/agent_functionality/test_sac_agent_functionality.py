@@ -57,9 +57,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 next_states=state_space.with_batch_rank(),
                 terminals=terminal_space,
                 batch_size=int,
-                preprocessed_s_prime=state_space.with_batch_rank(),
                 importance_weights=FloatBox(add_batch_rank=True),
-                preprocessed_next_states=state_space.with_batch_rank(),
                 deterministic=bool,
                 weights="variables:{}".format(policy.scope),
                 # TODO: how to provide the space for multiple component variables?
