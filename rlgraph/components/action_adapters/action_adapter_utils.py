@@ -51,18 +51,23 @@ def get_action_adapter_type_from_distribution_type(distribution_type_str):
         raise RLGraphError("'{}' is an unknown Distribution type!".format(distribution_type_str))
 
 
-def get_distribution_spec_from_action_adapter_type(action_adapter_type_str):
+def get_distribution_spec_from_action_adapter(action_adapter):
+    action_adapter_type_str = type(action_adapter).__name__
     if action_adapter_type_str == "CategoricalDistributionAdapter":
-        return "categorical"
+        return dict(type="categorical")
     elif action_adapter_type_str == "GumbelSoftmaxDistributionAdapter":
-        return "gumbel-softmax"
+        return dict(type="gumbel-softmax")
     elif action_adapter_type_str == "BernoulliDistributionAdapter":
-        return "bernoulli"
+        return dict(type="bernoulli")
+    # TODO: What about multi-variate normal with non-trivial co-var matrices?
     elif action_adapter_type_str == "NormalDistributionAdapter":
-        return "normal"
+        return dict(type="normal")
     elif action_adapter_type_str == "BetaDistributionAdapter":
-        return "beta"
+        return dict(type="beta")
     elif action_adapter_type_str == "SquashedNormalDistributionAdapter":
-        return "squashed-normal"
+        return dict(type="squashed-normal")
+    elif action_adapter_type_str == "NormalMixtureDistributionAdapter":
+        # TODO: MixtureDistribution is generic (any sub-distributions, but its AA is not (only supports mixture-Normal))
+        return dict(type="mixture", _args=["multivariate-normal" for _ in range(action_adapter.size_mixture)])
     else:
         raise RLGraphError("'{}' is an unknown ActionAdapter type!".format(action_adapter_type_str))
