@@ -18,12 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+
 import numpy as np
 
 from rlgraph.components.action_adapters import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.numpy import softmax, relu
+from rlgraph.utils.numpy import softmax
 
 
 class TestActionAdapters(unittest.TestCase):
@@ -54,14 +55,14 @@ class TestActionAdapters(unittest.TestCase):
             inputs, action_adapter_params["action-adapter/action-network/action-layer/dense/kernel"]
         )
         expected_logits = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
-        test.test(("apply", inputs), expected_outputs=dict(output=expected_logits))
-        test.test(("get_logits", inputs), expected_outputs=expected_logits)  # w/o the dict
+        test.test(("apply", inputs), expected_outputs=dict(output=expected_logits), decimals=5)
+        test.test(("get_logits", inputs), expected_outputs=expected_logits, decimals=5)  # w/o the dict
 
         expected_parameters = softmax(expected_logits)
         expected_log_probs = np.log(expected_parameters)
         test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=dict(
             logits=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
-        ))
+        ), decimals=5)
 
     def test_simple_action_adapter_with_batch_apply(self):
         # Last NN layer.
