@@ -96,7 +96,7 @@ class Policy(Component):
             self.action_space = Space.from_spec(action_space)
 
         # Figure out our Distributions.
-        for i, (flat_key, action_component) in enumerate(self.action_space.flatten(scope_separator_at_start=False).items()):
+        for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
             # Spec dict.
             if isinstance(action_adapter_spec, dict):
                 aa_spec = flat_key_lookup(action_adapter_spec, flat_key, action_adapter_spec)
@@ -473,10 +473,10 @@ class Policy(Component):
                 else:
                     ret[flat_key] = self.distributions[flat_key].draw(parameters[flat_key], deterministic)
 
-        if get_backend() == "pytorch":
-            return DataOpDict(unflatten_op(ret))
+        if get_backend() == "tf":
+            return unflatten_op(ret)
         elif get_backend() == "pytorch":
-            return DataOpDict(define_by_run_unflatten(ret))
+            return define_by_run_unflatten(ret)
 
     @graph_fn(returns=2)
     def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):
