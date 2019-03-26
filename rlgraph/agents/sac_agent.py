@@ -27,14 +27,13 @@ from rlgraph.spaces import FloatBox, BoolBox, IntBox, Dict
 from rlgraph.components import Component, Synchronizable
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, PrioritizedReplay
+from rlgraph.components import Memory, ContainerMerger, PrioritizedReplay
 from rlgraph.utils.util import strip_list
 from rlgraph.utils.ops import flatten_op, DataOpTuple
 
 
 if get_backend() == "tf":
     import tensorflow as tf
-    from rlgraph.utils import tf_util
 elif get_backend() == "pytorch":
     import torch
 
@@ -296,14 +295,6 @@ class SACAgentComponent(Component):
             return tf.exp(self.log_alpha)
         elif backend == "pytorch":
             return torch.exp(self.log_alpha)
-
-    @graph_fn(returns=1)
-    def _graph_fn_concat(self, *tensors):
-        backend = get_backend()
-        if backend == "tf":
-            return tf.concat([tf_util.ensure_batched(t) for t in tensors], axis=1)
-        elif backend == "pytorch":
-            raise NotImplementedError("TODO: pytorch support")
 
     # TODO: Move this into generic AgentRootComponent.
     @graph_fn
