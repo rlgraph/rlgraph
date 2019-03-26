@@ -22,7 +22,6 @@ import os
 import unittest
 
 import numpy as np
-from rlgraph.execution.ray import ApexExecutor
 from scipy import stats
 
 from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
@@ -242,6 +241,8 @@ class TestSACShortTaskLearning(unittest.TestCase):
         """
         Tests sac on Ape-X.
         """
+        # Import Ray here so other test cases do not need to import it if not installed.
+        from rlgraph.execution.ray import ApexExecutor
         env_spec = dict(
             type="openai",
             gym_env="CartPole-v0"
