@@ -141,7 +141,7 @@
         "num_background_envs": 0,
         "frame_skip": 1,
         "n_step_adjustment": 3,
-        "worker_computes_weights": true,
+        "worker_executes_postprocessing": true,
         "sample_exploration": false,
         "ray_constant_exploration": true
       },

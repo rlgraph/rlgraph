@@ -57,7 +57,7 @@ class RayPolicyWorker(RayActor):
         worker_spec = deepcopy(worker_spec)
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
         self.worker_sample_size = worker_spec.pop("worker_sample_size") * self.num_environments
-        self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
+        self.worker_executes_postprocessing = worker_spec.pop("worker_executes_postprocessing", True)
 
         # Use GAE.
         self.generalized_advantage_estimation = worker_spec.pop("generalized_advantage_estimation", True)
@@ -399,7 +399,7 @@ class RayPolicyWorker(RayActor):
         """
         Post-processes policy trajectories.
         """
-        if self.generalized_advantage_estimation:
+        if self.worker_executes_postprocessing:
             rewards = self.agent.post_process(
                 dict(
                     states=states,
