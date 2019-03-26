@@ -161,11 +161,11 @@ class SACAgentComponent(Component):
 
     @rlgraph_api
     def update_from_external_batch(
-        self, preprocessed_states, env_actions, rewards, terminals, preprocessed_s_prime, importance_weights
+        self, preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights
     ):
         actions = self._graph_fn_one_hot(env_actions)
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
-            self.get_losses(preprocessed_states, actions, rewards, terminals, preprocessed_s_prime, importance_weights)
+            self.get_losses(preprocessed_states, actions, rewards, terminals, next_states, importance_weights)
 
         policy_vars = self._policy.variables()
         q_vars = [q_func.variables() for q_func in self._q_functions]
@@ -237,14 +237,14 @@ class SACAgentComponent(Component):
         return tuple(q.value_output(state_actions) for q in q_funcs)
 
     @rlgraph_api
-    def get_losses(self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights):
+    def get_losses(self, preprocessed_states, actions, rewards, terminals, next_states, importance_weights):
         # TODO: internal states
-        samples_next = self._policy.get_action_and_log_prob(preprocessed_next_states, deterministic=False)
+        samples_next = self._policy.get_action_and_log_prob(next_states, deterministic=False)
         next_sampled_actions = samples_next["action"]
         log_probs_next_sampled = samples_next["log_prob"]
 
         q_values_next_sampled = self.get_q_values(
-            preprocessed_next_states, next_sampled_actions, target=True
+            next_states, next_sampled_actions, target=True
         )
         q_values = self.get_q_values(preprocessed_states, actions)
         samples = self._policy.get_action_and_log_prob(preprocessed_states, deterministic=False)
@@ -448,11 +448,9 @@ class SACAgent(Agent):
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
-            next_states=self.state_space.with_batch_rank(),
-            preprocessed_next_states=preprocessed_state_space,
+            next_states=preprocessed_state_space,
             states=self.state_space.with_batch_rank(add_batch_rank=True),
             batch_size=int,
-            preprocessed_s_prime=self.state_space.with_batch_rank(add_batch_rank=True),
             importance_weights=FloatBox(add_batch_rank=True),
             deterministic=bool,
             weights="variables:{}".format(self.policy.scope)
