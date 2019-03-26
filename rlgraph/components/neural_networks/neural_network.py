@@ -37,7 +37,7 @@ class NeuralNetwork(Stack):
 
     No other API methods other than `apply` should be defined/used.
 
-    A NeuralNetwork Component correctly handles
+    TODO: A NeuralNetwork Component correctly handles RNN layers in terms of
     """
 
     def __init__(self, *layers, **kwargs):

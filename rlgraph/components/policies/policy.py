@@ -22,14 +22,15 @@ import numpy as np
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
-    get_distribution_spec_from_action_adapter_type
+    get_distribution_spec_from_action_adapter
 from rlgraph.components.component import Component
-from rlgraph.components.distributions import Normal, Categorical, Distribution, Beta, Bernoulli
+from rlgraph.components.distributions import Distribution
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.spaces import Space, BoolBox, IntBox, FloatBox
+from rlgraph.spaces import Space, BoolBox, IntBox
 from rlgraph.spaces.space_utils import get_default_distribution_from_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import FlattenedDataOp, ContainerDataOp
+from rlgraph.utils.execution_util import define_by_run_unflatten
+from rlgraph.utils.ops import FlattenedDataOp, DataOpDict, ContainerDataOp, flat_key_lookup, unflatten_op
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
@@ -64,6 +65,7 @@ class Policy(Component):
                 to fold time rank into batch rank before a forward pass.
         """
         super(Policy, self).__init__(scope=scope, **kwargs)
+
         self.neural_network = NeuralNetwork.from_spec(network_spec)  # type: NeuralNetwork
         self.deterministic = deterministic
         self.action_adapters = {}
@@ -88,7 +90,7 @@ class Policy(Component):
             adapter = ActionAdapter.from_spec(action_adapter_spec)
             self.action_space = adapter.action_space
             # Assert single component action space.
-            assert len(self.action_space.flatten()) == 1,\
+            assert len(self.action_space.flatten()) == 1, \
                 "ERROR: Action space must not be ContainerSpace if no `action_space` is given in Policy constructor!"
         else:
             self.action_space = Space.from_spec(action_space)
@@ -97,7 +99,7 @@ class Policy(Component):
         for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
             # Spec dict.
             if isinstance(action_adapter_spec, dict):
-                aa_spec = action_adapter_spec.get(flat_key, action_adapter_spec)
+                aa_spec = flat_key_lookup(action_adapter_spec, flat_key, action_adapter_spec)
                 aa_spec["action_space"] = action_component
             # Simple type spec.
             elif not isinstance(action_adapter_spec, ActionAdapter):
@@ -118,7 +120,7 @@ class Policy(Component):
                 if self.distributions[flat_key] is None:
                     raise RLGraphError(
                         "ERROR: `action_component` is of type {} and not allowed in {} Component!".
-                        format(type(action_space).__name__, self.name)
+                            format(type(action_space).__name__, self.name)
                     )
                 aa_spec["type"] = get_action_adapter_type_from_distribution_type(
                     type(self.distributions[flat_key]).__name__
@@ -126,11 +128,9 @@ class Policy(Component):
                 self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
             else:
                 self.action_adapters[flat_key] = ActionAdapter.from_spec(aa_spec, scope="action-adapter-{}".format(i))
-                dist_spec = get_distribution_spec_from_action_adapter_type(
-                    type(self.action_adapters[flat_key]).__name__
-                )
+                dist_spec = get_distribution_spec_from_action_adapter(self.action_adapters[flat_key])
                 self.distributions[flat_key] = Distribution.from_spec(
-                    dist_spec, scope="{}-{}".format(dist_spec, i)
+                    dist_spec, scope="{}-{}".format(dist_spec["type"], i)
                 )
 
     # Define our interface.
@@ -432,7 +432,7 @@ class Policy(Component):
 
     @graph_fn
     def _graph_fn_get_action_components(self, logits, parameters, deterministic):
-        ret = FlattenedDataOp()
+        ret = {}
 
         # TODO Clean up the checks in here wrt define-by-run processing.
         for flat_key, action_space_component in self.action_space.flatten().items():
@@ -467,11 +467,16 @@ class Policy(Component):
                     else:
                         return self.distributions[flat_key].draw(parameters, deterministic)
 
-                if isinstance(parameters, ContainerDataOp):
+                if isinstance(parameters, ContainerDataOp) and not \
+                        (isinstance(parameters, DataOpDict) and flat_key in parameters):
                     ret[flat_key] = self.distributions[flat_key].draw(parameters.flat_key_lookup(flat_key), deterministic)
                 else:
                     ret[flat_key] = self.distributions[flat_key].draw(parameters[flat_key], deterministic)
-        return ret
+
+        if get_backend() == "tf":
+            return unflatten_op(ret)
+        elif get_backend() == "pytorch":
+            return define_by_run_unflatten(ret)
 
     @graph_fn(returns=2)
     def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):

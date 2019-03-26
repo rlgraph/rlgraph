@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
-    get_distribution_spec_from_action_adapter_type
+    get_distribution_spec_from_action_adapter
 from rlgraph.components.action_adapters.bernoulli_distribution_adapter import BernoulliDistributionAdapter
 from rlgraph.components.action_adapters.beta_distribution_adapter import BetaDistributionAdapter
 from rlgraph.components.action_adapters.categorical_distribution_adapter import CategoricalDistributionAdapter
@@ -40,5 +40,5 @@ ActionAdapter.__lookup_classes__ = dict(
 )
 
 __all__ = ["ActionAdapter", "get_action_adapter_type_from_distribution_type",
-           "get_distribution_spec_from_action_adapter_type"] + \
+           "get_distribution_spec_from_action_adapter"] + \
           list(set(map(lambda x: x.__name__, ActionAdapter.__lookup_classes__.values())))

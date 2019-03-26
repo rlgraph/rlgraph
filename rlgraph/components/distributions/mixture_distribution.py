@@ -26,7 +26,7 @@ from rlgraph.utils.rlgraph_errors import RLGraphError
 if get_backend() == "tf":
     import tensorflow_probability as tfp
 elif get_backend() == "pytorch":
-    import torch
+    pass
 
 
 class MixtureDistribution(Distribution):
