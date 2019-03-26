@@ -2,11 +2,12 @@ import unittest
 import logging
 import numpy as np
 
-from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification
+from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification, SACAgent
+from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import config_from_path
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 
 from rlgraph.utils import root_logger
 
@@ -100,3 +101,26 @@ class TestSACAgentFunctionality(unittest.TestCase):
         action_sample, _ = test.test(("action_from_preprocessed_state", [state_space.sample(batch_size), False]))
         self.assertTrue(action_sample.dtype == np.float32)
         self.assertTrue(action_sample.shape == (batch_size, 1))
+
+    def test_policy_sync(self):
+        """
+        Tests weight syncing of policy (and only policy, not Q-functions).
+        """
+        env = OpenAIGymEnv("CartPole-v0")
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_for_cartpole.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+
+        weights = agent.get_weights()
+        print("weights =", weights.keys())
+
+        new_weights = {}
+        for key, value in weights.items():
+            new_weights[key] = value + 0.01
+
+        agent.set_weights(policy_weights=new_weights, value_function_weights=None)
+
+        updated_weights = agent.get_weights()
+        recursive_assert_almost_equal(updated_weights, new_weights)
