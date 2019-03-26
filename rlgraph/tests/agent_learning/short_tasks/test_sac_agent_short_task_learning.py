@@ -222,7 +222,6 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
         agent = SACAgent.from_spec(
             agent_config,
-            double_q=True,
             state_space=FloatBox(shape=(4,)),
             action_space=dummy_env.action_space,
         )
