@@ -337,7 +337,7 @@ class PPOAgent(Agent):
 
                     if isinstance(actions, dict):
                         sample_actions = DataOpDict()
-                        for name, action in define_by_run_flatten(actions).items():
+                        for name, action in define_by_run_flatten(actions, scope_separator_at_start=False).items():
                             sample_actions[name] = torch.index_select(action, 0, indices)
                     else:
                         sample_actions = torch.index_select(actions, 0, indices)

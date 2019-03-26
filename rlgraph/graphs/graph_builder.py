@@ -502,6 +502,9 @@ class GraphBuilder(Specifiable):
 
         # Build the ops from this input-combination.
         # Flatten input items.
+        # print("calling graph_fn = ", op_rec_column.graph_fn)
+        # print("args = ", args)
+        # print("kwargs = ", kwargs)
         if op_rec_column.flatten_ops is not False:
             flattened_args, flattened_kwargs = op_rec_column.flatten_input_ops(*args, **kwargs)
             # Split into SingleDataOps?
@@ -512,8 +515,8 @@ class GraphBuilder(Specifiable):
                     ops = {}
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
-                        params_args = [p for p in params if not isinstance(p, tuple)]
-                        params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
+                        params_args = params[0]
+                        params_kwargs = params[1]
                         if is_build_time:
                             call_time = time.perf_counter()
                         ops[key] = force_tuple(op_rec_column.graph_fn(op_rec_column.component,
@@ -944,8 +947,13 @@ class GraphBuilder(Specifiable):
                     ops = {}
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
-                        params_args = [p for p in params if not isinstance(p, tuple)]
-                        params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
+                        # Are there any kwargs?
+                        if isinstance(params, tuple):
+                            params_args = params[0]
+                            params_kwargs = params[1]
+                        else:
+                            params_args = params
+                            params_kwargs = {}
                         ops[key] = graph_fn(component, *params_args, **params_kwargs)
                         if hasattr(ops[key], "shape"):
                             num_return_values = 1

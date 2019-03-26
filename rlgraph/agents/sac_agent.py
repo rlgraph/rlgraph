@@ -23,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import RLGraphError
-from rlgraph.spaces import FloatBox, BoolBox, IntBox
+from rlgraph.spaces import FloatBox, BoolBox, IntBox, Dict
 from rlgraph.components import Component, Synchronizable
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -202,7 +202,13 @@ class SACAgentComponent(Component):
 
     @graph_fn
     def _graph_fn_one_hot(self, env_actions):
-        if isinstance(self.env_action_space, IntBox):
+        # TODO move to util
+        # Checking this separately because env actions will be a raw tensor in define-by-run.
+        if isinstance(self.env_action_space, Dict):
+            for name, space in self.env_action_space.flatten(scope_separator_at_start=False).items():
+                if isinstance(space, IntBox):
+                    env_actions[name] = tf.one_hot(env_actions[name], depth=space.num_categories, axis=-1)
+        elif isinstance(self.env_action_space, IntBox):
             return tf.one_hot(env_actions, depth=self.env_action_space.num_categories, axis=-1)
         return env_actions
 
@@ -217,7 +223,6 @@ class SACAgentComponent(Component):
         backend = get_backend()
 
         #tf.one_hot(tf.cast(x=tensor, dtype=tf.int32), depth=5)
-
         flat_actions = flatten_op(actions)
         state_actions = [states]
         for flat_key, action_component in self._policy.action_space.flatten().items():
@@ -293,7 +298,7 @@ class SACAgentComponent(Component):
             return torch.exp(self.log_alpha)
 
     @graph_fn(returns=1)
-    def _graph_fn__concat(self, *tensors):
+    def _graph_fn_concat(self, *tensors):
         backend = get_backend()
         if backend == "tf":
             return tf.concat([tf_util.ensure_batched(t) for t in tensors], axis=1)
@@ -312,7 +317,7 @@ class SACAgentComponent(Component):
             return tf.no_op() if other_step_op is None else other_step_op
 
     @graph_fn
-    def _graph_fn__one_hot(self, tensor):
+    def _graph_fn_one_hot(self, tensor):
         backend = get_backend()
         if backend == "tf":
             return tf.one_hot(tensor, depth=5)
@@ -430,7 +435,11 @@ class SACAgent(Agent):
         self.batch_size = self.update_spec["batch_size"]
         float_action_space = self.action_space.with_batch_rank()
 
-        if isinstance(self.action_space, IntBox):
+        if isinstance(self.action_space, Dict):
+            for name, space in float_action_space.flatten(scope_separator_at_start=False).items():
+                if isinstance(space, IntBox):
+                    float_action_space[name] = space.as_one_hot_float_space()
+        elif isinstance(self.action_space, IntBox):
             float_action_space = float_action_space.as_one_hot_float_space()
 
         self.input_spaces.update(dict(
@@ -528,7 +537,7 @@ class SACAgent(Agent):
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [1, 0] if "preprocessed_states" in extra_returns else [1]
+        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]
         ret = self.graph_executor.execute((
             call_method,
             [batched_states, not use_exploration],  # deterministic = not use_exploration
@@ -536,7 +545,12 @@ class SACAgent(Agent):
             return_ops
         ))
         # We have a discrete action space -> Convert Gumble (relaxed one-hot) sample back into int type.
-        if isinstance(self.action_space, IntBox):
+        if isinstance(self.action_space, Dict):
+            actions = ret[0] if "preprocessed_states" in extra_returns else ret
+            for name, space in self.action_space.flatten(scope_separator_at_start=False).items():
+                if isinstance(space, IntBox):
+                    actions[name] = np.array([np.argmax(actions[name][0]).astype(space.dtype)])
+        elif isinstance(self.action_space, IntBox):
             if "preprocessed_states" in extra_returns:
                 ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])
             else:

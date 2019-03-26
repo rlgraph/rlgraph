@@ -22,7 +22,7 @@ import re
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.ops import DataOpDict, DataOpTuple
+from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLATTEN_SCOPE_PREFIX
 
 
 class ContainerMerger(Component):
@@ -94,7 +94,7 @@ class ContainerMerger(Component):
             ret = DataOpDict()
             for i, op in enumerate(inputs):
                 if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
-                    ret["/" + self.dict_keys[i]] = op
+                    ret[FLATTEN_SCOPE_PREFIX + self.dict_keys[i]] = op
                 else:
                     ret[self.dict_keys[i]] = op
             return ret

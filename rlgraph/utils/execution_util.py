@@ -159,16 +159,21 @@ def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
             params = [key] if add_auto_key_as_first_param is True else []
 
             for arg in flattened_args:
-                params.append(arg[key] if key in arg else arg[""])
+                if isinstance(arg, dict):
+                    params.append(arg[key] if key in arg else arg[""])
+                else:
+                    params.append(arg)
 
             # Add kwarg_ops
+            kwargs = {}
             for kwarg_key, kwarg_op in kwargs.items():
-                params.append(tuple([
-                    kwarg_key,
-                    kwargs[kwarg_key][key] if key in kwargs[kwarg_key] else kwargs[kwarg_key][""]
-                ]))
+                kwargs[key] = kwargs[kwarg_key][key] if key in kwargs[kwarg_key] else kwargs[kwarg_key][""]
 
-            collected_call_params[key] = params[0] if len(params) == 1 else params
+            params = params[0] if len(params) == 1 else params
+            if kwargs:
+                collected_call_params[key] = (params, kwargs)
+            else:
+                collected_call_params[key] = params
         return collected_call_params
     # We don't have any containers: No splitting possible. Return args and kwargs as is.
     else:
