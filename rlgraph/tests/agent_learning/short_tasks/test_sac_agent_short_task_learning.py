@@ -22,6 +22,7 @@ import os
 import unittest
 
 import numpy as np
+from rlgraph.execution.ray import ApexExecutor
 from scipy import stats
 
 from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
@@ -212,8 +213,28 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
     def test_sac_cartpole_on_ray(self):
         """
-
-        Returns:
-
+        Tests sac on Ape-X.
         """
-        pass
+        env_spec = dict(
+            type="openai",
+            gym_env="CartPole-v0"
+        )
+        agent_config = config_from_path("configs/apex_agent_cartpole.json")
+
+        # Use n-step adjustments.
+        agent_config["execution_spec"]["ray_spec"]["worker_spec"]["n_step_adjustment"] = 3
+        agent_config["execution_spec"]["ray_spec"]["apex_replay_spec"]["n_step_adjustment"] = 3
+        agent_config["n_step"] = 3
+
+        executor = ApexExecutor(
+            environment_spec=env_spec,
+            agent_config=agent_config,
+        )
+        # Define executor, test assembly.
+        print("Successfully created executor.")
+
+        # Executes actual workload.
+        result = executor.execute_workload(workload=dict(num_timesteps=20000, report_interval=1000,
+                                                         report_interval_min_seconds=1))
+        print("Finished executing workload:")
+        print(result)

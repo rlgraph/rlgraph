@@ -1,0 +1,96 @@
+{
+  "type": "sac",
+  "discount": 0.99,
+  "initial_alpha": 0.2,
+  "gumbel_softmax_temperature": 1.0,
+  "double_q": false,
+
+  "memory_spec":
+  {
+    "type": "replay",
+    "capacity": 64
+  },
+
+  "preprocessing_spec":
+  [],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "relu",
+      "scope": "hidden1"
+    }
+  ],
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "relu",
+      "scope": "vf-hidden1"
+    }
+  ],
+
+  "update_spec": {
+    "update_mode": "time_steps",
+    "do_updates": true,
+    "update_interval": 1,
+    "sync_interval": 1,
+    "sync_tau": 0.005,
+    "batch_size": 32,
+    "num_iterations": 1
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0002
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0004
+  },
+    "execution_spec": {
+    "session_config": {
+      "log_device_placement": false,
+      "allow_soft_placement": true
+    },
+    "ray_spec": {
+      "executor_spec": {
+        "redis_address": null,
+        "num_cpus": 8,
+        "num_gpus": 0,
+        "weight_sync_steps": 100,
+        "replay_sampling_task_depth": 1,
+        "env_interaction_task_depth": 1,
+        "num_worker_samples": 50,
+        "learn_queue_size": 1,
+        "num_sample_workers": 2,
+        "num_replay_workers": 1
+      },
+      "worker_spec": {
+        "ray_constant_exploration": false,
+        "sample_exploration": false,
+        "num_worker_environments": 2,
+        "num_background_envs": 1,
+        "execution_spec": {
+          "gpu_spec": { "gpus_enabled" : false}
+        },
+        "n_step_adjustment": 1,
+        "worker_executes_postprocessing": false,
+        "exploration_min_value": 0.5
+      },
+      "apex_replay_spec": {
+        "memory_spec": {
+          "capacity": 1000,
+          "alpha": 0.6,
+          "beta": 0.4
+        },
+        "clip_rewards": false,
+        "min_sample_memory_size": 200,
+        "n_step_adjustment": 1
+      }
+    }
+  }
+}
