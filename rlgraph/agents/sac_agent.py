@@ -307,14 +307,6 @@ class SACAgentComponent(Component):
         else:
             return tf.no_op() if other_step_op is None else other_step_op
 
-    @graph_fn
-    def _graph_fn_one_hot(self, tensor):
-        backend = get_backend()
-        if backend == "tf":
-            return tf.one_hot(tensor, depth=5)
-        elif backend == "pytorch":
-            raise NotImplementedError("TODO: pytorch support")
-
     @graph_fn(returns=1, requires_variable_completeness=True)
     def _graph_fn_get_should_sync(self):
         if get_backend() == "tf":
@@ -484,9 +476,6 @@ class SACAgent(Agent):
                 build_options=self.build_options
             )
             self.graph_built = True
-
-    def define_graph_api(self, *args, **kwargs):
-        pass
 
     def set_weights(self, policy_weights, value_function_weights=None):
         # TODO: Overrides parent but should this be policy of value function?
