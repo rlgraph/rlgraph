@@ -37,7 +37,9 @@ if get_distributed_backend() == "ray":
 
 class RayPolicyWorker(RayActor):
     """
-    A Ray policy worker for distributed policy optimisation.
+    A Ray policy worker for distributed policy optimisation. Unlike the value worker,
+    this worker does not need to explicitly store next-states, thus reducing communication overhead and
+    memory usage in the object store.
     """
 
     def __init__(self, agent_config, worker_spec, env_spec, frameskip=1):
@@ -59,11 +61,7 @@ class RayPolicyWorker(RayActor):
         self.worker_sample_size = worker_spec.pop("worker_sample_size") * self.num_environments
         self.worker_executes_postprocessing = worker_spec.pop("worker_executes_postprocessing", True)
 
-        # Use GAE.
-        self.generalized_advantage_estimation = worker_spec.pop("generalized_advantage_estimation", True)
-        self.gae_lambda = worker_spec.pop("gae_lambda", 1.0)
         self.compress = worker_spec.pop("compress_states", False)
-
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
