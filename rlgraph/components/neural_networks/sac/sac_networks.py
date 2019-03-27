@@ -40,7 +40,6 @@ class SACValueNetwork(NeuralNetwork):
         super(SACValueNetwork, self).__init__(scope=scope, **kwargs)
 
         self.network_spec = network_spec
-
         self.image_stack = None
         self.dense_stack = None
 
@@ -48,14 +47,11 @@ class SACValueNetwork(NeuralNetwork):
         self.use_image_stack = self.network_spec[0]["type"] == "conv2d"
         self.build_stacks()
 
-        # The concatenation layer.
-        self.concat_layer = ConcatLayer()
-
         # Add all sub-components to this one.
         if self.image_stack is not None:
             self.add_components(self.image_stack)
 
-        self.add_components(self.dense_stack, self.concat_layer)
+        self.add_components(self.dense_stack)
 
     def build_stacks(self):
 
@@ -63,20 +59,29 @@ class SACValueNetwork(NeuralNetwork):
         Builds a dense stack and optionally an image stack.
         """
         if self.use_image_stack:
-            sub_components = []
+            image_components = []
+            dense_components = []
             for layer_spec in self.network_spec:
                 if layer_spec["type"] in ["conv2d", "reshape"]:
-                    sub_components.append(Layer.from_spec(layer_spec))
-            self.image_stack = Stack(sub_components, scope="image-stack")
+                    image_components.append(Layer.from_spec(layer_spec))
 
+            self.image_stack = Stack(image_components, scope="image-stack")
+
+            # Remainings layers should be dense.
+            for layer_spec in self.network_spec[len(image_components):]:
+                assert layer_spec["type"] == "dense", "Only expecting dense layers after image " \
+                                                      "stack but found spec: {}.".format(layer_spec)
+                dense_components.append(layer_spec)
+
+            self.dense_stack = Stack(dense_components, scope="dense-stack")
         else:
             # Assume dense network otherwise -> onyl a single stack.
-            sub_components = []
+            dense_components = []
             for layer_spec in self.network_spec:
                 assert layer_spec["type"] == "dense", "Only dense layers allowed if not using" \
                                                       " image stack in this network."
-                sub_components.append(Layer.from_spec(layer_spec))
-            self.dense_stack = Stack(sub_components, scope="dense-stack")
+                dense_components.append(Layer.from_spec(layer_spec))
+            self.dense_stack = Stack(dense_components, scope="dense-stack")
 
     @rlgraph_api
     def apply(self, state_actions):
@@ -88,21 +93,23 @@ class SACValueNetwork(NeuralNetwork):
         """
         states = state_actions[0]
         actions = state_actions[1:]
+        concat_state_actions = None
         if self.use_image_stack:
             image_processing_output = self.image_stack.apply(states)
 
             # Concat everything together.
-            concatenated_data = self.concat_layer.apply(
-                image_processing_output,  actions
-            )
+            if get_backend() == "tf":
+                concat_state_actions = tf.concat([image_processing_output, actions], axis=-1)
+            elif get_backend() == "pytorch":
+                concat_state_actions = torch.cat([image_processing_output, actions], dim=-1)
 
-            dense_output = self.dense_stack.apply(concatenated_data)
+            dense_output = self.dense_stack.apply(concat_state_actions)
         else:
             # Concat states and actions, then pass through.
-            concat_state_actions = None
             if get_backend() == "tf":
                 concat_state_actions = tf.concat(state_actions, axis=-1)
             elif get_backend() == "pytorch":
                 concat_state_actions = torch.cat(state_actions, dim=-1)
             dense_output = self.dense_stack.apply(concat_state_actions)
+
         return dense_output
