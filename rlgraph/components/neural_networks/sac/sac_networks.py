@@ -17,29 +17,35 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components import Stack, Layer, get_backend
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.utils.decorators import rlgraph_api
+
+if get_backend() == "tf":
+    import tensorflow as tf
+elif get_backend() == "pytorch":
+    import torch
 
 
 class SACValueNetwork(NeuralNetwork):
     """
     Value network for SAC which must be able to merge different input types.
     """
-    def __init__(self, network_spec, use_image_stack, scope="sac-value-network", **kwargs):
+    def __init__(self, network_spec, scope="sac-value-network", **kwargs):
         """
         Args:
             network_spec (dict): Network spec.
-            use_image_stack (bool): If true, build image stack, then concatenate output of image stack with
-                actions to compute Q(s,a).
         """
         super(SACValueNetwork, self).__init__(scope=scope, **kwargs)
 
         self.network_spec = network_spec
-        self.use_image_stack = use_image_stack
 
         self.image_stack = None
         self.dense_stack = None
+
+        # If first layer is conv, build image stack.
+        self.use_image_stack = self.network_spec[0]["type"] == "conv2d"
         self.build_stacks()
 
         # The concatenation layer.
@@ -51,46 +57,52 @@ class SACValueNetwork(NeuralNetwork):
 
         self.add_components(self.dense_stack, self.concat_layer)
 
-    @staticmethod
-    def build_stacks():
+    def build_stacks(self):
+
         """
         Builds a dense stack and optionally an image stack.
         """
-        # sub_components = []
-        #
-        # # Divide by 255
-        #
-        # for i, (num_filters, kernel_size, stride) in enumerate(zip([16, 32], [8, 4], [4, 2])):
-        #     # Conv2D plus ReLU activation function.
-        #     conv2d = Conv2DLayer(
-        #         filters=num_filters, kernel_size=kernel_size, strides=stride, padding="same",
-        #         activation="relu", scope="conv2d-{}".format(i)
-        #     )
-        #     sub_components.append(conv2d)
-        #
-        # # A Flatten preprocessor and then an fc block (surrounded by ReLUs) and a time-rank-unfolding.
-        # sub_components.extend([
-        #     ReShape(flatten=True, scope="flatten"),  # Flattener (to flatten Conv2D output for the fc layer).
-        #     DenseLayer(units=256),  # Dense layer.
-        #     NNLayer(activation="relu", scope="relu-before-lstm"),
-        # ])
-        #
-        # #stack_before_unfold = <- formerly known as
-        # image_stack = Stack(sub_components, scope="image-stack")
+        if self.use_image_stack:
+            sub_components = []
+            for layer_spec in self.network_spec:
+                if layer_spec["type"] in ["conv2d", "reshape"]:
+                    sub_components.append(Layer.from_spec(layer_spec))
+            self.image_stack = Stack(sub_components, scope="image-stack")
+
+        else:
+            # Assume dense network otherwise -> onyl a single stack.
+            sub_components = []
+            for layer_spec in self.network_spec:
+                assert layer_spec["type"] == "dense", "Only dense layers allowed if not using" \
+                                                      " image stack in this network."
+                sub_components.append(Layer.from_spec(layer_spec))
+            self.dense_stack = Stack(sub_components, scope="dense-stack")
 
     @rlgraph_api
-    def apply(self, states, actions):
+    def apply(self, state_actions):
         """
         Computes Q(s,a) by passing states and actions through one or multiple processing stacks.
+
+        Args:
+            state_actions (list): Tuple containing state and flat actions.
         """
+        states = state_actions[0]
+        actions = state_actions[1:]
+        if self.use_image_stack:
+            image_processing_output = self.image_stack.apply(states)
 
-        image_processing_output = self.image_stack.apply(states)
+            # Concat everything together.
+            concatenated_data = self.concat_layer.apply(
+                image_processing_output,  actions
+            )
 
-        # Concat everything together.
-        concatenated_data = self.concat_layer.apply(
-            image_processing_output,  actions
-        )
-
-        dense_output = self.dense_stack.apply(concatenated_data)
-
+            dense_output = self.dense_stack.apply(concatenated_data)
+        else:
+            # Concat states and actions, then pass through.
+            concat_state_actions = None
+            if get_backend() == "tf":
+                concat_state_actions = tf.concat(state_actions, axis=-1)
+            elif get_backend() == "pytorch":
+                concat_state_actions = torch.cat(state_actions, dim=-1)
+            dense_output = self.dense_stack.apply(concat_state_actions)
         return dense_output
