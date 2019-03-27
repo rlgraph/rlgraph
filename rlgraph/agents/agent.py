@@ -64,7 +64,7 @@ class Agent(Specifiable):
                 Space object for the Space(s) of the internal (RNN) states.
 
             policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
-            value_function_spec (list): Neural network specification for baseline.
+            value_function_spec (list, dict): Neural network specification for baseline.
 
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
@@ -85,7 +85,6 @@ class Agent(Specifiable):
             name (str): Some name for this Agent object.
         """
         super(Agent, self).__init__()
-
         self.name = name
         self.auto_build = auto_build
         self.graph_built = False
@@ -135,8 +134,12 @@ class Agent(Specifiable):
 
         # Create non-shared baseline network.
         self.value_function = None
+        # TODO move this to specific agents.
         if value_function_spec is not None:
-            self.value_function = ValueFunction(network_spec=value_function_spec)
+            if isinstance(value_function_spec, list):
+                # Use default type if given is list.
+                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
+            self.value_function = ValueFunction.from_spec(value_function_spec)
             self.value_function.add_components(Synchronizable(), expose_apis="sync")
             self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
