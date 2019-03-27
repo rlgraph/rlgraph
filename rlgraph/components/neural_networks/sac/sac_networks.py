@@ -17,8 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components import Stack, Layer, get_backend, ValueFunction
+from rlgraph import get_backend
+from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.components.layers import Layer
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.components.neural_networks.value_function import ValueFunction
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -43,7 +46,7 @@ class SACValueNetwork(ValueFunction):
 
         # If first layer is conv, build image stack.
         self.use_image_stack = self.network_spec[0]["type"] == "conv2d"
-        self.build_stacks()
+        self.build_value_function()
 
         # Add all sub-components to this one.
         if self.image_stack is not None:
@@ -51,8 +54,7 @@ class SACValueNetwork(ValueFunction):
 
         self.add_components(self.dense_stack)
 
-    def build_stacks(self):
-
+    def build_value_function(self):
         """
         Builds a dense stack and optionally an image stack.
         """
@@ -71,6 +73,7 @@ class SACValueNetwork(ValueFunction):
                                                       "stack but found spec: {}.".format(layer_spec)
                 dense_components.append(layer_spec)
 
+            dense_components.append(self.value_layer )
             self.dense_stack = Stack(dense_components, scope="dense-stack")
         else:
             # Assume dense network otherwise -> onyl a single stack.
@@ -79,6 +82,7 @@ class SACValueNetwork(ValueFunction):
                 assert layer_spec["type"] == "dense", "Only dense layers allowed if not using" \
                                                       " image stack in this network."
                 dense_components.append(Layer.from_spec(layer_spec))
+            dense_components.append(self.value_layer )
             self.dense_stack = Stack(dense_components, scope="dense-stack")
 
     @rlgraph_api

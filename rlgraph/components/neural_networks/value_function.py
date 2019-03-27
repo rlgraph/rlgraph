@@ -34,16 +34,17 @@ class ValueFunction(Component):
         super(ValueFunction, self).__init__(scope=scope, **kwargs)
         self.network_spec = network_spec
         self.neural_network = None
-
-    def build_value_function(self):
-        # Attach VF output to hidden layers.
-        value_layer = {
+        self.value_layer = {
             "type": "dense",
             "units": 1,
             "activation": "linear",
             "scope": "value-function-output"
         }
-        self.network_spec.append(value_layer)
+        self.build_value_function()
+
+    def build_value_function(self):
+        # Attach VF output to hidden layers.
+        self.network_spec.append(self.value_layer)
         self.neural_network = NeuralNetwork.from_spec(self.network_spec)
         self.add_components(self.neural_network)
 
