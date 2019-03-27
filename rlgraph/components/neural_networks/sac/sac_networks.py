@@ -35,12 +35,6 @@ class SACValueNetwork(ValueFunction):
     """
     def __init__(self, scope="sac-value-network", **kwargs):
         super(SACValueNetwork, self).__init__(scope=scope, **kwargs)
-        self.image_stack = None
-        self.dense_stack = None
-
-        # If first layer is conv, build image stack.
-        self.use_image_stack = self.network_spec[0]["type"] == "conv2d"
-        self.build_value_function()
 
         # Add all sub-components to this one.
         if self.image_stack is not None:
@@ -80,12 +74,9 @@ class SACValueNetwork(ValueFunction):
             self.dense_stack = Stack(dense_components, scope="dense-stack")
 
     @rlgraph_api
-    def value_output(self,  nn_input, internal_states=None):
+    def value_output(self, nn_input, internal_states=None):
         """
-        Computes Q(s,a) by passing states and actions through one or multiple processing stacks.
-
-        Args:
-            state_actions (list): Tuple containing state and flat actions.
+        Computes Q(s,a) by passing states and actions through one or multiple processing stacks..
         """
         states = nn_input[0]
         actions = nn_input[1:]

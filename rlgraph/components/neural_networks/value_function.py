@@ -33,6 +33,12 @@ class ValueFunction(Component):
         """
         super(ValueFunction, self).__init__(scope=scope, **kwargs)
         self.network_spec = network_spec
+
+        # If first layer is conv, build image stack.
+        self.use_image_stack = self.network_spec[0]["type"] == "conv2d"
+        self.image_stack = None
+        self.dense_stack = None
+
         self.neural_network = None
         self.value_layer = {
             "type": "dense",
