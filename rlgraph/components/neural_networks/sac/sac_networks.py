@@ -17,9 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components import Stack, Layer, get_backend
-from rlgraph.components.layers.nn.concat_layer import ConcatLayer
-from rlgraph.components.neural_networks.neural_network import NeuralNetwork
+from rlgraph.components import Stack, Layer, get_backend, ValueFunction
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
@@ -28,7 +26,7 @@ elif get_backend() == "pytorch":
     import torch
 
 
-class SACValueNetwork(NeuralNetwork):
+class SACValueNetwork(ValueFunction):
     """
     Value network for SAC which must be able to merge different input types.
     """
@@ -84,15 +82,15 @@ class SACValueNetwork(NeuralNetwork):
             self.dense_stack = Stack(dense_components, scope="dense-stack")
 
     @rlgraph_api
-    def apply(self, state_actions):
+    def value_output(self,  nn_input, internal_states=None):
         """
         Computes Q(s,a) by passing states and actions through one or multiple processing stacks.
 
         Args:
             state_actions (list): Tuple containing state and flat actions.
         """
-        states = state_actions[0]
-        actions = state_actions[1:]
+        states = nn_input[0]
+        actions = nn_input[1:]
         concat_state_actions = None
         if self.use_image_stack:
             image_processing_output = self.image_stack.apply(states)
@@ -107,9 +105,9 @@ class SACValueNetwork(NeuralNetwork):
         else:
             # Concat states and actions, then pass through.
             if get_backend() == "tf":
-                concat_state_actions = tf.concat(state_actions, axis=-1)
+                concat_state_actions = tf.concat(nn_input, axis=-1)
             elif get_backend() == "pytorch":
-                concat_state_actions = torch.cat(state_actions, dim=-1)
+                concat_state_actions = torch.cat(nn_input, dim=-1)
             dense_output = self.dense_stack.apply(concat_state_actions)
 
         return dense_output
