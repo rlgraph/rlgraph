@@ -33,14 +33,8 @@ class SACValueNetwork(ValueFunction):
     """
     Value network for SAC which must be able to merge different input types.
     """
-    def __init__(self, network_spec, scope="sac-value-network", **kwargs):
-        """
-        Args:
-            network_spec (dict): Network spec.
-        """
+    def __init__(self, scope="sac-value-network", **kwargs):
         super(SACValueNetwork, self).__init__(scope=scope, **kwargs)
-
-        self.network_spec = network_spec
         self.image_stack = None
         self.dense_stack = None
 
