@@ -269,22 +269,6 @@ class RayExecutor(object):
         agent_cls = Agent.__lookup_classes__.get(config.pop('type'))
         return agent_cls(**config)
 
-    @staticmethod
-    def build_env_from_config(env_spec):
-        """
-        Builds environment without using from_spec as Ray cannot handle kwargs correctly
-        at the moment.
-
-        Args:
-            env_spec (dict): Environment specification. Must contain 'type' field to lookup constructor.
-
-        Returns:
-            Environment: Env object.
-        """
-        env_spec = deepcopy(env_spec)
-        env_cls = Environment.lookup_class(env_spec.pop("type"))
-        return env_cls(**env_spec)
-
     def result_by_worker(self, worker_index=None):
         """
         Retrieves full episode-reward time series for a worker by id (or first worker in registry if None).

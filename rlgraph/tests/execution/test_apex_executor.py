@@ -105,9 +105,12 @@ class TestApexExecutor(unittest.TestCase):
         )
         agent_config = config_from_path("configs/apex_agent_cartpole.json")
 
+        def create_env():
+            return Environment.from_spec(env_spec)
+
         # Pass lambda, not spec.
         executor = ApexExecutor(
-            environment_spec=lambda: Environment.from_spec(env_spec),
+            environment_spec=create_env,
             agent_config=agent_config,
         )
 
