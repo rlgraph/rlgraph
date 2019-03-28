@@ -22,9 +22,8 @@ from copy import deepcopy
 
 import numpy as np
 
-from rlgraph import get_backend
 from rlgraph.components import PreprocessorStack
-from rlgraph.environments import OpenAIGymEnv
+from rlgraph.environments import OpenAIGymEnv, Environment
 from rlgraph.execution.ray.apex import ApexExecutor
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 
@@ -90,6 +89,28 @@ class TestApexExecutor(unittest.TestCase):
             environment_spec=env_spec,
             agent_config=agent_config,
         )
+        # Define executor, test assembly.
+        print("Successfully created executor.")
+
+        # Executes actual workload.
+        result = executor.execute_workload(workload=dict(num_timesteps=20000, report_interval=1000,
+                                                         report_interval_min_seconds=1))
+        print("Finished executing workload:")
+        print(result)
+
+    def test_from_callable_env_spec(self):
+        env_spec = dict(
+            type="openai",
+            gym_env="CartPole-v0"
+        )
+        agent_config = config_from_path("configs/apex_agent_cartpole.json")
+
+        # Pass lambda, not spec.
+        executor = ApexExecutor(
+            environment_spec=lambda: Environment.from_spec(env_spec),
+            agent_config=agent_config,
+        )
+
         # Define executor, test assembly.
         print("Successfully created executor.")
 
