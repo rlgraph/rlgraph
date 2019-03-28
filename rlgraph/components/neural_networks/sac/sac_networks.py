@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.neural_networks.stack import Stack
-from rlgraph.components.layers import Layer
+from rlgraph.components.layers import Layer, ConcatLayer
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.components.neural_networks.value_function import ValueFunction
 
@@ -39,8 +39,9 @@ class SACValueNetwork(ValueFunction):
         # Add all sub-components to this one.
         if self.image_stack is not None:
             self.add_components(self.image_stack)
+        self.concat_layer = ConcatLayer()
 
-        self.add_components(self.dense_stack)
+        self.add_components(self.concat_layer , self.dense_stack)
 
     def build_value_function(self):
         """
@@ -74,29 +75,16 @@ class SACValueNetwork(ValueFunction):
             self.dense_stack = Stack(dense_components, scope="dense-stack")
 
     @rlgraph_api
-    def value_output(self, nn_input, internal_states=None):
+    def state_action_value(self, states, actions, internal_states=None):
         """
         Computes Q(s,a) by passing states and actions through one or multiple processing stacks..
         """
-        states = nn_input[0]
-        actions = nn_input[1:]
-        concat_state_actions = None
         if self.use_image_stack:
             image_processing_output = self.image_stack.apply(states)
-
-            # Concat everything together.
-            if get_backend() == "tf":
-                concat_state_actions = tf.concat([image_processing_output, actions], axis=-1)
-            elif get_backend() == "pytorch":
-                concat_state_actions = torch.cat([image_processing_output, actions], dim=-1)
-
-            dense_output = self.dense_stack.apply(concat_state_actions)
+            state_actions = self.concat_layer.apply(image_processing_output, actions)
+            dense_output = self.dense_stack.apply(state_actions)
         else:
             # Concat states and actions, then pass through.
-            if get_backend() == "tf":
-                concat_state_actions = tf.concat(nn_input, axis=-1)
-            elif get_backend() == "pytorch":
-                concat_state_actions = torch.cat(nn_input, dim=-1)
-            dense_output = self.dense_stack.apply(concat_state_actions)
-
+            state_actions = self.concat_layer.apply(states, actions)
+            dense_output = self.dense_stack.apply(state_actions)
         return dense_output

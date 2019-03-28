@@ -221,19 +221,21 @@ class SACAgentComponent(Component):
     def _graph_fn_get_q_values(self, states, actions, target=False):
         backend = get_backend()
 
-        #tf.one_hot(tf.cast(x=tensor, dtype=tf.int32), depth=5)
         flat_actions = flatten_op(actions)
-        state_actions = [states]
+        actions = []
         for flat_key, action_component in self._policy.action_space.flatten().items():
-            state_actions.append(flat_actions[flat_key])
+            actions.append(flat_actions[flat_key])
 
         if backend == "tf":
-            state_actions = tf.concat(state_actions, axis=-1)
+            actions = tf.concat(actions, axis=-1)
         elif backend == "pytorch":
-            state_actions = torch.cat(state_actions, dim=-1)
+            actions = torch.cat(actions, dim=-1)
 
         q_funcs = self._q_functions if target is False else self._target_q_functions
-        return tuple(q.value_output(state_actions) for q in q_funcs)
+
+        # We do not concat states yet because we might pass states through a conv stack before merging it
+        # with actions.
+        return tuple(q.state_action_value(states, actions) for q in q_funcs)
 
     @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, next_states, importance_weights):
@@ -376,6 +378,8 @@ class SACAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
             update_spec (dict): Here we can have sync_interval or sync_tau (for the value network update).
         """
+        value_function_spec = kwargs.pop("value_function_spec")
+        value_function_spec = dict(type="sac_value_function", network_spec=value_function_spec)
         super(SACAgent, self).__init__(
             # Continuous action space: Use squashed normal.
             # Discrete: Gumbel-softmax.
@@ -386,6 +390,7 @@ class SACAgent(Agent):
                                 gumbel_softmax_temperature=gumbel_softmax_temperature
                              )),
             name=kwargs.pop("name", "sac-agent"),
+            value_function_spec=value_function_spec,
             **kwargs
         )
 
