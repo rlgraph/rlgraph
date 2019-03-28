@@ -122,3 +122,14 @@ class TestSACAgentFunctionality(unittest.TestCase):
 
         updated_weights = agent.get_weights()
         recursive_assert_almost_equal(updated_weights, new_weights)
+
+    def test_image_value_functions(self):
+        """
+        Tests if actions and states are successfully merged on image inputs to compute Q(s,a).
+        """
+        env = OpenAIGymEnv("Pong-v0")
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_for_pong.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
