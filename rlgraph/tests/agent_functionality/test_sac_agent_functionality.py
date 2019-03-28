@@ -4,7 +4,6 @@ import numpy as np
 
 from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification, SACAgent
 from rlgraph.environments import OpenAIGymEnv
-from rlgraph.execution.ray import ApexExecutor
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable
 from rlgraph.tests import ComponentTest
@@ -146,6 +145,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         print(agent.update(batch))
 
     def test_apex_integration(self):
+        from rlgraph.execution.ray import ApexExecutor
         env_spec = dict(
             type="openai",
             gym_env="PongNoFrameskip-v4",
