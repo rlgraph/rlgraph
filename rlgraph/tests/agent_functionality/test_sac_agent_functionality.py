@@ -5,7 +5,8 @@ import numpy as np
 from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification, SACAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, BoolBox
-from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable
+from rlgraph.components import Policy, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable, \
+    SACValueNetwork
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 
@@ -28,7 +29,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         rewards_space = FloatBox(add_batch_rank=True)
         policy = Policy.from_spec(config["policy"], action_space=continuous_action_space)
         policy.add_components(Synchronizable(), expose_apis="sync")
-        q_function = ValueFunction.from_spec(config["value_function"])
+        q_function = SACValueNetwork.from_spec(config["value_function"])
 
         agent_component = SACAgentComponent(
             agent=None,
