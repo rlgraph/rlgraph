@@ -54,7 +54,7 @@ class RayValueWorker(RayActor):
         """
         assert get_distributed_backend() == "ray"
         # Internal frameskip of env.
-        self.env_frame_skip = env_spec.get("frameskip", 1)
+        self.env_frame_skip = worker_spec.get("env_internal_frame_skip", 1)
         # Worker computes weights for prioritized sampling.
         worker_spec = deepcopy(worker_spec)
         self.num_environments = worker_spec.pop("num_worker_environments", 1)

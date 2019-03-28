@@ -61,8 +61,8 @@ class RayExecutor(object):
         self.sample_iteration_throughputs = None
         self.update_iteration_throughputs = None
         self.iteration_times = None
-        self.worker_frameskip = worker_spec.get("frame_skip", 1)
-        self.env_internal_frame_skip = environment_spec.get("frameskip", 1)
+        self.worker_frame_skip = worker_spec.get("worker_frame_skip", 1)
+        self.env_internal_frame_skip = worker_spec.get("env_internal_frame_skip", 1)
 
         # Map worker objects to host ids.
         self.worker_ids = {}
@@ -217,7 +217,7 @@ class RayExecutor(object):
             ops_per_second=(timesteps_executed / total_time),
             # Multiply sample throughput by these env_frames = samples * env_internal * worker_frame_skip:
             env_internal_frame_skip=self.env_internal_frame_skip,
-            worker_frame_skip=self.worker_frameskip,
+            worker_frame_skip=self.worker_frame_skip,
             min_iteration_sample_throughput=np.min(self.sample_iteration_throughputs),
             max_iteration_sample_throughput=np.max(self.sample_iteration_throughputs),
             mean_iteration_sample_throughput=np.mean(self.sample_iteration_throughputs),

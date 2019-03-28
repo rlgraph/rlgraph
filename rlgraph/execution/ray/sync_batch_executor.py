@@ -82,7 +82,7 @@ class SyncBatchExecutor(RayExecutor):
         self.ray_env_sample_workers = self.create_remote_workers(
             RayPolicyWorker, self.num_sample_workers, self.agent_config,
             # *args
-            self.worker_spec, self.environment_spec, self.worker_frameskip
+            self.worker_spec, self.environment_spec, self.worker_frame_skip
         )
 
     def _execute_step(self):

@@ -44,7 +44,8 @@ class ApexExecutor(RayExecutor):
     def __init__(self, environment_spec, agent_config, discard_queued_samples=False):
         """
         Args:
-            environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
+            environment_spec (dict, callable): Environment spec or callable creating
+            an environment. Each worker in the cluster will instantiate
                 an environment using this spec.
             agent_config (dict): Config dict containing agent and execution specs.
             discard_queued_samples (bool): If true, discard samples if the learner queue is full instead
@@ -89,7 +90,11 @@ class ApexExecutor(RayExecutor):
     def setup_execution(self):
         # Create local worker agent according to spec.
         # Extract states and actions space.
-        environment = Environment.from_spec(self.environment_spec)
+        environment = None
+        if isinstance(self.environment_spec, dict):
+            environment = Environment.from_spec(self.environment_spec)
+        elif hasattr(self.environment_spec, '__call__'):
+            environment = self.environment_spec()
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
 
@@ -133,7 +138,7 @@ class ApexExecutor(RayExecutor):
         self.ray_env_sample_workers = self.create_remote_workers(
             RayValueWorker, self.num_sample_workers, self.agent_config,
             # *args
-            self.worker_spec, self.environment_spec, self.worker_frameskip
+            self.worker_spec, self.environment_spec, self.worker_frame_skip
         )
         self.init_tasks()
 
