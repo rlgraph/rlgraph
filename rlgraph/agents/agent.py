@@ -493,7 +493,7 @@ class Agent(Specifiable):
                 agent should be configured to sample internally.
 
         Returns:
-            float: The loss value calculated in this update.
+            Union(list, tuple, float): The loss value calculated in this update.
         """
         raise NotImplementedError
 

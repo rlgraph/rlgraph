@@ -559,7 +559,7 @@ class SACAgent(Agent):
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], batch["next_states"]]
             ret = self.graph_executor.execute((self.root_component.update_from_external_batch, batch_input))
 
-        return ret["actor_loss"], ret["critic_loss"], ret["alpha_loss"]
+        return ret["actor_loss"], ret["actor_loss_per_item"], ret["critic_loss"], ret["alpha_loss"]
 
     def reset(self):
         """
