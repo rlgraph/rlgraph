@@ -218,7 +218,7 @@ class SACAgentComponent(Component):
         return alpha_step_op
 
     @rlgraph_api  # `returns` are determined in ctor
-    def _graph_fn_get_q_values(self, states, actions, target=False):
+    def _graph_fn_get_q_values(self, preprocessed_states, actions, target=False):
         backend = get_backend()
 
         flat_actions = flatten_op(actions)
@@ -235,7 +235,7 @@ class SACAgentComponent(Component):
 
         # We do not concat states yet because we might pass states through a conv stack before merging it
         # with actions.
-        return tuple(q.state_action_value(states, actions) for q in q_funcs)
+        return tuple(q.state_action_value(preprocessed_states, actions) for q in q_funcs)
 
     @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, next_states, importance_weights):
