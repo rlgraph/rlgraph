@@ -40,7 +40,6 @@ class SACValueNetwork(ValueFunction):
         if self.image_stack is not None:
             self.add_components(self.image_stack)
         self.concat_layer = ConcatLayer()
-
         self.add_components(self.concat_layer , self.dense_stack)
 
     def build_value_function(self):

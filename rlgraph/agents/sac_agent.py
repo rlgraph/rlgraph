@@ -532,12 +532,12 @@ class SACAgent(Agent):
             actions = ret[0] if "preprocessed_states" in extra_returns else ret
             for name, space in self.action_space.flatten(scope_separator_at_start=False).items():
                 if isinstance(space, IntBox):
-                    actions[name] = np.array([np.argmax(actions[name][0]).astype(space.dtype)])
+                    actions[name] = np.array([np.argmax(actions[name][0], axis=-1).astype(space.dtype)])
         elif isinstance(self.action_space, IntBox):
             if "preprocessed_states" in extra_returns:
-                ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])
+                ret = (np.argmax(ret[0], axis=-1).astype(self.action_space.dtype), ret[1])
             else:
-                ret = np.argmax(ret).astype(self.action_space.dtype)
+                ret = np.argmax(ret, axis=-1).astype(self.action_space.dtype)
 
         if remove_batch_rank:
             return strip_list(ret)
