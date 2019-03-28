@@ -487,7 +487,7 @@ class SACAgent(Agent):
         return self.graph_executor.execute((self.root_component.set_policy_weights, policy_weights))
 
     def get_weights(self):
-        return self.graph_executor.execute(self.root_component.get_policy_weights)
+        return dict(policy_weights=self.graph_executor.execute(self.root_component.get_policy_weights))
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         # TODO: common pattern - move to Agent
