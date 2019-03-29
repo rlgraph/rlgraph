@@ -1,6 +1,19 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.3.4 - 29.3.2019
+
+- Ray executors now allow passing in callables
+  creating custom environments instead of environment specs.
+- Further unified component state handling for define by run state.
+  int types are not references and storing them in a internal registry 
+  (like TF/torch parameter variables) means they will never be updated.
+  Components can now self-describe via get_state() to inform about their 
+  non-ref types (i.e. int variables). This for example now allows to run memory 
+  tests with the same code requesting internal component variables for both backends.
+- SAC agent now supports image inputs in the value function and container actions.
+- Fixed a number of bugs related to action vectorization and preprocessing in SAC.
+
 ## RLgraph 0.3.3 - 25.2.2019
 
 - Added soft actor critic implementation (contributed by @janislavjankov) 
