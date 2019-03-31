@@ -1,10 +1,12 @@
 {
-  "type": "apex",
+  "type": "sac",
   "discount": 0.99,
-  "n_step": 3,
+  "initial_alpha": 0.2,
+  "gumbel_softmax_temperature": 1.0,
+  "double_q": false,
   "memory_spec": {
     "type": "prioritized_replay",
-    "capacity": 1000
+    "capacity": 128
   },
   "saver_spec": null,
   "preprocessing_spec": [
@@ -70,29 +72,40 @@
       "flatten": true
     }
   ],
-
-  "policy_spec":
-  {
-    "type": "dueling-policy",
-    "units_state_value_stream": 256,
-    "action_adapter_spec": {
-      "pre_network_spec": [
-        {
-          "type": "dense",
-          "units": 256
-        }
-      ]
+    "value_function_spec": [
+    {
+      "type": "conv2d",
+      "filters": 16,
+      "kernel_size": 8,
+      "strides": 4,
+      "padding": "same",
+      "activation": "relu",
+      "scope": "conv1"
+    },
+    {
+      "type": "conv2d",
+      "filters": 32,
+      "kernel_size": 4,
+      "strides": 2,
+      "padding": "same",
+      "activation": "relu",
+      "scope": "conv2"
+    },
+    {
+      "type": "conv2d",
+      "filters": 256,
+      "kernel_size": 11,
+      "strides": 1,
+      "padding": "valid",
+      "activation": "relu",
+      "scope": "conv3"
+    },
+    {
+      "type": "reshape",
+      "flatten": true
     }
-  },
+  ],
 
-  "exploration_spec": {
-    "epsilon_spec": {
-      "decay_spec": {
-        "type": "constant_decay",
-        "constant_value": 0.0
-      }
-    }
-  },
   "execution_spec": {
     "gpu_spec": {
       "gpus_enabled" : false,
@@ -110,16 +123,16 @@
     "ray_spec": {
       "executor_spec": {
         "redis_address": null,
-        "num_cpus": 18,
+        "num_cpus": 4,
         "num_gpus": 0,
         "weight_sync_steps": 400,
-        "replay_sampling_task_depth": 4,
-        "env_interaction_task_depth": 2,
-        "num_worker_samples": 50,
+        "replay_sampling_task_depth": 1,
+        "env_interaction_task_depth": 1,
+        "num_worker_samples": 200,
         "learn_queue_size": 16,
         "num_cpus_per_worker": 1,
         "num_gpus_per_worker": 0,
-        "num_sample_workers": 8,
+        "num_sample_workers": 1,
         "num_replay_workers": 1
       },
       "worker_spec": {
@@ -137,39 +150,45 @@
             "intra_op_parallelism_threads": 1
           }
         },
-        "num_worker_environments": 1,
+        "num_worker_environments": 2,
         "num_background_envs": 0,
         "worker_frame_skip": 1,
         "env_internal_frame_skip": 4,
         "n_step_adjustment": 3,
-        "worker_executes_postprocessing": true,
+        "worker_executes_postprocessing": false,
         "sample_exploration": false,
-        "ray_constant_exploration": true
+        "ray_constant_exploration": false
       },
       "apex_replay_spec": {
         "memory_spec": {
-          "capacity": 2000000,
+          "capacity": 1000,
           "alpha": 0.6,
           "beta": 0.4
         },
         "clip_rewards": true,
-        "min_sample_memory_size": 50000
+        "min_sample_memory_size": 100
       }
     }
   },
-  "observe_spec": {
-    "buffer_size": 1000
-  },
-  "update_spec": {
+
+ "update_spec": {
+    "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 4,
-    "steps_before_update": 50000,
-    "batch_size": 512,
-    "sync_interval": 500000
+    "update_interval": 1,
+    "sync_interval": 1,
+    "sync_tau": 0.005,
+    "batch_size": 64,
+    "num_iterations": 1
   },
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001,
-    "clip_grad_norm": 40
+    "learning_rate": 0.0002,
+        "clip_grad_norm": 40
+
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0004
   }
+
 }

@@ -5,7 +5,8 @@ import numpy as np
 from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification, SACAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, BoolBox
-from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable
+from rlgraph.components import Policy, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable, \
+    SACValueNetwork
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 
@@ -28,7 +29,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         rewards_space = FloatBox(add_batch_rank=True)
         policy = Policy.from_spec(config["policy"], action_space=continuous_action_space)
         policy.add_components(Synchronizable(), expose_apis="sync")
-        q_function = ValueFunction.from_spec(config["value_function"])
+        q_function = SACValueNetwork.from_spec(config["value_function"])
 
         agent_component = SACAgentComponent(
             agent=None,
@@ -115,10 +116,56 @@ class TestSACAgentFunctionality(unittest.TestCase):
         print("weights =", weights.keys())
 
         new_weights = {}
-        for key, value in weights.items():
+        for key, value in weights["policy_weights"].items():
             new_weights[key] = value + 0.01
 
         agent.set_weights(policy_weights=new_weights, value_function_weights=None)
 
-        updated_weights = agent.get_weights()
+        updated_weights = agent.get_weights()["policy_weights"]
         recursive_assert_almost_equal(updated_weights, new_weights)
+
+    def test_image_value_functions(self):
+        """
+        Tests if actions and states are successfully merged on image inputs to compute Q(s,a).
+        """
+        env = OpenAIGymEnv("Pong-v0", frameskip=4, max_num_noops=30, episodic_life=True)
+        agent = SACAgent.from_spec(
+            config_from_path("configs/sac_agent_for_pong.json"),
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+
+        # Test updating from image batch.
+        batch = dict(
+            states=agent.preprocessed_state_space.sample(32),
+            actions=env.action_space.sample(32),
+            rewards=np.ones((32,)),
+            terminals=np.zeros((32,)),
+            next_states=agent.preprocessed_state_space.sample(32),
+        )
+        print(agent.update(batch))
+
+    def test_apex_integration(self):
+        from rlgraph.execution.ray import ApexExecutor
+        env_spec = dict(
+            type="openai",
+            gym_env="PongNoFrameskip-v4",
+            # The frameskip in the agent config will trigger worker skips, this
+            # is used for internal env.
+            frameskip=4,
+            max_num_noops=30,
+            episodic_life=False,
+            fire_reset=True
+        )
+
+        # Not a learning config, just testing integration.
+        executor = ApexExecutor(
+            environment_spec=env_spec,
+            agent_config=config_from_path("configs/ray_sac_pong_test.json"),
+        )
+
+        # Tests short execution.
+        result = executor.execute_workload(workload=dict(
+            num_timesteps=5000, report_interval=100, report_interval_min_seconds=1)
+        )
+        print(result)

@@ -218,22 +218,24 @@ class SACAgentComponent(Component):
         return alpha_step_op
 
     @rlgraph_api  # `returns` are determined in ctor
-    def _graph_fn_get_q_values(self, states, actions, target=False):
+    def _graph_fn_get_q_values(self, preprocessed_states, actions, target=False):
         backend = get_backend()
 
-        #tf.one_hot(tf.cast(x=tensor, dtype=tf.int32), depth=5)
         flat_actions = flatten_op(actions)
-        state_actions = [states]
+        actions = []
         for flat_key, action_component in self._policy.action_space.flatten().items():
-            state_actions.append(flat_actions[flat_key])
+            actions.append(flat_actions[flat_key])
 
         if backend == "tf":
-            state_actions = tf.concat(state_actions, axis=-1)
+            actions = tf.concat(actions, axis=-1)
         elif backend == "pytorch":
-            state_actions = torch.cat(state_actions, dim=-1)
+            actions = torch.cat(actions, dim=-1)
 
         q_funcs = self._q_functions if target is False else self._target_q_functions
-        return tuple(q.value_output(state_actions) for q in q_funcs)
+
+        # We do not concat states yet because we might pass states through a conv stack before merging it
+        # with actions.
+        return tuple(q.state_action_value(preprocessed_states, actions) for q in q_funcs)
 
     @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, next_states, importance_weights):
@@ -376,6 +378,8 @@ class SACAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
             update_spec (dict): Here we can have sync_interval or sync_tau (for the value network update).
         """
+        value_function_spec = kwargs.pop("value_function_spec")
+        value_function_spec = dict(type="sac_value_function", network_spec=value_function_spec)
         super(SACAgent, self).__init__(
             # Continuous action space: Use squashed normal.
             # Discrete: Gumbel-softmax.
@@ -386,6 +390,7 @@ class SACAgent(Agent):
                                 gumbel_softmax_temperature=gumbel_softmax_temperature
                              )),
             name=kwargs.pop("name", "sac-agent"),
+            value_function_spec=value_function_spec,
             **kwargs
         )
 
@@ -482,7 +487,7 @@ class SACAgent(Agent):
         return self.graph_executor.execute((self.root_component.set_policy_weights, policy_weights))
 
     def get_weights(self):
-        return self.graph_executor.execute(self.root_component.get_policy_weights)
+        return dict(policy_weights=self.graph_executor.execute(self.root_component.get_policy_weights))
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         # TODO: common pattern - move to Agent
@@ -527,12 +532,12 @@ class SACAgent(Agent):
             actions = ret[0] if "preprocessed_states" in extra_returns else ret
             for name, space in self.action_space.flatten(scope_separator_at_start=False).items():
                 if isinstance(space, IntBox):
-                    actions[name] = np.array([np.argmax(actions[name][0]).astype(space.dtype)])
+                    actions[name] = np.array([np.argmax(actions[name][0], axis=-1).astype(space.dtype)])
         elif isinstance(self.action_space, IntBox):
             if "preprocessed_states" in extra_returns:
-                ret = (np.argmax(ret[0]).astype(self.action_space.dtype), ret[1])
+                ret = (np.argmax(ret[0], axis=-1).astype(self.action_space.dtype), ret[1])
             else:
-                ret = np.argmax(ret).astype(self.action_space.dtype)
+                ret = np.argmax(ret, axis=-1).astype(self.action_space.dtype)
 
         if remove_batch_rank:
             return strip_list(ret)
@@ -554,7 +559,7 @@ class SACAgent(Agent):
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], batch["next_states"]]
             ret = self.graph_executor.execute((self.root_component.update_from_external_batch, batch_input))
 
-        return ret["actor_loss"], ret["critic_loss"], ret["alpha_loss"]
+        return ret["actor_loss"], ret["actor_loss_per_item"], ret["critic_loss"], ret["alpha_loss"]
 
     def reset(self):
         """

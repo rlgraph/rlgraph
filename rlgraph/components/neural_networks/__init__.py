@@ -23,6 +23,8 @@ from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorSt
 
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.neural_networks.value_function import ValueFunction
+from rlgraph.components.neural_networks.sac.sac_networks import SACValueNetwork
+
 
 # The Stacks.
 Stack.__lookup_classes__ = dict(
@@ -30,6 +32,16 @@ Stack.__lookup_classes__ = dict(
     preprocessorstack=PreprocessorStack
 )
 
+ValueFunction.__lookup_classes__ = dict(
+    sacvaluefunction=SACValueNetwork,
+    valuefunction=ValueFunction,
+)
+ValueFunction.__default_constructor__ = ValueFunction
+
+
 __all__ = ["NeuralNetwork", "ValueFunction"] + \
           ["Stack"] + \
-          list(set(map(lambda x: x.__name__, Stack.__lookup_classes__.values())))
+          list(set(map(lambda x: x.__name__, Stack.__lookup_classes__.values()))) + \
+          list(set(map(lambda x: x.__name__, ValueFunction.__lookup_classes__.values())))
+
+
