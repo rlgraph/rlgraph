@@ -10,7 +10,7 @@ Modular computation graphs for deep reinforcement learning.
 RLgraph is a framework to quickly prototype, define and execute reinforcement learning
 algorithms both in research and practice. RLgraph is different from most other libraries as it can support
 TensorFlow (or static graphs in general) or eager/define-by run execution (PyTorch) through
-a single component interface.
+a single component interface. An introductory blogpost can also be found here: [link](https://rlgraph.github.io/rlgraph/2019/01/04/introducing-rlgraph.html).
  
 RLgraph exposes a well defined API for using agents, and offers a novel component concept
 for testing and assembly of machine learning models. By separating graph definition, compilation and execution,
