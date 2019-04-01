@@ -56,7 +56,7 @@ class PPOLossFunction(LossFunction):
         self.action_space = action_space
 
     @rlgraph_api
-    def loss(self, log_probs, baseline_values, rewards, entropy):
+    def loss(self, log_probs, prev_log_probs, baseline_values, rewards, entropy):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -67,7 +67,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, baseline_values, rewards, entropy
+            log_probs, prev_log_probs, baseline_values, rewards, entropy
         )
         total_loss = self.loss_average(loss_per_item)
         total_baseline_loss = self.loss_average(baseline_loss_per_item)
@@ -75,11 +75,11 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def loss_per_item(self, log_probs, baseline_values, rewards, entropy):
+    def loss_per_item(self, log_probs, prev_log_probs, baseline_values, rewards, entropy):
         # Get losses for each action.
         # Baseline loss for V(s) does not depend on actions, only on state.
         baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, rewards)
-        loss_per_item = self._graph_fn_loss_per_item(log_probs, rewards, entropy)
+        loss_per_item = self._graph_fn_loss_per_item(log_probs, prev_log_probs, rewards, entropy)
 
         # Average across actions.
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
@@ -87,7 +87,7 @@ class PPOLossFunction(LossFunction):
         return loss_per_item, baseline_loss_per_item
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_loss_per_item(self, log_probs, pg_advantages, entropy):
+    def _graph_fn_loss_per_item(self, log_probs, prev_log_probs, pg_advantages, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
@@ -102,7 +102,6 @@ class PPOLossFunction(LossFunction):
             # Sample action -> return policy log probs with action -> feed both back in from memory/via placeholders.
             # This creates the same effect as just stopping the gradients on the log-probs.
             # Saving them would however remove necessity for an extra forward pass.
-            prev_log_probs = tf.stop_gradient(log_probs)
             if self.standardize_advantages:
                 mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
                 pg_advantages = (pg_advantages - mean) / std

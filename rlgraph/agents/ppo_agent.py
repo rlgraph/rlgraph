@@ -210,8 +210,11 @@ class PPOAgent(Agent):
             value_function_optimizer = root.get_sub_component_by_name(agent.value_function_optimizer.scope)
             vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
             gae_function = root.get_sub_component_by_name(agent.gae_function.scope)
+            prev_log_probs = policy.get_action_log_probs(preprocessed_states, actions)["action_log_probs"]
 
             if get_backend() == "tf":
+                # Log probs before update.
+                prev_log_probs = tf.stop_gradient(prev_log_probs)
                 batch_size = tf.shape(preprocessed_states)[0]
 
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
@@ -227,6 +230,7 @@ class PPOAgent(Agent):
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
+                    sample_prior_log_probs =  tf.gather(params=prev_log_probs, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -276,7 +280,8 @@ class PPOAgent(Agent):
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
-                            policy_probs["action_log_probs"], baseline_values, sample_rewards,  entropy
+                            policy_probs["action_log_probs"], sample_prior_log_probs,
+                            baseline_values, sample_rewards,  entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
