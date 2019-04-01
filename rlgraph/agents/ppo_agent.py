@@ -214,7 +214,11 @@ class PPOAgent(Agent):
 
             if get_backend() == "tf":
                 # Log probs before update.
-                prev_log_probs = tf.stop_gradient(prev_log_probs)
+                if isinstance(prev_log_probs, DataOpDict):
+                    for name in prev_log_probs.keys():
+                        prev_log_probs[name] = tf.stop_gradient(prev_log_probs[name])
+                else:
+                    prev_log_probs = tf.stop_gradient(prev_log_probs)
                 batch_size = tf.shape(preprocessed_states)[0]
 
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
@@ -223,14 +227,17 @@ class PPOAgent(Agent):
                     sample_states = tf.gather(params=preprocessed_states, indices=indices)
                     if isinstance(actions, dict):
                         sample_actions = DataOpDict()
-                        for name, action in flatten_op(actions).items():
+                        sample_prior_log_probs = DataOpDict()
+                        for name, action in flatten_op(actions, scope_separator_at_start=False).items():
                             sample_actions[name] = tf.gather(params=action, indices=indices)
+                            sample_prior_log_probs[name] = tf.gather(params=prev_log_probs[name], indices=indices)
                     else:
                         sample_actions = tf.gather(params=actions, indices=indices)
+                        sample_prior_log_probs = tf.gather(params=prev_log_probs, indices=indices)
+
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
-                    sample_prior_log_probs =  tf.gather(params=prev_log_probs, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -332,6 +339,11 @@ class PPOAgent(Agent):
                     return loss, loss_per_item, vf_loss, vf_loss_per_item
 
             elif get_backend() == "pytorch":
+                if isinstance(prev_log_probs, dict):
+                    for name in actions.keys():
+                        prev_log_probs[name] = prev_log_probs[name].detach()
+                else:
+                    prev_log_probs = prev_log_probs.detach()
                 batch_size = preprocessed_states.shape[0]
                 sample_size = min(batch_size, agent.sample_size)
 
@@ -342,13 +354,18 @@ class PPOAgent(Agent):
 
                     if isinstance(actions, dict):
                         sample_actions = DataOpDict()
+                        sample_prior_log_probs = DataOpDict()
                         for name, action in define_by_run_flatten(actions, scope_separator_at_start=False).items():
                             sample_actions[name] = torch.index_select(action, 0, indices)
+                            sample_prior_log_probs[name] = torch.index_select(prev_log_probs[name], 0, indices)
                     else:
                         sample_actions = torch.index_select(actions, 0, indices)
+                        sample_prior_log_probs = torch.index_select(prev_log_probs, 0, indices)
+
                     sample_rewards = torch.index_select(rewards, 0, indices)
                     sample_terminals = torch.index_select(terminals, 0, indices)
                     sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
+
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
 
                     baseline_values = value_function.value_output(sample_states)
@@ -358,7 +375,8 @@ class PPOAgent(Agent):
 
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
-                        policy_probs["action_log_probs"], baseline_values,  sample_rewards, entropy
+                        policy_probs["action_log_probs"], sample_prior_log_probs,
+                        baseline_values,  sample_rewards, entropy
                     )
 
                     # Do not need step op.
