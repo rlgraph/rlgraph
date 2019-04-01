@@ -17,11 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
-
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
-from rlgraph.utils import util
+from rlgraph.utils import util, DataOpDict
 from rlgraph.utils.execution_util import define_by_run_unflatten
 from rlgraph.utils.util import get_batch_size
 from rlgraph.utils.decorators import rlgraph_api
@@ -185,7 +183,7 @@ class RingBuffer(Memory):
         elif get_backend() == "pytorch":
             available_records = min(num_records, self.size)
             indices = np.arange(self.index - available_records, self.index) % self.capacity
-            records = OrderedDict()
+            records = DataOpDict()
 
             for name, variable in self.memory.items():
                 records[name] = self.read_variable(variable, indices, dtype=
@@ -236,7 +234,7 @@ class RingBuffer(Memory):
                 limit += self.capacity - 1
             indices = torch.arange(start, limit + 1) % self.capacity
 
-            records = OrderedDict()
+            records = DataOpDict()
             for name, variable in self.memory.items():
                 records[name] = self.read_variable(variable, indices, dtype=
                                                    util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
