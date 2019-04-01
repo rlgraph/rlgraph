@@ -91,10 +91,12 @@ class Agent(Specifiable):
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
-        self.flat_state_space = self.state_space.flatten() if isinstance(self.state_space, ContainerSpace) else None
+        self.flat_state_space = self.state_space.flatten(scope_separator_at_start=False)\
+            if isinstance(self.state_space, ContainerSpace) else None
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
-        self.flat_action_space = self.action_space.flatten() if isinstance(self.action_space, ContainerSpace) else None
+        self.flat_action_space = self.action_space.flatten(scope_separator_at_start=False)\
+            if isinstance(self.action_space, ContainerSpace) else None
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
         self.discount = discount
