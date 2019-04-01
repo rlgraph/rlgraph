@@ -444,8 +444,14 @@ class Agent(Specifiable):
 
                 # TODO: Apply n-step post-processing if necessary.
                 if self.flat_action_space is not None:
-                    actions_ = {key: np.asarray(self.actions_buffer[env_id][i]) for i, key in
-                                enumerate(self.flat_action_space.keys())}
+                    actions_ = {}
+                    for i, key in enumerate(self.flat_action_space.keys()):
+                        actions_[key] = np.asarray(self.actions_buffer[env_id][i])
+                        # Squeeze, but do not squeeze (1,) to ().
+                        if len(actions_[key]) > 1:
+                            actions_[key] = np.squeeze(actions_[key])
+                        else:
+                            actions_[key] = np.reshape(actions_[key], (1,))
                 else:
                     actions_ = np.asarray(self.actions_buffer[env_id])
                 self._observe_graph(
