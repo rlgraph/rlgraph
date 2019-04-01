@@ -21,7 +21,8 @@ import re
 from collections import OrderedDict
 
 from rlgraph import get_backend
-from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, deep_tuple, FlattenedDataOp, FLATTEN_SCOPE_PREFIX
+from rlgraph.utils.ops import FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, deep_tuple, FlattenedDataOp, FLATTEN_SCOPE_PREFIX, \
+    DataOpDict
 
 if get_backend() == "pytorch":
     import torch
@@ -78,7 +79,7 @@ def define_by_run_flatten(container, key_scope="", tensor_tuple_list=None, scope
     if tensor_tuple_list is None:
         tensor_tuple_list = []
         if not isinstance(container, (dict, tuple)):
-            return OrderedDict([("", container)])
+            return DataOpDict([("", container)])
         ret = True
 
     if isinstance(container, dict):
@@ -104,7 +105,7 @@ def define_by_run_flatten(container, key_scope="", tensor_tuple_list=None, scope
 
     # Non recursive (first) call -> Return the final dict.
     if ret:
-        return OrderedDict(tensor_tuple_list)
+        return DataOpDict(tensor_tuple_list)
 
 
 def define_by_run_split_args(add_auto_key_as_first_param, *args, **kwargs):
@@ -223,12 +224,12 @@ def define_by_run_unflatten(result_dict):
 
             if current_structure is None:
                 if base_structure is None:
-                    base_structure = [None] if op_type == list else OrderedDict()
+                    base_structure = [None] if op_type == list else DataOpDict()
                 current_structure = base_structure
             elif parent_key is not None:
                 if (isinstance(parent_structure, list) and (parent_structure[parent_key] is None)) or \
-                        (isinstance(parent_structure, OrderedDict) and parent_key not in parent_structure):
-                    current_structure = [None] if op_type == list else OrderedDict()
+                        (isinstance(parent_structure, DataOpDict) and parent_key not in parent_structure):
+                    current_structure = [None] if op_type == list else DataOpDict()
                     parent_structure[parent_key] = current_structure
                 else:
                     current_structure = parent_structure[parent_key]
