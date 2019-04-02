@@ -1,6 +1,13 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.3.5/6 - 2.4.2019
+
+- Fixed bug regarding build timing of graph functions calling other graph functions,
+  where the call context now accounts for nested calls to be timed more accurately.
+- Fixed a number of shape bugs related to container observations in the agent buffer.
+- Fixed a bug in the PPO loss function related to updating prior log probs.
+
 ## RLgraph 0.3.4 - 29.3.2019
 
 - Ray executors now allow passing in callables
