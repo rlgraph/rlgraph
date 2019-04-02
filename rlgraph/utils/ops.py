@@ -30,8 +30,7 @@ FLATTEN_SCOPE_PREFIX = "/"
 class TraceContext(object):
     """
     Contains static trace context. Used to reconstruct data-flow in cases where normal
-    stack-frame inspection fails, e.g. because when calling from within a lambda. To be expanded
-    with more runtime
+    stack-frame inspection fails, e.g. because when calling from within a lambda.
     """
 
     # Prior caller.
@@ -39,6 +38,10 @@ class TraceContext(object):
 
     # Define by run build tracing.
     DEFINE_BY_RUN_CONTEXT = None
+
+    # Is there an active call context?
+    ACTIVE_CALL_CONTEXT = False
+    CONTEXT_START = None
 
 
 class DataOp(object):
