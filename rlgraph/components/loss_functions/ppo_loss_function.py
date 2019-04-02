@@ -116,7 +116,7 @@ class PPOLossFunction(LossFunction):
 
             loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
             loss += self.weight_entropy * entropy
-            return loss
+            return tf.squeeze(loss)
         elif get_backend() == "pytorch":
             # Detach grads.
             if self.standardize_advantages:
@@ -132,7 +132,7 @@ class PPOLossFunction(LossFunction):
 
             loss = -torch.min(ratio * pg_advantages, clipped_advantages)
             loss += self.weight_entropy * entropy
-            return loss
+            return torch.squeeze(loss)
 
     @rlgraph_api
     def _graph_fn_baseline_loss_per_item(self, baseline_values, pg_advantages):
