@@ -3,14 +3,14 @@
   "sample_episodes": false,
   "standardize_advantages": false,
   "clip_ratio": 0.2,
-  "discount": 0.9,
-  "gae_lambda": 0.8,
-  "weight_entropy": 0.0,
+  "discount": 0.95,
+  "gae_lambda": 0.1,
+  "weight_entropy": 0.01,
 
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 1000
+    "capacity": 2048
   },
    "preprocessing_spec": [
     {
@@ -41,28 +41,34 @@
   [
     {
       "type": "dense",
-      "units": 100,
+      "units": 64,
       "activation": "relu",
       "scope": "vf-hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 64,
+      "activation": "relu",
+      "scope": "vf-hidden2"
     }
   ],
 
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 1000,
-    "batch_size": 1000,
+    "update_interval": 2048,
+    "batch_size": 2048,
     "num_iterations": 10,
-    "sample_size": 128
+    "sample_size": 64
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001
+    "learning_rate": 0.0003
   },
   
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0002
+    "learning_rate": 0.0003
   }
 }
