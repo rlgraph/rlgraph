@@ -197,9 +197,10 @@ class RayExecutor(object):
                              " inserts = {})".format(iteration_step, iteration_updates, timesteps_executed,
                              num_timesteps, (100 * timesteps_executed / num_timesteps), iteration_discarded,
                              iteration_queue_inserted))
-            self.logger.info("Min iteration reward: {}, mean iteration reward: {}, max iteration reward: {}."
-                             "Stats from {} episodes.".format(np.min(iteration_rewards), np.mean(iteration_rewards),
-                                                              np.max(iteration_rewards), len(iteration_rewards)))
+            if len(iteration_rewards) > 0:
+                self.logger.info("Min iteration reward: {}, mean iteration reward: {}, max iteration reward: {}."
+                                 "Stats from {} episodes.".format(np.min(iteration_rewards), np.mean(iteration_rewards),
+                                                                  np.max(iteration_rewards), len(iteration_rewards)))
 
         total_time = (time.monotonic() - start) or 1e-10
         self.logger.info("Time steps executed: {} ({} ops/s)".
