@@ -172,14 +172,18 @@ class RayExecutor(object):
             iteration_queue_inserted = 0
             iteration_start = time.monotonic()
 
+            # Last episode rewards seen during iteration.
+            iteration_rewards = []
+
             # Record sampling and learning throughput every interval.
             while (iteration_step < report_interval) or\
                     time.monotonic() - iteration_start < report_interval_min_seconds:
-                worker_steps_executed, update_steps, discarded, queue_inserts = self._execute_step()
+                worker_steps_executed, update_steps, stats = self._execute_step()
                 iteration_step += worker_steps_executed
                 iteration_updates += update_steps
-                iteration_discarded += discarded
-                iteration_queue_inserted += queue_inserts
+                iteration_discarded += stats["discarded"]
+                iteration_queue_inserted += stats["queue_inserts"]
+                iteration_rewards.extend(stats["rewards"])
 
             iteration_end = time.monotonic() - iteration_start
             timesteps_executed += iteration_step
@@ -193,6 +197,9 @@ class RayExecutor(object):
                              " inserts = {})".format(iteration_step, iteration_updates, timesteps_executed,
                              num_timesteps, (100 * timesteps_executed / num_timesteps), iteration_discarded,
                              iteration_queue_inserted))
+            self.logger.info("Min iteration reward: {}, mean iteration reward: {}, max iteration reward: {}."
+                             "Stats from {} episodes.".format(np.min(iteration_rewards), np.mean(iteration_rewards),
+                                                              np.max(iteration_rewards), len(iteration_rewards)))
 
         total_time = (time.monotonic() - start) or 1e-10
         self.logger.info("Time steps executed: {} ({} ops/s)".

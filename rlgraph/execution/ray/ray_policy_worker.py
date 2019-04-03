@@ -334,6 +334,7 @@ class RayPolicyWorker(RayActor):
             sample_batch=sample_batch,
             batch_size=len(batch_rewards),
             metrics=dict(
+                last_reward=sample_batch["rewards"][-1],
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
@@ -363,7 +364,7 @@ class RayPolicyWorker(RayActor):
         # Adjust env frames for internal env frameskip:
         adjusted_frames = [env_frames * self.env_frame_skip for env_frames in self.sample_env_frames]
         if len(self.finished_episode_rewards) > 0:
-            all_finished_rewards = list()
+            all_finished_rewards = []
             for env_reward_list in self.finished_episode_rewards:
                 all_finished_rewards.extend(env_reward_list)
             min_episode_reward = np.min(all_finished_rewards)

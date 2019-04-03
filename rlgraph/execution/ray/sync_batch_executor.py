@@ -115,10 +115,15 @@ class SyncBatchExecutor(RayExecutor):
 
         env_steps += num_samples
         # 3. Merge samples
+        rewards = [sample.metrics["last_reward"] for sample in sample_batches]
         batch = merge_samples(sample_batches, decompress=self.compress_states)
 
         # 4. Update from merged batch.
         self.local_agent.update(batch, apply_postprocessing=False)
-        return env_steps, 1, 0, 0
+        return env_steps, 1, {
+            "discarded": 0,
+            "queue_inserts": 0,
+            "rewards": rewards
+        }
 
 
