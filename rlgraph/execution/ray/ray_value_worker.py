@@ -222,7 +222,7 @@ class RayValueWorker(RayActor):
         timesteps_executed = 0
         episodes_executed = [0 for _ in range_(self.num_environments)]
         env_frames = 0
-
+        last_episode_reward = None
         # Final result batch.
         batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = [], [], [], [], []
 
@@ -297,6 +297,7 @@ class RayValueWorker(RayActor):
                     self.finished_episode_sample_times[i].append(current_episode_sample_times[i])
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
+                    last_episode_reward = current_episode_rewards[i]
 
                     env_sample_states = sample_states[env_id]
                     # Get next states for this environment's trajectory.
@@ -396,6 +397,7 @@ class RayValueWorker(RayActor):
             sample_batch=sample_batch,
             batch_size=batch_size,
             metrics=dict(
+                last_reward=last_episode_reward,
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
@@ -406,7 +408,10 @@ class RayValueWorker(RayActor):
     @ray.method(num_return_vals=2)
     def execute_and_get_with_count(self):
         sample = self.execute_and_get_timesteps(num_timesteps=self.worker_sample_size)
-        return sample, sample.batch_size
+
+        # Return count and reward as separate task so learner thread does not need to download them before
+        # inserting to buffers..
+        return sample, {"batch_size": sample.batch_size, "last_reward": sample.metrics["last_reward"]}
 
     def set_weights(self, weights):
         policy_weights = {k: v for k,v in zip(weights.policy_vars, weights.policy_values)}
