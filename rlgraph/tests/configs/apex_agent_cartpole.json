@@ -52,7 +52,7 @@
   "network_spec": [
     {
       "type": "dense",
-      "units": 16,
+      "units": 20,
       "activation": "tanh",
       "scope": "hidden"
     }
@@ -61,12 +61,12 @@
   "policy_spec":
   {
     "type": "dueling-policy",
-    "units_state_value_stream": 3,
+    "units_state_value_stream": 8,
     "action_adapter_spec": {
       "pre_network_spec": [
         {
           "type": "dense",
-          "units": 3
+          "units": 8
         }
       ]
     }
@@ -79,18 +79,19 @@
         "from": 1.0,
         "to": 0.05,
         "start_timestep": 0,
-        "num_timesteps": 1500
+        "num_timesteps": 5000
       }
     }
   },
   "update_spec": {
     "do_updates": true,
-    "update_interval": 4,
+    "update_interval": 1,
     "batch_size": 24,
-    "sync_interval": 32
+    "sync_interval": 32,
+    "steps_before_update": 256
   },
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.05
+    "learning_rate": 0.02
   }
 }
