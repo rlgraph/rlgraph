@@ -118,7 +118,7 @@ class SyncBatchExecutor(RayExecutor):
         rewards = []
         for sample in sample_batches:
             if sample.metrics["last_reward"] is not None:
-                rewards.extend(sample.metrics["last_reward"])
+                rewards.append(sample.metrics["last_reward"])
         batch = merge_samples(sample_batches, decompress=self.compress_states)
 
         # 4. Update from merged batch.
