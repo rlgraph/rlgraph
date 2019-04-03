@@ -64,7 +64,7 @@ class Agent(Specifiable):
                 Space object for the Space(s) of the internal (RNN) states.
 
             policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
-            value_function_spec (list): Neural network specification for baseline.
+            value_function_spec (list, dict): Neural network specification for baseline.
 
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
@@ -85,17 +85,18 @@ class Agent(Specifiable):
             name (str): Some name for this Agent object.
         """
         super(Agent, self).__init__()
-
         self.name = name
         self.auto_build = auto_build
         self.graph_built = False
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
-        self.flat_state_space = self.state_space.flatten() if isinstance(self.state_space, ContainerSpace) else None
+        self.flat_state_space = self.state_space.flatten(scope_separator_at_start=False)\
+            if isinstance(self.state_space, ContainerSpace) else None
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
-        self.flat_action_space = self.action_space.flatten() if isinstance(self.action_space, ContainerSpace) else None
+        self.flat_action_space = self.action_space.flatten(scope_separator_at_start=False)\
+            if isinstance(self.action_space, ContainerSpace) else None
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
         self.discount = discount
@@ -135,8 +136,12 @@ class Agent(Specifiable):
 
         # Create non-shared baseline network.
         self.value_function = None
+        # TODO move this to specific agents.
         if value_function_spec is not None:
-            self.value_function = ValueFunction(network_spec=value_function_spec)
+            if isinstance(value_function_spec, list):
+                # Use default type if given is list.
+                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
+            self.value_function = ValueFunction.from_spec(value_function_spec)
             self.value_function.add_components(Synchronizable(), expose_apis="sync")
             self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
@@ -439,8 +444,14 @@ class Agent(Specifiable):
 
                 # TODO: Apply n-step post-processing if necessary.
                 if self.flat_action_space is not None:
-                    actions_ = {key: np.asarray(self.actions_buffer[env_id][i]) for i, key in
-                                enumerate(self.flat_action_space.keys())}
+                    actions_ = {}
+                    for i, key in enumerate(self.flat_action_space.keys()):
+                        actions_[key] = np.asarray(self.actions_buffer[env_id][i])
+                        # Squeeze, but do not squeeze (1,) to ().
+                        if len(actions_[key]) > 1:
+                            actions_[key] = np.squeeze(actions_[key])
+                        else:
+                            actions_[key] = np.reshape(actions_[key], (1,))
                 else:
                     actions_ = np.asarray(self.actions_buffer[env_id])
                 self._observe_graph(
@@ -490,7 +501,7 @@ class Agent(Specifiable):
                 agent should be configured to sample internally.
 
         Returns:
-            float: The loss value calculated in this update.
+            Union(list, tuple, float): The loss value calculated in this update.
         """
         raise NotImplementedError
 

@@ -62,9 +62,3 @@ class TestPPOAgentFunctionality(unittest.TestCase):
             terminals=terminal_space.sample(num_samples, fill_value=0),
             sequence_indices=sequence_indices_space.sample(num_samples, fill_value=0)
         ))
-
-    def test_external_update(self):
-        """
-        Tests updated from post-processed and non-post-processed data.
-        """
-        pass

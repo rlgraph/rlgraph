@@ -87,7 +87,7 @@
         "execution_spec": {
           "gpu_spec": { "gpus_enabled" : false}
         },
-        "worker_computes_weights": true,
+        "worker_executes_postprocessing": true,
         "sample_exploration": false,
         "exploration_min_value": 0.5,
         "compress_states": false

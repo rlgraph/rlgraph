@@ -502,6 +502,9 @@ class GraphBuilder(Specifiable):
 
         # Build the ops from this input-combination.
         # Flatten input items.
+        # print("calling graph_fn = ", op_rec_column.graph_fn)
+        # print("args = ", args)
+        # print("kwargs = ", kwargs)
         if op_rec_column.flatten_ops is not False:
             flattened_args, flattened_kwargs = op_rec_column.flatten_input_ops(*args, **kwargs)
             # Split into SingleDataOps?
@@ -512,14 +515,19 @@ class GraphBuilder(Specifiable):
                     ops = {}
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
-                        params_args = [p for p in params if not isinstance(p, tuple)]
-                        params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
-                        if is_build_time:
-                            call_time = time.perf_counter()
+                        params_args = params[0]
+                        params_kwargs = params[1]
+                        if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
+                            TraceContext.ACTIVE_CALL_CONTEXT = True
+                            TraceContext.CONTEXT_START = time.perf_counter()
+
                         ops[key] = force_tuple(op_rec_column.graph_fn(op_rec_column.component,
                                                                       *params_args, **params_kwargs))
-                        if is_build_time:
-                            self.graph_call_times.append(time.perf_counter() - call_time)
+                        if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
+                            self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
+                            TraceContext.CONTEXT_START = None
+                            TraceContext.ACTIVE_CALL_CONTEXT = False
+
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
                             raise RLGraphError(
                                 "Different split-runs through {} do not return the same number of values!".
@@ -539,25 +547,36 @@ class GraphBuilder(Specifiable):
                 # No splitting to do: Pass everything as-is.
                 else:
                     split_args, split_kwargs = split_args_and_kwargs[0], split_args_and_kwargs[1]
-                    if is_build_time:
-                        call_time = time.perf_counter()
+                    if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
+                        TraceContext.ACTIVE_CALL_CONTEXT = True
+                        TraceContext.CONTEXT_START = time.perf_counter()
                     ops = op_rec_column.graph_fn(op_rec_column.component, *split_args, **split_kwargs)
-                    if is_build_time:
-                        self.graph_call_times.append(time.perf_counter() - call_time)
+                    if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
+                        self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
+                        TraceContext.CONTEXT_START = None
+                        TraceContext.ACTIVE_CALL_CONTEXT = False
             else:
-                if is_build_time:
-                    call_time = time.perf_counter()
+                if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
+                    TraceContext.ACTIVE_CALL_CONTEXT = True
+                    TraceContext.CONTEXT_START = time.perf_counter()
+
                 ops = op_rec_column.graph_fn(op_rec_column.component, *flattened_args, **flattened_kwargs)
-                if is_build_time:
-                    self.graph_call_times.append(time.perf_counter() - call_time)
+                if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
+                    self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
+                    TraceContext.CONTEXT_START = None
+                    TraceContext.ACTIVE_CALL_CONTEXT = False
         # Just pass in everything as-is.
         else:
-            if is_build_time:
+            if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
                 call_time = time.perf_counter()
-            ops = op_rec_column.graph_fn(op_rec_column.component, *args, **kwargs)
-            if is_build_time:
-                self.graph_call_times.append(time.perf_counter() - call_time)
+                TraceContext.ACTIVE_CALL_CONTEXT = True
+                TraceContext.CONTEXT_START = call_time
 
+            ops = op_rec_column.graph_fn(op_rec_column.component, *args, **kwargs)
+            if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
+                self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
+                TraceContext.CONTEXT_START = None
+                TraceContext.ACTIVE_CALL_CONTEXT = False
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
 
@@ -944,8 +963,13 @@ class GraphBuilder(Specifiable):
                     ops = {}
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
-                        params_args = [p for p in params if not isinstance(p, tuple)]
-                        params_kwargs = {p[0]: p[1] for p in params if isinstance(p, tuple)}
+                        # Are there any kwargs?
+                        if isinstance(params, tuple):
+                            params_args = params[0]
+                            params_kwargs = params[1]
+                        else:
+                            params_args = params
+                            params_kwargs = {}
                         ops[key] = graph_fn(component, *params_args, **params_kwargs)
                         if hasattr(ops[key], "shape"):
                             num_return_values = 1

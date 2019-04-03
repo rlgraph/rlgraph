@@ -79,3 +79,26 @@ class TestBaseAgentFunctionality(unittest.TestCase):
 
         recursive_assert_almost_equal(new_actual_weights["value_function_weights"],
                                       value_function_weights)
+
+    def test_build_overhead(self):
+        """
+        Tests build timing on agents with nested graph function calls.
+        """
+        env = OpenAIGymEnv("Pong-v0")
+        agent_config = config_from_path("configs/ppo_agent_for_pong.json")
+        agent_config["auto_build"] = False
+        agent = Agent.from_spec(
+            agent_config,
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+        build = agent.build()
+        print("Build stats = ", build)
+        # Check no negative times (e.g. from wrong start/stop times in recursive calls).
+        self.assertGreater(build["total_build_time"], 0.0)
+        build_times = build["build_times"][0]
+        self.assertGreater(build_times["build_overhead"], 0.0)
+        self.assertGreater(build_times["total_build_time"], 0.0)
+        self.assertGreater(build_times["op_creation"], 0.0)
+        self.assertGreater(build_times["var_creation"], 0.0)
+        self.assertGreater(build_times["total_build_time"], build_times["build_overhead"])

@@ -39,7 +39,7 @@
           "gpu_spec": { "gpus_enabled" : false}
         },
         "n_step_adjustment": 0,
-        "worker_computes_weights": false,
+        "worker_executes_postprocessing": false,
         "sample_exploration": false,
         "exploration_min_value": 0.5
       },

@@ -54,14 +54,14 @@ class RayValueWorker(RayActor):
         """
         assert get_distributed_backend() == "ray"
         # Internal frameskip of env.
-        self.env_frame_skip = env_spec.get("frameskip", 1)
+        self.env_frame_skip = worker_spec.get("env_internal_frame_skip", 1)
         # Worker computes weights for prioritized sampling.
         worker_spec = deepcopy(worker_spec)
         self.num_environments = worker_spec.pop("num_worker_environments", 1)
 
         # Make sample size proportional to num envs.
         self.worker_sample_size = worker_spec.pop("worker_sample_size") * self.num_environments
-        self.worker_computes_weights = worker_spec.pop("worker_computes_weights", True)
+        self.worker_executes_postprocessing = worker_spec.pop("worker_executes_postprocessing", True)
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
         self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
         num_background_envs = worker_spec.pop("num_background_envs", 1)
@@ -515,7 +515,7 @@ class RayValueWorker(RayActor):
         weights = np.ones_like(rewards)
 
         # Compute loss-per-item.
-        if self.worker_computes_weights:
+        if self.worker_executes_postprocessing:
             # Next states were just collected, we batch process them here.
             _, loss_per_item = self.agent.post_process(
                 dict(

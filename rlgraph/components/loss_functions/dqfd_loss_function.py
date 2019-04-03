@@ -112,8 +112,23 @@ class DQFDLossFunction(DQNLossFunction):
             expert_margins = tf.expand_dims(expert_margins, -1)
             expert_margins = tf.broadcast_to(input=expert_margins, shape=tf.shape(one_hot))
             margin_mask = expert_margins - one_hot
+
             # margin_mask = tf.Print(margin_mask, [margin_mask], summarize=100, message="margin mask =")
-            supervised_loss = tf.reduce_max(input_tensor=q_values_s + action_mask * margin_mask, axis=-1)
+            margin_val = action_mask * margin_mask
+            loss_input = q_values_s + margin_val
+
+            # Apply margin.
+            def map_margins(x):
+                element_margin = x[0]
+                element_loss = x[1]
+                # Positive margins: apply max.
+                # Negative margins: apply min.
+                return tf.cond(
+                    pred=tf.reduce_sum(element_margin) > 0,
+                    true_fn=lambda: tf.reduce_max(element_loss),
+                    false_fn=lambda: tf.reduce_min(element_loss),
+                )
+            supervised_loss = tf.map_fn(map_margins, (margin_val, loss_input), dtype=tf.float32)
 
             # Subtract Q-values of action actually taken.
             supervised_delta = supervised_loss - q_s_a_values

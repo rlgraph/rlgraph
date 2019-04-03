@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.environments import Environment
 from rlgraph.execution.ray.ray_policy_worker import RayPolicyWorker
 
 from rlgraph import get_distributed_backend
@@ -34,21 +35,25 @@ class SyncBatchExecutor(RayExecutor):
     def __init__(self, environment_spec, agent_config):
         """
         Args:
-            environment_spec (dict): Environment spec. Each worker in the cluster will instantiate
-                an environment using this spec.
+            environment_spec (dict, callable): Environment spec or callable returning an environment. Each worker
+                in the cluster will instantiate an environment using this spec or callable.
             agent_config (dict): Config dict containing agent and execution specs.
         """
         ray_spec = agent_config["execution_spec"].pop("ray_spec")
         self.worker_spec = ray_spec.pop("worker_spec")
         self.compress_states = self.worker_spec["compress_states"]
         super(SyncBatchExecutor, self).__init__(executor_spec=ray_spec.pop("executor_spec"),
-                                           environment_spec=environment_spec,
-                                           worker_spec=self.worker_spec)
+                                                environment_spec=environment_spec,
+                                                worker_spec=self.worker_spec)
 
         # Must specify an agent type.
         assert "type" in agent_config
         self.agent_config = agent_config
-        environment = RayExecutor.build_env_from_config(self.environment_spec)
+        environment = None
+        if isinstance(self.environment_spec, dict):
+            environment = Environment.from_spec(self.environment_spec)
+        elif hasattr(self.environment_spec, '__call__'):
+            environment = self.environment_spec()
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
 
@@ -69,12 +74,6 @@ class SyncBatchExecutor(RayExecutor):
         # Start Ray cluster and connect to it.
         self.ray_init()
 
-        # Create local worker agent according to spec.
-        # Extract states and actions space.
-        environment = RayExecutor.build_env_from_config(self.environment_spec)
-        self.agent_config["state_space"] = environment.state_space
-        self.agent_config["action_space"] = environment.action_space
-
         # Create remote workers for data collection.
         self.worker_spec["worker_sample_size"] = self.worker_sample_size
         self.logger.info("Initializing {} remote data collection agents, sample size: {}".format(
@@ -82,7 +81,7 @@ class SyncBatchExecutor(RayExecutor):
         self.ray_env_sample_workers = self.create_remote_workers(
             RayPolicyWorker, self.num_sample_workers, self.agent_config,
             # *args
-            self.worker_spec, self.environment_spec, self.worker_frameskip
+            self.worker_spec, self.environment_spec, self.worker_frame_skip
         )
 
     def _execute_step(self):

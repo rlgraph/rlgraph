@@ -23,3 +23,26 @@ add a new one): The Ape-X one for asynchronous distributed value-based learning,
 synchronous one for e.g. distributed PPO. It simply collects a number of batches in parallel
 and merges them into one update. Examples are in the tests package (```TestSyncBatchExecutor``` in 
 tests/execution).
+
+
+## How can I use a custom environment? 
+
+Both the single-threaded executor and all Ray executors accept:
+- Environment spec dicts for pre-registered environments.
+- Callables returning a new environment instance, e.g.:
+
+``` 
+env_spec = dict(
+    type="openai",
+    gym_env="CartPole-v0"
+)
+agent_config = config_from_path("configs/apex_agent_cartpole.json")
+
+def create_env():
+    return Environment.from_spec(env_spec)
+
+executor = ApexExecutor(
+    environment_spec=create_env,
+    agent_config=agent_config,
+)
+```

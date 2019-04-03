@@ -1,0 +1,58 @@
+{
+  "type": "sac",
+  "discount": 0.99,
+  "initial_alpha": 0.2,
+  "gumbel_softmax_temperature": 1.0,
+  "double_q": false,
+
+  "memory_spec":
+  {
+    "type": "replay",
+    "capacity": 64
+  },
+
+  "preprocessing_spec": [
+    {
+      "type": "convert-type",
+      "to_dtype": "float32"
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "relu",
+      "scope": "hidden1"
+    }
+  ],
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "relu",
+      "scope": "vf-hidden1"
+    }
+  ],
+
+  "update_spec": {
+    "update_mode": "time_steps",
+    "do_updates": true,
+    "update_interval": 1,
+    "sync_interval": 1,
+    "sync_tau": 0.005,
+    "batch_size": 32,
+    "num_iterations": 1
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0002
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0004
+  }
+}

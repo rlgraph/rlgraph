@@ -32,16 +32,26 @@ class ValueFunction(Component):
             network_spec (list): Layer specification for baseline network.
         """
         super(ValueFunction, self).__init__(scope=scope, **kwargs)
+        self.network_spec = network_spec
 
-        # Attach VF output to hidden layers.
-        value_layer = {
+        # If first layer is conv, build image stack.
+        self.use_image_stack = self.network_spec[0]["type"] == "conv2d"
+        self.image_stack = None
+        self.dense_stack = None
+
+        self.neural_network = None
+        self.value_layer = {
             "type": "dense",
             "units": 1,
             "activation": "linear",
             "scope": "value-function-output"
         }
-        network_spec.append(value_layer)
-        self.neural_network = NeuralNetwork.from_spec(network_spec)
+        self.build_value_function()
+
+    def build_value_function(self):
+        # Attach VF output to hidden layers.
+        self.network_spec.append(self.value_layer)
+        self.neural_network = NeuralNetwork.from_spec(self.network_spec)
         self.add_components(self.neural_network)
 
     @rlgraph_api
