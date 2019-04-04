@@ -17,8 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.decorators import rlgraph_api
@@ -34,8 +32,8 @@ class RankReinterpreter(PreprocessLayer):
     def __init__(self, batch_rank=None, time_rank=None, scope="rank-reinterpreter",  **kwargs):
         """
         Args:
-            min\_ (float): The min value that any value in the input can have.
-            max\_ (float): The max value that any value in the input can have.
+            batch_rank (Optional[int]): The batch rank to set for the input.
+            time_rank (Optional[int]): The time rank to set for the input.
         """
         super(RankReinterpreter, self).__init__(space_agnostic=True, scope=scope, **kwargs)
         self.batch_rank = batch_rank

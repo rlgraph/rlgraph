@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.util import force_list
-
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
+from rlgraph.utils.util import force_list
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -40,8 +39,7 @@ class Concat(PreprocessLayer):
                 All api_methods to this layer must have the same shape, except for the `axis` rank.
                 Default: -1.
         """
-        super(Concat, self).__init__(flatten_ops=True, split_ops=True,
-                                     scope=scope, **kwargs)
+        super(Concat, self).__init__(flatten_ops=True, split_ops=True, scope=scope, **kwargs)
         self.axis = axis
 
         # Whether input spaces are time-major or not.
