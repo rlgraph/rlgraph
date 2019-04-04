@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
+
+import numpy as np
 
 from rlgraph.components.layers import ReShape
 from rlgraph.components.neural_networks.stack import Stack
@@ -203,10 +204,8 @@ class TestReShapePreprocessors(unittest.TestCase):
     def test_reshape_with_batch_and_time_ranks_and_with_folding_and_unfolding(self):
         # Flip time and batch rank via folding, then unfolding.
         in_space = FloatBox(shape=(3, 2), add_batch_rank=True, add_time_rank=True, time_major=False)
-        reshape_fold = ReShape(fold_time_rank=True, scope="fold-time-rank")
-        reshape_unfold = ReShape(
-            unfold_time_rank=True, time_major=True, scope="unfold-time-rank"
-        )
+        reshape_fold = ReShape(fold_time_rank=True)
+        reshape_unfold = ReShape(unfold_time_rank=True, time_major=False)
 
         def custom_apply(self_, inputs):
             folded = reshape_fold.apply(inputs)
@@ -217,7 +216,6 @@ class TestReShapePreprocessors(unittest.TestCase):
 
         test = ComponentTest(component=stack, input_spaces=dict(inputs=in_space))
 
-        #test.test("reset")
         # batch-size=4, seq-len=2
         inputs = in_space.sample(size=(4, 2))
 
@@ -240,5 +238,25 @@ class TestReShapePreprocessors(unittest.TestCase):
 
         # seq-len=16, batch-size=8
         inputs = in_space.sample(size=(16, 8))
+
+        test.test(("apply", inputs), expected_outputs=inputs)
+
+    def test_reshape_with_batch_and_time_ranks_with_folding_and_explicit_unfolding(self):
+        time_rank = 8
+        in_space = FloatBox(shape=(2, 3), add_batch_rank=True, add_time_rank=True, time_major=True)
+        reshape_fold = ReShape(fold_time_rank=True, scope="fold-time-rank")
+        reshape_unfold = ReShape(unfold_time_rank=time_rank, scope="unfold-time-rank", time_major=True)
+
+        def custom_apply(self_, inputs):
+            folded = reshape_fold.apply(inputs)
+            unfolded = reshape_unfold.apply(folded)  # no need for orig input here as unfolding is explicit
+            return unfolded
+
+        stack = Stack(reshape_fold, reshape_unfold, api_methods={("apply", custom_apply)})
+
+        test = ComponentTest(component=stack, input_spaces=dict(inputs=in_space))
+
+        # seq-len=time_rank, batch-size=n
+        inputs = in_space.sample(size=(time_rank, 12))
 
         test.test(("apply", inputs), expected_outputs=inputs)
