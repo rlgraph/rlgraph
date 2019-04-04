@@ -50,6 +50,10 @@ class NeuralNetwork(Stack):
             layers (Optional[list]): An optional list of Layer objects or spec-dicts to overwrite(!)
                 *layers.
 
+            outputs (Optional[]): A list or single output NNNode object, indicating that we have to infer the
+                `apply` method from the graph given by these outputs. This is used iff a NN is constructed by the
+                Keras-style functional API.
+
             fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the apply method.
                 Only for auto-generated `apply` method. Default: None.
 
@@ -61,13 +65,15 @@ class NeuralNetwork(Stack):
         # Add a default scope (if not given) and pass on via kwargs.
         kwargs["scope"] = kwargs.get("scope", "neural-network")
 
+        self.functional_api_outputs = kwargs.pop("outputs", None)
+
         # Force the only API-method to be `apply`. No matter whether custom-API or auto-generated (via Stack).
-        self.custom_api_given = True
+        self.custom_apply_given = True
         if not hasattr(self, "apply"):
             # Automatically create the `apply` stack.
             if "api_methods" not in kwargs:
                 kwargs["api_methods"] = [dict(api="apply_shadowed_", component_api="apply")]
-                self.custom_api_given = False
+                self.custom_apply_given = False
             # Sanity check `api_method` to contain only specifications on `apply`.
             else:
                 assert len(kwargs["api_methods"]) == 1, \
@@ -86,6 +92,9 @@ class NeuralNetwork(Stack):
             if unfold_time_rank is not None:
                 kwargs["api_methods"][0]["unfold_time_rank"] = unfold_time_rank
 
+        assert self.functional_api_outputs is False or self.custom_apply_given is False, \
+            "ERROR: If functional API is used to construct network, a custom `apply` method must not be provided!"
+
         # Pytorch specific objects.
         self.network_obj = None
         self.non_layer_components = None
@@ -94,14 +103,19 @@ class NeuralNetwork(Stack):
 
     def build_auto_api_method(self, stack_api_method_name, component_api_method_name, fold_time_rank=False,
                               unfold_time_rank=False, ok_to_overwrite=False):
+
         if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
             @rlgraph_api(name=stack_api_method_name, component=self, ok_to_overwrite=ok_to_overwrite)
             def method(self, nn_input, *nn_inputs, **kwargs):
                 # Avoid jumping back between layers and calls at runtime.
                 return self._pytorch_fast_path_exec(*([nn_input] + list(nn_inputs)), **kwargs)
 
+        # Functional API (Keras Style assembly).
+        elif self.functional_api_outputs is not None:
+            self._build_apply_from_graph(*self.functional_api_outputs)
+
         # Auto apply-API -> Handle LSTMs correctly.
-        elif self.custom_api_given is False:
+        elif self.custom_apply_given is False:
             @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
             def apply(self_, nn_input, *nn_inputs, **kwargs):
                 inputs = [nn_input] + list(nn_inputs)
@@ -194,7 +208,7 @@ class NeuralNetwork(Stack):
         Args:
             layer_component (Layer): The Layer object to be added to this NN.
         """
-        assert self.custom_api_given is False,\
+        assert self.custom_apply_given is False,\
             "ERROR: Cannot add layer to neural network if `apply` API-method is a custom one!"
         assert hasattr(layer_component, self.map_api_to_sub_components_api["apply_shadowed_"]), \
             "ERROR: Layer to be added ({}) does not have an API-method called '{}'!".format(
@@ -248,3 +262,29 @@ class NeuralNetwork(Stack):
         # TODO: Maybe it would be better to create a child class (RecurrentNeuralNetwork with has_rrn=True and
         # TODO: other available information for its API-clients such as internal_states_space, etc..)
         return any(isinstance(sc, LSTMLayer) for sc in self.get_all_sub_components())
+
+    def _build_apply_from_graph(self, *nn_calls):
+        """
+        Automatically builds our `apply` method by traversing the given graph depth first.
+        """
+        nn_calls_ = nn_calls
+        #components = set()
+
+        # Loop through all nodes.
+        while len(nn_calls_) > 0:
+            for call_ in nn_calls_:
+                # Get the number of arguments for this next call.
+                if call_.num_incoming == 1:
+                    call_.component.call
+                #components.add(node.component)
+
+        # Add all collected layers to this NN.
+        #self.add_components(*components)
+
+
+# TODO: Move away from here.
+class NNCall():
+    def __init__(self, num_incoming, num_outgoing, component):
+        self.num_incoming = num_incoming
+        self.num_outgoing = num_outgoing
+        self.component = component

@@ -53,3 +53,14 @@ class Layer(Component):
         """
         raise NotImplementedError
 
+    def __call__(self, *inputs):
+        """
+        Make all Layers callable for the Keras-style functional API.
+
+        Args:
+            *inputs ():
+
+        Returns:
+
+        """
+        raise NotImplementedError
