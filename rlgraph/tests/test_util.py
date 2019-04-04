@@ -18,8 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import json
-import numpy as np
 import os
+
+import numpy as np
 
 from rlgraph import get_backend
 
@@ -38,7 +39,7 @@ def config_from_path(path, root=None):
             to this file.
 
     Returns:
-        dict: Agent config dict.
+        Union[dict,list]: Agent config dict or list.
     """
     if not root:
         root = os.path.join(os.path.dirname(__file__))

@@ -18,17 +18,19 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-# import random
-# import string
 
 from rlgraph.spaces.box_space import BoxSpace
+
+
+# import random
+# import string
 
 
 class TextBox(BoxSpace):
     """
     A text box in TXT^n where the shape means the number of text chunks in each dimension.
+    A text chunk can consist of any number of words.
     """
-
     def __init__(self, shape=(), **kwargs):
         """
         Args:

@@ -19,13 +19,12 @@ from __future__ import print_function
 
 import time
 import unittest
-import numpy as np
 
-from rlgraph.agents import Agent
-from rlgraph.tests.test_util import config_from_path
 from six.moves import xrange as range_
 
+from rlgraph.agents import Agent
 from rlgraph.environments import Environment, SequentialVectorEnv
+from rlgraph.tests.test_util import config_from_path
 
 
 class TestVectorEnv(unittest.TestCase):
