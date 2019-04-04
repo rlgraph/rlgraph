@@ -41,7 +41,7 @@ class ReShape(PreprocessLayer):
     (including IntBox categories).
     """
     def __init__(self, new_shape=None, flatten=False, flatten_categories=None, fold_time_rank=False,
-                 unfold_time_rank=False, time_major=None, scope="reshape", **kwargs):
+                 unfold_time_rank=False, time_major=None, scope=None, **kwargs):
         """
         Args:
             new_shape (Optional[Dict[str,Tuple[int]],Tuple[int]]): A dict of str/tuples or a single tuple
@@ -63,20 +63,24 @@ class ReShape(PreprocessLayer):
                 E.g. from (None, None, 2, 3) to (None, 2, 3). Providing both `fold_time_rank` (True) and
                 `new_shape` is allowed.
 
-            unfold_time_rank (bool): Whether to unfold the time rank from a currently common batch+time-rank.
-                The exact size of the time rank to unfold is determined automatically via the original sample.
-                Providing both `unfold_time_rank` (True) and `new_shape` is
-                allowed.
+            unfold_time_rank (Union[bool,int]): Whether to unfold the time rank from a currently common batch+time-rank.
+                The exact size of the time rank to unfold is either directly provided or determined automatically via
+                the original sample.
+                Providing both `unfold_time_rank` (True) and `new_shape` is allowed.
 
             time_major (Optional[bool]): Only used if not None and if unfold_time_rank is True. Specifies whether the
                 time rank should come before the batch rank after unfolding.
         """
+        scope = scope or (
+            "reshape-fold" if fold_time_rank else "reshape-unfold" if unfold_time_rank else
+            "reshape-flatten" if flatten is True else "reshape"
+        )
         super(ReShape, self).__init__(space_agnostic=True, scope=scope, **kwargs)
 
         assert flatten is False or new_shape is None, "ERROR: If `flatten` is True, `new_shape` must be None!"
-        assert fold_time_rank is False or unfold_time_rank is False,\
-            "ERROR: Can only either fold or unfold the time-rank! Both `fold_time_rank` and `unfold_time_rank` cannot " \
-            "be True at the same time."
+        assert not fold_time_rank or not unfold_time_rank,\
+            "ERROR: Can only either fold or unfold the time-rank! Both `fold_time_rank` and `unfold_time_rank` " \
+            "cannot be True at the same time."
 
         # The new shape specifications.
         self.new_shape = new_shape
@@ -111,7 +115,7 @@ class ReShape(PreprocessLayer):
                     add_batch_rank=True, add_time_rank=False
                 )
             # Time rank should be unfolded from batch rank with the given dimension.
-            elif self.unfold_time_rank is True:
+            elif self.unfold_time_rank:
                 sanity_check_space(single_space, must_have_batch_rank=True, must_have_time_rank=False)
                 ret[key] = class_(
                     shape=single_space.shape if new_shape is None else new_shape,
@@ -146,13 +150,13 @@ class ReShape(PreprocessLayer):
         Args:
             preprocessing_inputs (SingleDataOp): The input to reshape.
             input_before_time_rank_folding (Optional[SingleDataOp]): The original input (before!) the time-rank had
-                been folded (this was done in a different ReShape Component). Serves if `self.unfold_time_rank` is True
-                to figure out the exact time-rank dimension to unfold.
+                been folded (this was done in a different ReShape Component).
+                Used to figure out the exact time-rank dimension to unfold iff `self.unfold_time_rank` is True.
 
         Returns:
             SingleDataOp: The reshaped input.
         """
-        assert self.unfold_time_rank is False or input_before_time_rank_folding is not None
+        assert self.unfold_time_rank is not True or input_before_time_rank_folding is not None
 
         if self.backend == "python" or get_backend() == "python":
             # Create a one-hot axis for the categories at the end?
@@ -161,7 +165,10 @@ class ReShape(PreprocessLayer):
                 preprocessing_inputs = one_hot(preprocessing_inputs, depth=num_categories)
 
             if self.unfold_time_rank:
-                new_shape = (-1, -1) + preprocessing_inputs.shape[1:]
+                new_shape = [-1, -1] + list(preprocessing_inputs.shape[1:])
+                if type(self.unfold_time_rank) == int:
+                    new_shape[0 if self.time_major else 1] = self.unfold_time_rank
+                new_shape = tuple(new_shape)
             elif self.fold_time_rank:
                 new_shape = (-1,) + preprocessing_inputs.shape[2:]
             else:
@@ -192,7 +199,10 @@ class ReShape(PreprocessLayer):
                 preprocessing_inputs = pytorch_one_hot(preprocessing_inputs, depth=num_categories)
 
             if self.unfold_time_rank:
-                new_shape = (-1, -1) + preprocessing_inputs.shape[1:]
+                new_shape = [-1, -1] + list(preprocessing_inputs.shape[1:])
+                if type(self.unfold_time_rank) == int:
+                    new_shape[0 if self.time_major else 1] = self.unfold_time_rank
+                new_shape = tuple(new_shape)
             elif self.fold_time_rank:
                 new_shape = (-1,) + preprocessing_inputs.shape[2:]
             else:
@@ -253,17 +263,22 @@ class ReShape(PreprocessLayer):
                     preprocessing_inputs_._time_rank = preprocessing_inputs._time_rank
                 preprocessing_inputs = preprocessing_inputs_
 
-            if self.unfold_time_rank:
-                list_shape = preprocessing_inputs.shape.as_list()
-                assert len(list_shape) == 1 or list_shape[1] is not None,\
-                    "ERROR: Cannot unfold. `preprocessing_inputs` (with shape {}) " \
-                    "already seems to be unfolded!".format(list_shape)
-                new_shape = (-1, -1) + tuple(list_shape[1:])
-            elif self.fold_time_rank:
+            #if self.unfold_time_rank:
+            #    list_shape = preprocessing_inputs.shape.as_list()
+            #    assert len(list_shape) == 1 or list_shape[1] is not None,\
+            #        "ERROR: Cannot unfold. `preprocessing_inputs` (with shape {}) " \
+            #        "already seems to be unfolded!".format(list_shape)
+            #    new_shape = (-1, -1 if self.unfold_time_rank is True else self.unfold_time_rank) + \
+            #        tuple(list_shape[1:])
+            if self.fold_time_rank:
                 new_shape = (-1,) + tuple(preprocessing_inputs.shape.as_list()[2:])
             else:
+                time_rank = -1
+                if type(self.unfold_time_rank) == int:
+                    time_rank = self.unfold_time_rank
+
                 new_shape = self.get_preprocessed_space(get_space_from_op(preprocessing_inputs)).get_shape(
-                    with_batch_rank=-1, with_time_rank=-1
+                    with_batch_rank=-1, with_time_rank=time_rank
                 )
 
             # Dynamic new shape inference:
@@ -284,11 +299,9 @@ class ReShape(PreprocessLayer):
 
             # Have to place the time rank back in as unknown (for the auto Space inference).
             if type(self.unfold_time_rank) == int:
-                reshaped._batch_rank = 0
-                reshaped._time_rank = 1
+                reshaped._batch_rank = 1 if self.time_major is True else 0
+                reshaped._time_rank = 0 if self.time_major is True else 1
                 return reshaped
-                # TODO: replace placeholder with default value by _batch_rank/_time_rank properties.
-                #return tf.placeholder_with_default(reshaped, shape=(None, None) + new_shape[2:])
             else:
                 # TODO: add other cases of reshaping and fix batch/time rank hints.
                 if self.fold_time_rank:

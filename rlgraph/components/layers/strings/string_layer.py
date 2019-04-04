@@ -24,10 +24,10 @@ from rlgraph.spaces.space_utils import sanity_check_space
 
 class StringLayer(Layer):
     """
-    A generic string processing layer object.
+    A generic string processing layer class.
     """
     def __init__(self, **kwargs):
-        super(StringLayer, self).__init__(scope=kwargs.pop("scope", "str-layer"), **kwargs)
+        super(StringLayer, self).__init__(scope=kwargs.pop("scope", "string-layer"), **kwargs)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         """

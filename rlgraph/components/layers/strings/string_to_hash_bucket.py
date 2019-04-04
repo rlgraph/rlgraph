@@ -47,8 +47,8 @@ class StringToHashBucket(StringLayer):
             delimiter (str): The string delimiter used for splitting the input sentences into single "words".
                 Default: " ".
             dtype (str): The type specifier for the created hash bucket. Default: int64.
-            num_hash_buckets (int): The maximum value of any number in the created lookup table (lowest value
-                is always 0).
+            num_hash_buckets (int): The number of hash buckets to create. This is the maximum value of any number in
+                the created lookup table (lowest value is always 0) minus 1.
             hash_function (str): The hashing function to use. One of "fast" or "strong". Default: "fast".
                 For details, see: https://www.tensorflow.org/api_docs/python/tf/string_to_hash_bucket_(fast|strong)
                 The "strong" method is better at avoiding placing different words into the same bucket, but runs
@@ -73,6 +73,7 @@ class StringToHashBucket(StringLayer):
 
         # Make sure there is only a batch rank (single text items).
         # tf.string_split does not support more complex shapes.
+        # Output is then always batch+time ranked data.
         sanity_check_space(input_spaces["text_inputs"], must_have_batch_rank=True, must_have_time_rank=False, rank=0)
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
