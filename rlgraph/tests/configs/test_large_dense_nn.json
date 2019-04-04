@@ -1,0 +1,29 @@
+{
+  "scope": "test-network",
+  "layers": [
+    {
+      "type": "dense",
+      "activation": "relu",
+      "units": 1024,
+      "scope": "layer-a"
+    },
+    {
+      "type": "dense",
+      "activation": "relu",
+      "units": 512,
+      "scope": "layer-b"
+    },
+    {
+      "type": "dense",
+      "activation": "relu",
+      "units": 256,
+      "scope": "layer-c"
+    },
+    {
+      "type": "dense",
+      "activation": "relu",
+      "units": 128,
+      "scope": "layer-d"
+    }
+  ]
+}
