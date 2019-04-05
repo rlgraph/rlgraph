@@ -114,4 +114,3 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
         test.test(("apply", input_), expected_outputs=dict(output=expected), decimals=5)
 
         test.terminate()
-

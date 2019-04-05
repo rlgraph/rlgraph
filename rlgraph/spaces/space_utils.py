@@ -73,9 +73,8 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
 
 def get_space_from_op(op):
     """
-    Tries to re-create a Space object given some DataOp.
-    This is useful for shape inference when passing a Socket's ops through a GraphFunction and
-    auto-inferring the resulting shape/Space.
+    Tries to re-create a Space object given some DataOp (e.g. a tf op).
+    This is useful for shape inference on returned ops after having run through a graph_fn.
 
     Args:
         op (DataOp): The op to create a corresponding Space for.
