@@ -17,15 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from copy import deepcopy
-import numpy as np
-from rlgraph.components import PreprocessorStack
-from six.moves import xrange as range_
 import time
+from copy import deepcopy
 
+import numpy as np
+from six.moves import xrange as range_
+
+from rlgraph.components import PreprocessorStack
+from rlgraph.execution.worker import Worker
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import default_dict
-from rlgraph.execution.worker import Worker
 
 
 class SingleThreadedWorker(Worker):
@@ -198,7 +199,6 @@ class SingleThreadedWorker(Worker):
         env_states = self.env_states
         while not (0 < num_timesteps <= timesteps_executed):
             if self.render:
-                # This renders the first underlying environment.
                 self.vector_env.render()
 
             if self.worker_executes_preprocessing:
