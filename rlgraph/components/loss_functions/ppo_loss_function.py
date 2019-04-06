@@ -19,8 +19,9 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import ContainerSpace
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.util import get_rank
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -45,6 +46,7 @@ class PPOLossFunction(LossFunction):
         self.clip_ratio = clip_ratio
         self.standardize_advantages = standardize_advantages
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
+        self.ranks_to_reduce = None
 
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
@@ -53,7 +55,10 @@ class PPOLossFunction(LossFunction):
         Do some sanity checking on the incoming Spaces:
         """
         assert action_space is not None
-        self.action_space = action_space
+        self.action_space = action_space.with_batch_rank()
+        #self.flat_action_space = action_space.flatten()
+        sanity_check_space(self.action_space, must_have_batch_rank=True)
+        self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     @rlgraph_api
     def loss(self, log_probs, prev_log_probs, baseline_values, rewards, entropy):
@@ -108,15 +113,25 @@ class PPOLossFunction(LossFunction):
 
             # Likelihood ratio and clipped objective.
             ratio = tf.exp(x=log_probs - prev_log_probs)
+
+            # Make sure the pg_advantages vector (batch) is broadcast correctly.
+            for _ in range(get_rank(ratio) - 1):
+                pg_advantages = tf.expand_dims(pg_advantages, axis=1)
+
             clipped_advantages = tf.where(
                 condition=pg_advantages > 0,
                 x=(1 + self.clip_ratio) * pg_advantages,
                 y=(1 - self.clip_ratio) * pg_advantages
             )
-
             loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
             loss += self.weight_entropy * entropy
-            return tf.squeeze(loss)
+
+            # Reduce over the composite actions, if any.
+            if get_rank(loss) > 1:
+                loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
+
+            return loss
+
         elif get_backend() == "pytorch":
             # Detach grads.
             if self.standardize_advantages:
@@ -124,6 +139,11 @@ class PPOLossFunction(LossFunction):
 
             # Likelihood ratio and clipped objective.
             ratio = torch.exp(log_probs - prev_log_probs)
+
+            # Make sure the pg_advantages vector (batch) is broadcast correctly.
+            for _ in range(get_rank(ratio) - 1):
+                pg_advantages = torch.unsqueeze(pg_advantages, dim=1)
+
             clipped_advantages = torch.where(
                 pg_advantages > 0,
                 (1 + self.clip_ratio) * pg_advantages,
@@ -132,7 +152,12 @@ class PPOLossFunction(LossFunction):
 
             loss = -torch.min(ratio * pg_advantages, clipped_advantages)
             loss += self.weight_entropy * entropy
-            return torch.squeeze(loss)
+
+            # Reduce over the composite actions, if any.
+            if get_rank(loss) > 1:
+                loss = torch.mean(loss, tuple(range(1, self.ranks_to_reduce + 1)), keepdim=False)
+
+            return loss  #torch.squeeze(loss)
 
     @rlgraph_api
     def _graph_fn_baseline_loss_per_item(self, baseline_values, pg_advantages):

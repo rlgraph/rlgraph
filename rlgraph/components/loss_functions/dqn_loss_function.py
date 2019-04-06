@@ -18,9 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import IntBox, ContainerSpace
+from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -83,7 +84,7 @@ class DQNLossFunction(LossFunction):
         self.action_space = action_space
         self.flat_action_space = action_space.flatten()
         # Check for IntBox and num_categories.
-        sanity_check_space(self.action_space, must_have_categories=True, allowed_sub_types=[IntBox])
+        sanity_check_space(self.action_space, must_have_batch_rank=True, must_have_categories=True, allowed_sub_types=[IntBox])
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     @rlgraph_api
