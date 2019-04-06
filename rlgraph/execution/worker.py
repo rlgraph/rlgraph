@@ -17,12 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import logging
+
+import numpy as np
 from six.moves import xrange as range_
 
+from rlgraph.environments import VectorEnv, SequentialVectorEnv
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.environments import SequentialVectorEnv
 
 
 class Worker(Specifiable):
@@ -47,12 +48,21 @@ class Worker(Specifiable):
         super(Worker, self).__init__()
         self.num_environments = num_environments
         self.logger = logging.getLogger(__name__)
-        if env_spec is not None:
+
+        # VectorEnv was passed in directly -> Use that one.
+        if isinstance(env_spec, VectorEnv):
+            self.vector_env = env_spec
+            self.num_environments = self.vector_env.num_environments
             self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
-            self.vector_env = SequentialVectorEnv(env_spec=env_spec, num_envs=self.num_environments)
+        # `Env_spec` is for single envs inside a SequentialVectorEnv.
+        elif env_spec is not None:
+            self.vector_env = SequentialVectorEnv(env_spec=env_spec, num_environments=self.num_environments)
+            self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
+        # No env_spec.
         else:
-            self.env_ids = []
             self.vector_env = None
+            self.env_ids = []
+
         self.agent = agent
         self.frameskip = frameskip
         self.render = render
