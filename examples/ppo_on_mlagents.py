@@ -18,7 +18,7 @@ Example script for training a Proximal policy optimization agent on an ML-Agents
 
 Usage:
 
-python ppo_on_mlagents_3d_ball_env.py [--config configs/ppo_on_mlagents_3d_ball_env.json]
+python ppo_on_mlagents.py [--config configs/ppo_on_mlagents_[3d_ball|tennis]_env.json]
 
 """
 
@@ -35,7 +35,7 @@ from rlgraph.execution import SingleThreadedWorker
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('config', './configs/ppo_mlagents_3d_ball.json', 'Agent config file.')
+flags.DEFINE_string('config', './configs/ppo_mlagents_3dball.json', 'Agent config file.')
 
 
 def main(argv):
