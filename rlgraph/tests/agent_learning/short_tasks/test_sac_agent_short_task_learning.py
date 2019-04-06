@@ -27,7 +27,7 @@ from scipy import stats
 from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
 from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, \
     Synchronizable
-from rlgraph.environments import GaussianDensityAsRewardEnvironment, OpenAIGymEnv, GridWorld
+from rlgraph.environments import GaussianDensityAsRewardEnv, OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest
@@ -138,18 +138,16 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
     def test_sac_learning_on_gaussian_density_as_reward_env(self):
         """
-        Creates an SAC-Agent and runs it via a Runner on the GaussianDensityAsRewardEnvironment.
+        Creates an SAC-Agent and runs it via a Runner on the GaussianDensityAsRewardEnv.
         """
-        env = GaussianDensityAsRewardEnvironment(episode_length=5)
+        env = GaussianDensityAsRewardEnv(episode_length=5)
         agent = SACAgent.from_spec(
             config_from_path("configs/sac_agent_for_gaussian_density_env.json"),
             state_space=env.state_space,
             action_space=env.action_space
         )
 
-        worker = SingleThreadedWorker(
-            env_spec=lambda: env, agent=agent
-        )
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         worker.execute_episodes(num_episodes=500)
         rewards = worker.finished_episode_rewards[0]  # 0=1st env in vector-env
         self.assertTrue(np.mean(rewards[:100]) < np.mean(rewards[-100:]))
