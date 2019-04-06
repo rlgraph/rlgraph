@@ -29,6 +29,7 @@ python ppo_cartpole.py
 import json
 import os
 import sys
+import time
 
 import numpy as np
 from absl import flags
@@ -53,6 +54,9 @@ def main(argv):
     with open(agent_config_path, 'rt') as fp:
         agent_config = json.load(fp)
 
+    if "summary_spec" in agent_config and "directory" not in agent_config["summary_spec"]:
+        agent_config["summary_spec"]["directory"] = os.path.expanduser("~/rlgraph_summaries/" + str(int(time.time())))
+
     env = OpenAIGymEnv.from_spec({
         "type": "openai",
         "gym_env": FLAGS.env
@@ -67,9 +71,9 @@ def main(argv):
 
     def episode_finished_callback(episode_return, duration, timesteps, **kwargs):
         episode_returns.append(episode_return)
-        if len(episode_returns) % 10 == 0:
+        if len(episode_returns) % 100 == 0:
             print("Episode {} finished: reward={:.2f}, average reward={:.2f}.".format(
-                len(episode_returns), episode_return, np.mean(episode_returns[-10:])
+                len(episode_returns), episode_return, np.mean(episode_returns[-100:])
             ))
 
     worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False, worker_executes_preprocessing=False,
@@ -77,7 +81,7 @@ def main(argv):
     print("Starting workload, this will take some time for the agents to build.")
 
     # Use exploration is true for training, false for evaluation.
-    worker.execute_timesteps(10000, use_exploration=True)
+    worker.execute_timesteps(100000, use_exploration=True)
 
     print("Mean reward: {:.2f} / over the last 10 episodes: {:.2f}".format(
         np.mean(episode_returns), np.mean(episode_returns[-10:])
