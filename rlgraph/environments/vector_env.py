@@ -17,50 +17,34 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 from rlgraph.environments import Environment
-from six.moves import xrange as range_
 
 
 class VectorEnv(Environment):
     """
-    Abstract multi-environment class to support stepping multiple environments
-    at once.
+    Abstract multi-environment class to support stepping through multiple environments at once.
     """
-    def __init__(self, num_envs, env_spec):
-        """
-        Args:
-            num_envs (int): Number of environments
-            env_spec Union[callable, dict]: Environment spec dict.
-        """
-        self.num_envs = num_envs
-        self.environments = list()
-
-        for _ in range_(num_envs):
-            if isinstance(env_spec, dict):
-                env = Environment.from_spec(env_spec)
-            elif hasattr(env_spec, '__call__'):
-                env = env_spec()
-            else:
-                raise ValueError("Env_spec must be either a dict containing an environment spec or a callable"
-                                 "returning a new environment object.")
-            self.environments.append(env)
-        super(VectorEnv, self).__init__(state_space=self.environments[0].state_space,
-                                        action_space=self.environments[0].action_space)
+    def __init__(self, num_environments, **kwargs):
+        super(VectorEnv, self).__init__(**kwargs)
+        self.num_environments = num_environments
 
     def get_env(self):
         """
-        Returns an underlying environment instance (the first).
+        Returns an underlying sub-environment instance.
+
         Returns:
             Environment: Environment instance.
         """
-        return self.environments[0]
+        raise NotImplementedError
 
-    def render(self):
-        self.environments[0].render()
+    def reset(self, index=0):
+        """
+        Resets the given sub-environment.
 
-    def seed(self, seed=None):
-        return [env.seed(seed) for env in self.environments]
+        Returns:
+            any: New state for sub-environment.
+        """
+        raise NotImplementedError
 
     def reset_all(self):
         """
@@ -71,26 +55,5 @@ class VectorEnv(Environment):
         """
         raise NotImplementedError
 
-    def reset(self, index=0):
-        """
-        Resets specific environments
-        Args:
-            index (Optional[int]): Environment to reset, defaults to first.
-        Returns:
-            any: New state for environment.
-        """
+    def terminate_all(self):
         raise NotImplementedError
-
-    def step(self, **kwargs):
-        """
-        Executes steps on a vector of environments.
-        Args:
-            **kwargs: Step args.
-
-        Returns:
-            any: Step results for each environment.
-        """
-        raise NotImplementedError
-
-    def __str__(self):
-        return [str(env) for env in self.environments]

@@ -20,8 +20,9 @@ from __future__ import print_function
 from queue import Queue
 from threading import Thread
 
-from rlgraph.environments import VectorEnv, Environment
 from six.moves import xrange as range_
+
+from rlgraph.environments import VectorEnv, Environment
 
 
 class SequentialVectorEnv(VectorEnv):
@@ -29,13 +30,28 @@ class SequentialVectorEnv(VectorEnv):
     Sequential multi-environment class which iterates over a list of environments
     to step them.
     """
-    def __init__(self, num_envs, env_spec, num_background_envs=1, async_reset=False):
+    def __init__(self, num_environments, env_spec, num_background_envs=1, async_reset=False):
         """
             num_background_envs (Optional([int]): Number of environments asynchronously
                 reset in the background. Need to be calibrated depending on reset cost.
             async_reset (Optional[bool]): If true, resets envs asynchronously in another thread.
         """
-        super(SequentialVectorEnv, self).__init__(num_envs, env_spec)
+        self.environments = list()
+
+        for _ in range_(num_environments):
+            if isinstance(env_spec, dict):
+                env = Environment.from_spec(env_spec)
+            elif hasattr(env_spec, '__call__'):
+                env = env_spec()
+            else:
+                raise ValueError("Env_spec must be either a dict containing an environment spec or a callable"
+                                 "returning a new environment object.")
+            self.environments.append(env)
+
+        super(SequentialVectorEnv, self).__init__(
+            num_environments=num_environments, state_space=self.environments[0].state_space, action_space=self.environments[0].action_space
+        )
+
         self.async_reset = async_reset
         if self.async_reset:
             self.resetter = ThreadedResetter(env_spec, num_background_envs)
@@ -45,6 +61,14 @@ class SequentialVectorEnv(VectorEnv):
     def seed(self, seed=None):
         return [env.seed(seed) for env in self.environments]
 
+    def get_env(self, index=0):
+        return self.environments[index]
+
+    def reset(self, index=0):
+        state, env = self.resetter.swap(self.environments[index])
+        self.environments[index] = env
+        return state
+
     def reset_all(self):
         states = []
         for i, env in enumerate(self.environments):
@@ -53,20 +77,25 @@ class SequentialVectorEnv(VectorEnv):
             self.environments[i] = env
         return states
 
-    def reset(self, index=0):
-        state, env = self.resetter.swap(self.environments[index])
-        self.environments[index] = env
-        return state
-
-    def step(self, actions):
+    def step(self, actions, **kwargs):
         states, rewards, terminals, infos = [], [], [], []
-        for i in range_(self.num_envs):
+        for i in range_(self.num_environments):
             state, reward, terminal, info = self.environments[i].step(actions[i])
             states.append(state)
             rewards.append(reward)
             terminals.append(terminal)
             infos.append(info)
         return states, rewards, terminals, infos
+
+    def render(self, index=0):
+        self.environments[index].render()
+
+    def terminate(self, index=0):
+        self.environments[index].terminate()
+
+    def terminate_all(self):
+        for env in self.environments:
+            env.terminate()
 
     def __str__(self):
         return [str(env) for env in self.environments]
