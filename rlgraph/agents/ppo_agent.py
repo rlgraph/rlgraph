@@ -21,14 +21,14 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.agents import Agent
-from rlgraph.components import ContainerMerger, ContainerSplitter, Memory, RingBuffer, PPOLossFunction
+from rlgraph.components import ContainerMerger, Memory, RingBuffer, PPOLossFunction
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.execution_util import define_by_run_flatten
 from rlgraph.utils.ops import flatten_op, DataOpDict
 from rlgraph.utils.util import strip_list
-from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -107,12 +107,12 @@ class PPOAgent(Agent):
                 format(self.observe_spec["buffer_size"], self.memory.capacity)
 
         # The splitter for splitting up the records coming from the memory.
-        self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
-        self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount,
-                                                           clip_rewards=clip_rewards)
-        self.loss_function = PPOLossFunction(clip_ratio=clip_ratio,
-                                             standardize_advantages=standardize_advantages,
-                                             weight_entropy=weight_entropy)
+        self.gae_function = GeneralizedAdvantageEstimation(
+            gae_lambda=gae_lambda, discount=self.discount, clip_rewards=clip_rewards
+        )
+        self.loss_function = PPOLossFunction(
+            clip_ratio=clip_ratio, standardize_advantages=standardize_advantages, weight_entropy=weight_entropy
+        )
 
         self.iterations = self.update_spec["num_iterations"]
         self.sample_size = self.update_spec["sample_size"]
@@ -120,7 +120,8 @@ class PPOAgent(Agent):
 
         # Add all our sub-components to the core.
         self.root_component.add_components(
-            self.preprocessor, self.merger, self.memory, self.splitter, self.policy, self.exploration,
+            self.preprocessor, self.merger, self.memory,
+            self.policy, self.exploration,
             self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer, self.vars_merger,
             self.vars_splitter, self.gae_function
         )
@@ -181,13 +182,14 @@ class PPOAgent(Agent):
                 records = agent.memory.get_episodes(self.update_spec["batch_size"])
             else:
                 records = agent.memory.get_records(self.update_spec["batch_size"])
-            preprocessed_s, actions, rewards, terminals = agent.splitter.split(records)
 
             # Route to post process and update method.
             # Use terminals as sequence indices.
-            sequence_indices = terminals
-            return root.update_from_external_batch(preprocessed_s, actions, rewards, terminals,
-                                                   sequence_indices, apply_postprocessing)
+            sequence_indices = records["terminals"]
+            return root.update_from_external_batch(
+                records["states"], records["actions"], records["rewards"], records["terminals"],
+                sequence_indices, apply_postprocessing
+            )
 
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
