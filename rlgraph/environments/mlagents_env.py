@@ -57,7 +57,7 @@ class MLAgentsEnv(VectorEnv):
         num_environments = len(first_brain_info.agents)
 
         state_space = {}
-        if len(first_brain_info.vector_observations) > 0:
+        if len(first_brain_info.vector_observations[0]) > 0:
             state_space["vector"] = get_space_from_op(first_brain_info.vector_observations[0])
             # TODO: This is a hack.
             if state_space["vector"].dtype == np.float64:
