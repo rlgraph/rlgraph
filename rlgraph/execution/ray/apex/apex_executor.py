@@ -189,8 +189,8 @@ class ApexExecutor(RayExecutor):
             # Randomly add env sample to a local replay actor.
             random.choice(self.ray_local_replay_memories).observe.remote(env_sample_obj_id)
             sample_steps = sample_batch_metrics[i]["batch_size"]
-            if sample_batch_metrics[i]["last_reward"] is not None:
-                rewards.append(sample_batch_metrics[i]["last_reward"])
+            if len(sample_batch_metrics[i]["last_rewards"]) > 0:
+                rewards.extend(sample_batch_metrics[i]["last_rewards"])
             env_steps += sample_steps
 
             self.steps_since_weights_synced[ray_worker] += sample_steps
