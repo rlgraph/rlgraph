@@ -1,8 +1,8 @@
 {
   "type": "ppo",
   "sample_episodes": false,
-  "standardize_advantages": false,
-  "clip_ratio": 0.2,
+  "standardize_advantages": true,
+  "clip_ratio": 0.3,
   "discount": 0.95,
   "gae_lambda": 0.1,
   "weight_entropy": 0.01,
@@ -66,7 +66,6 @@
     "type": "adam",
     "learning_rate": 0.0003
   },
-  
   "value_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0003
