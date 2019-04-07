@@ -64,20 +64,16 @@ class Layer(Component):
         Returns:
 
         """
-        # Space object(s) -> Set `apply`'s Space to these and return self.
-        if isinstance(inputs[0], Space):
-            for i in range(len(inputs)):
-                assert isinstance(inputs[i], Space),\
-                    "ERROR: If first arg to __call__ is a Space, all others must be, too!"
-                self.api_method_inputs["inputs[{}]".format(i)] = inputs[i]
-            return NNCallOutput(list(inputs), self, )
-        # Other Layer component -> Connect output of this one's `apply` method to this one's `apply` method inputs.
-        elif isinstance(inputs[0], Layer):
-            pass
+        for i, input_ in enumerate(inputs):
+            # Space object(s) -> Set `apply`'s Space to these.
+            if isinstance(input_, Space):
+                self.api_method_inputs["inputs[{}]".format(i)] = input_
+        return LayerCallOutput(list(inputs), self)
 
 
-class NNCallOutput(object):
-    def __init__(self, inputs, component, output_name):
+class LayerCallOutput(object):
+    def __init__(self, inputs, component, output_slot=0, num_outputs=1):
         self.inputs = inputs
         self.component = component
-        self.output_name = output_name
+        self.output_slot = output_slot
+        self.num_outputs = num_outputs

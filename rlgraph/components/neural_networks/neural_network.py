@@ -65,7 +65,7 @@ class NeuralNetwork(Stack):
         # Add a default scope (if not given) and pass on via kwargs.
         kwargs["scope"] = kwargs.get("scope", "neural-network")
 
-        self.functional_api_outputs = kwargs.pop("outputs", None)
+        self.functional_api_outputs = force_list(kwargs.pop("outputs", None))
 
         # Force the only API-method to be `apply`. No matter whether custom-API or auto-generated (via Stack).
         self.custom_apply_given = True
@@ -112,7 +112,7 @@ class NeuralNetwork(Stack):
 
         # Functional API (Keras Style assembly).
         elif self.functional_api_outputs is not None:
-            self._build_apply_from_graph(*self.functional_api_outputs)
+            self._build_apply_via_keras_style_functional_api(*self.functional_api_outputs)
 
         # Auto apply-API -> Handle LSTMs correctly.
         elif self.custom_apply_given is False:
@@ -263,28 +263,46 @@ class NeuralNetwork(Stack):
         # TODO: other available information for its API-clients such as internal_states_space, etc..)
         return any(isinstance(sc, LSTMLayer) for sc in self.get_all_sub_components())
 
-    def _build_apply_from_graph(self, *nn_calls):
+    def _build_apply_via_keras_style_functional_api(self, *layer_call_outputs):
         """
-        Automatically builds our `apply` method by traversing the given graph depth first.
+        Automatically builds our `apply` method by traversing the given graph depth first via the following iterative
+        procedure:
+
+        Add given `layer_call_outputs` to a set.
+        While still items in set that are not Spaces:
+            For o in set:
+                If o is lone output for its call OR all outputs are in set.
+                    write call to code
+                    erase outs from set
+                    add ins to set
+        Write `def apply(self, ...)` from given Spaces.
         """
-        nn_calls_ = nn_calls
-        #components = set()
+        apply_inputs = []
+
+        # Write this NN's `apply` code dynamically, then execute it.
+        apply_code = "\treturn [TODO: list of return values]"
+        output_set = set(layer_call_outputs)
+
+        def _all_siblings_in_set(output, set_):
+            need_to_find = output.num_outputs
+            found = 0
+            for o in set_:
+                if o.component == output.component:
+                    found += 1
+            return found == need_to_find
 
         # Loop through all nodes.
-        while len(nn_calls_) > 0:
-            for call_ in nn_calls_:
-                # Get the number of arguments for this next call.
-                if call_.num_incoming == 1:
-                    call_.component.call
-                #components.add(node.component)
+        while len(output_set) > 0:
+            for output in output_set:
+                # If only one output OR all outputs are in set -> Write the call.
+                if output.num_outputs == 1 or _all_siblings_in_set(output, output_set):
+                    apply_code = "\t{}.apply({})\n".format(output.component, output.inputs) + apply_code
+                    # Remove outs from set.
+                    #TODO:
+                    # Add `ins` to set or to `apply_inputs` (if `in` is a Space).
+                    #TODO:
 
-        # Add all collected layers to this NN.
-        #self.add_components(*components)
+        # Prepend inputs from left-over Space objects in set.
+        apply_code = "def apply(self, {})".format() + apply_code
 
-
-# TODO: Move away from here.
-class NNCall():
-    def __init__(self, num_incoming, num_outgoing, component):
-        self.num_incoming = num_incoming
-        self.num_outgoing = num_outgoing
-        self.component = component
+        exec(apply_code, globals=globals(), locals=locals())
