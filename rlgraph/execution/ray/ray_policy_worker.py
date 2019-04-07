@@ -202,6 +202,7 @@ class RayPolicyWorker(RayActor):
             sample_terminals[env_id] = []
 
         env_states = self.last_states
+        last_episode_reward = None
         current_episode_rewards = self.last_ep_rewards
         current_episode_timesteps = self.last_ep_timesteps
         current_episode_start_timestamps = self.last_ep_start_timestamps
@@ -257,11 +258,13 @@ class RayPolicyWorker(RayActor):
                 # Terminate and reset episode for that environment.
                 if terminals[i] or (0 < max_timesteps_per_episode <= current_episode_timesteps[i]):
                     self.finished_episode_rewards[i].append(current_episode_rewards[i])
+
                     self.finished_episode_timesteps[i].append(current_episode_timesteps[i])
                     self.finished_episode_total_times[i].append(time.perf_counter() - current_episode_start_timestamps[i])
                     self.finished_episode_sample_times[i].append(current_episode_sample_times[i])
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
+                    last_episode_reward = current_episode_rewards[i]
 
                     # Append to final result trajectories.
                     batch_states.extend(sample_states[env_id])
@@ -334,6 +337,7 @@ class RayPolicyWorker(RayActor):
             sample_batch=sample_batch,
             batch_size=len(batch_rewards),
             metrics=dict(
+                last_reward=last_episode_reward,
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
@@ -363,7 +367,7 @@ class RayPolicyWorker(RayActor):
         # Adjust env frames for internal env frameskip:
         adjusted_frames = [env_frames * self.env_frame_skip for env_frames in self.sample_env_frames]
         if len(self.finished_episode_rewards) > 0:
-            all_finished_rewards = list()
+            all_finished_rewards = []
             for env_reward_list in self.finished_episode_rewards:
                 all_finished_rewards.extend(env_reward_list)
             min_episode_reward = np.min(all_finished_rewards)

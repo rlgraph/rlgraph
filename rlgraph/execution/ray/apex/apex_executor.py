@@ -179,15 +179,18 @@ class ApexExecutor(RayExecutor):
         update_steps = 0
         discarded = 0
         queue_inserts = 0
+        rewards = []
         weights = None
 
         # 1. Fetch results from RayWorkers.
         completed_sample_tasks = list(self.env_sample_tasks.get_completed())
-        sample_batch_sizes = ray.get([task[1][1] for task in completed_sample_tasks])
+        sample_batch_metrics = ray.get([task[1][1] for task in completed_sample_tasks])
         for i, (ray_worker, (env_sample_obj_id, sample_size)) in enumerate(completed_sample_tasks):
             # Randomly add env sample to a local replay actor.
             random.choice(self.ray_local_replay_memories).observe.remote(env_sample_obj_id)
-            sample_steps = sample_batch_sizes[i]
+            sample_steps = sample_batch_metrics[i]["batch_size"]
+            if sample_batch_metrics[i]["last_reward"] is not None:
+                rewards.append(sample_batch_metrics[i]["last_reward"])
             env_steps += sample_steps
 
             self.steps_since_weights_synced[ray_worker] += sample_steps
@@ -233,7 +236,11 @@ class ApexExecutor(RayExecutor):
             # len of loss per item is update count.
             update_steps += len(indices)
 
-        return env_steps, update_steps, discarded, queue_inserts
+        return env_steps, update_steps, {
+            "discarded": discarded,
+            "queue_inserts": queue_inserts,
+            "rewards": rewards
+        }
 
 
 class UpdateWorker(Thread):
