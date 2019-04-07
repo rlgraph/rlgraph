@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import force_list
-from .nn_layer import NNLayer
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -78,10 +78,9 @@ class ConcatLayer(NNLayer):
             idx += 1
 
     @rlgraph_api
-    def _graph_fn_apply(self, *inputs):  #, **input_dict):
+    def _graph_fn_apply(self, *inputs):
         # Simple translation from dict to tuple-input.
         if self.dict_keys is not None:
-            #inputs = [input_dict[key] for key in self.dict_keys]
             inputs = [inputs[0][key] for key in self.dict_keys]
 
         if get_backend() == "tf":

@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.component import Component
+from rlgraph.spaces.space import Space
 from rlgraph.utils.decorators import rlgraph_api
 
 
@@ -63,4 +64,20 @@ class Layer(Component):
         Returns:
 
         """
-        raise NotImplementedError
+        # Space object(s) -> Set `apply`'s Space to these and return self.
+        if isinstance(inputs[0], Space):
+            for i in range(len(inputs)):
+                assert isinstance(inputs[i], Space),\
+                    "ERROR: If first arg to __call__ is a Space, all others must be, too!"
+                self.api_method_inputs["inputs[{}]".format(i)] = inputs[i]
+            return NNCallOutput(list(inputs), self, )
+        # Other Layer component -> Connect output of this one's `apply` method to this one's `apply` method inputs.
+        elif isinstance(inputs[0], Layer):
+            pass
+
+
+class NNCallOutput(object):
+    def __init__(self, inputs, component, output_name):
+        self.inputs = inputs
+        self.component = component
+        self.output_name = output_name
