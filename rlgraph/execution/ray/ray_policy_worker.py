@@ -202,7 +202,7 @@ class RayPolicyWorker(RayActor):
             sample_terminals[env_id] = []
 
         env_states = self.last_states
-        last_episode_reward = None
+        last_episode_rewards = []
         current_episode_rewards = self.last_ep_rewards
         current_episode_timesteps = self.last_ep_timesteps
         current_episode_start_timestamps = self.last_ep_start_timestamps
@@ -264,7 +264,7 @@ class RayPolicyWorker(RayActor):
                     self.finished_episode_sample_times[i].append(current_episode_sample_times[i])
                     episodes_executed[i] += 1
                     self.episodes_executed += 1
-                    last_episode_reward = current_episode_rewards[i]
+                    last_episode_rewards.append(current_episode_rewards[i])
 
                     # Append to final result trajectories.
                     batch_states.extend(sample_states[env_id])
@@ -337,7 +337,7 @@ class RayPolicyWorker(RayActor):
             sample_batch=sample_batch,
             batch_size=len(batch_rewards),
             metrics=dict(
-                last_reward=last_episode_reward,
+                last_rewards=last_episode_rewards,
                 runtime=total_time,
                 # Agent act/observe throughput.
                 timesteps_executed=timesteps_executed,
