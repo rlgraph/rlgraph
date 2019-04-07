@@ -1,8 +1,8 @@
 {
   "type": "ppo",
   "sample_episodes": false,
-  "standardize_advantages": false,
-  "clip_ratio": 0.2,
+  "standardize_advantages": true,
+  "clip_ratio": 0.3,
   "discount": 0.95,
   "gae_lambda": 0.1,
   "weight_entropy": 0.01,
@@ -81,7 +81,7 @@
         "redis_address": null,
         "num_cpus": 4,
         "num_gpus": 0,
-        "num_worker_samples": 100,
+        "num_worker_samples": 1000,
         "num_sample_workers": 4
       },
       "worker_spec": {
