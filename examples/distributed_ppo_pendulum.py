@@ -30,13 +30,7 @@ import json
 import os
 import sys
 
-import numpy as np
-
 from absl import flags
-
-from rlgraph.agents import Agent
-from rlgraph.environments import OpenAIGymEnv
-from rlgraph.execution import SingleThreadedWorker
 from rlgraph.execution.ray import SyncBatchExecutor
 
 FLAGS = flags.FLAGS
@@ -57,7 +51,7 @@ def main(argv):
 
     env_spec = {
         "type": "openai",
-        "gym_env": "Pendulum-v0"
+        "gym_env": FLAGS.env
     }
 
     # Distributed synchronous optimisation on ray.
