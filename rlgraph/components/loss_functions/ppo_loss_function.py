@@ -19,7 +19,6 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import get_rank
 
@@ -57,7 +56,7 @@ class PPOLossFunction(LossFunction):
         assert action_space is not None
         self.action_space = action_space.with_batch_rank()
         #self.flat_action_space = action_space.flatten()
-        sanity_check_space(self.action_space, must_have_batch_rank=True)
+        #sanity_check_space(self.action_space, must_have_batch_rank=True)
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     @rlgraph_api

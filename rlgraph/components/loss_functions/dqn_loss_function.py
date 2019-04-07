@@ -84,7 +84,7 @@ class DQNLossFunction(LossFunction):
         self.action_space = action_space
         self.flat_action_space = action_space.flatten()
         # Check for IntBox and num_categories.
-        sanity_check_space(self.action_space, must_have_batch_rank=True, must_have_categories=True, allowed_sub_types=[IntBox])
+        sanity_check_space(self.action_space, must_have_categories=True, allowed_sub_types=[IntBox])
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     @rlgraph_api
