@@ -21,14 +21,18 @@ import unittest
 
 import numpy as np
 
-from rlgraph.environments import MLAgentsEnv
-
 
 class TestMLAgentsEnv(unittest.TestCase):
     """
     Tests creation, resetting and stepping through an openAI Atari Env.
     """
     def test_ml_agents_env(self):
+        try:
+            from rlgraph.environments import MLAgentsEnv
+        except ImportError:
+            print("MLAgents not installed -> skipping this test case.")
+            return
+
         env = MLAgentsEnv()
 
         # Simple test runs with fixed actions.
