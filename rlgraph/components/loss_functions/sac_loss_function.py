@@ -126,4 +126,4 @@ class SACLossFunction(LossFunction):
             # see the discussion in https://github.com/rail-berkeley/softlearning/issues/37
             loss = -tf.log(alpha) * tf.stop_gradient(log_probs_sampled + self.target_entropy)
             loss = tf.identity(loss, "alpha_loss_per_item")
-            return tf.squeeze(loss, axis=1)
+            return tf.squeeze(loss)
