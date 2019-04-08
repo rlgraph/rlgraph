@@ -231,6 +231,6 @@ class BoxSpace(Space):
                # np.allclose(self.low, other.low) and np.allclose(self.high, other.high) and \
 
     def __hash__(self):
-        if self.shape == ():
-            return hash((self.low, self.high))
+        if self.shape == () or self.global_bounds is not False:
+            return hash((np.asscalar(self.low), np.asscalar(self.high)))
         return hash((tuple(self.low), tuple(self.high)))
