@@ -45,20 +45,20 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
         # on the way to the input-space to this network.
         neural_net = NeuralNetwork(outputs=output2)
 
-        test = ComponentTest(component=neural_net, input_spaces=dict(nn_input=input_space))
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=input_space))
 
         # Batch of size=n.
         input_ = input_space.sample(5)
         # Calculate output manually.
-        var_dict = neural_net.get_variables()
-        w1_value = test.read_params("neural-network/a/dense/kernel", var_dict)
-        b1_value = test.read_params("neural-network/a/dense/bias", var_dict)
-        w2_value = test.read_params("neural-network/b/dense/kernel", var_dict)
-        b2_value = test.read_params("neural-network/b/dense/bias", var_dict)
+        var_dict = neural_net.get_variables("a/dense/kernel", "a/dense/bias", "b/dense/kernel", "b/dense/bias", global_scope=False)
+        w1_value = test.read_variable_values(var_dict["a/dense/kernel"])
+        b1_value = test.read_variable_values(var_dict["a/dense/bias"])
+        w2_value = test.read_variable_values(var_dict["b/dense/kernel"])
+        b2_value = test.read_variable_values(var_dict["b/dense/bias"])
 
         expected = relu(dense_layer(dense_layer(input_, w1_value, b1_value), w2_value, b2_value))
 
-        test.test(("apply", input_), expected_outputs=dict(output=expected), decimals=5)
+        test.test(("apply", input_), expected_outputs=expected, decimals=5)
 
         test.terminate()
 
