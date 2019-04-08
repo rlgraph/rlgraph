@@ -19,9 +19,7 @@ from __future__ import print_function
 
 import logging
 import unittest
-import time
 
-from rlgraph import get_backend
 from rlgraph.agents import DQNAgent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution import SingleThreadedWorker
@@ -57,7 +55,7 @@ class TestPytorchBackend(unittest.TestCase):
             env_spec=lambda: OpenAIGymEnv("CartPole-v0"),
             agent=agent,
             frameskip=1,
-            num_envs=1,
+            num_environments=1,
             worker_executes_preprocessing=False
         )
 
@@ -93,7 +91,6 @@ class TestPytorchBackend(unittest.TestCase):
             env_spec=env_spec,
             agent=agent,
             frameskip=1,
-            num_envs=1,
             preprocessing_spec=agent_config["preprocessing_spec"],
             worker_executes_preprocessing=True
         )

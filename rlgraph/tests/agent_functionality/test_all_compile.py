@@ -21,10 +21,10 @@ import unittest
 
 from rlgraph import get_backend
 from rlgraph.agents import DQNAgent, ApexAgent, IMPALAAgent, ActorCriticAgent, PPOAgent, SACAgent
-from rlgraph.environments import OpenAIGymEnv, GridWorld, GaussianDensityAsRewardEnvironment
+from rlgraph.environments import OpenAIGymEnv, GridWorld, GaussianDensityAsRewardEnv
 from rlgraph.spaces import FloatBox, Tuple
-from rlgraph.utils.util import default_dict
 from rlgraph.tests.test_util import config_from_path
+from rlgraph.utils.util import default_dict
 
 
 class TestAllCompile(unittest.TestCase):
@@ -207,7 +207,7 @@ class TestAllCompile(unittest.TestCase):
         if get_backend() == "pytorch":
             return
 
-        env = GaussianDensityAsRewardEnvironment(episode_length=5)
+        env = GaussianDensityAsRewardEnv(episode_length=5)
         agent = SACAgent.from_spec(
             config_from_path("configs/sac_agent_for_gaussian_density_env.json"),
             state_space=env.state_space,

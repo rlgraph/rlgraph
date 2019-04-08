@@ -96,7 +96,7 @@ class DQNAgent(Agent):
 
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
-            # weights will have a Space derived from the vars of policy.
+            # Weights will have a Space derived from the vars of policy.
             policy_weights="variables:{}".format(self.policy.scope),
             time_step=int,
             use_exploration=bool,

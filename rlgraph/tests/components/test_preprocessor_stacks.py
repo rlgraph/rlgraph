@@ -17,12 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import unittest
 from copy import deepcopy
+
 import numpy as np
 from six.moves import xrange as range_
-import unittest
 
-from rlgraph.agents import ApexAgent, DQNAgent
+from rlgraph.agents import ApexAgent
 from rlgraph.components.layers import GrayScale, Multiply
 from rlgraph.components.neural_networks import PreprocessorStack
 from rlgraph.environments import SequentialVectorEnv
@@ -188,7 +189,7 @@ class TestPreprocessorStacks(unittest.TestCase):
             episodic_life=True
         )
         # Test with batching because we assume vector environments to be the normal case going forward.
-        env = SequentialVectorEnv(num_envs=4, env_spec=env_spec, num_background_envs=2)
+        env = SequentialVectorEnv(num_environments=4, env_spec=env_spec, num_background_envs=2)
         in_space = env.state_space
 
         agent_config = config_from_path("configs/ray_apex_for_pong.json")

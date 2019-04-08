@@ -24,7 +24,7 @@ from rlgraph.environments.environment import Environment
 from rlgraph.spaces import FloatBox
 
 
-class GaussianDensityAsRewardEnvironment(Environment):
+class GaussianDensityAsRewardEnv(Environment):
     """
     Environment where the reward is always the Gaussian probability density at the given
     single-float action.
@@ -34,7 +34,7 @@ class GaussianDensityAsRewardEnvironment(Environment):
     The optimal policy would be to pick actions that are closest to the current state.
     """
     def __init__(self, episode_length=5, scale=0.1):
-        super(GaussianDensityAsRewardEnvironment, self).__init__(
+        super(GaussianDensityAsRewardEnv, self).__init__(
             state_space=FloatBox(shape=(1,)), action_space=FloatBox(shape=(1,), low=-2.0, high=2.0)
         )
         self.episode_length = episode_length
