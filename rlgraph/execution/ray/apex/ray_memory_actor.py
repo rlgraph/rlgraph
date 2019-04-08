@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+from rlgraph.utils import SMALL_NUMBER
 from six.moves import xrange as range_
 from rlgraph import get_distributed_backend
 from rlgraph.execution.ray.apex.apex_memory import ApexMemory
@@ -88,13 +89,6 @@ class RayMemoryActor(RayActor):
                 records["next_states"][i],
                 records["importance_weights"][i]
             ))
-            # self.memory.insert_records((
-            #     records["states"][i],
-            #     records["actions"][i],
-            #     rewards[i],
-            #     records["terminals"][i],
-            #     records["importance_weights"][i]
-            # ))
 
     def update_priorities(self, indices, loss):
         """
@@ -105,4 +99,5 @@ class RayMemoryActor(RayActor):
             indices (ndarray): Indices to update in replay memory.
             loss (ndarray):  Loss values for indices.
         """
+        loss = np.abs(loss) + SMALL_NUMBER
         self.memory.update_records(indices, loss)
