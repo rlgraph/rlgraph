@@ -77,3 +77,4 @@ class LayerCallOutput(object):
         self.component = component
         self.output_slot = output_slot
         self.num_outputs = num_outputs
+        self.var_name = None

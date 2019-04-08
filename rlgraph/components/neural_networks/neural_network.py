@@ -21,6 +21,7 @@ from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.spaces.space import Space
 from rlgraph.utils import force_tuple, force_list
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -278,10 +279,9 @@ class NeuralNetwork(Stack):
         Write `def apply(self, ...)` from given Spaces.
         """
         apply_inputs = []
-
-        # Write this NN's `apply` code dynamically, then execute it.
-        apply_code = "\treturn [TODO: list of return values]"
         output_set = set(layer_call_outputs)
+        output_id = 0
+        sub_components = set()
 
         def _all_siblings_in_set(output, set_):
             siblings = []
@@ -291,23 +291,48 @@ class NeuralNetwork(Stack):
                     siblings.append(o)
             return len(siblings) == need_to_find, siblings
 
+        # Initialize var names for final outputs.
+        for out in output_set:
+            out.var_name = "out{}".format(output_id)
+            output_id += 1
+
+        # Write this NN's `apply` code dynamically, then execute it.
+        apply_code = "\treturn {}\n".format(", ".join([o.var_name for o in layer_call_outputs]))
+
         # Loop through all nodes.
         while len(output_set) > 0:
-            for output in output_set:
+            output_list = list(output_set)
+            for output in output_list:
                 # If only one output OR all outputs are in set -> Write the call.
                 found_all, siblings = _all_siblings_in_set(output, output_set)
                 if found_all is True:
-                    apply_code = "\t{}.apply({})\n".format(output.component, output.inputs) + apply_code
+                    siblings_str = ", ".join([o.var_name for o in siblings])
+
                     # Remove outs from set.
                     for sibling in siblings:
                         output_set.remove(sibling)
                     # Add `ins` to set or to `apply_inputs` (if `in` is a Space).
                     for in_ in output.inputs:
-                        output_set.add(in_)
+                        if isinstance(in_, Space):
+                            apply_inputs.append(in_)
+                        else:
+                            in_.var_name = "out{}".format(output_id)
+                            output_id += 1
+                            output_set.add(in_)
+
+                    inputs_str = ", ".join([
+                        "inputs[{}]".format(pos) if isinstance(i, Space) else
+                        i.var_name for pos, i in enumerate(output.inputs)
+                    ])
+                    apply_code = "\t{} = self.get_sub_component_by_name('{}').apply({})\n".format(
+                        siblings_str, output.component.scope, inputs_str) + apply_code
+                    sub_components.add(output.component)
 
         # Prepend inputs from left-over Space objects in set.
-        apply_code = "def apply(self, {})".format(apply_inputs) + apply_code
+        apply_code = "@rlgraph_api(component=self, ok_to_overwrite=True)\ndef apply(self, *inputs):\n" + apply_code
 
-        #exec(apply_code, globals=globals(), locals=locals())
-        # return for now to debug.
-        return apply_code
+        # Add all sub-components to this NN.
+        self.add_components(*list(sub_components))
+
+        # Execute the code and assign self.apply to it.
+        exec(apply_code, globals(), locals())
