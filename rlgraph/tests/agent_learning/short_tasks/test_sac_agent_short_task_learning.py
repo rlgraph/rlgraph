@@ -245,13 +245,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             type="openai",
             gym_env="CartPole-v0"
         )
-        agent_config = config_from_path("configs/apex_agent_cartpole.json")
-
-        # Use n-step adjustments.
-        agent_config["execution_spec"]["ray_spec"]["worker_spec"]["n_step_adjustment"] = 3
-        agent_config["execution_spec"]["ray_spec"]["apex_replay_spec"]["n_step_adjustment"] = 3
-        agent_config["n_step"] = 3
-
+        agent_config = config_from_path("configs/sac_cartpole_on_apex.json")
         executor = ApexExecutor(
             environment_spec=env_spec,
             agent_config=agent_config,
