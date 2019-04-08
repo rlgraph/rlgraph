@@ -112,7 +112,7 @@ class NeuralNetwork(Stack):
 
         # Functional API (Keras Style assembly).
         elif self.functional_api_outputs is not None:
-            self._build_apply_via_keras_style_functional_api(*self.functional_api_outputs)
+            print(self._build_apply_via_keras_style_functional_api(*self.functional_api_outputs))
 
         # Auto apply-API -> Handle LSTMs correctly.
         elif self.custom_apply_given is False:
@@ -284,25 +284,30 @@ class NeuralNetwork(Stack):
         output_set = set(layer_call_outputs)
 
         def _all_siblings_in_set(output, set_):
+            siblings = []
             need_to_find = output.num_outputs
-            found = 0
             for o in set_:
                 if o.component == output.component:
-                    found += 1
-            return found == need_to_find
+                    siblings.append(o)
+            return len(siblings) == need_to_find, siblings
 
         # Loop through all nodes.
         while len(output_set) > 0:
             for output in output_set:
                 # If only one output OR all outputs are in set -> Write the call.
-                if output.num_outputs == 1 or _all_siblings_in_set(output, output_set):
+                found_all, siblings = _all_siblings_in_set(output, output_set)
+                if found_all is True:
                     apply_code = "\t{}.apply({})\n".format(output.component, output.inputs) + apply_code
                     # Remove outs from set.
-                    #TODO:
+                    for sibling in siblings:
+                        output_set.remove(sibling)
                     # Add `ins` to set or to `apply_inputs` (if `in` is a Space).
-                    #TODO:
+                    for in_ in output.inputs:
+                        output_set.add(in_)
 
         # Prepend inputs from left-over Space objects in set.
-        apply_code = "def apply(self, {})".format() + apply_code
+        apply_code = "def apply(self, {})".format(apply_inputs) + apply_code
 
-        exec(apply_code, globals=globals(), locals=locals())
+        #exec(apply_code, globals=globals(), locals=locals())
+        # return for now to debug.
+        return apply_code
