@@ -126,10 +126,6 @@ class PPOLossFunction(LossFunction):
             return loss
 
         elif get_backend() == "pytorch":
-            # Detach grads.
-            if self.standardize_advantages:
-                pg_advantages = (pg_advantages - torch.mean(pg_advantages)) / torch.std(pg_advantages)
-
             # Likelihood ratio and clipped objective.
             ratio = torch.exp(log_probs - prev_log_probs)
 

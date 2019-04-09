@@ -356,6 +356,14 @@ class PPOAgent(Agent):
                     prev_log_probs = prev_log_probs.detach()
                 batch_size = preprocessed_states.shape[0]
                 sample_size = min(batch_size, agent.sample_size)
+                baseline_values = value_function.value_output(preprocessed_states.detach())
+                if apply_postprocessing:
+                    advantages = gae_function.calc_gae_values(
+                        baseline_values, rewards, terminals, sequence_indices)
+                else:
+                    advantages = rewards
+                if self.standardize_advantages:
+                    advantages = (advantages - torch.mean(advantages)) / torch.std(advantages)
 
                 for _ in range(agent.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
@@ -372,26 +380,18 @@ class PPOAgent(Agent):
                         sample_actions = torch.index_select(actions, 0, indices)
                         sample_prior_log_probs = torch.index_select(prev_log_probs, 0, indices)
 
-                    sample_rewards = torch.index_select(rewards, 0, indices)
-                    sample_terminals = torch.index_select(terminals, 0, indices)
-                    sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
-
+                    sample_advantages = torch.index_select(advantages, 0, indices)
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
-
-                    baseline_values = value_function.value_output(sample_states)
-                    if apply_postprocessing:
-                        sample_rewards = gae_function.calc_gae_values(
-                            baseline_values, sample_rewards, sample_terminals, sample_sequence_indices)
+                    sample_baseline_values = torch.index_select(baseline_values, 0, indices)
 
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
                         policy_probs["action_log_probs"], sample_prior_log_probs,
-                        baseline_values,  sample_rewards, entropy
+                        sample_baseline_values,  sample_advantages, entropy
                     )
 
                     # Do not need step op.
                     _, loss, loss_per_item = optimizer.step(policy.variables(), loss, loss_per_item)
-
                     _, vf_loss, vf_loss_per_item = \
                         value_function_optimizer.step(value_function.variables(), vf_loss, vf_loss_per_item)
 
