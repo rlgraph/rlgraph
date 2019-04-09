@@ -107,11 +107,12 @@ class PPOAgent(Agent):
                 format(self.observe_spec["buffer_size"], self.memory.capacity)
 
         # The splitter for splitting up the records coming from the memory.
+        self.standardize_advantages = standardize_advantages
         self.gae_function = GeneralizedAdvantageEstimation(
             gae_lambda=gae_lambda, discount=self.discount, clip_rewards=clip_rewards
         )
         self.loss_function = PPOLossFunction(
-            clip_ratio=clip_ratio, standardize_advantages=standardize_advantages, weight_entropy=weight_entropy
+            clip_ratio=clip_ratio, weight_entropy=weight_entropy
         )
 
         self.iterations = self.update_spec["num_iterations"]
@@ -223,6 +224,18 @@ class PPOAgent(Agent):
                     prev_log_probs = tf.stop_gradient(prev_log_probs)
                 batch_size = tf.shape(preprocessed_states)[0]
 
+                advantages = tf.cond(
+                        pred=apply_postprocessing,
+                        true_fn=lambda: gae_function.calc_gae_values(
+                            baseline_values, rewards, terminals, sequence_indices),
+                        false_fn=lambda: rewards
+                    )
+                advantages.set_shape((batch_size,))
+
+                if self.standardize_advantages:
+                    mean, std = tf.nn.moments(x=advantages, axes=[0])
+                    advantages = (advantages - mean) / std
+
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
                     indices = tf.range(start=start, limit=start + agent.sample_size) % batch_size
@@ -240,6 +253,7 @@ class PPOAgent(Agent):
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
+                    sample_advantages = tf.gather(params=advantages, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -278,19 +292,12 @@ class PPOAgent(Agent):
 
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
                     baseline_values = value_function.value_output(tf.stop_gradient(sample_states))
-                    sample_rewards = tf.cond(
-                        pred=apply_postprocessing,
-                        true_fn=lambda: gae_function.calc_gae_values(
-                            baseline_values, sample_rewards, sample_terminals, sample_sequence_indices),
-                        false_fn=lambda: sample_rewards
-                    )
-                    sample_rewards.set_shape((agent.sample_size, ))
                     entropy = policy.get_entropy(sample_states)["entropy"]
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
                             policy_probs["action_log_probs"], sample_prior_log_probs,
-                            baseline_values, sample_rewards,  entropy
+                            baseline_values, sample_advantages,  entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:

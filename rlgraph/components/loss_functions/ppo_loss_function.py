@@ -34,16 +34,14 @@ class PPOLossFunction(LossFunction):
 
     https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, clip_ratio=0.2, standardize_advantages=False, weight_entropy=None,
+    def __init__(self, clip_ratio=0.2, weight_entropy=None,
                  scope="ppo-loss-function", **kwargs):
         """
         Args:
             clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
-            standardize_advantages (bool): If true, normalize advantage values in update.
             **kwargs:
         """
         self.clip_ratio = clip_ratio
-        self.standardize_advantages = standardize_advantages
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
         self.ranks_to_reduce = None
 
@@ -106,10 +104,6 @@ class PPOLossFunction(LossFunction):
             # Sample action -> return policy log probs with action -> feed both back in from memory/via placeholders.
             # This creates the same effect as just stopping the gradients on the log-probs.
             # Saving them would however remove necessity for an extra forward pass.
-            if self.standardize_advantages:
-                mean, std = tf.nn.moments(x=pg_advantages, axes=[0])
-                pg_advantages = (pg_advantages - mean) / std
-
             # Likelihood ratio and clipped objective.
             ratio = tf.exp(x=log_probs - prev_log_probs)
 
