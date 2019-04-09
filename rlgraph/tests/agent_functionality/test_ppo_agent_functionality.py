@@ -18,18 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import numpy as np
 import unittest
 
-from rlgraph.agents import Agent, PPOAgent
-import rlgraph.spaces as spaces
-from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
-from rlgraph.environments import GridWorld, RandomEnv, OpenAIGymEnv
-from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.agents import PPOAgent
+from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests.test_util import config_from_path
-from rlgraph.utils import root_logger, one_hot
-from rlgraph.tests.agent_test import AgentTest
+from rlgraph.utils import root_logger
 
 
 class TestPPOAgentFunctionality(unittest.TestCase):

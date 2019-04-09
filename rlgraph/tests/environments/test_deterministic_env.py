@@ -14,8 +14,17 @@
 # ==============================================================================
 
 from __future__ import absolute_import
+from __future__ import absolute_import
+from __future__ import division
 from __future__ import division
 from __future__ import print_function
+from __future__ import print_function
+
+import unittest
+
+from rlgraph.environments.deterministic_env import DeterministicEnv
+from rlgraph.tests.test_util import recursive_assert_almost_equal
+
 
 # Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
 #
@@ -31,17 +40,6 @@ from __future__ import print_function
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import numpy as np
-import unittest
-
-from rlgraph.spaces import IntBox, FloatBox
-from rlgraph.environments.deterministic_env import DeterministicEnv
-from rlgraph.tests.test_util import recursive_assert_almost_equal
 
 
 class TestDeterministicEnv(unittest.TestCase):

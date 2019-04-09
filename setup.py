@@ -14,10 +14,11 @@
 # ==============================================================================
 
 from __future__ import absolute_import
-from __future__ import print_function
 from __future__ import division
+from __future__ import print_function
 
 import os
+
 from setuptools import setup, find_packages
 
 # Read __version__ avoiding imports that might be in install_requires
@@ -42,7 +43,8 @@ extras_require = {
     'tf': ['tensorflow', 'tensorflow_probability'],
     'tf-gpu': ['tensorflow-gpu', 'tensorflow_probability'],
     'pytorch': ['torch', 'torchvision'],  # TODO platform dependent.
-    'gym': ['gym', 'atari-py'],
+    'gym': ['gym', 'atari-py'],  # To use openAI Gym Environments (e.g. Atari).
+    'mlagents_env': ['mlagents'],  # To use MLAgents Environments (Unity3D).
     'horovod': 'horovod',
     'ray': ['ray', 'lz4', 'pyarrow']
 }

@@ -56,9 +56,9 @@
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 2048,
-    "batch_size": 2048,
-    "num_iterations": 10,
+    "update_interval": 1024,
+    "batch_size": 1024,
+    "num_iterations": 5,
     "sample_size": 64
   },
 
@@ -81,7 +81,7 @@
         "redis_address": null,
         "num_cpus": 4,
         "num_gpus": 0,
-        "num_worker_samples": 1000,
+        "num_worker_samples": 500,
         "num_sample_workers": 4
       },
       "worker_spec": {
