@@ -73,37 +73,37 @@ class ImageCrop(PreprocessLayer):
         return unflatten_op(ret)
 
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]
+        in_space = input_spaces["inputs"]
 
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
     @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_apply(self, key, preprocessing_inputs):
+    def _graph_fn_apply(self, key, inputs):
         """
         Images come in with either a batch dimension or not.
         """
         if self.backend == "python" or get_backend() == "python":
-            if isinstance(preprocessing_inputs, list):
-                preprocessing_inputs = np.asarray(preprocessing_inputs)
+            if isinstance(inputs, list):
+                inputs = np.asarray(inputs)
             # Preserve batch dimension.
             if self.output_spaces[key].has_batch_rank is True:
-                return preprocessing_inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
+                return inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
-                return preprocessing_inputs[self.y:self.y + self.height, self.x:self.x + self.width]
+                return inputs[self.y:self.y + self.height, self.x:self.x + self.width]
         elif get_backend() == "pytorch":
-            if isinstance(preprocessing_inputs, list):
-                preprocessing_inputs = torch.tensor(preprocessing_inputs)
+            if isinstance(inputs, list):
+                inputs = torch.tensor(inputs)
 
             # TODO: the reason this key check is there is due to call during meta graph build - > out spaces
             # do not exist yet  -> need better solution.
             # Preserve batch dimension.
             if key in self.output_spaces and self.output_spaces[key].has_batch_rank is True:
-                return preprocessing_inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
+                return inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
-                return preprocessing_inputs[self.y:self.y + self.height, self.x:self.x + self.width]
+                return inputs[self.y:self.y + self.height, self.x:self.x + self.width]
         elif get_backend() == "tf":
             return tf.image.crop_to_bounding_box(
-                image=preprocessing_inputs,
+                image=inputs,
                 offset_height=self.y,
                 offset_width=self.x,
                 target_height=self.height,

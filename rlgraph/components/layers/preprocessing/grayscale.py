@@ -69,35 +69,35 @@ class GrayScale(PreprocessLayer):
         return unflatten_op(ret)
 
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]
+        in_space = input_spaces["inputs"]
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         """
         Gray-scales images of arbitrary rank.
         Normally, the images' rank is 3 (width/height/colors), but can also be: batch/width/height/colors, or any other.
         However, the last rank must be of size: len(self.weights).
 
         Args:
-            preprocessing_inputs (tensor): Single image or a batch of images to be gray-scaled (last rank=n colors, where
+            inputs (tensor): Single image or a batch of images to be gray-scaled (last rank=n colors, where
                 n=len(self.weights)).
 
         Returns:
             DataOp: The op for processing the images.
         """
         # The reshaped weights used for the grayscale operation.
-        if isinstance(preprocessing_inputs, list):
-            preprocessing_inputs = np.asarray(preprocessing_inputs)
-        images_shape = get_shape(preprocessing_inputs)
+        if isinstance(inputs, list):
+            inputs = np.asarray(inputs)
+        images_shape = get_shape(inputs)
         assert images_shape[-1] == self.last_rank,\
             "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
             format(images_shape, self.last_rank)
         if self.backend == "python" or get_backend() == "python":
-            if preprocessing_inputs.ndim == 4:
+            if inputs.ndim == 4:
                 grayscaled = []
-                for i in range_(len(preprocessing_inputs)):
-                    scaled = cv2.cvtColor(preprocessing_inputs[i], cv2.COLOR_RGB2GRAY)
+                for i in range_(len(inputs)):
+                    scaled = cv2.cvtColor(inputs[i], cv2.COLOR_RGB2GRAY)
                     grayscaled.append(scaled)
                 scaled_images = np.asarray(grayscaled)
 
@@ -106,14 +106,14 @@ class GrayScale(PreprocessLayer):
                     scaled_images = scaled_images[:, :, :, np.newaxis]
             else:
                 # Sample by sample.
-                scaled_images = cv2.cvtColor(preprocessing_inputs, cv2.COLOR_RGB2GRAY)
+                scaled_images = cv2.cvtColor(inputs, cv2.COLOR_RGB2GRAY)
 
             return scaled_images
         elif get_backend() == "pytorch":
-            if len(preprocessing_inputs.shape) == 4:
+            if len(inputs.shape) == 4:
                 grayscaled = []
-                for i in range_(len(preprocessing_inputs)):
-                    scaled = cv2.cvtColor(preprocessing_inputs[i].numpy(), cv2.COLOR_RGB2GRAY)
+                for i in range_(len(inputs)):
+                    scaled = cv2.cvtColor(inputs[i].numpy(), cv2.COLOR_RGB2GRAY)
                     grayscaled.append(scaled)
                 scaled_images = np.asarray(grayscaled)
                 # Keep last dim.
@@ -121,25 +121,25 @@ class GrayScale(PreprocessLayer):
                     scaled_images = scaled_images[:, :, :, np.newaxis]
             else:
                 # Sample by sample.
-                scaled_images = cv2.cvtColor(preprocessing_inputs.numpy(), cv2.COLOR_RGB2GRAY)
+                scaled_images = cv2.cvtColor(inputs.numpy(), cv2.COLOR_RGB2GRAY)
             return torch.tensor(scaled_images)
         elif get_backend() == "tf":
             weights_reshaped = np.reshape(
-                self.weights, newshape=tuple([1] * (get_rank(preprocessing_inputs) - 1)) + (self.last_rank,)
+                self.weights, newshape=tuple([1] * (get_rank(inputs) - 1)) + (self.last_rank,)
             )
 
             # Do we need to convert?
             # The dangerous thing is that multiplying an int tensor (image) with float weights results in an all
             # 0 tensor).
-            if "int" in str(dtype_(preprocessing_inputs.dtype)):
-                weighted = weights_reshaped * tf.cast(preprocessing_inputs, dtype=dtype_("float"))
+            if "int" in str(dtype_(inputs.dtype)):
+                weighted = weights_reshaped * tf.cast(inputs, dtype=dtype_("float"))
             else:
-                weighted = weights_reshaped * preprocessing_inputs
+                weighted = weights_reshaped * inputs
 
             reduced = tf.reduce_sum(weighted, axis=-1, keepdims=self.keep_rank)
 
             # Cast back to original dtype.
-            if "int" in str(dtype_(preprocessing_inputs.dtype)):
-                reduced = tf.cast(reduced, dtype=preprocessing_inputs.dtype)
+            if "int" in str(dtype_(inputs.dtype)):
+                reduced = tf.cast(reduced, dtype=inputs.dtype)
 
             return reduced

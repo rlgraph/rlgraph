@@ -33,7 +33,7 @@ class TestReShapePreprocessors(unittest.TestCase):
     def test_reshape(self):
         reshape = ReShape(new_shape=(3, 2))
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=FloatBox(shape=(6,), add_batch_rank=True)
+            inputs=FloatBox(shape=(6,), add_batch_rank=True)
         ))
 
         test.test("reset")
@@ -47,7 +47,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = FloatBox(shape=(2, 3, 4), add_batch_rank=True, add_time_rank=True, time_major=True)
         reshape = ReShape(flatten=True)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")
@@ -61,7 +61,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = FloatBox(shape=(2, 3), add_batch_rank=False, add_time_rank=True)
         reshape = ReShape(flatten=True)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")
@@ -75,7 +75,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = IntBox(3, shape=(), add_batch_rank=True)
         reshape = ReShape(flatten=True, flatten_categories=3)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")
@@ -90,7 +90,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = IntBox(2, shape=(2, 3, 4), add_batch_rank=True, add_time_rank=True, time_major=False)
         reshape = ReShape(flatten=True, flatten_categories=2)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")
@@ -104,7 +104,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = IntBox(3, shape=(2, 3, 4), add_batch_rank=True, add_time_rank=True, time_major=False)
         reshape = ReShape(flatten=True, flatten_categories=False)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")
@@ -118,7 +118,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = FloatBox(shape=(4,), add_batch_rank=False, add_time_rank=True)
         reshape = ReShape(new_shape=(2, 2))
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")
@@ -131,7 +131,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=True, time_major=True)
         reshape = ReShape(fold_time_rank=True)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")
@@ -146,7 +146,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space_before_folding = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=True)
         reshape = ReShape(unfold_time_rank=True)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space, input_before_time_rank_folding=in_space_before_folding
+            inputs=in_space, input_before_time_rank_folding=in_space_before_folding
         ))
 
         test.test("reset")
@@ -162,7 +162,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space_before_folding = FloatBox(shape=(4, 4), add_batch_rank=True, add_time_rank=True)
         reshape = ReShape(unfold_time_rank=True, backend="python")
         reshape.create_variables(dict(
-            preprocessing_inputs=in_space, input_before_time_rank_folding=in_space_before_folding
+            inputs=in_space, input_before_time_rank_folding=in_space_before_folding
         ))
 
         # seq-len=2, batch-size=4 -> unfold from 8.
@@ -177,7 +177,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = FloatBox(shape=(5, 8), add_batch_rank=True, add_time_rank=True, time_major=True)
         reshape = ReShape(new_shape=(4, 10))
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")
@@ -191,7 +191,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         in_space = FloatBox(shape=(6, 4, 2), add_batch_rank=True, add_time_rank=True, time_major=False)
         reshape = ReShape(flatten=True)
         test = ComponentTest(component=reshape, input_spaces=dict(
-            preprocessing_inputs=in_space
+            inputs=in_space
         ))
 
         test.test("reset")

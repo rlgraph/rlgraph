@@ -42,23 +42,24 @@ class Slice(Component):
         self.squeeze = squeeze
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_slice(self, preprocessing_inputs, start_index=0, end_index=None):
+    def _graph_fn_slice(self, inputs, start_index=0, end_index=None):
+        slice_ = None
         if end_index is None:
             # Return a single slice removing the rank.
             if self.squeeze is True:
-                slice_ = preprocessing_inputs[start_index]
+                slice_ = inputs[start_index]
             # Return a single slice but embedded in the rank now with dim=1.
             else:
                 if self.backend == "python" or get_backend() == "python":
-                    slice_ = preprocessing_inputs[start_index:(start_index+1)]
+                    slice_ = inputs[start_index:(start_index+1)]
                 elif get_backend() == "tf":
                     # Special case: tf does not know how to do: array[-1:0] (must be array[-1:]).
                     if isinstance(start_index, (int, np.ndarray)) and start_index == -1:
-                        slice_ = preprocessing_inputs[start_index:]
+                        slice_ = inputs[start_index:]
                     else:
-                        slice_ = preprocessing_inputs[start_index:(start_index + 1)]
+                        slice_ = inputs[start_index:(start_index + 1)]
         else:
-            slice_ = preprocessing_inputs[start_index:end_index]
+            slice_ = inputs[start_index:end_index]
 
             if self.squeeze is True:
                 if self.backend == "python" or get_backend() == "python":

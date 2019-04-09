@@ -44,22 +44,22 @@ class Multiply(PreprocessLayer):
         return unflatten_op(ret)
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         """
         Multiplies the input with our factor.
 
         Args:
-            preprocessing_inputs (tensor): The input to be scaled.
+            inputs (tensor): The input to be scaled.
 
         Returns:
             op: The op to scale the input.
         """
-        result = preprocessing_inputs * self.factor
+        result = inputs * self.factor
         # TODO: Move into util function.
-        if hasattr(preprocessing_inputs, "_batch_rank"):
-            result._batch_rank = preprocessing_inputs._batch_rank
-        if hasattr(preprocessing_inputs, "_time_rank"):
-            result._time_rank = preprocessing_inputs._time_rank
+        if hasattr(inputs, "_batch_rank"):
+            result._batch_rank = inputs._batch_rank
+        if hasattr(inputs, "_time_rank"):
+            result._time_rank = inputs._time_rank
         return result
 
 
@@ -84,21 +84,21 @@ class Divide(PreprocessLayer):
         return unflatten_op(ret)
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         """
         Divides the input by with our divisor.
 
         Args:
-            preprocessing_inputs (tensor): The input to be divided.
+            inputs (tensor): The input to be divided.
 
         Returns:
             DataOp: The op to divide the input.
         """
-        result = preprocessing_inputs / self.divisor
+        result = inputs / self.divisor
         # TODO: Move into util function.
-        if hasattr(preprocessing_inputs, "_batch_rank"):
-            result._batch_rank = preprocessing_inputs._batch_rank
-        if hasattr(preprocessing_inputs, "_time_rank"):
-            result._time_rank = preprocessing_inputs._time_rank
+        if hasattr(inputs, "_batch_rank"):
+            result._batch_rank = inputs._batch_rank
+        if hasattr(inputs, "_time_rank"):
+            result._time_rank = inputs._time_rank
         return result
 

@@ -31,7 +31,7 @@ class TestSlice(unittest.TestCase):
         slicer = Slice(squeeze=True)
         input_space = FloatBox(shape=(2, 2, 3), add_batch_rank=True, add_time_rank=True, time_major=True)
         test = ComponentTest(component=slicer, input_spaces=dict(
-            preprocessing_inputs=input_space,
+            inputs=input_space,
             start_index=IntBox(),
             end_index=IntBox()
         ))
@@ -51,7 +51,7 @@ class TestSlice(unittest.TestCase):
         slicer = Slice(squeeze=False)
         input_space = FloatBox(shape=(1, 4, 5), add_batch_rank=True)
         test = ComponentTest(component=slicer, input_spaces=dict(
-            preprocessing_inputs=input_space,
+            inputs=input_space,
             start_index=IntBox(),
             end_index=IntBox()
         ))

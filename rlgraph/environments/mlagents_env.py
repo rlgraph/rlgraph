@@ -21,7 +21,7 @@ import numpy as np
 from mlagents.envs.environment import UnityEnvironment
 
 from rlgraph.environments.vector_env import VectorEnv
-from rlgraph.spaces import Dict
+from rlgraph.spaces import Dict, IntBox
 from rlgraph.spaces.space_utils import get_space_from_op
 
 
@@ -73,7 +73,15 @@ class MLAgentsEnv(VectorEnv):
         else:
             self.state_key = None
             state_space = Dict(state_space)
-        action_space = get_space_from_op(first_brain_info.action_masks[0])
+        brain_params = next(iter(self.mlagents_env.brains.values()))
+        if brain_params.vector_action_space_type == "discrete":
+            action_space = IntBox(
+                low=np.zeros_like(brain_params.vector_action_space_size, dtype=np.int32),
+                high=np.array(brain_params.vector_action_space_size, dtype=np.int32),
+                shape=(len(brain_params.vector_action_space_size),)
+            )
+        else:
+            action_space = get_space_from_op(first_brain_info.action_masks[0])
         if action_space.dtype == np.float64:
             action_space.dtype = np.float32
 

@@ -50,5 +50,5 @@ class PreprocessLayer(Layer):
         return
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, *preprocessing_inputs):
-        return super(PreprocessLayer, self)._graph_fn_apply(*preprocessing_inputs)
+    def _graph_fn_apply(self, *inputs):
+        return super(PreprocessLayer, self)._graph_fn_apply(*inputs)

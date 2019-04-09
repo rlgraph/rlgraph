@@ -34,7 +34,7 @@ class TestPreprocessLayers(unittest.TestCase):
 
     def test_multiply(self):
         multiply = Multiply(factor=2.0)
-        test = ComponentTest(component=multiply, input_spaces=dict(preprocessing_inputs=FloatBox(
+        test = ComponentTest(component=multiply, input_spaces=dict(inputs=FloatBox(
             shape=(2, 1), add_batch_rank=True)
         ))
 
@@ -46,7 +46,7 @@ class TestPreprocessLayers(unittest.TestCase):
 
     def test_divide(self):
         divide = Divide(divisor=10.0)
-        test = ComponentTest(component=divide, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(1, 2),
+        test = ComponentTest(component=divide, input_spaces=dict(inputs=FloatBox(shape=(1, 2),
                                                                                                add_batch_rank=False)))
 
         test.test("reset")
@@ -60,7 +60,7 @@ class TestPreprocessLayers(unittest.TestCase):
         # Grayscale image of 2x2 size.
         test = ComponentTest(
             component=clip,
-            input_spaces=dict(preprocessing_inputs=FloatBox(shape=(2, 2), add_batch_rank=True))
+            input_spaces=dict(inputs=FloatBox(shape=(2, 2), add_batch_rank=True))
         )
 
         test.test("reset")
@@ -82,7 +82,7 @@ class TestPreprocessLayers(unittest.TestCase):
         space = IntBox(256, shape=(1, 1, 2), dtype="uint8", add_batch_rank=True)
         grayscale = GrayScale(weights=(0.5, 0.5), keep_rank=False)
 
-        test = ComponentTest(component=grayscale, input_spaces=dict(preprocessing_inputs=space))
+        test = ComponentTest(component=grayscale, input_spaces=dict(inputs=space))
 
         # Run the test (batch of 3 images).
         input_ = space.sample(size=3)
@@ -112,7 +112,7 @@ class TestPreprocessLayers(unittest.TestCase):
         ))
         grayscale = GrayScale(weights=(0.5, 0.5), keep_rank=False)
 
-        test = ComponentTest(component=grayscale, input_spaces=dict(preprocessing_inputs=space))
+        test = ComponentTest(component=grayscale, input_spaces=dict(inputs=space))
 
         # Run the test.
         input_ = dict(
@@ -148,7 +148,7 @@ class TestPreprocessLayers(unittest.TestCase):
         )
         flatten = ReShape(flatten=True, flatten_categories={"d": 3})
 
-        test = ComponentTest(component=flatten, input_spaces=dict(preprocessing_inputs=space))
+        test = ComponentTest(component=flatten, input_spaces=dict(inputs=space))
 
         input_ = dict(
             a=(
@@ -177,7 +177,7 @@ class TestPreprocessLayers(unittest.TestCase):
         image_resize = ImageResize(width=4, height=4, interpolation="bilinear")
         # Some image of 16x16x3 size.
         test = ComponentTest(
-            component=image_resize, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(16, 16, 3), add_batch_rank=False))
+            component=image_resize, input_spaces=dict(inputs=FloatBox(shape=(16, 16, 3), add_batch_rank=False))
         )
 
         test.test("reset")
@@ -193,7 +193,7 @@ class TestPreprocessLayers(unittest.TestCase):
 
         # Some image of 16x16x3 size.
         test = ComponentTest(
-            component=image_crop, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(16, 16, 3),
+            component=image_crop, input_spaces=dict(inputs=FloatBox(shape=(16, 16, 3),
                                                                                   add_batch_rank=False))
         )
 
@@ -208,7 +208,7 @@ class TestPreprocessLayers(unittest.TestCase):
     def test_python_image_crop(self):
         image_crop = ImageCrop(x=7, y=1, width=8, height=12, backend="python")
         image_crop.create_variables(input_spaces=dict(
-            preprocessing_inputs=FloatBox(shape=(16, 16, 3)), add_batch_rank=False)
+            inputs=FloatBox(shape=(16, 16, 3)), add_batch_rank=False)
         )
 
         input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
@@ -221,7 +221,7 @@ class TestPreprocessLayers(unittest.TestCase):
     def test_black_and_white(self):
         binary = ImageBinary()
         # Color image of 2x2x3 size.
-        test = ComponentTest(component=binary, input_spaces=dict(preprocessing_inputs=FloatBox(shape=(2, 2, 3), add_batch_rank=True)))
+        test = ComponentTest(component=binary, input_spaces=dict(inputs=FloatBox(shape=(2, 2, 3), add_batch_rank=True)))
 
         test.test("reset")
         # Batch=2
@@ -241,7 +241,7 @@ class TestPreprocessLayers(unittest.TestCase):
 
         moving_standardize = MovingStandardize(backend="python")
         moving_standardize.create_variables(input_spaces=dict(
-                    preprocessing_inputs=space
+                    inputs=space
                 ), action_space=None)
         samples = [space.sample() for _ in range(100)]
         out = None

@@ -47,14 +47,14 @@ class Normalize(PreprocessLayer):
     def check_input_spaces(self, input_spaces, action_space=None):
         super(Normalize, self).check_input_spaces(input_spaces, action_space)
 
-        in_space = input_spaces["preprocessing_inputs"]  # type: Space
+        in_space = input_spaces["inputs"]  # type: Space
         # A list of all axes over which to normalize (exclude batch rank).
         self.axes = list(range(1 if in_space.has_batch_rank else 0, len(in_space.get_shape(with_batch_rank=False))))
 
     @rlgraph_api
-    def _graph_fn_apply(self, preprocessing_inputs):
-        min_value = preprocessing_inputs
-        max_value = preprocessing_inputs
+    def _graph_fn_apply(self, inputs):
+        min_value = inputs
+        max_value = inputs
 
         if get_backend() == "tf":
             # Iteratively reduce dimensionality across all axes to get the min/max values for each sample in the batch.
@@ -67,5 +67,5 @@ class Normalize(PreprocessLayer):
                 max_value = torch.max(max_value, axis)
 
         # Add some small constant to never let the range be zero.
-        return (preprocessing_inputs - min_value) / (max_value - min_value + SMALL_NUMBER)
+        return (inputs - min_value) / (max_value - min_value + SMALL_NUMBER)
 

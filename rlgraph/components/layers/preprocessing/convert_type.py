@@ -87,28 +87,28 @@ class ConvertType(PreprocessLayer):
         return space
 
     @rlgraph_api
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         if self.backend == "python" or get_backend() == "python":
-            if isinstance(preprocessing_inputs, list):
-                preprocessing_inputs = np.asarray(preprocessing_inputs)
-            return preprocessing_inputs.astype(dtype=util.convert_dtype(self.to_dtype, to="np"))
+            if isinstance(inputs, list):
+                inputs = np.asarray(inputs)
+            return inputs.astype(dtype=util.convert_dtype(self.to_dtype, to="np"))
         elif get_backend() == "pytorch":
             torch_dtype = util.convert_dtype(self.to_dtype, to="pytorch")
             if torch_dtype == torch.float or torch.float32:
-                return preprocessing_inputs.float()
+                return inputs.float()
             elif torch_dtype == torch.int or torch.int32:
-                return preprocessing_inputs.int()
+                return inputs.int()
             elif torch_dtype == torch.uint8:
-                return preprocessing_inputs.byte()
+                return inputs.byte()
         elif get_backend() == "tf":
-            in_space = get_space_from_op(preprocessing_inputs)
+            in_space = get_space_from_op(inputs)
             to_dtype = util.convert_dtype(self.to_dtype, to="tf")
-            if preprocessing_inputs.dtype != to_dtype:
-                ret = tf.cast(x=preprocessing_inputs, dtype=to_dtype)
+            if inputs.dtype != to_dtype:
+                ret = tf.cast(x=inputs, dtype=to_dtype)
                 if in_space.has_batch_rank is True:
                     ret._batch_rank = 0 if in_space.time_major is False else 1
                 if in_space.has_time_rank is True:
                     ret._time_rank = 0 if in_space.time_major is True else 1
                 return ret
             else:
-                return preprocessing_inputs
+                return inputs

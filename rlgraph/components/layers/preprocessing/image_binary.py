@@ -45,17 +45,17 @@ class ImageBinary(PreprocessLayer):
         self.keep_rank = keep_rank
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]
+        in_space = input_spaces["inputs"]
         self.last_rank = in_space.shape[-1]
 
     @rlgraph_api
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         """
         Converts the images into binary images by replacing all non-black (at least one channel value is not 0.0)
         to 1.0 and leaves all black pixels (all channel values 0.0) as-is.
 
         Args:
-            preprocessing_inputs (tensor): Single image or a batch of images to be converted into a binary image (last rank=n colors,
+            inputs (tensor): Single image or a batch of images to be converted into a binary image (last rank=n colors,
                 where n=len(self.weights)).
 
         Returns:
@@ -63,7 +63,7 @@ class ImageBinary(PreprocessLayer):
         """
         if get_backend() == "tf":
             # Sum over the color channel.
-            color_channel_sum = tf.reduce_sum(input_tensor=preprocessing_inputs, axis=-1, keepdims=self.keep_rank)
+            color_channel_sum = tf.reduce_sum(input_tensor=inputs, axis=-1, keepdims=self.keep_rank)
             # Reduce the image to only 0.0 or 1.0.
             binary_image = tf.where(
                 tf.greater(color_channel_sum, 0.0), tf.ones_like(color_channel_sum),

@@ -100,13 +100,13 @@ class Sequence(PreprocessLayer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(Sequence, self).check_input_spaces(input_spaces, action_space)
-        in_space = input_spaces["preprocessing_inputs"]
+        in_space = input_spaces["inputs"]
 
-        # Require preprocessing_inputs to not have time rank (batch rank doesn't matter).
+        # Require inputs to not have time rank (batch rank doesn't matter).
         sanity_check_space(in_space, must_have_time_rank=False)
 
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]
+        in_space = input_spaces["inputs"]
         self.output_spaces = self.get_preprocessed_space(in_space)
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
 
@@ -125,14 +125,14 @@ class Sequence(PreprocessLayer):
             return tf.variables_initializer([self.index])
 
     @rlgraph_api(flatten_ops=True, split_ops=False)
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         """
         Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).
         Sequencing happens within the last rank if `self.add_rank` is False, otherwise a new rank is added at the end
         for the sequencing.
 
         Args:
-            preprocessing_inputs (FlattenedDataOp): The FlattenedDataOp to be sequenced.
+            inputs (FlattenedDataOp): The FlattenedDataOp to be sequenced.
                 One sequence is generated separately for each SingleDataOp in api_methods.
 
         Returns:
@@ -142,9 +142,9 @@ class Sequence(PreprocessLayer):
         if self.backend == "python" or get_backend() == "python":
             if self.index == -1:
                 for _ in range_(self.sequence_length):
-                    self.deque.append(preprocessing_inputs)
+                    self.deque.append(inputs)
             else:
-                self.deque.append(preprocessing_inputs)
+                self.deque.append(inputs)
             self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
@@ -161,18 +161,18 @@ class Sequence(PreprocessLayer):
         elif get_backend() == "pytorch":
             if self.index == -1:
                 for _ in range_(self.sequence_length):
-                    if isinstance(preprocessing_inputs, dict):
-                        for key, value in preprocessing_inputs.items():
+                    if isinstance(inputs, dict):
+                        for key, value in inputs.items():
                             self.deque.append(value)
                     else:
-                        self.deque.append(preprocessing_inputs)
+                        self.deque.append(inputs)
             else:
-                if isinstance(preprocessing_inputs, dict):
-                    for key, value in preprocessing_inputs.items():
+                if isinstance(inputs, dict):
+                    for key, value in inputs.items():
                         self.deque.append(value)
                         self.index = (self.index + 1) % self.sequence_length
                 else:
-                    self.deque.append(preprocessing_inputs)
+                    self.deque.append(inputs)
                     self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
@@ -201,7 +201,7 @@ class Sequence(PreprocessLayer):
             # Assigns the input_ into the buffer at the current time index.
             def normal_assign():
                 assigns = list()
-                for key_, value in preprocessing_inputs.items():
+                for key_, value in inputs.items():
                     assign_op = self.assign_variable(ref=self.buffer[key_][self.index], value=value)
                     assigns.append(assign_op)
                 return assigns
@@ -209,7 +209,7 @@ class Sequence(PreprocessLayer):
             # After a reset (time index is -1), fill the entire buffer with `self.sequence_length` x input_.
             def after_reset_assign():
                 assigns = list()
-                for key_, value in preprocessing_inputs.items():
+                for key_, value in inputs.items():
                     multiples = (self.sequence_length,) + tuple([1] * get_rank(value))
                     input_ = tf.expand_dims(input=value, axis=0)
                     assign_op = self.assign_variable(
@@ -230,7 +230,7 @@ class Sequence(PreprocessLayer):
             with tf.control_dependencies(control_inputs=[index_plus_1]):
                 sequences = FlattenedDataOp()
                 # Collect the correct previous inputs from the buffer to form the output sequence.
-                for key in preprocessing_inputs.keys():
+                for key in inputs.keys():
                     n_in = [self.buffer[key][(self.index + n) % self.sequence_length]
                             for n in range_(self.sequence_length)]
 

@@ -47,7 +47,7 @@ class Transpose(PreprocessLayer):
         self.output_time_majors = dict()
 
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]  # type: Space
+        in_space = input_spaces["inputs"]  # type: Space
         # Make sure output time_majors are stored.
         self.get_preprocessed_space(in_space)
 
@@ -65,15 +65,15 @@ class Transpose(PreprocessLayer):
         return ret
 
     @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_apply(self, key, preprocessing_inputs):
+    def _graph_fn_apply(self, key, inputs):
         """
         Transposes the input by flipping batch and time ranks.
         """
         if get_backend() == "tf":
             # Flip around ranks 0 and 1.
             transposed = tf.transpose(
-                preprocessing_inputs,
-                perm=(1, 0) + tuple(i for i in range(2, len(preprocessing_inputs.shape.as_list()))), name="transpose"
+                inputs,
+                perm=(1, 0) + tuple(i for i in range(2, len(inputs.shape.as_list()))), name="transpose"
             )
             if self.output_is_time_major is None:
                 transposed._time_rank = 0 if self.output_time_majors[key] is True else 1
@@ -85,5 +85,5 @@ class Transpose(PreprocessLayer):
             return transposed
 
         elif get_backend() == "pytorch":
-            perm = (1, 0) + tuple(i for i in range(2, len(list(preprocessing_inputs.shape))))
-            return torch.transpose(preprocessing_inputs, perm)
+            perm = (1, 0) + tuple(i for i in range(2, len(list(inputs.shape))))
+            return torch.transpose(inputs, perm)

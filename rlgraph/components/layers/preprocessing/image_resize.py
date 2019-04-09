@@ -107,30 +107,30 @@ class ImageResize(PreprocessLayer):
         return unflatten_op(ret)
 
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]
+        in_space = input_spaces["inputs"]
         self.output_spaces = self.get_preprocessed_space(in_space)
 
     @rlgraph_api
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         """
         Images come in with either a batch dimension or not.
         """
         if self.backend == "python" or get_backend() == "python":
-            if isinstance(preprocessing_inputs, list):
-                preprocessing_inputs = np.asarray(preprocessing_inputs)
-            had_single_color_dim = (preprocessing_inputs.shape[-1] == 1)
+            if isinstance(inputs, list):
+                inputs = np.asarray(inputs)
+            had_single_color_dim = (inputs.shape[-1] == 1)
             # Batch of samples.
-            if preprocessing_inputs.ndim == 4:
+            if inputs.ndim == 4:
                 resized = []
-                for i in range_(len(preprocessing_inputs)):
+                for i in range_(len(inputs)):
                     resized.append(cv2.resize(
-                        preprocessing_inputs[i], dsize=(self.width, self.height), interpolation=self.cv2_interpolation)
+                        inputs[i], dsize=(self.width, self.height), interpolation=self.cv2_interpolation)
                     )
                 resized = np.asarray(resized)
             # Single sample.
             else:
                 resized = cv2.resize(
-                    preprocessing_inputs, dsize=(self.width, self.height), interpolation=self.cv2_interpolation
+                    inputs, dsize=(self.width, self.height), interpolation=self.cv2_interpolation
                 )
 
             # cv2.resize removes the color rank, if its dimension is 1 (e.g. grayscale), add it back here.
@@ -139,24 +139,24 @@ class ImageResize(PreprocessLayer):
 
             return resized
         elif get_backend() == "pytorch":
-            if isinstance(preprocessing_inputs, list):
-                preprocessing_inputs = torch.tensor(preprocessing_inputs)
+            if isinstance(inputs, list):
+                inputs = torch.tensor(inputs)
 
-            had_single_color_dim = (preprocessing_inputs.shape[-1] == 1)
+            had_single_color_dim = (inputs.shape[-1] == 1)
             # Batch of samples.
-            if len(preprocessing_inputs.shape) == 4:
+            if len(inputs.shape) == 4:
                 resized = []
-                for i in range_(len(preprocessing_inputs)):
+                for i in range_(len(inputs)):
                     # Get numpy array.
                     resized.append(cv2.resize(
-                        preprocessing_inputs[i].numpy(), dsize=(self.width, self.height),
+                        inputs[i].numpy(), dsize=(self.width, self.height),
                         interpolation=self.cv2_interpolation)
                     )
                 resized = torch.tensor(resized)
             # Single sample.
             else:
                 resized = cv2.resize(
-                    preprocessing_inputs.numpy(), dsize=(self.width, self.height), interpolation=self.cv2_interpolation
+                    inputs.numpy(), dsize=(self.width, self.height), interpolation=self.cv2_interpolation
                 )
 
             # cv2.resize removes the color rank, if its dimension is 1 (e.g. grayscale), add it back here.
@@ -166,6 +166,6 @@ class ImageResize(PreprocessLayer):
             return resized
         elif get_backend() == "tf":
             return tf.image.resize_images(
-                images=preprocessing_inputs, size=(self.width, self.height), method=self.tf_interpolation
+                images=inputs, size=(self.width, self.height), method=self.tf_interpolation
             )
 

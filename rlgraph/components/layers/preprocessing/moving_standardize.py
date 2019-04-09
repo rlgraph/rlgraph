@@ -52,7 +52,7 @@ class MovingStandardize(PreprocessLayer):
         self.in_shape = None
 
     def create_variables(self, input_spaces, action_space=None):
-        in_space = input_spaces["preprocessing_inputs"]
+        in_space = input_spaces["inputs"]
         self.output_spaces = in_space
         self.in_shape = (self.batch_size, ) + in_space.shape
 
@@ -87,20 +87,20 @@ class MovingStandardize(PreprocessLayer):
             return tf.variables_initializer([self.sample_count, self.mean_est, self.std_sum_est])
 
     @rlgraph_api
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             # https://www.johndcook.com/blog/standard_deviation/
-            preprocessing_inputs = np.asarray(preprocessing_inputs, dtype=np.float32)
+            inputs = np.asarray(inputs, dtype=np.float32)
             self.sample_count += 1.0
             if self.sample_count == 1.0:
-                self.mean_est[...] = preprocessing_inputs
+                self.mean_est[...] = inputs
             else:
-                update = preprocessing_inputs - self.mean_est
+                update = inputs - self.mean_est
                 self.mean_est[...] += update / self.sample_count
                 self.std_sum_est[...] += update * update * (self.sample_count - 1.0) / self.sample_count
 
             # Subtract mean.
-            result = preprocessing_inputs - self.mean_est
+            result = inputs - self.mean_est
 
             # Estimate variance via sum of variance.
             if self.sample_count > 1.0:
@@ -119,7 +119,7 @@ class MovingStandardize(PreprocessLayer):
             with tf.control_dependencies(assignments):
                 # 1. Update vars
                 assignments = []
-                update = preprocessing_inputs - self.mean_est
+                update = inputs - self.mean_est
                 mean_update = tf.cond(
                     pred=self.sample_count > 1.0,
                     false_fn=lambda: self.mean_est,
@@ -136,7 +136,7 @@ class MovingStandardize(PreprocessLayer):
                     false_fn=lambda: tf.square(x=self.mean_est),
                     true_fn=lambda: self.std_sum_est / (self.sample_count - 1)
                 )
-                result = preprocessing_inputs - self.mean_est
+                result = inputs - self.mean_est
                 std = tf.sqrt(x=var_estimate) + SMALL_NUMBER
 
                 return result / std

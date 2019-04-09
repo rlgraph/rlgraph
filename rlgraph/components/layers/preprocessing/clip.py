@@ -42,9 +42,9 @@ class Clip(PreprocessLayer):
         self.max = max
 
     @rlgraph_api
-    def _graph_fn_apply(self, preprocessing_inputs):
+    def _graph_fn_apply(self, inputs):
         if self.backend == "python" or get_backend() == "python":
-            return np.clip(preprocessing_inputs, a_min=self.min, a_max=self.max)
+            return np.clip(inputs, a_min=self.min, a_max=self.max)
         elif get_backend() == "tf":
-            return tf.clip_by_value(t=preprocessing_inputs, clip_value_min=self.min, clip_value_max=self.max)
+            return tf.clip_by_value(t=inputs, clip_value_min=self.min, clip_value_max=self.max)
 
