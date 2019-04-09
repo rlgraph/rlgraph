@@ -224,13 +224,13 @@ class PPOAgent(Agent):
                     prev_log_probs = tf.stop_gradient(prev_log_probs)
                 batch_size = tf.shape(preprocessed_states)[0]
 
+                baseline_values = value_function.value_output(tf.stop_gradient(preprocessed_states))
                 advantages = tf.cond(
                         pred=apply_postprocessing,
                         true_fn=lambda: gae_function.calc_gae_values(
                             baseline_values, rewards, terminals, sequence_indices),
                         false_fn=lambda: rewards
                     )
-                advantages.set_shape((batch_size,))
 
                 if self.standardize_advantages:
                     mean, std = tf.nn.moments(x=advantages, axes=[0])
@@ -254,6 +254,8 @@ class PPOAgent(Agent):
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
                     sample_advantages = tf.gather(params=advantages, indices=indices)
+                    sample_advantages.set_shape((self.sample_size, ))
+                    sample_baseline_values = tf.gather(params=baseline_values, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -291,13 +293,12 @@ class PPOAgent(Agent):
                             return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
 
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
-                    baseline_values = value_function.value_output(tf.stop_gradient(sample_states))
                     entropy = policy.get_entropy(sample_states)["entropy"]
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
                             policy_probs["action_log_probs"], sample_prior_log_probs,
-                            baseline_values, sample_advantages,  entropy
+                            sample_baseline_values, sample_advantages,  entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
