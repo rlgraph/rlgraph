@@ -87,10 +87,10 @@ class IntBox(BoxSpace):
     def flat_dim_with_categories(self):
         """
         If we were to flatten this Space and also consider each single possible int value (assuming global bounds)
-        as one category, what would the dimension have to be to represent this Space.
+        as one category, what would the dimension have to be to represent this Space?
         """
         if self.global_bounds is False:
-            return None
+            return int(np.sum(self.high))  # TODO: this assumes that low is always 0.
         return int(np.prod(self.shape) * self.global_bounds[1])
 
     def sample(self, size=None, fill_value=None):

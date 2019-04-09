@@ -69,6 +69,7 @@ class ActionAdapter(NeuralNetwork):
             "ERROR: ActionAdapter cannot handle ContainerSpaces!"
 
         units, self.final_shape = self.get_units_and_shape()
+        assert isinstance(units, int) and units > 0, "ERROR: `units` must be int and larger 0!"
 
         action_layer = DenseLayer(
             units=units,
