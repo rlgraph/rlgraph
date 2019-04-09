@@ -356,7 +356,7 @@ class PPOAgent(Agent):
                     prev_log_probs = prev_log_probs.detach()
                 batch_size = preprocessed_states.shape[0]
                 sample_size = min(batch_size, agent.sample_size)
-                baseline_values = value_function.value_output(preprocessed_states.detach())
+                baseline_values = value_function.value_output(preprocessed_states)
                 if apply_postprocessing:
                     advantages = gae_function.calc_gae_values(
                         baseline_values, rewards, terminals, sequence_indices)
@@ -382,19 +382,18 @@ class PPOAgent(Agent):
 
                     sample_advantages = torch.index_select(advantages, 0, indices)
                     policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
-                    sample_baseline_values = torch.index_select(baseline_values, 0, indices)
+                    baseline_values = value_function.value_output(sample_states)
 
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
                         policy_probs["action_log_probs"], sample_prior_log_probs,
-                        sample_baseline_values,  sample_advantages, entropy
+                        baseline_values,  sample_advantages, entropy
                     )
 
                     # Do not need step op.
                     _, loss, loss_per_item = optimizer.step(policy.variables(), loss, loss_per_item)
                     _, vf_loss, vf_loss_per_item = \
                         value_function_optimizer.step(value_function.variables(), vf_loss, vf_loss_per_item)
-
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
