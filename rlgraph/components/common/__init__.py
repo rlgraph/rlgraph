@@ -20,7 +20,6 @@ from __future__ import print_function
 from rlgraph.components.common.batch_apply import BatchApply
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.common.container_merger import ContainerMerger
-from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.common.decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay, \
     ConstantDecay
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
@@ -49,7 +48,7 @@ NoiseComponent.__lookup_classes__ = dict(
 NoiseComponent.__default_constructor__ = GaussianNoise
 
 
-__all__ = ["BatchApply", "ContainerMerger", "ContainerSplitter",
+__all__ = ["BatchApply", "ContainerMerger",
            "Synchronizable", "RepeaterStack", "Slice",
            "DecayComponent", "ConstantDecay", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",

@@ -17,14 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.utils.rlgraph_errors import RLGraphError
-from rlgraph.components import Component
+from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import Dict, Tuple
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
-# TODO: rename to DictTupleSplitter
-class ContainerSplitter(Component):
+class ContainerSplitter(PreprocessLayer):
     """
     Splits an incoming ContainerSpace into all its single primitive Spaces.
     """
