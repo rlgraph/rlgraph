@@ -31,12 +31,12 @@ if get_backend() == "pytorch":
 
 class NeuralNetwork(Stack):
     """
-    A NeuralNetwork is a Stack, in which the `apply` method is defined either by custom-API-method OR by connecting
-    through all sub-Components' `apply` methods.
+    A NeuralNetwork is a Stack, in which the `call` method is defined either by custom-API-method OR by connecting
+    through all sub-Components' `call` methods.
     In both cases, a dict should be returned with at least the `output` key set. Possible further keys could
     be `last_internal_states` for RNN-based NNs and other keys.
 
-    No other API methods other than `apply` should be defined/used.
+    No other API methods other than `call` should be defined/used.
 
     TODO: A NeuralNetwork Component correctly handles RNN layers in terms of
     """
@@ -52,14 +52,14 @@ class NeuralNetwork(Stack):
                 *layers.
 
             outputs (Optional[]): A list or single output NNNode object, indicating that we have to infer the
-                `apply` method from the graph given by these outputs. This is used iff a NN is constructed by the
+                `call` method from the graph given by these outputs. This is used iff a NN is constructed by the
                 Keras-style functional API.
 
             fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the apply method.
-                Only for auto-generated `apply` method. Default: None.
+                Only for auto-generated `call` method. Default: None.
 
             unfold_time_rank (bool): Whether to overwrite the `unfold_time_rank` option for the apply method.
-                Only for auto-generated `apply` method. Default: None.
+                Only for auto-generated `call` method. Default: None.
         """
         # In case layers come in via a spec dict -> push it into *layers.
         layers_args = kwargs.pop("layers", layers)
@@ -68,21 +68,21 @@ class NeuralNetwork(Stack):
 
         self.functional_api_outputs = force_list(kwargs.pop("outputs", None))
 
-        # Force the only API-method to be `apply`. No matter whether custom-API or auto-generated (via Stack).
-        self.custom_apply_given = True
-        if not hasattr(self, "apply"):
-            # Automatically create the `apply` stack.
+        # Force the only API-method to be `call`. No matter whether custom-API or auto-generated (via Stack).
+        self.custom_call_given = True
+        if not hasattr(self, "call"):
+            # Automatically create the `call` stack.
             if "api_methods" not in kwargs:
-                kwargs["api_methods"] = [dict(api="apply_shadowed_", component_api="apply")]
-                self.custom_apply_given = False
-            # Sanity check `api_method` to contain only specifications on `apply`.
+                kwargs["api_methods"] = [dict(api="apply_shadowed_", component_api="call")]
+                self.custom_call_given = False
+            # Sanity check `api_method` to contain only specifications on `call`.
             else:
                 assert len(kwargs["api_methods"]) == 1, \
                     "ERROR: Only 0 or 1 given API-methods are allowed in NeuralNetwork ctor! You provided " \
                     "'{}'.".format(kwargs["api_methods"])
-                # Make sure the only allowed api_method is `apply`.
-                assert next(iter(kwargs["api_methods"]))[0] == "apply", \
-                    "ERROR: NeuralNetwork's custom API-method must be called `apply`! You named it '{}'.". \
+                # Make sure the only allowed api_method is `call`.
+                assert next(iter(kwargs["api_methods"]))[0] == "call", \
+                    "ERROR: NeuralNetwork's custom API-method must be called `call`! You named it '{}'.". \
                     format(next(iter(kwargs["api_methods"]))[0])
 
             # Follow given options.
@@ -93,8 +93,8 @@ class NeuralNetwork(Stack):
             if unfold_time_rank is not None:
                 kwargs["api_methods"][0]["unfold_time_rank"] = unfold_time_rank
 
-        assert self.functional_api_outputs is False or self.custom_apply_given is False, \
-            "ERROR: If functional API is used to construct network, a custom `apply` method must not be provided!"
+        assert self.functional_api_outputs is False or self.custom_call_given is False, \
+            "ERROR: If functional API is used to construct network, a custom `call` method must not be provided!"
 
         # Pytorch specific objects.
         self.network_obj = None
@@ -113,67 +113,13 @@ class NeuralNetwork(Stack):
 
         # Functional API (Keras Style assembly).
         elif self.functional_api_outputs is not None:
-            print(self._build_apply_via_keras_style_functional_api(*self.functional_api_outputs))
+            self._build_call_via_keras_style_functional_api(*self.functional_api_outputs)
 
         # Auto apply-API -> Handle LSTMs correctly.
-        elif self.custom_apply_given is False:
-            @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
-            def apply(self_, nn_input, *nn_inputs, **kwargs):
-                inputs = [nn_input] + list(nn_inputs)
-                original_input = inputs[0]
+        elif self.custom_call_given is False:
+            self._build_auto_call_method(ok_to_overwrite, fold_time_rank, unfold_time_rank)
 
-                # Keep track of the folding status.
-                fold_status = "unfolded" if self.has_rnn() else None
-                # Fold time rank? For now only support 1st arg folding/unfolding.
-                if fold_time_rank is True:
-                    args_ = tuple([self.folder.apply(original_input)] + list(inputs[1:]))
-                    fold_status = "folded"
-                else:
-                    # TODO: If only unfolding: Assume for now that 2nd input is the original one (so we can infer
-                    # TODO: batch/time dims).
-                    if unfold_time_rank is True:
-                        assert len(inputs) >= 2, \
-                            "ERROR: In Stack: If unfolding w/o folding, second arg must be the original input!"
-                        original_input = inputs[1]
-                        args_ = tuple([inputs[0]] + list(inputs[2:]))
-                    else:
-                        args_ = inputs
-                kwargs_ = kwargs
-
-                # TODO: keep track of LSTMLayers that only return the last time-step (outputs after these Layers
-                # TODO: can no longer be folded, their time-rank is gone for the rest of the NN.
-                for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
-                    if sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
-                        continue
-
-                    # Unfold before an LSTM.
-                    if isinstance(sub_component, LSTMLayer) and fold_status != "unfolded":
-                        args_, kwargs_ = self._unfold(original_input, *args_, **kwargs_)
-                        fold_status = "unfolded"
-                    # Fold before a non-LSTM if not already done so.
-                    elif not isinstance(sub_component, LSTMLayer) and fold_status == "unfolded":
-                        args_, kwargs_ = self._fold(*args_, **kwargs_)
-                        fold_status = "folded"
-
-                    results = sub_component.apply(*args_, **kwargs_)
-
-                    # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
-                    if isinstance(results, dict):
-                        args_ = ()
-                        kwargs_ = results
-                    else:
-                        args_ = force_tuple(results)
-                        kwargs_ = {}
-
-                if unfold_time_rank:
-                    args_, kwargs_ = self._unfold(original_input, *args_, **kwargs_)
-                if args_ == ():
-                    return kwargs_
-                elif len(args_) == 1:
-                    return dict(output=args_[0])
-                else:
-                    return dict(output=args_)
-
+        # Have super class (Stack) handle registration of given custom `call` method.
         else:
             super(NeuralNetwork, self).build_auto_api_method(
                 stack_api_method_name, component_api_method_name, fold_time_rank, unfold_time_rank, ok_to_overwrite
@@ -184,11 +130,11 @@ class NeuralNetwork(Stack):
             assert len(kwargs_) == 1, \
                 "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
             key = next(iter(kwargs_))
-            kwargs_ = {key: self.unfolder.apply(kwargs_[key], original_input)}
+            kwargs_ = {key: self.unfolder.call(kwargs_[key], original_input)}
         else:
             assert len(args_) == 1, \
                 "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
-            args_ = (self.unfolder.apply(args_[0], original_input),)
+            args_ = (self.unfolder.call(args_[0], original_input),)
         return args_, kwargs_
 
     def _fold(self, *args_, **kwargs_):
@@ -196,9 +142,9 @@ class NeuralNetwork(Stack):
             assert len(kwargs_) == 1, \
                 "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
             key = next(iter(kwargs_))
-            kwargs_ = {key: self.folder.apply(kwargs_[key])}
+            kwargs_ = {key: self.folder.call(kwargs_[key])}
         else:
-            args_ = (self.folder.apply(args_[0]),)
+            args_ = (self.folder.call(args_[0]),)
         return args_, kwargs_
 
     def add_layer(self, layer_component):
@@ -209,8 +155,8 @@ class NeuralNetwork(Stack):
         Args:
             layer_component (Layer): The Layer object to be added to this NN.
         """
-        assert self.custom_apply_given is False,\
-            "ERROR: Cannot add layer to neural network if `apply` API-method is a custom one!"
+        assert self.custom_call_given is False,\
+            "ERROR: Cannot add layer to neural network if `call` API-method is a custom one!"
         assert hasattr(layer_component, self.map_api_to_sub_components_api["apply_shadowed_"]), \
             "ERROR: Layer to be added ({}) does not have an API-method called '{}'!".format(
                 layer_component.scope, self.map_api_to_sub_components_api["apply_shadowed_"]
@@ -235,7 +181,7 @@ class NeuralNetwork(Stack):
         result = self.network_obj.forward(*forward_inputs)
         # Problem: Not everything in the neural network stack is a true layer.
         for c in self.non_layer_components:
-            result = getattr(c, "apply")(*force_list(result))
+            result = getattr(c, "call")(*force_list(result))
         return result
 
     def post_define_by_run_build(self):
@@ -264,9 +210,9 @@ class NeuralNetwork(Stack):
         # TODO: other available information for its API-clients such as internal_states_space, etc..)
         return any(isinstance(sc, LSTMLayer) for sc in self.get_all_sub_components())
 
-    def _build_apply_via_keras_style_functional_api(self, *layer_call_outputs):
+    def _build_call_via_keras_style_functional_api(self, *layer_call_outputs):
         """
-        Automatically builds our `apply` method by traversing the given graph depth first via the following iterative
+        Automatically builds our `call` method by traversing the given graph depth first via the following iterative
         procedure:
 
         Add given `layer_call_outputs` to a set.
@@ -276,7 +222,7 @@ class NeuralNetwork(Stack):
                     write call to code
                     erase outs from set
                     add ins to set
-        Write `def apply(self, ...)` from given Spaces.
+        Write `def call(self, ...)` from given Spaces.
         """
         apply_inputs = []
         output_set = set(layer_call_outputs)
@@ -289,50 +235,125 @@ class NeuralNetwork(Stack):
             for o in set_:
                 if o.component == output.component:
                     siblings.append(o)
-            return len(siblings) == need_to_find, siblings
+            return len(siblings) == need_to_find, sorted(siblings)
 
         # Initialize var names for final outputs.
-        for out in output_set:
+        for out in sorted(output_set):
             out.var_name = "out{}".format(output_id)
             output_id += 1
 
-        # Write this NN's `apply` code dynamically, then execute it.
+        # Write this NN's `call` code dynamically, then execute it.
         apply_code = "\treturn {}\n".format(", ".join([o.var_name for o in layer_call_outputs]))
+
+        prev_output_set = None
 
         # Loop through all nodes.
         while len(output_set) > 0:
             output_list = list(output_set)
-            for output in output_list:
+            for output_idx, output in enumerate(output_list):
                 # If only one output OR all outputs are in set -> Write the call.
                 found_all, siblings = _all_siblings_in_set(output, output_set)
                 if found_all is True:
                     siblings_str = ", ".join([o.var_name for o in siblings])
+                # Nothing has changed and it's the last output in list
+                # Some output(s) may be dead ends (construct those as `_`).
+                elif prev_output_set == output_set and output_idx == len(output_list) - 1:
+                    indices = [s.output_slot for s in siblings]
+                    siblings_str = ""
+                    for i in range(output.num_outputs):
+                        siblings_str += ", " + (siblings[indices.index(i)].var_name if i in indices else "_")
+                    siblings_str = siblings_str[2:]  # cut preceding ", "
+                else:
+                    continue
 
-                    # Remove outs from set.
-                    for sibling in siblings:
-                        output_set.remove(sibling)
-                    # Add `ins` to set or to `apply_inputs` (if `in` is a Space).
-                    for in_ in output.inputs:
-                        if isinstance(in_, Space):
-                            apply_inputs.append(in_)
-                        else:
-                            in_.var_name = "out{}".format(output_id)
-                            output_id += 1
-                            output_set.add(in_)
+                # Remove outs from set.
+                for sibling in siblings:
+                    output_set.remove(sibling)
+                # Add `ins` to set or to `apply_inputs` (if `in` is a Space).
+                for in_ in output.inputs:
+                    if isinstance(in_, Space):
+                        apply_inputs.append(in_)
+                    elif in_.var_name is None:
+                        in_.var_name = "out{}".format(output_id)
+                        output_id += 1
+                        output_set.add(in_)
 
-                    inputs_str = ", ".join([
-                        "inputs[{}]".format(pos) if isinstance(i, Space) else
-                        i.var_name for pos, i in enumerate(output.inputs)
-                    ])
-                    apply_code = "\t{} = self.get_sub_component_by_name('{}').apply({})\n".format(
-                        siblings_str, output.component.scope, inputs_str) + apply_code
-                    sub_components.add(output.component)
+                inputs_str = ", ".join([
+                    "inputs[{}]".format(pos) if isinstance(i, Space) else
+                    i.var_name for pos, i in enumerate(output.inputs)
+                ])
+                apply_code = "\t{} = self.get_sub_component_by_name('{}').call({})\n".format(
+                    siblings_str, output.component.scope, inputs_str) + apply_code
+                sub_components.add(output.component)
+
+            # Store previous state of our set.
+            prev_output_set = output_set
 
         # Prepend inputs from left-over Space objects in set.
-        apply_code = "@rlgraph_api(component=self, ok_to_overwrite=True)\ndef apply(self, *inputs):\n" + apply_code
+        apply_code = "@rlgraph_api(component=self, ok_to_overwrite=True)\ndef call(self, *inputs):\n" + apply_code
 
         # Add all sub-components to this NN.
         self.add_components(*list(sub_components))
 
-        # Execute the code and assign self.apply to it.
+        # Execute the code and assign self.call to it.
+        print("`apply_code` for NN:")
+        print(apply_code)
         exec(apply_code, globals(), locals())
+
+    def _build_auto_call_method(self, ok_to_overwrite, fold_time_rank, unfold_time_rank):
+        @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
+        def call(self_, nn_input, *nn_inputs, **kwargs):
+            inputs = [nn_input] + list(nn_inputs)
+            original_input = inputs[0]
+
+            # Keep track of the folding status.
+            fold_status = "unfolded" if self.has_rnn() else None
+            # Fold time rank? For now only support 1st arg folding/unfolding.
+            if fold_time_rank is True:
+                args_ = tuple([self.folder.call(original_input)] + list(inputs[1:]))
+                fold_status = "folded"
+            else:
+                # TODO: If only unfolding: Assume for now that 2nd input is the original one (so we can infer
+                # TODO: batch/time dims).
+                if unfold_time_rank is True:
+                    assert len(inputs) >= 2, \
+                        "ERROR: In Stack: If unfolding w/o folding, second arg must be the original input!"
+                    original_input = inputs[1]
+                    args_ = tuple([inputs[0]] + list(inputs[2:]))
+                else:
+                    args_ = inputs
+            kwargs_ = kwargs
+
+            # TODO: keep track of LSTMLayers that only return the last time-step (outputs after these Layers
+            # TODO: can no longer be folded, their time-rank is gone for the rest of the NN.
+            for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
+                if sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
+                    continue
+
+                # Unfold before an LSTM.
+                if isinstance(sub_component, LSTMLayer) and fold_status != "unfolded":
+                    args_, kwargs_ = self._unfold(original_input, *args_, **kwargs_)
+                    fold_status = "unfolded"
+                # Fold before a non-LSTM if not already done so.
+                elif not isinstance(sub_component, LSTMLayer) and fold_status == "unfolded":
+                    args_, kwargs_ = self._fold(*args_, **kwargs_)
+                    fold_status = "folded"
+
+                results = sub_component.call(*args_, **kwargs_)
+
+                # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
+                if isinstance(results, dict):
+                    args_ = ()
+                    kwargs_ = results
+                else:
+                    args_ = force_tuple(results)
+                    kwargs_ = {}
+
+            if unfold_time_rank:
+                args_, kwargs_ = self._unfold(original_input, *args_, **kwargs_)
+            if args_ == ():
+                return kwargs_
+            elif len(args_) == 1:
+                return dict(output=args_[0])
+            else:
+                return dict(output=args_)
