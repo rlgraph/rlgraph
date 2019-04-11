@@ -14,12 +14,11 @@
 # ==============================================================================
 
 from __future__ import absolute_import
-from __future__ import print_function
 from __future__ import division
+from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers import Layer
-from rlgraph.utils.util import default_dict
 from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
@@ -28,8 +27,8 @@ if get_backend() == "tf":
 
 class PreprocessLayer(Layer):
     """
-    A Layer that - additionally to `apply` - implements the `reset` API-method.
-    `apply` is usually used for preprocessing inputs. `reset` is used to reset some state information of this
+    A Layer that - additionally to `call` - implements the `reset` API-method.
+    `call` is usually used for preprocessing inputs. `reset` is used to reset some state information of this
     preprocessor (e.g reset/reinitialize a variable).
     """
     def __init__(self, scope="pre-process", **kwargs):
@@ -50,5 +49,5 @@ class PreprocessLayer(Layer):
         return
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, *inputs):
-        return super(PreprocessLayer, self)._graph_fn_apply(*inputs)
+    def _graph_fn_call(self, *inputs):
+        return super(PreprocessLayer, self)._graph_fn_call(*inputs)

@@ -26,7 +26,7 @@ class RepeaterStack(Stack):
     n is the number of repeats.
 
     API:
-        apply(input_) -> call's some API-method on the "repeat-unit" (another Component) n times, each time passing the
+        call(input_) -> call's some API-method on the "repeat-unit" (another Component) n times, each time passing the
             result of the previous repeat and then returning the result of the last repeat.
     """
     def __init__(self, sub_component, repeats=2, scope="repeater", **kwargs):

@@ -20,16 +20,16 @@ from __future__ import print_function
 import copy
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.components.component import Component
 from rlgraph.components.layers.preprocessing import ReShape
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import force_tuple, force_list
 
 
 class Stack(Component):
     """
     A component container stack that incorporates one or more sub-components some of whose API-methods
-    (default: only `apply`) are automatically connected with each other (in the sequence the sub-Components are given
+    (default: only `call`) are automatically connected with each other (in the sequence the sub-Components are given
     in the c'tor), resulting in an API of the Stack.
     All sub-components' API-methods need to match in the number of input and output values. E.g. the third
     sub-component's api-metehod's number of return values has to match the forth sub-component's api-method's number of
@@ -44,7 +44,7 @@ class Stack(Component):
         Keyword Args:
             api_methods (List[Union[str,Tuple[str,str],dict]]): A list of strings of API-methods names to connect
                 through the stack.
-                Defaults to {"apply"}. All sub-Components must implement all API-methods in this set.
+                Defaults to {"call"}. All sub-Components must implement all API-methods in this set.
                 Alternatively, this set may contain tuples (1st item is the final Stack's API method name, 2nd item
                 is the name of the API-methods of the sub-Components to connect through).
                 E.g. api_methods={("stack_run", "run")}. This will create "stack_run" for the Stack, which will call
@@ -60,7 +60,7 @@ class Stack(Component):
                 This is done for all API-methods in the given set, plus - optionally - time rank folding and unfolding
                 at the beginning and/or end.
         """
-        self.api_methods_options = kwargs.pop("api_methods", ["apply"])
+        self.api_methods_options = kwargs.pop("api_methods", ["call"])
         super(Stack, self).__init__(*sub_components, scope=kwargs.pop("scope", "stack"), **kwargs)
 
         self.num_allowed_inputs = None
@@ -141,7 +141,7 @@ class Stack(Component):
             # Fold time rank? For now only support 1st arg folding/unfolding.
             original_input = inputs[0]
             if fold_time_rank is True:
-                args_ = tuple([self.folder.apply(original_input)] + list(inputs[1:]))
+                args_ = tuple([self.folder.call(original_input)] + list(inputs[1:]))
             else:
                 # TODO: If only unfolding: Assume for now that 2nd input is the original one (so we can infer
                 # TODO: batch/time dims).
@@ -185,14 +185,14 @@ class Stack(Component):
                     assert len(kwargs_) == 1,\
                         "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
                     key = next(iter(kwargs_))
-                    kwargs_ = {key: self.unfolder.apply(kwargs_[key], original_input)}
+                    kwargs_ = {key: self.unfolder.call(kwargs_[key], original_input)}
                 return kwargs_
             else:
                 # Unfold time rank? For now only support 1st arg folding/unfolding.
                 if unfold_time_rank is True:
                     assert len(args_) == 1,\
                         "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
-                    args_ = tuple([self.unfolder.apply(args_[0], original_input)] +
+                    args_ = tuple([self.unfolder.call(args_[0], original_input)] +
                                   list(args_[1 if fold_time_rank is True else 2:]))
                 if len(args_) == 1:
                     return args_[0]

@@ -73,7 +73,7 @@ class GrayScale(PreprocessLayer):
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         """
         Gray-scales images of arbitrary rank.
         Normally, the images' rank is 3 (width/height/colors), but can also be: batch/width/height/colors, or any other.

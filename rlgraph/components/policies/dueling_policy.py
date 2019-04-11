@@ -22,7 +22,6 @@ from rlgraph.components.common.softmax import Softmax
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.policies.policy import Policy
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import FlattenedDataOp
 from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 from rlgraph.utils.util import get_rank
 
@@ -80,8 +79,8 @@ class DuelingPolicy(Policy):
                 state_values: The single (but batched) value function node output.
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
-        state_values_tmp = self.dense_layer_state_value_stream.apply(nn_output["output"])
-        state_values = self.state_value_node.apply(state_values_tmp)
+        state_values_tmp = self.dense_layer_state_value_stream.call(nn_output["output"])
+        state_values = self.state_value_node.call(state_values_tmp)
 
         return dict(state_values=state_values, last_internal_states=nn_output.get("last_internal_states"))
 
@@ -108,8 +107,8 @@ class DuelingPolicy(Policy):
         advantages, _, _ = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
             nn_output["output"], nn_input
         )
-        state_values_tmp = self.dense_layer_state_value_stream.apply(nn_output["output"])
-        state_values = self.state_value_node.apply(state_values_tmp)
+        state_values_tmp = self.dense_layer_state_value_stream.call(nn_output["output"])
+        state_values = self.state_value_node.call(state_values_tmp)
 
         q_values = self._graph_fn_calculate_q_values(state_values, advantages)
 

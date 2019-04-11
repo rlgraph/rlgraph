@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.util import SMALL_NUMBER
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.util import SMALL_NUMBER
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -31,7 +31,7 @@ class SoftMax(Component):
     A simple softmax component that translates logits into probabilities (and log-probabilities).
 
     API:
-        apply(logits) -> returns probabilities (softmaxed) and log-probabilities.
+        call(logits) -> returns probabilities (softmaxed) and log-probabilities.
     """
     def __init__(self, scope="softmax", **kwargs):
         super(SoftMax, self).__init__(scope=scope, **kwargs)

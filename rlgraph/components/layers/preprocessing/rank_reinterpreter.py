@@ -40,7 +40,7 @@ class RankReinterpreter(PreprocessLayer):
         self.time_rank = time_rank
 
     @rlgraph_api
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         if get_backend() == "tf":
             ret = tf.identity(inputs, name="rank-reinterpreted")
             # We have to re-interpret the batch rank.

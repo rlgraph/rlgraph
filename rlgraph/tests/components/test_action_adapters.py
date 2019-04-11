@@ -55,7 +55,7 @@ class TestActionAdapters(unittest.TestCase):
             inputs, action_adapter_params["action-adapter/action-network/action-layer/dense/kernel"]
         )
         expected_logits = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
-        test.test(("apply", inputs), expected_outputs=dict(output=expected_logits), decimals=5)
+        test.test(("call", inputs), expected_outputs=dict(output=expected_logits), decimals=5)
         test.test(("get_logits", inputs), expected_outputs=expected_logits, decimals=5)  # w/o the dict
 
         expected_parameters = softmax(expected_logits)
@@ -93,7 +93,7 @@ class TestActionAdapters(unittest.TestCase):
         expected_logits = np.reshape(expected_action_layer_output, newshape=(4, 5, 3, 2, 2))
 
         test.test(
-            ("apply", inputs),
+            ("call", inputs),
             expected_outputs=dict(output=expected_logits),
             decimals=4
         )
@@ -135,7 +135,7 @@ class TestActionAdapters(unittest.TestCase):
         ).reshape((3, 2, -1))
         # Logits (already well reshaped (same as action space)).
         expected_logits = np.reshape(expected_action_layer_output, newshape=(3, 2, 3, 2, 2))
-        test.test(("apply", inputs), expected_outputs=dict(output=expected_logits))
+        test.test(("call", inputs), expected_outputs=dict(output=expected_logits))
         test.test(("get_logits", inputs), expected_outputs=expected_logits)
 
         # Softmax (probs).

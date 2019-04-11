@@ -18,15 +18,15 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.layers import Layer, ConcatLayer
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.neural_networks.value_function import ValueFunction
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
-    import tensorflow as tf
+    pass
 elif get_backend() == "pytorch":
-    import torch
+    pass
 
 
 class SACValueNetwork(ValueFunction):
@@ -79,11 +79,11 @@ class SACValueNetwork(ValueFunction):
         Computes Q(s,a) by passing states and actions through one or multiple processing stacks..
         """
         if self.use_image_stack:
-            image_processing_output = self.image_stack.apply(states)
-            state_actions = self.concat_layer.apply(image_processing_output, actions)
-            dense_output = self.dense_stack.apply(state_actions)
+            image_processing_output = self.image_stack.call(states)
+            state_actions = self.concat_layer.call(image_processing_output, actions)
+            dense_output = self.dense_stack.call(state_actions)
         else:
             # Concat states and actions, then pass through.
-            state_actions = self.concat_layer.apply(states, actions)
-            dense_output = self.dense_stack.apply(state_actions)
+            state_actions = self.concat_layer.call(states, actions)
+            dense_output = self.dense_stack.call(state_actions)
         return dense_output

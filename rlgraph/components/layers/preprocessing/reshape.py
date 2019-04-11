@@ -143,7 +143,7 @@ class ReShape(PreprocessLayer):
         return num_categories
 
     @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_apply(self, key, inputs, input_before_time_rank_folding=None):
+    def _graph_fn_call(self, key, inputs, input_before_time_rank_folding=None):
         """
         Reshapes the input to the specified new shape.
 

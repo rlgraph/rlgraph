@@ -20,10 +20,9 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.utils.decorators import rlgraph_api
-
+from rlgraph.utils.ops import flatten_op, unflatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -78,7 +77,7 @@ class ImageCrop(PreprocessLayer):
         self.output_spaces = flatten_op(self.get_preprocessed_space(in_space))
 
     @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_apply(self, key, inputs):
+    def _graph_fn_call(self, key, inputs):
         """
         Images come in with either a batch dimension or not.
         """

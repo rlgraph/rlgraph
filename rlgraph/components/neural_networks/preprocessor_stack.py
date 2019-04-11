@@ -19,9 +19,9 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
-from rlgraph.utils.util import default_dict
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.util import default_dict
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -51,9 +51,9 @@ class PreprocessorStack(Stack):
         """
         self.fold_time_rank = kwargs.get("fold_time_rank", False)
         self.unfold_time_rank = kwargs.get("unfold_time_rank", False)
-        # Link sub-Components' `apply` methods together to yield PreprocessorStack's `preprocess` method.
+        # Link sub-Components' `call` methods together to yield PreprocessorStack's `preprocess` method.
         # NOTE: Do not include `reset` here as it is defined explicitly below.
-        kwargs["api_methods"] = [dict(api="preprocess", component_api="apply", fold_time_rank=self.fold_time_rank,
+        kwargs["api_methods"] = [dict(api="preprocess", component_api="call", fold_time_rank=self.fold_time_rank,
                                       unfold_time_rank=self.unfold_time_rank)]
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "preprocessor-stack")))
         super(PreprocessorStack, self).__init__(*preprocessors, **kwargs)

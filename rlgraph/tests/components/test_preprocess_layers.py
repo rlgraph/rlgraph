@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import cv2
-import numpy as np
 import os
 import unittest
+
+import cv2
+import numpy as np
 
 from rlgraph.components.layers import GrayScale, ReShape, Multiply, Divide, Clip, ImageBinary, ImageResize, ImageCrop, \
     MovingStandardize
@@ -42,7 +43,7 @@ class TestPreprocessLayers(unittest.TestCase):
         # Batch=2
         input_ = np.array([[[1.0], [2.0]], [[3.0], [4.0]]])
         expected = np.array([[[2.0], [4.0]], [[6.0], [8.0]]])
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_divide(self):
         divide = Divide(divisor=10.0)
@@ -53,7 +54,7 @@ class TestPreprocessLayers(unittest.TestCase):
 
         input_ = np.array([[10.0, 100.0]])
         expected = np.array([[1.0, 10.0]])
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_clip(self):
         clip = Clip(min=0.0, max=1.0)
@@ -75,7 +76,7 @@ class TestPreprocessLayers(unittest.TestCase):
             [[0.0, 1.0], [0.0, 0.0]],
             [[0.0005, 0.00000009], [1.0, 1.0]]
         ])
-        test.test(("apply", input_images), expected_outputs=expected)
+        test.test(("call", input_images), expected_outputs=expected)
 
     def test_grayscale_with_uint8_image(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
@@ -89,7 +90,7 @@ class TestPreprocessLayers(unittest.TestCase):
         expected = np.sum(input_, axis=-1, keepdims=False)
         expected = (expected / 2).astype(input_.dtype)
         test.test("reset")
-        print(test.test(("apply", input_), expected_outputs=expected))
+        print(test.test(("call", input_), expected_outputs=expected))
 
     def test_grayscale_python_with_uint8_image(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
@@ -100,7 +101,7 @@ class TestPreprocessLayers(unittest.TestCase):
         input_ = space.sample(size=2)
         expected = np.round(np.dot(input_[:, :, :, :3], [0.299, 0.587, 0.114]), 0).astype(dtype=input_.dtype)
 
-        out = grayscale._graph_fn_apply(input_)
+        out = grayscale._graph_fn_call(input_)
         recursive_assert_almost_equal(out, expected)
 
     def test_split_inputs_on_grayscale(self):
@@ -134,7 +135,7 @@ class TestPreprocessLayers(unittest.TestCase):
             c=0.7
         )
         test.test("reset")
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_split_graph_on_reshape_flatten(self):
         space = Dict.from_spec(
@@ -171,7 +172,7 @@ class TestPreprocessLayers(unittest.TestCase):
             d=np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0]])  # category (one-hot) flatten
         )
         test.test("reset")
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_image_resize(self):
         image_resize = ImageResize(width=4, height=4, interpolation="bilinear")
@@ -186,7 +187,7 @@ class TestPreprocessLayers(unittest.TestCase):
         expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/4x4x3_image_resized.bmp"))
         assert expected is not None
 
-        test.test(("apply", input_image), expected_outputs=expected)
+        test.test(("call", input_image), expected_outputs=expected)
 
     def test_image_crop(self):
         image_crop = ImageCrop(x=7, y=1, width=8, height=12)
@@ -203,7 +204,7 @@ class TestPreprocessLayers(unittest.TestCase):
         expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
         assert expected is not None
 
-        test.test(("apply", input_image), expected_outputs=expected)
+        test.test(("call", input_image), expected_outputs=expected)
 
     def test_python_image_crop(self):
         image_crop = ImageCrop(x=7, y=1, width=8, height=12, backend="python")
@@ -215,7 +216,7 @@ class TestPreprocessLayers(unittest.TestCase):
         expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
         assert expected is not None
 
-        out = image_crop._graph_fn_apply(input_image)
+        out = image_crop._graph_fn_call(input_image)
         recursive_assert_almost_equal(out, expected)
 
     def test_black_and_white(self):
@@ -233,7 +234,7 @@ class TestPreprocessLayers(unittest.TestCase):
             [[1, 1], [0, 1]],
             [[1, 0], [0, 1]]
         ])
-        test.test(("apply", input_images), expected_outputs=expected)
+        test.test(("call", input_images), expected_outputs=expected)
 
     def test_moving_standardize_python(self):
         env = OpenAIGymEnv("Pong-v0")
@@ -246,7 +247,7 @@ class TestPreprocessLayers(unittest.TestCase):
         samples = [space.sample() for _ in range(100)]
         out = None
         for sample in samples:
-            out = moving_standardize._graph_fn_apply(sample)
+            out = moving_standardize._graph_fn_call(sample)
 
         # Assert shape remains intact.
         expected_shape = (1, ) + space.shape

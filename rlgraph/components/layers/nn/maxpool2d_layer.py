@@ -56,7 +56,7 @@ class MaxPool2DLayer(NNLayer):
             )
 
     @rlgraph_api
-    def _graph_fn_apply(self, *inputs):
+    def _graph_fn_call(self, *inputs):
         if get_backend() == "tf":
             result = tf.nn.pool(
                 inputs[0], window_shape=self.pool_size, pooling_type="MAX", padding=self.padding.upper(),

@@ -18,19 +18,18 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import unittest
 import time
+import unittest
 
-from rlgraph import get_backend
 from rlgraph.agents import DQNAgent, ApexAgent
 from rlgraph.components import Policy, MemPrioritizedReplay
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.spaces import FloatBox, IntBox, Dict, BoolBox
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import config_from_path
-from rlgraph.utils import root_logger, softmax
 from rlgraph.tests.dummy_components import *
 from rlgraph.tests.dummy_components_with_sub_components import *
+from rlgraph.tests.test_util import config_from_path
+from rlgraph.utils import root_logger, softmax
 from rlgraph.utils.execution_util import print_call_chain
 
 
@@ -154,7 +153,7 @@ class TestPytorchBackend(unittest.TestCase):
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([0.5, 2.0])
         expected = np.array([2.5, 2.5])
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_nn_assembly_from_file(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
@@ -171,7 +170,7 @@ class TestPytorchBackend(unittest.TestCase):
 
         # Cant fetch variables here.
 
-        out = test.test(("apply", input_), decimals=5)
+        out = test.test(("call", input_), decimals=5)
         print(out)
 
     def test_policy_for_discrete_action_space(self):

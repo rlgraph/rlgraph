@@ -18,24 +18,25 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+
 import tensorflow as tf
 
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils import RLGraphError
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.container_merger import ContainerMerger
-from rlgraph.components.common.container_splitter import ContainerSplitter
+from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
-from rlgraph.components.common.environment_stepper import EnvironmentStepper
+from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.preprocessing.transpose import Transpose
-from rlgraph.components.neural_networks.actor_component import ActorComponent
-from rlgraph.components.policies.dynamic_batching_policy import DynamicBatchingPolicy
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
 from rlgraph.components.memories.fifo_queue import FIFOQueue
 from rlgraph.components.memories.queue_runner import QueueRunner
+from rlgraph.components.neural_networks.actor_component import ActorComponent
+from rlgraph.components.policies.dynamic_batching_policy import DynamicBatchingPolicy
 from rlgraph.spaces import FloatBox, Dict, Tuple
+from rlgraph.utils import RLGraphError
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import default_dict
 
 
@@ -444,13 +445,13 @@ class IMPALAAgent(Agent):
             # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing)
-            states = transposer.apply(states)
-            terminals = transposer.apply(terminals)
-            action_probs_mu = transposer.apply(action_probs_mu)
+            states = transposer.call(states)
+            terminals = transposer.call(terminals)
+            action_probs_mu = transposer.call(action_probs_mu)
             if self.feed_previous_action_through_nn is False:
-                actions = transposer.apply(actions)
+                actions = transposer.call(actions)
             if self.feed_previous_reward_through_nn is False:
-                rewards = transposer.apply(rewards)
+                rewards = transposer.call(rewards)
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).
@@ -715,15 +716,15 @@ class SingleIMPALAAgent(IMPALAAgent):
             # Flip everything to time-major.
             # TODO: Create components that are less input-space sensitive (those that have no variables should
             # TODO: be reused for any kind of processing: already done, use space_agnostic feature. See ReShape)
-            states = agent.transposer.apply(states)
-            terminals = agent.transposer.apply(terminals)
-            action_probs_mu = agent.transposer.apply(action_probs_mu)
+            states = agent.transposer.call(states)
+            terminals = agent.transposer.call(terminals)
+            action_probs_mu = agent.transposer.call(action_probs_mu)
             actions = None
             if not self.feed_previous_action_through_nn:
-                actions = agent.transposer.apply(out["actions"])
+                actions = agent.transposer.call(out["actions"])
             rewards = None
             if not self.feed_previous_reward_through_nn:
-                rewards = agent.transposer.apply(out["rewards"])
+                rewards = agent.transposer.call(out["rewards"])
 
             # If we use a GPU: Put everything on staging area (adds 1 time step policy lag, but makes copying
             # data into GPU more efficient).

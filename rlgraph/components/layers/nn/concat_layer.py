@@ -78,7 +78,7 @@ class ConcatLayer(NNLayer):
             idx += 1
 
     @rlgraph_api
-    def _graph_fn_apply(self, *inputs):
+    def _graph_fn_call(self, *inputs):
         # Simple translation from dict to tuple-input.
         if self.dict_keys is not None:
             inputs = [inputs[0][key] for key in self.dict_keys]

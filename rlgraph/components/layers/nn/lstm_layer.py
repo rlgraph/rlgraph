@@ -18,12 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.spaces import Tuple
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import PyTorchVariable
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
@@ -69,7 +68,7 @@ class LSTMLayer(NNLayer):
             #dtype (str): The dtype of this LSTM. Default: "float".
         """
         super(LSTMLayer, self).__init__(
-            graph_fn_num_outputs=dict(_graph_fn_apply=2),  # LSTMs: unrolled output, final c_state, final h_state
+            graph_fn_num_outputs=dict(_graph_fn_call=2),  # LSTMs return: unrolled output, (final c_state & h_state)
             scope=kwargs.pop("scope", "lstm-layer"), activation=kwargs.pop("activation", "tanh"), **kwargs
         )
 
@@ -146,14 +145,7 @@ class LSTMLayer(NNLayer):
             self.register_variables(PyTorchVariable(name=self.global_scope, ref=self.lstm))
 
     @rlgraph_api
-    def apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
-        output, last_internal_states = self._graph_fn_apply(
-            inputs, initial_c_and_h_states=initial_c_and_h_states, sequence_length=sequence_length
-        )
-        return dict(output=output, last_internal_states=last_internal_states)
-
-    @graph_fn
-    def _graph_fn_apply(self, inputs, initial_c_and_h_states=None, sequence_length=None):
+    def _graph_fn_call(self, inputs, initial_c_and_h_states=None, sequence_length=None):
         """
         Args:
             inputs (SingleDataOp): The data to pass through the layer (batch of n items, m timesteps).

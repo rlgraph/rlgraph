@@ -18,10 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.components.component import Component
-from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.components.common.container_splitter import ContainerSplitter
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
+from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
+from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.tests.dummy_components import DummyWithVar, SimpleDummyWithVar, DummyCallingOneAPIFromWithinOther
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
@@ -50,17 +50,17 @@ class DummyWithSubComponents(Component):
         # Explicit definition of an API-method using one of our graph_fn and one of
         # our child API-methods.
         result = self.sub_comp.run_plus(input_)
-        result2 = self._graph_fn_apply(result)
+        result2 = self._graph_fn_call(result)
         return result, result2
 
     @rlgraph_api
     def run2(self, input_):
         result1 = self.sub_comp.run_minus(input_)
-        result3 = self._graph_fn_apply(result1)
+        result3 = self._graph_fn_call(result1)
         return result3
 
     @graph_fn(returns=1)
-    def _graph_fn_apply(self, input_):
+    def _graph_fn_call(self, input_):
         return input_ + self.constant_value
 
 
@@ -86,16 +86,16 @@ class DummyNNWithDictInput(NeuralNetwork):
         self.add_components(self.splitter, self.stack_a, self.stack_b, self.concat_layer)
 
     @rlgraph_api
-    def apply(self, input_dict):
+    def call(self, input_dict):
         # Split the input dict into two streams.
         input_a, input_b = self.splitter.split(input_dict)
 
         # Get the two stack outputs.
-        output_a = self.stack_a.apply(input_a)
-        output_b = self.stack_b.apply(input_b)
+        output_a = self.stack_a.call(input_a)
+        output_b = self.stack_b.call(input_b)
 
         # Concat everything together, that's the output.
-        concatenated_data = self.concat_layer.apply(output_a, output_b)
+        concatenated_data = self.concat_layer.call(output_a, output_b)
 
         return dict(output=concatenated_data)
 
@@ -125,11 +125,11 @@ class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
     def run(self, input_):
         # Returns 2*input_ + 10.0.
         sub_comp_result = self.sub_comp.run(input_)  # input_ + 3.0
-        self_result = self._graph_fn_apply(sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
+        self_result = self._graph_fn_call(sub_comp_result)  # 2*(input_ + 3.0) + 4.0 = 2*input_ + 10.0
         return self_result
 
     @graph_fn(returns=1)
-    def _graph_fn_apply(self, input_):
+    def _graph_fn_call(self, input_):
         # Returns: input_ + [(input_ + 1.0) + 3.0] = 2*input_ + 4.0
         intermediate_result = input_ + self.constant_value
         after_api_call = self.sub_comp.run(intermediate_result)

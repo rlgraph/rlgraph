@@ -41,7 +41,7 @@ class TestNNLayer(unittest.TestCase):
         test = ComponentTest(component=dummy_layer, input_spaces=dict(inputs=space))
 
         input_ = space.sample(size=5)
-        test.test(("apply", input_), expected_outputs=input_)
+        test.test(("call", input_), expected_outputs=input_)
 
     def test_activation_functions(self):
         # Test single activation functions (no other custom computations in layer).
@@ -53,12 +53,12 @@ class TestNNLayer(unittest.TestCase):
 
         input_ = space.sample(size=5)
         expected = relu(input_)
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
         # Again manually in case util numpy-relu is broken.
         input_ = np.array([[1.0, 2.0, -5.0], [-10.0, -100.1, 4.5]])
         expected = np.array([[1.0, 2.0, 0.0], [0.0, 0.0, 4.5]])
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
         # Sigmoid.
         sigmoid_layer = NNLayer(activation="sigmoid")
@@ -66,7 +66,7 @@ class TestNNLayer(unittest.TestCase):
 
         input_ = space.sample(size=10)
         expected = sigmoid(input_)
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_dense_layer(self):
         # Space must contain batch dimension (otherwise, NNLayer will complain).
@@ -79,7 +79,7 @@ class TestNNLayer(unittest.TestCase):
         # Batch of size=1 (can increase this to any larger number).
         input_ = np.array([[0.5, 2.0]])
         expected = np.array([[2.5, 2.5]])
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_dense_layer_with_leaky_relu_activation(self):
         input_space = FloatBox(shape=(3,), add_batch_rank=True)
@@ -91,7 +91,7 @@ class TestNNLayer(unittest.TestCase):
         input_ = np.array([[0.5, 2.0, 1.5], [-1.0, -2.0, -1.5]])
         expected = np.array([[8.5, 8.5, 8.5, 8.5], [-8.5*0.2, -8.5*0.2, -8.5*0.2, -8.5*0.2]],
                             dtype=np.float32)  # 0.2=leaky-relu
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_conv2d_layer(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
@@ -110,7 +110,7 @@ class TestNNLayer(unittest.TestCase):
         expected = np.array([[[[39.0, 39.0, 39.0, 39.0]]],  # output 1 (1x1x4)
                              [[[3.9, 3.9, 3.9, 3.9]]],  # output 2 (1x1x4)
                              ])
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_maxpool2d_layer(self):
         space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
@@ -128,7 +128,7 @@ class TestNNLayer(unittest.TestCase):
         item1_ch1 = max(input_[1][0][0][1], input_[1][0][1][1], input_[1][1][0][1], input_[1][1][1][1])
         item1_ch2 = max(input_[1][0][0][2], input_[1][0][1][2], input_[1][1][0][2], input_[1][1][1][2])
         expected = np.array([[[[item0_ch0, item0_ch1, item0_ch2]]], [[[item1_ch0, item1_ch1, item1_ch2]]]])
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_local_response_normalization_layer(self):
         space = FloatBox(shape=(2, 2, 3), add_batch_rank=True)  # e.g. a simple 3-color image
@@ -151,7 +151,7 @@ class TestNNLayer(unittest.TestCase):
         calculated = input_ / (bias + alpha * np.square(input_)) ** beta
 
         expected = np.array(calculated)
-        test.test(("apply", input_), expected_outputs=expected)
+        test.test(("call", input_), expected_outputs=expected)
 
     def test_concat_layer(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
@@ -169,7 +169,7 @@ class TestNNLayer(unittest.TestCase):
             np.array([[[1.2, 2.2], [3.2, 4.2]], [[1.3, 2.3], [3.3, 4.3]]], dtype=np.float32)
         )
         expected = np.concatenate((inputs[0], inputs[1], inputs[2]), axis=-1)
-        test.test(("apply", inputs), expected_outputs=expected)
+        test.test(("call", inputs), expected_outputs=expected)
 
     def test_concat_layer_with_dict_input(self):
         # Spaces must contain batch dimension (otherwise, NNlayer will complain).
@@ -185,7 +185,7 @@ class TestNNLayer(unittest.TestCase):
         # Batch of n samples to concatenate.
         inputs = input_space.sample(4)
         expected = np.concatenate((inputs["c"], inputs["a"], inputs["b"]), axis=-1)
-        test.test(("apply", tuple([inputs])), expected_outputs=expected)
+        test.test(("call", tuple([inputs])), expected_outputs=expected)
 
     def test_residual_layer(self):
         # Input space to residual layer (with 2-repeat [simple Conv2D layer]-residual-unit).
@@ -213,7 +213,7 @@ class TestNNLayer(unittest.TestCase):
         conv2d_1 = np.tile(np.sum(inputs, axis=3, keepdims=True) * 0.5 + 1.0, (1, 1, 1, 3))
         conv2d_2 = np.tile(np.sum(conv2d_1, axis=3, keepdims=True) * 0.5 + 1.0, (1, 1, 1, 3))
         expected = conv2d_2 + inputs
-        test.test(("apply", inputs), expected_outputs=expected, decimals=5)
+        test.test(("call", inputs), expected_outputs=expected, decimals=5)
 
     def test_lstm_layer(self):
         # 0th rank=batch-rank; 1st rank=time/sequence-rank; 2nd-nth rank=data.
@@ -235,4 +235,4 @@ class TestNNLayer(unittest.TestCase):
         expected_outputs, expected_internal_states = lstm_layer(inputs, lstm_matrix, lstm_biases, time_major=False)
 
         expected = dict(output=expected_outputs, last_internal_states=expected_internal_states)
-        test.test(("apply", inputs), expected_outputs=expected)
+        test.test(("call", inputs), expected_outputs=expected)

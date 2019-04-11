@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+
 import numpy as np
 from six.moves import xrange as range_
 
@@ -42,11 +43,11 @@ class TestComponentCopy(unittest.TestCase):
 
         @rlgraph_api(component=container)
         def flatten1(self, input_):
-            return self.sub_components["A"].apply(input_)
+            return self.sub_components["A"].call(input_)
 
         @rlgraph_api(component=container)
         def flatten2(self, input_):
-            return self.sub_components["B"].apply(input_)
+            return self.sub_components["B"].call(input_)
 
         test = ComponentTest(component=container, input_spaces=dict(input_=space))
 

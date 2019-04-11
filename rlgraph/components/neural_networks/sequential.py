@@ -30,12 +30,12 @@ if get_backend() == "pytorch":
 
 class Sequential(Stack):
     """
-    A Sequential is a Stack, in which the `apply` method is defined either by custom-API-method OR by connecting
-    through all sub-Components' `apply` methods.
+    A Sequential is a Stack, in which the `call` method is defined either by custom-API-method OR by connecting
+    through all sub-Components' `call` methods.
     In both cases, a dict should be returned with at least the `output` key set. Possible further keys could
     be `last_internal_states` for RNN-based NNs and other keys.
 
-    No other API methods other than `apply` should be defined/used.
+    No other API methods other than `call` should be defined/used.
 
     A NeuralNetwork Component correctly handles
     """
@@ -51,10 +51,10 @@ class Sequential(Stack):
                 *layers.
 
             fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the apply method.
-                Only for auto-generated `apply` method. Default: None.
+                Only for auto-generated `call` method. Default: None.
 
             unfold_time_rank (bool): Whether to overwrite the `unfold_time_rank` option for the apply method.
-                Only for auto-generated `apply` method. Default: None.
+                Only for auto-generated `call` method. Default: None.
         """
         # In case layers come in via a spec dict -> push it into *layers.
         layers_args = kwargs.pop("layers", layers)
@@ -63,19 +63,19 @@ class Sequential(Stack):
 
         # Force the only API-method to be `call`. No matter whether custom-API or auto-generated (via Stack).
         self.custom_api_given = True
-        if not hasattr(self, "apply"):
-            # Automatically create the `apply` stack.
+        if not hasattr(self, "call"):
+            # Automatically create the `call` stack.
             if "api_methods" not in kwargs:
-                kwargs["api_methods"] = [dict(api="apply_shadowed_", component_api="apply")]
+                kwargs["api_methods"] = [dict(api="apply_shadowed_", component_api="call")]
                 self.custom_api_given = False
-            # Sanity check `api_method` to contain only specifications on `apply`.
+            # Sanity check `api_method` to contain only specifications on `call`.
             else:
                 assert len(kwargs["api_methods"]) == 1, \
                     "ERROR: Only 0 or 1 given API-methods are allowed in NeuralNetwork ctor! You provided " \
                     "'{}'.".format(kwargs["api_methods"])
-                # Make sure the only allowed api_method is `apply`.
-                assert next(iter(kwargs["api_methods"]))[0] == "apply", \
-                    "ERROR: NeuralNetwork's custom API-method must be called `apply`! You named it '{}'.". \
+                # Make sure the only allowed api_method is `call`.
+                assert next(iter(kwargs["api_methods"]))[0] == "call", \
+                    "ERROR: NeuralNetwork's custom API-method must be called `call`! You named it '{}'.". \
                     format(next(iter(kwargs["api_methods"]))[0])
 
             # Follow given options.
@@ -103,7 +103,7 @@ class Sequential(Stack):
         # Auto apply-API -> Handle LSTMs correctly.
         elif self.custom_api_given is False:
             @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
-            def apply(self_, nn_input, *nn_inputs, **kwargs):
+            def call(self_, nn_input, *nn_inputs, **kwargs):
                 inputs = [nn_input] + list(nn_inputs)
                 original_input = inputs[0]
 
@@ -111,7 +111,7 @@ class Sequential(Stack):
                 fold_status = "unfolded" if self.has_rnn() else None
                 # Fold time rank? For now only support 1st arg folding/unfolding.
                 if fold_time_rank is True:
-                    args_ = tuple([self.folder.apply(original_input)] + list(inputs[1:]))
+                    args_ = tuple([self.folder.call(original_input)] + list(inputs[1:]))
                     fold_status = "folded"
                 else:
                     # TODO: If only unfolding: Assume for now that 2nd input is the original one (so we can infer
@@ -140,7 +140,7 @@ class Sequential(Stack):
                         args_, kwargs_ = self._fold(*args_, **kwargs_)
                         fold_status = "folded"
 
-                    results = sub_component.apply(*args_, **kwargs_)
+                    results = sub_component.call(*args_, **kwargs_)
 
                     # Recycle args_, kwargs_ for reuse in next sub-Component's API-method call.
                     if isinstance(results, dict):
@@ -169,11 +169,11 @@ class Sequential(Stack):
             assert len(kwargs_) == 1, \
                 "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
             key = next(iter(kwargs_))
-            kwargs_ = {key: self.unfolder.apply(kwargs_[key], original_input)}
+            kwargs_ = {key: self.unfolder.call(kwargs_[key], original_input)}
         else:
             assert len(args_) == 1, \
                 "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
-            args_ = (self.unfolder.apply(args_[0], original_input),)
+            args_ = (self.unfolder.call(args_[0], original_input),)
         return args_, kwargs_
 
     def _fold(self, *args_, **kwargs_):
@@ -181,9 +181,9 @@ class Sequential(Stack):
             assert len(kwargs_) == 1, \
                 "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
             key = next(iter(kwargs_))
-            kwargs_ = {key: self.folder.apply(kwargs_[key])}
+            kwargs_ = {key: self.folder.call(kwargs_[key])}
         else:
-            args_ = (self.folder.apply(args_[0]),)
+            args_ = (self.folder.call(args_[0]),)
         return args_, kwargs_
 
     def add_layer(self, layer_component):
@@ -195,7 +195,7 @@ class Sequential(Stack):
             layer_component (Layer): The Layer object to be added to this NN.
         """
         assert self.custom_api_given is False,\
-            "ERROR: Cannot add layer to neural network if `apply` API-method is a custom one!"
+            "ERROR: Cannot add layer to neural network if `call` API-method is a custom one!"
         assert hasattr(layer_component, self.map_api_to_sub_components_api["apply_shadowed_"]), \
             "ERROR: Layer to be added ({}) does not have an API-method called '{}'!".format(
                 layer_component.scope, self.map_api_to_sub_components_api["apply_shadowed_"]
@@ -220,7 +220,7 @@ class Sequential(Stack):
         result = self.network_obj.forward(*forward_inputs)
         # Problem: Not everything in the neural network stack is a true layer.
         for c in self.non_layer_components:
-            result = getattr(c, "apply")(*force_list(result))
+            result = getattr(c, "call")(*force_list(result))
         return result
 
     def post_define_by_run_build(self):

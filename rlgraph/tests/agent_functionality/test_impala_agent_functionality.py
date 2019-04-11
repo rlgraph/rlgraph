@@ -18,21 +18,21 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import numpy as np
 import time
 import unittest
 
+import numpy as np
+
 from rlgraph.agents.impala_agents import IMPALAAgent, SingleIMPALAAgent
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
-from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.neural_networks.impala.impala_networks import LargeIMPALANetwork
-from rlgraph.environments import Environment
+from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
 from rlgraph.spaces import *
-from rlgraph.utils.ops import DataOpTuple
 from rlgraph.tests.component_test import ComponentTest
 from rlgraph.tests.test_util import recursive_assert_almost_equal, config_from_path
 from rlgraph.utils import root_logger, default_dict
+from rlgraph.utils.ops import DataOpTuple
 
 
 class TestIMPALAAgentFunctionality(unittest.TestCase):
@@ -77,7 +77,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Send a 2x3 sample through the network (2=sequence-length (time-rank), 3=batch-size).
         sample_input = self.input_space.sample(size=(2, 3))
         expected = None
-        ret = test.test(("apply", sample_input), expected_outputs=expected)
+        ret = test.test(("call", sample_input), expected_outputs=expected)
         # Check shape of outputs.
         self.assertEquals(ret["output"].shape, (2, 3, 256))
         # Check shapes of current internal_states (c and h).

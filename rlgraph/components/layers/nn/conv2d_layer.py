@@ -18,10 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.layers.nn.activation_functions import get_activation_function
+from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.initializer import Initializer
-from rlgraph.components.layers.nn.nn_layer import NNLayer
-from rlgraph.components.layers.nn.activation_functions import get_activation_function
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -132,7 +132,7 @@ class Conv2DLayer(NNLayer):
                     # Fill with zeros.
                     self.layer.bias.data.fill_(0)
             if self.activation is not None:
-                # Activation function will be used in apply.
+                # Activation function will be used in `call`.
                 self.activation_fn = get_activation_function(self.activation, *self.activation_params)
             self.register_variables(PyTorchVariable(name=self.global_scope, ref=self.layer))
 

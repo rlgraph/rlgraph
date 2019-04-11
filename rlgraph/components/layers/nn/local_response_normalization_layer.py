@@ -58,7 +58,7 @@ class LocalResponseNormalizationLayer(NNLayer):
             )
 
     @rlgraph_api
-    def _graph_fn_apply(self, *inputs):
+    def _graph_fn_call(self, *inputs):
         if get_backend() == "tf":
             result = tf.nn.local_response_normalization(
                 inputs[0], depth_radius=self.depth_radius, bias=self.bias, alpha=self.alpha, beta=self.beta

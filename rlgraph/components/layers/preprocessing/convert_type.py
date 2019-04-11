@@ -20,12 +20,12 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox, BoolBox, ContainerSpace
 from rlgraph.spaces.space_utils import get_space_from_op
-from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils import util
+from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -87,7 +87,7 @@ class ConvertType(PreprocessLayer):
         return space
 
     @rlgraph_api
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         if self.backend == "python" or get_backend() == "python":
             if isinstance(inputs, list):
                 inputs = np.asarray(inputs)

@@ -48,7 +48,7 @@ class TestTimeRankFoldingPerformance(unittest.TestCase):
         runs = 10
         for _ in range(runs):
             print(".", flush=True, end="")
-            test.test(("apply", inputs), expected_outputs=None)
+            test.test(("call", inputs), expected_outputs=None)
         runtime_wo_folding = time.monotonic() - start
 
         print("\nTesting large dense NN w/o time-rank folding: {}x pass through with {}-data took "
@@ -65,7 +65,7 @@ class TestTimeRankFoldingPerformance(unittest.TestCase):
         start = time.monotonic()
         for _ in range(runs):
             print(".", flush=True, end="")
-            test.test(("apply", inputs), expected_outputs=None)
+            test.test(("call", inputs), expected_outputs=None)
         runtime_w_folding = time.monotonic() - start
 
         print("\nTesting large dense NN w/ time-rank folding: {}x pass through with {}-data took "
@@ -89,7 +89,7 @@ class TestTimeRankFoldingPerformance(unittest.TestCase):
         sample_shape = (time_rank, 256)
         inputs = input_space.sample(sample_shape)
 
-        out = test.test(("apply", inputs), expected_outputs=None)["output"]
+        out = test.test(("call", inputs), expected_outputs=None)["output"]
 
         self.assertTrue(out.shape == (time_rank, 256, 7 * 7 * 64))
         self.assertTrue(out.dtype == np.float32)

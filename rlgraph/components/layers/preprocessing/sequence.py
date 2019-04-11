@@ -20,13 +20,14 @@ from __future__ import print_function
 from collections import deque
 
 import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import FlattenedDataOp, unflatten_op
 from rlgraph.utils.util import get_rank, force_list
-from six.moves import xrange as range_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -125,7 +126,7 @@ class Sequence(PreprocessLayer):
             return tf.variables_initializer([self.index])
 
     @rlgraph_api(flatten_ops=True, split_ops=False)
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         """
         Sequences (stitches) together the incoming inputs by using our buffer (with stored older records).
         Sequencing happens within the last rank if `self.add_rank` is False, otherwise a new rank is added at the end

@@ -121,9 +121,9 @@ class ActionAdapter(NeuralNetwork):
         # If we are unfolding and NOT folding -> pass original input in as well.
         if self.api_methods_options[0].get("unfold_time_rank") and \
                 not self.api_methods_options[0].get("fold_time_rank"):
-            logits_out = self.apply(nn_input, original_nn_input)
+            logits_out = self.call(nn_input, original_nn_input)
         else:
-            logits_out = self.apply(nn_input)
+            logits_out = self.call(nn_input)
         return logits_out["output"]
 
     @rlgraph_api

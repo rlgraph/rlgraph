@@ -87,7 +87,7 @@ class MovingStandardize(PreprocessLayer):
             return tf.variables_initializer([self.sample_count, self.mean_est, self.std_sum_est])
 
     @rlgraph_api
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
             # https://www.johndcook.com/blog/standard_deviation/
             inputs = np.asarray(inputs, dtype=np.float32)

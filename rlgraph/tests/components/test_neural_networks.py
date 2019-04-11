@@ -17,15 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
+
+import numpy as np
 
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.neural_networks import NeuralNetwork
 from rlgraph.spaces import FloatBox, Tuple
-from rlgraph.tests.test_util import config_from_path
 from rlgraph.tests.component_test import ComponentTest
+from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils.numpy import dense_layer, lstm_layer
 
 
@@ -52,7 +53,7 @@ class TestNeuralNetworks(unittest.TestCase):
 
         expected = dense_layer(input_, w1_value, b1_value)
 
-        test.test(("apply", input_), expected_outputs=dict(output=expected), decimals=5)
+        test.test(("call", input_), expected_outputs=dict(output=expected), decimals=5)
 
         test.terminate()
 
@@ -79,7 +80,7 @@ class TestNeuralNetworks(unittest.TestCase):
             var_dict["test-network/last-layer/dense/kernel"], var_dict["test-network/last-layer/dense/bias"]
         )
 
-        test.test(("apply", input_), expected_outputs=dict(output=expected), decimals=5)
+        test.test(("call", input_), expected_outputs=dict(output=expected), decimals=5)
 
         test.terminate()
 
@@ -112,11 +113,11 @@ class TestNeuralNetworks(unittest.TestCase):
         lstm_out, last_internal_states = lstm_layer(d0_out, lstm_w_value, lstm_b_value, time_major=False)
 
         expected = dict(output=lstm_out, last_internal_states=last_internal_states)
-        test.test(("apply", input_), expected_outputs=expected, decimals=5)
+        test.test(("call", input_), expected_outputs=expected, decimals=5)
 
         test.terminate()
 
-    def test_lstm_nn_with_custom_apply(self):
+    def test_lstm_nn_with_custom_call(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         units = 3
         batch_size = 2
@@ -125,10 +126,10 @@ class TestNeuralNetworks(unittest.TestCase):
         input_space = FloatBox(shape=(input_nodes,), add_batch_rank=True, add_time_rank=True)
         internal_states_space = Tuple(FloatBox(shape=(units,)), FloatBox(shape=(units,)), add_batch_rank=True)
 
-        def custom_apply(self, input_, internal_states=None):
-            d0_out = self.get_sub_component_by_name("d0").apply(input_)
-            lstm_out = self.get_sub_component_by_name("lstm").apply(d0_out, internal_states)
-            d1_out = self.get_sub_component_by_name("d1").apply(lstm_out["output"])
+        def custom_call(self, input_, internal_states=None):
+            d0_out = self.get_sub_component_by_name("d0").call(input_)
+            lstm_out = self.get_sub_component_by_name("lstm").call(d0_out, internal_states)
+            d1_out = self.get_sub_component_by_name("d1").call(lstm_out["output"])
             return dict(output=d1_out, last_internal_states=lstm_out["last_internal_states"])
 
         # Create a simple neural net with the above custom API-method.
@@ -136,7 +137,7 @@ class TestNeuralNetworks(unittest.TestCase):
             DenseLayer(units, scope="d0"),
             LSTMLayer(units, scope="lstm"),
             DenseLayer(units, scope="d1"),
-            api_methods={("apply", custom_apply)}
+            api_methods={("call", custom_call)}
         )
 
         # Do not seed, we calculate expectations manually.
@@ -163,7 +164,7 @@ class TestNeuralNetworks(unittest.TestCase):
         d1_out = dense_layer(lstm_out, w1_value, b1_value)
 
         expected = dict(output=d1_out, last_internal_states=last_internal_states)
-        test.test(("apply", [input_, internal_states]), expected_outputs=expected, decimals=5)
+        test.test(("call", [input_, internal_states]), expected_outputs=expected, decimals=5)
 
         test.terminate()
 

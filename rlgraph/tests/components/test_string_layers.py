@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+
 import numpy as np
 
 from rlgraph.components.layers.strings import *
@@ -58,7 +59,7 @@ class TestStringLayers(unittest.TestCase):
                 [6.0, 7.0, 8.0, 9.0, 10.0],
             ]
         ])
-        test.test(("apply", inputs), expected_outputs=expected, decimals=5)
+        test.test(("call", inputs), expected_outputs=expected, decimals=5)
 
     def test_string_to_hash_bucket_layer(self):
         # Input space: Batch of strings.
@@ -83,7 +84,7 @@ class TestStringLayers(unittest.TestCase):
             [3, 7, 5, 7, 2],  # text C D and E
         ])
         expected_lengths = np.array([2, 2, 5])
-        test.test(("apply", inputs), expected_outputs=(expected_hash_bucket, expected_lengths))
+        test.test(("call", inputs), expected_outputs=(expected_hash_bucket, expected_lengths))
 
     def test_string_to_hash_bucket_layer_with_different_ctor_params(self):
         # Input space: Batch of strings.
@@ -112,4 +113,4 @@ class TestStringLayers(unittest.TestCase):
             [13, 13, 18, 18, 18],  # bla bla D .  .  .  <- Note that "bla bla" and "D" still have the same bucket (13)
         ])
         expected_lengths = np.array([2, 2, 5, 2])
-        test.test(("apply", inputs), expected_outputs=(expected_hash_bucket, expected_lengths))
+        test.test(("call", inputs), expected_outputs=(expected_hash_bucket, expected_lengths))

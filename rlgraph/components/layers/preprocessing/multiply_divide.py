@@ -44,7 +44,7 @@ class Multiply(PreprocessLayer):
         return unflatten_op(ret)
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         """
         Multiplies the input with our factor.
 
@@ -84,7 +84,7 @@ class Divide(PreprocessLayer):
         return unflatten_op(ret)
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         """
         Divides the input by with our divisor.
 

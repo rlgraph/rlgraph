@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
+
+import numpy as np
 
 from rlgraph.components import BatchApply, DenseLayer, DictPreprocessorStack, Multiply, Divide
 from rlgraph.spaces import *
@@ -35,7 +36,7 @@ class TestBatchApply(unittest.TestCase):
 
         sub_component = DenseLayer(units=4, biases_spec=False)
 
-        batch_apply = BatchApply(sub_component=sub_component, api_method_name="apply")
+        batch_apply = BatchApply(sub_component=sub_component, api_method_name="call")
         test = ComponentTest(component=batch_apply, input_spaces=dict(input_=input_space))
         weights = test.read_variable_values(batch_apply.variable_registry["batch-apply/dense-layer/dense/kernel"])
 
@@ -45,7 +46,7 @@ class TestBatchApply(unittest.TestCase):
         expected = dense_layer(sample_folded, weights)
         expected = np.reshape(expected, newshape=(5, 10, 4))
 
-        test.test(("apply", sample), expected_outputs=expected)
+        test.test(("call", sample), expected_outputs=expected)
 
     def test_batch_apply_component_with_dict_input_space(self):
         input_space = Dict(dict(
@@ -70,5 +71,5 @@ class TestBatchApply(unittest.TestCase):
         expected_b = sample_folded_b
         expected_b = np.reshape(expected_b, newshape=(5, 10, 1, 2))
 
-        test.test(("apply", sample), expected_outputs=dict(a=expected_a, b=expected_b))
+        test.test(("call", sample), expected_outputs=dict(a=expected_a, b=expected_b))
 

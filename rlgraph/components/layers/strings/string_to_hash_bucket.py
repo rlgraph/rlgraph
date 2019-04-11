@@ -57,7 +57,7 @@ class StringToHashBucket(StringLayer):
         Keyword Args:
             hash_keys (List[int,int]): Two uint64 keys used by the "strong" hashing function.
         """
-        super(StringToHashBucket, self).__init__(scope=scope, **kwargs)
+        super(StringToHashBucket, self).__init__(graph_fn_num_outputs=dict(_graph_fn_call=2), scope=scope, **kwargs)
 
         self.delimiter = delimiter
         self.dtype = dtype
@@ -77,7 +77,7 @@ class StringToHashBucket(StringLayer):
         sanity_check_space(input_spaces["text_inputs"], must_have_batch_rank=True, must_have_time_rank=False, rank=0)
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, text_inputs):
+    def _graph_fn_call(self, text_inputs):
         """
         Args:
             text_inputs (SingleDataOp): The Text input to generate a hash bucket for.

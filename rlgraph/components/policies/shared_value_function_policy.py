@@ -56,9 +56,9 @@ class SharedValueFunctionPolicy(Policy):
         """
         nn_output = self.get_nn_output(nn_input, internal_states)
         if self.value_unfold_time_rank is True:
-            state_values = self.value_network.apply(nn_output["output"], nn_input)
+            state_values = self.value_network.call(nn_output["output"], nn_input)
         else:
-            state_values = self.value_network.apply(nn_output["output"])
+            state_values = self.value_network.call(nn_output["output"])
 
         return dict(state_values=state_values["output"], last_internal_states=nn_output.get("last_internal_states"))
 
@@ -86,9 +86,9 @@ class SharedValueFunctionPolicy(Policy):
             nn_output["output"], nn_input
         )
         if self.value_unfold_time_rank is True:
-            state_values = self.value_network.apply(nn_output["output"], nn_input)
+            state_values = self.value_network.call(nn_output["output"], nn_input)
         else:
-            state_values = self.value_network.apply(nn_output["output"])
+            state_values = self.value_network.call(nn_output["output"])
 
         return dict(state_values=state_values["output"], logits=logits, parameters=parameters, log_probs=log_probs,
                     last_internal_states=nn_output.get("last_internal_states"))
@@ -118,9 +118,9 @@ class SharedValueFunctionPolicy(Policy):
             nn_output["output"], nn_input
         )
         if self.value_unfold_time_rank is True:
-            state_values = self.value_network.apply(nn_output["output"], nn_input)
+            state_values = self.value_network.call(nn_output["output"], nn_input)
         else:
-            state_values = self.value_network.apply(nn_output["output"])
+            state_values = self.value_network.call(nn_output["output"])
 
         return dict(state_values=state_values["output"], logits=logits, probabilities=parameters,
                     parameters=parameters, log_probs=log_probs,

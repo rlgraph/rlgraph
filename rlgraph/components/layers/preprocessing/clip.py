@@ -42,7 +42,7 @@ class Clip(PreprocessLayer):
         self.max = max
 
     @rlgraph_api
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         if self.backend == "python" or get_backend() == "python":
             return np.clip(inputs, a_min=self.min, a_max=self.max)
         elif get_backend() == "tf":

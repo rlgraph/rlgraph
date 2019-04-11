@@ -31,8 +31,8 @@ class BatchApply(Component):
         self.add_components(self.sub_component, self.folder, self.unfolder)
 
     @rlgraph_api
-    def apply(self, input_):
-        folded = self.folder.apply(input_)
+    def call(self, input_):
+        folded = self.folder.call(input_)
         applied = getattr(self.sub_component, self.api_method_name)(folded)
-        unfolded = self.unfolder.apply(applied, input_before_time_rank_folding=input_)
+        unfolded = self.unfolder.call(applied, input_before_time_rank_folding=input_)
         return unfolded

@@ -144,7 +144,7 @@ class Policy(Component):
         Returns:
             any: The raw output of the neural network (before it's cleaned-up and passed through the ActionAdapter).
         """
-        out = self.neural_network.apply(nn_input, internal_states)
+        out = self.neural_network.call(nn_input, internal_states)
         return dict(output=out["output"], last_internal_states=out.get("last_internal_states"))
 
     @rlgraph_api

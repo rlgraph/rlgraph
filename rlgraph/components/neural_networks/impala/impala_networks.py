@@ -124,15 +124,15 @@ class IMPALANetwork(NeuralNetwork):
 
         tuple_splitter = ContainerSplitter(tuple_length=2, scope="tuple-splitter")
 
-        def custom_apply(self, inputs):
-            hash_bucket, lengths = self.sub_components["string-to-hash-bucket"].apply(inputs)
+        def custom_call(self, inputs):
+            hash_bucket, lengths = self.sub_components["string-to-hash-bucket"].call(inputs)
 
-            embedding_output = self.sub_components["embedding-lookup"].apply(hash_bucket)
+            embedding_output = self.sub_components["embedding-lookup"].call(hash_bucket)
 
             # Return only the last output (sentence of words, where we are not interested in intermediate results
             # where the LSTM has not seen the entire sentence yet).
             # Last output is the final internal h-state (slot 1 in the returned LSTM tuple; slot 0 is final c-state).
-            lstm_output = self.sub_components["lstm-64"].apply(embedding_output, sequence_length=lengths)
+            lstm_output = self.sub_components["lstm-64"].call(embedding_output, sequence_length=lengths)
             lstm_final_internals = lstm_output["last_internal_states"]
 
             # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
@@ -142,32 +142,32 @@ class IMPALANetwork(NeuralNetwork):
 
         text_processing_stack = Stack(
             string_to_hash_bucket, embedding, lstm64, tuple_splitter,
-            api_methods={("apply", custom_apply)}, scope="text-stack"
+            api_methods={("call", custom_call)}, scope="text-stack"
         )
 
         return text_processing_stack
 
     @rlgraph_api
-    def apply(self, input_dict, internal_states=None):
+    def call(self, input_dict, internal_states=None):
         # Split the input dict coming directly from the Env.
         _, _, _, orig_previous_reward = self.splitter.split(input_dict)
 
-        folded_input = self.time_rank_fold_before_lstm.apply(input_dict)
+        folded_input = self.time_rank_fold_before_lstm.call(input_dict)
         image, text, previous_action, previous_reward = self.splitter.split(folded_input)
 
         # Get the left-stack (image) and right-stack (text) output (see [1] for details).
-        text_processing_output = self.text_processing_stack.apply(text)
-        image_processing_output = self.image_processing_stack.apply(image)
+        text_processing_output = self.text_processing_stack.call(text)
+        image_processing_output = self.image_processing_stack.call(image)
 
         # Concat everything together.
-        concatenated_data = self.concat_layer.apply(
+        concatenated_data = self.concat_layer.call(
             image_processing_output, text_processing_output, previous_action, previous_reward
         )
 
-        unfolded_concatenated_data = self.time_rank_unfold_before_lstm.apply(concatenated_data, orig_previous_reward)
+        unfolded_concatenated_data = self.time_rank_unfold_before_lstm.call(concatenated_data, orig_previous_reward)
 
         # Feed concat'd input into main LSTM(256).
-        lstm_output = self.main_lstm.apply(unfolded_concatenated_data, internal_states)
+        lstm_output = self.main_lstm.call(unfolded_concatenated_data, internal_states)
 
         return lstm_output
 

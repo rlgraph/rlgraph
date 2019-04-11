@@ -27,7 +27,7 @@ from rlgraph.utils.decorators import rlgraph_api
 
 class NNLayer(Layer):
     """
-    A generic NN-layer object implementing the `apply` graph_fn and offering additional activation function support.
+    A generic NN-layer object implementing the `call` graph_fn and offering additional activation function support.
     Can be used in the following ways:
 
     - Thin wrapper around a backend-specific layer object (normal use case):
@@ -35,11 +35,11 @@ class NNLayer(Layer):
         the backend layer's variables with the RLgraph Component.
 
     - Custom layer (with custom computation):
-        Create necessary variables in `create_variables` (e.g. matrices), then override `_graph_fn_apply`, leaving
+        Create necessary variables in `create_variables` (e.g. matrices), then override `_graph_fn_call`, leaving
         `self.layer` as None.
 
     - Single Activation Function:
-        Leave `self.layer` as None and do not override `_graph_fn_apply`. It will then only apply the activation
+        Leave `self.layer` as None and do not override `_graph_fn_call`. It will then only apply the activation
         function.
     """
     def __init__(self, **kwargs):
@@ -89,7 +89,7 @@ class NNLayer(Layer):
                     idx += 1
 
     @rlgraph_api
-    def _graph_fn_apply(self, *inputs):
+    def _graph_fn_call(self, *inputs):
         """
         The actual calculation on one or more input Ops.
 
@@ -117,7 +117,7 @@ class NNLayer(Layer):
         # `self.layer` already includes activation function details.
         else:
             if get_backend() == "tf":
-                output = self.layer.apply(*inputs)
+                output = self.layer.call(*inputs)
                 # Add batch-/time-rank flags.
                 output._batch_rank = 0 if self.time_major is False else 1
                 if self.in_space_0 and self.in_space_0.has_time_rank:

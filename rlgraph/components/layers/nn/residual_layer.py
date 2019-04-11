@@ -31,7 +31,7 @@ class ResidualLayer(NNLayer):
     (https://arxiv.org/pdf/1603.05027.pdf)
 
     API:
-        apply(input\_) ->
+        call(input\_) ->
     """
     def __init__(self, residual_unit, repeats=2, scope="residual-layer", **kwargs):
         """
@@ -53,7 +53,7 @@ class ResidualLayer(NNLayer):
         self.add_components(*self.residual_units)
 
     @rlgraph_api
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         """
         Args:
             inputs (SingleDataOp): The flattened inputs to this layer.
@@ -66,7 +66,7 @@ class ResidualLayer(NNLayer):
             results = inputs
             # Apply the residual unit n times to the input.
             for i in range(self.repeats):
-                results = self.residual_units[i].apply(results)
+                results = self.residual_units[i].call(results)
 
             # Then activate and add up.
             result = results + inputs

@@ -36,10 +36,10 @@ class ContainerMerger(Component):
                 order they will be passed into the `merge` API-method in the returned merged Dict.
                 Or the number of items in the Tuple to be merged.
                 Example:
-                dict_keys = ["A", "B"]
+                input_names_or_num_items = ["A", "B"]
                 - merge(Dict(c=1, d=2), Tuple(3, 4))
                 - returned value: Dict(A=Dict(c=1, d=2), B=Tuple(3, 4))
-                dict_keys = [3]: 3 items will be merged into a Tuple.
+                input_names_or_num_items = 3: 3 items will be merged into a Tuple.
         """
         super(ContainerMerger, self).__init__(scope=kwargs.pop("scope", "container-merger"), **kwargs)
 

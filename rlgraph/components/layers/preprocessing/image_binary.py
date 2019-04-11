@@ -49,7 +49,7 @@ class ImageBinary(PreprocessLayer):
         self.last_rank = in_space.shape[-1]
 
     @rlgraph_api
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         """
         Converts the images into binary images by replacing all non-black (at least one channel value is not 0.0)
         to 1.0 and leaves all black pixels (all channel values 0.0) as-is.

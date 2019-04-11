@@ -75,7 +75,7 @@ class ImageResize(PreprocessLayer):
         #backend = self.backend
         #self.backend = "python"
         #sample = space.sample(size=1)
-        #out = self._graph_fn_apply(sample)
+        #out = self._graph_fn_call(sample)
         #new_space = get_space_from_op(out)
         #self.backend = backend
         #return new_space
@@ -111,7 +111,7 @@ class ImageResize(PreprocessLayer):
         self.output_spaces = self.get_preprocessed_space(in_space)
 
     @rlgraph_api
-    def _graph_fn_apply(self, inputs):
+    def _graph_fn_call(self, inputs):
         """
         Images come in with either a batch dimension or not.
         """

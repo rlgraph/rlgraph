@@ -68,9 +68,9 @@ class Concat(PreprocessLayer):
         #        "batch/time-ranks).".format(self.in_space_0.shape, idx, input_spaces[key].shape)
         #    idx += 1
 
-    def _graph_fn_apply(self, *inputs):
+    def _graph_fn_call(self, *inputs):
         if get_backend() == "tf":
-            concat_output = self.layer.apply(force_list(inputs))
+            concat_output = self.layer.call(force_list(inputs))
             # Add batch/time-rank information.
             concat_output._batch_rank = 0 if self.time_major is False else 1
             if self.in_space_0.has_time_rank:

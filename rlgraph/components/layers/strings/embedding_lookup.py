@@ -18,11 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.util import convert_dtype
 from rlgraph.components.layers.layer import Layer
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.initializer import Initializer
+from rlgraph.utils.util import convert_dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -32,7 +32,7 @@ class EmbeddingLookup(Layer):
     """
     An embedding lookup layer.
     A matrix with num-columns = number of encoding value per vocab and num-rows = number of vocabs to encode.
-    Calling `apply` will lookup and return rows from this matrix specified via the input to `apply` as a simple
+    Calling `call` will lookup and return rows from this matrix specified via the input to `call` as a simple
     tensor of row indices.
     """
     def __init__(self, embed_dim, vocab_size, initializer_spec="truncated_normal", partition_strategy="mod",
@@ -85,7 +85,7 @@ class EmbeddingLookup(Layer):
         self.ids_space = input_spaces["ids"]
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_apply(self, ids):
+    def _graph_fn_call(self, ids):
         if get_backend() == "tf":
             embedding_lookup_output = tf.nn.embedding_lookup(
                 self.embedding_matrix, ids, partition_strategy=self.partition_strategy, max_norm=None
