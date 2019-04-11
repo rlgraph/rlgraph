@@ -23,7 +23,7 @@ from six.moves import xrange as range_
 
 from rlgraph import get_backend
 from rlgraph.utils import util, DataOpDict
-from rlgraph.utils.execution_util import define_by_run_unflatten
+from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
 from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree

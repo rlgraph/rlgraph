@@ -27,7 +27,7 @@ from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
-from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten, \
+from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten, \
     define_by_run_unpack
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \

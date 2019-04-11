@@ -29,7 +29,7 @@ from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.spaces import Space, BoolBox, IntBox
 from rlgraph.spaces.space_utils import get_default_distribution_from_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.execution_util import define_by_run_unflatten
+from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
 from rlgraph.utils.ops import FlattenedDataOp, DataOpDict, ContainerDataOp, flat_key_lookup, unflatten_op
 from rlgraph.utils.rlgraph_errors import RLGraphError
 

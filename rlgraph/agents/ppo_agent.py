@@ -26,7 +26,7 @@ from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.execution_util import define_by_run_flatten
+from rlgraph.utils.define_by_run_ops import define_by_run_flatten
 from rlgraph.utils.ops import flatten_op, DataOpDict
 from rlgraph.utils.util import strip_list
 
