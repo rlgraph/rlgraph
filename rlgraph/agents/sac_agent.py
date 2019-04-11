@@ -24,7 +24,7 @@ from rlgraph.agents import Agent
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import RLGraphError
 from rlgraph.spaces import FloatBox, BoolBox, IntBox, Dict
-from rlgraph.components import Component, Synchronizable
+from rlgraph.components import Component, Synchronizable, ValueFunction
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components import Memory, ContainerMerger, PrioritizedReplay
@@ -379,7 +379,14 @@ class SACAgent(Agent):
             update_spec (dict): Here we can have sync_interval or sync_tau (for the value network update).
         """
         value_function_spec = kwargs.pop("value_function_spec")
-        value_function_spec = dict(type="sac_value_function", network_spec=value_function_spec)
+        # If VF spec is a network spec, wrap with SAC vf type. The VF must concatenate actions and states,
+        # which can require splitting the network in the case of e.g. conv-inputs.
+        if isinstance(value_function_spec, list):
+            value_function_spec = dict(type="sac_value_function", network_spec=value_function_spec)
+            self.logger.info("Using default SAC value function.")
+        elif isinstance(value_function_spec, ValueFunction):
+            self.logger.info("Using value function object {}".format(ValueFunction))
+
         super(SACAgent, self).__init__(
             # Continuous action space: Use squashed normal.
             # Discrete: Gumbel-softmax.
