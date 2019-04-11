@@ -70,7 +70,7 @@ class Agent(Specifiable):
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
 
-            value_function_optimizer_spec (dict): Optimizer config for value function otpimizer. If None, the optimizer
+            value_function_optimizer_spec (dict): Optimizer config for value function optimizer. If None, the optimizer
                 spec for the policy is used (same learning rate and optimizer type).
 
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
@@ -123,7 +123,7 @@ class Agent(Specifiable):
             self.logger.info("No preprocessing required.")
 
         # Construct the Policy network.
-        policy_spec = policy_spec or dict()
+        policy_spec = policy_spec or {}
         if "network_spec" not in policy_spec:
             policy_spec["network_spec"] = network_spec
         if "action_space" not in policy_spec:
