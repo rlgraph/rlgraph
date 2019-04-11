@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space, get_space_from_op
 from rlgraph.utils import pytorch_one_hot

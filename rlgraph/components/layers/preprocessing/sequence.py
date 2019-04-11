@@ -23,7 +23,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
-from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import FlattenedDataOp, unflatten_op

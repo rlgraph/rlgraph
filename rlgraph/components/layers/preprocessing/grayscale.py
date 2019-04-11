@@ -22,7 +22,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
-from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import flatten_op, unflatten_op
 from rlgraph.utils.util import get_rank, get_shape, convert_dtype as dtype_

@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.spaces import Dict, Tuple
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.rlgraph_errors import RLGraphError

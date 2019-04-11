@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.spaces import IntBox, FloatBox, BoolBox, ContainerSpace
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import util

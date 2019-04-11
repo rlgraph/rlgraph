@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.layers.preprocessing import PreprocessLayer
+from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import unflatten_op
