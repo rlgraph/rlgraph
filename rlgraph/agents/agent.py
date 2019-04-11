@@ -29,7 +29,8 @@ from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
+from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec, \
+    parse_value_function_spec
 from rlgraph.utils.specifiable import Specifiable
 
 if get_backend() == "tf":
@@ -64,7 +65,8 @@ class Agent(Specifiable):
                 Space object for the Space(s) of the internal (RNN) states.
 
             policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
-            value_function_spec (list, dict): Neural network specification for baseline.
+            value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
+                of ValueFunction.
 
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
@@ -135,27 +137,14 @@ class Agent(Specifiable):
         self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # Create non-shared baseline network.
-        self.value_function = None
+        self.value_function = parse_value_function_spec(value_function_spec)
         # TODO move this to specific agents.
-        if value_function_spec is not None:
-            vf_sync = Synchronizable()
-            # VF is already instantiated.
-            if isinstance(value_function_spec, ValueFunction):
-                self.value_function = value_function_spec
-                if vf_sync.name not in self.value_function.sub_components:
-                    self.value_function.add_components(vf_sync, expose_apis="sync")
-            else:
-                if isinstance(value_function_spec, list):
-                    # Use default type if given is layer-list.
-                    value_function_spec = dict(type="value_function", network_spec=value_function_spec)
-                self.value_function = ValueFunction.from_spec(value_function_spec)
-                self.value_function.add_components(vf_sync, expose_apis="sync")
+        if self.value_function is not None:
             self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
         else:
             self.vars_merger = ContainerMerger("policy", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
-
         self.internal_states_space = Space.from_spec(internal_states_space)
 
         # An object implementing the loss function interface is only strictly needed
