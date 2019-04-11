@@ -26,7 +26,6 @@ import sys
 from rlgraph import get_backend
 from rlgraph.utils.execution_util import define_by_run_flatten
 from rlgraph.utils.rlgraph_errors import RLGraphError
-from rlgraph.components.neural_networks import ValueFunction
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -52,27 +51,6 @@ print_logging_handler = logging.StreamHandler(stream=sys.stdout)
 print_logging_handler.setFormatter(logging_formatter)
 print_logging_handler.setLevel(level=logging.INFO)
 root_logger.addHandler(print_logging_handler)
-
-
-def register_value_function(name, cls):
-    """
-    Registers a custom value function by name and type.
-
-    After registration, the custom network can be used by passing to agents
-    a value function spec with type=name.
-
-    Args:
-        name (str): Name of custom value function. Should usually correspond to the type name, e.g. if the class
-            is named MyCustomVF, the name should be my_custom_vf or similar.
-        cls (ValueFunction): Custom value function inheriting from ValueFuction.
-    """
-    if name in ValueFunction.__lookup_classes__[name]:
-        raise ValueError("Name {} is already defined in ValueFunctions. All names are: {}".format(
-            name, ValueFunction.__lookup_classes__.keys()
-        ))
-    else:
-        ValueFunction.__lookup_classes__[name] = cls
-        root_logger.info("Registered custom value function {} under name: {}".format(cls, name))
 
 
 # TODO: Consider making "to" non-optional: https://github.com/rlgraph/rlgraph/issues/34
