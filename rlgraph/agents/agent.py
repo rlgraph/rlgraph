@@ -138,11 +138,18 @@ class Agent(Specifiable):
         self.value_function = None
         # TODO move this to specific agents.
         if value_function_spec is not None:
-            if isinstance(value_function_spec, list):
-                # Use default type if given is list.
-                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
-            self.value_function = ValueFunction.from_spec(value_function_spec)
-            self.value_function.add_components(Synchronizable(), expose_apis="sync")
+            vf_sync = Synchronizable()
+            # VF is already instantiated.
+            if isinstance(value_function_spec, ValueFunction):
+                self.value_function = value_function_spec
+                if vf_sync.name not in self.value_function.sub_components:
+                    self.value_function.add_components(vf_sync, expose_apis="sync")
+            else:
+                if isinstance(value_function_spec, list):
+                    # Use default type if given is layer-list.
+                    value_function_spec = dict(type="value_function", network_spec=value_function_spec)
+                self.value_function = ValueFunction.from_spec(value_function_spec)
+                self.value_function.add_components(vf_sync, expose_apis="sync")
             self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
         else:
