@@ -381,7 +381,7 @@ class IMPALAAgent(Agent):
             # Take n steps in the environment.
             step_results = env_stepper.step()
 
-            split_output = env_output_splitter.split(step_results)
+            split_output = env_output_splitter.call(step_results)
             # Slice off the initial internal state (so the learner can re-feed-forward from that internal-state).
             initial_internal_states = internal_states_slicer.slice(split_output[-1], 0)  # -1=internal states
             to_merge = split_output[:-1] + (initial_internal_states,)
@@ -434,7 +434,7 @@ class IMPALAAgent(Agent):
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
             records = fifo_queue.get_records(self.update_spec["batch_size"])
 
-            split_record = fifo_output_splitter.split(records)
+            split_record = fifo_output_splitter.call(records)
             actions = None
             rewards = None
             if self.feed_previous_action_through_nn and self.feed_previous_reward_through_nn:
@@ -474,7 +474,7 @@ class IMPALAAgent(Agent):
 
             # Isolate actions and rewards from states.
             if self.feed_previous_action_through_nn or self.feed_previous_reward_through_nn:
-                states_split = states_dict_splitter.split(states)
+                states_split = states_dict_splitter.call(states)
                 actions = states_split[-2]
                 rewards = states_split[-1]
 
@@ -751,7 +751,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             # Isolate actions and rewards from states.
             # TODO: What if only one of actions or rewards is fed through NN, but the other not?
             if self.feed_previous_reward_through_nn and self.feed_previous_action_through_nn:
-                out = agent.states_dict_splitter.split(states)
+                out = agent.states_dict_splitter.call(states)
                 actions = out[-2]  # TODO: Are these always the correct slots for "previous_action" and "previous_reward"?
                 rewards = out[-1]
 

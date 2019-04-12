@@ -136,7 +136,7 @@ class IMPALANetwork(NeuralNetwork):
             lstm_final_internals = lstm_output["last_internal_states"]
 
             # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
-            _, lstm_final_h_state = self.sub_components["tuple-splitter"].split(lstm_final_internals)
+            _, lstm_final_h_state = self.sub_components["tuple-splitter"].call(lstm_final_internals)
 
             return lstm_final_h_state
 
@@ -150,10 +150,10 @@ class IMPALANetwork(NeuralNetwork):
     @rlgraph_api
     def call(self, input_dict, internal_states=None):
         # Split the input dict coming directly from the Env.
-        _, _, _, orig_previous_reward = self.splitter.split(input_dict)
+        _, _, _, orig_previous_reward = self.splitter.call(input_dict)
 
         folded_input = self.time_rank_fold_before_lstm.call(input_dict)
-        image, text, previous_action, previous_reward = self.splitter.split(folded_input)
+        image, text, previous_action, previous_reward = self.splitter.call(folded_input)
 
         # Get the left-stack (image) and right-stack (text) output (see [1] for details).
         text_processing_output = self.text_processing_stack.call(text)

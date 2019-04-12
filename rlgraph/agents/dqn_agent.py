@@ -200,7 +200,7 @@ class DQNAgent(Agent):
         def update_from_memory(root, apply_postprocessing):
             # Non prioritized memory will just return weight 1.0 for all samples.
             records, sample_indices, importance_weights = agent.memory.get_records(agent.update_spec["batch_size"])
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.split(records)
+            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
 
             step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights,
@@ -229,7 +229,7 @@ class DQNAgent(Agent):
                     all_vars, preprocessed_states, actions, rewards, terminals,
                     preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing
                 )
-                avg_grads_and_vars = agent.vars_splitter.split(out["avg_grads_and_vars_by_component"])
+                avg_grads_and_vars = agent.vars_splitter.call(out["avg_grads_and_vars_by_component"])
                 step_op = agent.optimizer.apply_gradients(avg_grads_and_vars)
                 # Increase the global training step counter.
                 step_op = root._graph_fn_training_step(step_op)

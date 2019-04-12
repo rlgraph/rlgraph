@@ -19,8 +19,8 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
-from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.ops import flatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -95,13 +95,13 @@ class QueueRunner(Component):
 
                 # TODO: specific for IMPALA problem: needs to be generalized.
                 if self.internal_states_slicer is not None:
-                    outs = self.env_output_splitter.split(record)
+                    outs = self.env_output_splitter.call(record)
 
                     # Assume that internal_states are the last item coming from the env-stepper.
                     initial_internal_states = self.internal_states_slicer.slice(outs[-1], 0)
                     record = self.fifo_input_merger.merge(*(outs[:-1] + (initial_internal_states,)))
                 else:
-                    terminals, states, actions, rewards, action_log_probs = self.env_output_splitter.split(record)
+                    terminals, states, actions, rewards, action_log_probs = self.env_output_splitter.call(record)
                     record = self.fifo_input_merger.merge(
                         terminals, states, actions, rewards, action_log_probs
                     )

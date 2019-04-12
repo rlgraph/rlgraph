@@ -253,7 +253,7 @@ class PPOAgent(Agent):
                             sample_states, sample_actions, sample_rewards, sample_terminals, sample_sequence_indices,
                             apply_postprocessing=apply_postprocessing
                         )
-                        avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.split(
+                        avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.call(
                             out["avg_grads_and_vars_by_component"]
                         )
                         policy_step_op = agent.optimizer.apply_gradients(avg_grads_and_vars_policy)

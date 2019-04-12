@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, RingBuffer, ValueFunction, Optimizer
+from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, RingBuffer
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
@@ -149,7 +149,7 @@ class ActorCriticAgent(Agent):
                 records = agent.memory.get_episodes(agent.update_spec["batch_size"])
             else:
                 records = agent.memory.get_records(agent.update_spec["batch_size"])
-            preprocessed_s, actions, rewards, terminals = agent.splitter.split(records)
+            preprocessed_s, actions, rewards, terminals = agent.splitter.call(records)
             sequence_indices = terminals
             return root.post_process_and_update(
                 preprocessed_s, actions, rewards, terminals, sequence_indices

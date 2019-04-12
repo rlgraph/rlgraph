@@ -48,7 +48,7 @@ class ContainerSplitter(PreprocessLayer):
         """
         super(ContainerSplitter, self).__init__(
             scope=kwargs.pop("scope", "container-splitter"),
-            graph_fn_num_outputs=dict(_graph_fn_split=kwargs.pop("tuple_length", len(output_order))),
+            graph_fn_num_outputs=dict(_graph_fn_call=kwargs.pop("tuple_length", len(output_order))),
             **kwargs
         )
         self.output_order = output_order
@@ -59,7 +59,7 @@ class ContainerSplitter(PreprocessLayer):
             @rlgraph_api(component=self)
             def split_into_dict(self, inputs):
                 """
-                Same as `split`, but returns a dict with keys.
+                Same as `call`, but returns a dict with keys.
 
                 Args:
                     inputs ():
@@ -111,7 +111,7 @@ class ContainerSplitter(PreprocessLayer):
         self.type = type(in_space)
 
     @rlgraph_api
-    def _graph_fn_split(self, inputs):
+    def _graph_fn_call(self, inputs):
         """
         Splits the inputs at 0th level into the Spaces at that level (may still be ContainerSpaces in returned
         values).

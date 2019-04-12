@@ -211,7 +211,7 @@ class DQFDAgent(Agent):
         def update_from_memory(root, apply_demo_loss, expert_margins):
             # Sample from online memory.
             records, sample_indices, importance_weights = agent.memory.get_records(self.batch_size)
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.split(records)
+            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
 
             # Do not apply demo loss to online experience.
             online_step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
@@ -231,7 +231,7 @@ class DQFDAgent(Agent):
         def update_from_demos(root, demo_batch_size, apply_demo_loss, expert_margins):
             # Sample from demo memory.
             records, sample_indices, importance_weights = agent.demo_memory.get_records(demo_batch_size)
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.split(records)
+            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
             step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss,
                 expert_margins

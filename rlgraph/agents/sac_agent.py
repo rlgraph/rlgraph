@@ -21,16 +21,15 @@ import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.agents import Agent
+from rlgraph.components import Component, Synchronizable
+from rlgraph.components import Memory, ContainerMerger, PrioritizedReplay
+from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
+from rlgraph.spaces import FloatBox, BoolBox, IntBox, Dict
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import RLGraphError
-from rlgraph.spaces import FloatBox, BoolBox, IntBox, Dict
-from rlgraph.components import Component, Synchronizable
-from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.components import Memory, ContainerMerger, PrioritizedReplay
-from rlgraph.utils.util import strip_list
 from rlgraph.utils.ops import flatten_op, DataOpTuple
-
+from rlgraph.utils.util import strip_list
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -128,7 +127,7 @@ class SACAgentComponent(Component):
     """ TODO: need to define the input space
     @rlgraph_api(must_be_complete=False)
     def set_q_weights(self, q_weights):
-        split_weights = self._q_vars_splitter.split(q_weights)
+        split_weights = self._q_vars_splitter.call(q_weights)
         assert len(split_weights) == len(self._q_functions)
         update_ops = [q.sync(q_weights) for q_weights, q in zip(split_weights, self._q_functions)]
         update_ops.extend([q.sync(q_weights) for q_weights, q in zip(split_weights, self._target_q_functions)])
