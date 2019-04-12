@@ -88,7 +88,7 @@ class DummyNNWithDictInput(NeuralNetwork):
     @rlgraph_api
     def call(self, input_dict):
         # Split the input dict into two streams.
-        input_a, input_b = self.splitter.split(input_dict)
+        input_a, input_b = self.splitter.call(input_dict)
 
         # Get the two stack outputs.
         output_a = self.stack_a.call(input_a)
