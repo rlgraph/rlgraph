@@ -255,9 +255,9 @@ class NeuralNetwork(Stack):
             found_all, siblings = _all_siblings_in_set(output, output_set)
             if found_all is True:
                 siblings_str = ", ".join([o.var_name for o in siblings])
-            # Nothing has changed and it's the last output in list
+            # Nothing has changed and it's the only output in list
             # Some output(s) may be dead ends (construct those as `_`).
-            elif prev_output_set == output_set:
+            elif prev_output_set == output_set or (prev_output_set is None and len(output_set) == 1):
                 indices = [s.output_slot for s in siblings]
                 siblings_str = ""
                 for i in range(output.num_outputs):
