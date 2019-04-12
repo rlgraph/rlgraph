@@ -19,6 +19,8 @@ from __future__ import print_function
 
 import unittest
 
+import numpy as np
+
 from rlgraph.components.layers.nn import DenseLayer, LSTMLayer, ConcatLayer, Conv2DLayer
 from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.layers.preprocessing.reshape import ReShape
@@ -97,7 +99,7 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
             "txt": TextBox()  # some text
         }, add_batch_rank=True, add_time_rank=True)
 
-        img, txt = ContainerSplitter("img", "txt")()
+        img, txt = ContainerSplitter("img", "txt")(input_space)
         # Complex NN assembly via our Keras-style functional API.
         # Fold text input into single batch rank.
         folded_text = ReShape(fold_time_rank=True)(txt)
@@ -110,12 +112,14 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
             embedding_out, sequence_length=lengths
         )
         # Unfold to get original time-rank back.
-        # TODO: Let NN handle orig. input passing for unfolding into this layer.
-        string_lstm_out_unfolded = ReShape(unfold_time_rank=True)(string_lstm_out)
+        string_lstm_out_unfolded = ReShape(unfold_time_rank=True)(string_lstm_out, txt)
 
         # Parallel image stream via 1 CNN layer plus dense.
-        cnn_out = Conv2DLayer(filters=1, kernel_size=2, strides=2)(img)
-        dense_out = DenseLayer(units=2, scope="dense-0")(cnn_out)
+        folded_img = ReShape(fold_time_rank=True, scope="img-fold")(img)
+        cnn_out = Conv2DLayer(filters=1, kernel_size=2, strides=2)(folded_img)
+        unfolded_cnn_out = ReShape(unfold_time_rank=True, scope="img-unfold")(cnn_out, img)
+        unfolded_cnn_out_flattened = ReShape(flatten=True, scope="img-flat")(unfolded_cnn_out)
+        dense_out = DenseLayer(units=2, scope="dense-0")(unfolded_cnn_out_flattened)
 
         # Concat everything.
         concat_out = ConcatLayer()(string_lstm_out_unfolded, dense_out)
@@ -128,21 +132,25 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
         dense3_after_lstm_out = DenseLayer(units=1, scope="dense-3")(dense2_after_lstm_out)
 
         # A NN with 2 outputs.
-        neural_net = NeuralNetwork(outputs=[dense3_after_lstm_out, main_lstm_out, internal_states], inputs=input_space)
+        neural_net = NeuralNetwork(outputs=[dense3_after_lstm_out, main_lstm_out, internal_states])
 
         test = ComponentTest(component=neural_net, input_spaces=dict(inputs=input_space))
 
         # Batch of size=n.
-        input_ = input_space.sample((4, 2))
-        # Calculate output manually.
-        var_dict = neural_net.variable_registry
-        w1_value = test.read_variable_values(var_dict["neural-network/a/dense/kernel"])
-        b1_value = test.read_variable_values(var_dict["neural-network/a/dense/bias"])
-        w2_value = test.read_variable_values(var_dict["neural-network/b/dense/kernel"])
-        b2_value = test.read_variable_values(var_dict["neural-network/b/dense/bias"])
+        sample_shape = (4, 2)
+        input_ = input_space.sample(sample_shape)
 
-        expected = relu(dense_layer(dense_layer(input_, w1_value, b1_value), w2_value, b2_value))
-
-        test.test(("call", input_), expected_outputs=dict(output=expected), decimals=5)
+        out = test.test(("call", input_), expected_outputs=None)
+        # Main output (Dense out after LSTM).
+        self.assertTrue(out[0].shape == sample_shape + (1,))  # 1=1 unit in dense layer
+        self.assertTrue(out[0].dtype == np.float32)
+        # main-LSTM out.
+        self.assertTrue(out[1].shape == sample_shape + (2,))  # 2=2 LSTM units
+        self.assertTrue(out[1].dtype == np.float32)
+        # main-LSTM internal-states.
+        self.assertTrue(out[2][0].shape == sample_shape[:1] + (2,))  # 2=2 LSTM units
+        self.assertTrue(out[2][0].dtype == np.float32)
+        self.assertTrue(out[2][1].shape == sample_shape[:1] + (2,))  # 2=2 LSTM units
+        self.assertTrue(out[2][1].dtype == np.float32)
 
         test.terminate()

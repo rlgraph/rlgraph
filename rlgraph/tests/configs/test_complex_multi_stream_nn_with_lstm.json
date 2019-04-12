@@ -1,0 +1,117 @@
+{
+  "scope": "test-network",
+  "input_space": {
+    "type": "dict",
+    "img": {
+      "type": "float-box",
+      "shape": [6, 6, 3]
+    },
+    "txt": {
+      "type": "text-box"
+    },
+    "add_batch_rank": true,
+    "add_time_rank": true
+  },
+  "call": [
+    {
+      "type": "container-splitter",
+      "output_order": ["img", "txt"],
+      "call_output_vars": ["img", "txt"]
+    },
+    {
+      "type": "reshape",
+      "fold_time_rank": true,
+      "call_input_vars": ["txt"],
+      "call_output_vars": ["folded_text"]
+    },
+    {
+      "type": "string-to-hash-bucket",
+      "num_hash_buckets": 5,
+      "call_input_vars": ["folded_text"],
+      "call_output_vars": ["string_bucket_out"]
+    },
+    {
+      "type": "embedding-lookup",
+      "embed_dim": 10,
+      "vocab_size": 5,
+      "call_input_vars": ["string_bucket_out"],
+      "call_output_vars": ["embedding_out"]
+    },
+    {
+      "type": "lstm-layer",
+      "units": 2,
+      "return_sequences": false,
+      "scope": "lstm-layer-txt",
+      "call_input_vars": ["embedding_out", {"sequence_length": "lengths"}],
+      "call_output_vars": ["string_lstm_out", "_"]
+    },
+    {
+      "type": "reshape",
+      "unfold_time_rank": true,
+      "call_input_vars": ["string_lstm_out", "txt"],
+      "call_output_vars": ["string_lstm_out_unfolded"]
+    },
+    {
+      "type": "reshape",
+      "fold_time_rank": true,
+      "scope": "img-fold",
+      "call_input_vars": ["img"],
+      "call_output_vars": ["folded_img"]
+    },
+    {
+      "type": "conv2d-layer",
+      "filters": 1,
+      "kernel_size": 2,
+      "strides": 2,
+      "call_input_vars": ["folded_img"],
+      "call_output_vars": ["cnn_out"]
+    },
+    {
+      "type": "reshape",
+      "unfold_time_rank": true,
+      "scope": "img-unfold",
+      "call_input_vars": ["cnn_out", "img"],
+      "call_output_vars": ["unfolded_cnn_out"]
+    },
+    {
+      "type": "dense-layer",
+      "units": 2,
+      "scope": "dense-0",
+      "call_input_vars": ["unfolded_cnn_out"],
+      "call_output_vars": ["dense_out"]
+    },
+    {
+      "type": "concat-layer",
+      "call_input_vars": ["string_lstm_out_unfolded", "dense_out"],
+      "call_output_vars": ["concat_out"]
+    },
+    {
+      "type": "lstm-layer",
+      "units": 2,
+      "scope": "main-lstm-layer",
+      "call_input_vars": ["concat_out"],
+      "call_output_vars": ["main_lstm_out", "internal_states"]
+    },
+    {
+      "type": "dense",
+      "units": 3,
+      "scope": "dense-1",
+      "call_input_vars": ["main_lstm_out"],
+      "call_output_vars": ["dense1_after_lstm_out"]
+    },
+    {
+      "type": "dense",
+      "units": 2,
+      "scope": "dense-2",
+      "call_input_vars": ["dense1_after_lstm_out"],
+      "call_output_vars": ["dense2_after_lstm_out"]
+    },
+    {
+      "type": "dense",
+      "units": 1,
+      "scope": "dense-3",
+      "call_input_vars": ["dense2_after_lstm_out"],
+      "call_output_vars": ["dense3_after_lstm_out"]
+    }
+  ]
+}
