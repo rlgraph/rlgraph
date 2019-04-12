@@ -21,7 +21,6 @@ from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.neural_networks.stack import Stack
-from rlgraph.spaces.space import Space
 from rlgraph.utils import force_tuple, force_list
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -224,7 +223,6 @@ class NeuralNetwork(Stack):
                     add ins to set
         Write `def call(self, ...)` from given Spaces.
         """
-        apply_inputs = []
         output_set = set(layer_call_outputs)
         output_id = 0
         sub_components = set()
@@ -235,7 +233,7 @@ class NeuralNetwork(Stack):
             for o in set_:
                 if o.component == output.component:
                     siblings.append(o)
-            return len(siblings) == need_to_find, sorted(siblings)
+            return len(siblings) == need_to_find, sorted(siblings, key=lambda s: s.output_slot)
 
         # Initialize var names for final outputs.
         for out in sorted(output_set):
@@ -250,41 +248,40 @@ class NeuralNetwork(Stack):
         # Loop through all nodes.
         while len(output_set) > 0:
             output_list = list(output_set)
-            for output_idx, output in enumerate(output_list):
-                # If only one output OR all outputs are in set -> Write the call.
-                found_all, siblings = _all_siblings_in_set(output, output_set)
-                if found_all is True:
-                    siblings_str = ", ".join([o.var_name for o in siblings])
-                # Nothing has changed and it's the last output in list
-                # Some output(s) may be dead ends (construct those as `_`).
-                elif prev_output_set == output_set and output_idx == len(output_list) - 1:
-                    indices = [s.output_slot for s in siblings]
-                    siblings_str = ""
-                    for i in range(output.num_outputs):
-                        siblings_str += ", " + (siblings[indices.index(i)].var_name if i in indices else "_")
-                    siblings_str = siblings_str[2:]  # cut preceding ", "
-                else:
-                    continue
 
-                # Remove outs from set.
-                for sibling in siblings:
-                    output_set.remove(sibling)
-                # Add `ins` to set or to `apply_inputs` (if `in` is a Space).
-                for in_ in output.inputs:
-                    if isinstance(in_, Space):
-                        apply_inputs.append(in_)
-                    elif in_.var_name is None:
-                        in_.var_name = "out{}".format(output_id)
-                        output_id += 1
-                        output_set.add(in_)
+            output = next(iter(sorted(output_list)))
 
-                inputs_str = ", ".join([
-                    "inputs[{}]".format(pos) if isinstance(i, Space) else
-                    i.var_name for pos, i in enumerate(output.inputs)
-                ])
-                apply_code = "\t{} = self.get_sub_component_by_name('{}').call({})\n".format(
-                    siblings_str, output.component.scope, inputs_str) + apply_code
-                sub_components.add(output.component)
+            # If only one output OR all outputs are in set -> Write the call.
+            found_all, siblings = _all_siblings_in_set(output, output_set)
+            if found_all is True:
+                siblings_str = ", ".join([o.var_name for o in siblings])
+            # Nothing has changed and it's the last output in list
+            # Some output(s) may be dead ends (construct those as `_`).
+            elif prev_output_set == output_set:
+                indices = [s.output_slot for s in siblings]
+                siblings_str = ""
+                for i in range(output.num_outputs):
+                    siblings_str += ", " + (siblings[indices.index(i)].var_name if i in indices else "_")
+                siblings_str = siblings_str[2:]  # cut preceding ", "
+            else:
+                continue
+
+            # Remove outs from set.
+            for sibling in siblings:
+                output_set.remove(sibling)
+            # Add `ins` to set or to `apply_inputs` (if `in` is a Space).
+            for pos, in_ in enumerate(output.inputs):
+                if in_.space is not None:
+                    in_.var_name = "inputs[{}]".format(pos)
+                elif in_.var_name is None:
+                    in_.var_name = "out{}".format(output_id)
+                    output_id += 1
+                    output_set.add(in_)
+
+            inputs_str = ", ".join([k + i.var_name for i, k in zip(output.inputs, output.kwarg_strings)])
+            apply_code = "\t{} = self.get_sub_component_by_name('{}').call({})\n".format(
+                siblings_str, output.component.scope, inputs_str) + apply_code
+            sub_components.add(output.component)
 
             # Store previous state of our set.
             prev_output_set = output_set

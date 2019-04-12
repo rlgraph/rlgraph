@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
+
 from rlgraph.components.component import Component
 from rlgraph.spaces.space import Space
 from rlgraph.utils.decorators import rlgraph_api
@@ -61,10 +63,13 @@ class Layer(Component):
         Make all Layers callable for the Keras-style functional API.
 
         Args:
-            *args ():
+            *args (any): The args passed in to the layer when "called" via the Keras-style functional API.
+
+        Keyword Args:
+            **kwargs (any): The kwargs passed in to the layer when "called" via the Keras-style functional API.
 
         Returns:
-
+            List[LayerCallOutput]: n LayerCallOutput objects, where n=number of return values of `self._graph_fn_call`.
         """
         # If Spaces are given, add this information already to `self.api_method_records`.
         for i, arg in enumerate(args):
@@ -78,27 +83,76 @@ class Layer(Component):
             if isinstance(value, Space):
                 self.api_method_inputs[key] = value
 
+        inputs_list = list(args) + list(kwargs.values())
+        if len(inputs_list) > 0 and isinstance(inputs_list[0], Space):
+            inputs_list = [LayerCallOutput([], [], self, output_slot=i, num_outputs=len(inputs_list), space=s)
+                           for i, s in enumerate(inputs_list)]
+        kwarg_strings = ["" for _ in range(len(args))]+[k + "=" for k in kwargs.keys()]
+
         # Need to return as many return values as `call` returns.
         num_outputs = self.graph_fn_num_outputs.get("_graph_fn_call", 1)
         if num_outputs > 1:
-            return tuple([
-                LayerCallOutput(list(args) + list(kwargs.values()), self, output_slot=i, num_outputs=num_outputs)
+            siblings = [
+                LayerCallOutput(inputs_list, kwarg_strings, self, output_slot=i, num_outputs=num_outputs)
                 for i in range(num_outputs)
-            ])
+            ]
+            for s in siblings:
+                s.inputs_needed.extend(siblings)
+                s.inputs_needed.remove(s)
+            return tuple(siblings)
         else:
-            return LayerCallOutput(list(args) + list(kwargs.values()), self)
+            return LayerCallOutput(inputs_list, kwarg_strings, self)
 
 
 class LayerCallOutput(object):
-    def __init__(self, inputs, component, output_slot=0, num_outputs=1):
+    def __init__(self, inputs, kwarg_strings, component, output_slot=0, num_outputs=1, space=None):
+        """
+        Args:
+            inputs (list[LayerCallOutput,Space]): The inputs to the `call` method.
+            kwarg_strings (List[str]): The kwargs corresponding to each input in `inputs` (use "" for no kwarg).
+            component (Component): The Component, whose `call` method returns this output.
+            output_slot (int): The position in the return tuple of the call.
+            num_outputs (int): The over all number of return values that the call returns.
+            space(Optional[Space]): The Space this object represents iff at the input arg side of the call.
+        """
         self.inputs = inputs
+        self.inputs_needed = copy.copy(self.inputs)
+        self.kwarg_strings = kwarg_strings
         self.component = component
         self.output_slot = output_slot
         self.num_outputs = num_outputs
+        self.space = space
+
+        for i in self.inputs:
+            self.inputs_needed.extend(i.inputs_needed)
+
         self.var_name = None
 
+    #def __eq__(self, other):
+    #    if other in self.inputs_needed or self.output_slot != other.output_slot:
+    #        return False
+    #    return True
+
     def __lt__(self, other):
+        # If `self` is dependent on the `other`, put self first.
+        if other in self.inputs_needed:
+            return True
+        # Otherwise, sort by output-slot.
         return self.output_slot < other.output_slot
 
     def __gt__(self, other):
+        # If `self` is dependent on the `other`, put self first.
+        if other in self.inputs_needed:
+            return False
+        # Otherwise, sort by output-slot.
         return self.output_slot > other.output_slot
+
+    #def __le__(self, other):
+    #    if other in self.inputs_needed:
+    #        return True
+    #    return self.output_slot <= other.output_slot
+
+    #def __ge__(self, other):
+    #    if other in self.inputs_needed:
+    #        return False
+    #    return self.output_slot <= other.output_slot
