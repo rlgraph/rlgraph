@@ -21,6 +21,7 @@ from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.policies.policy import Policy
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 
 
 class SharedValueFunctionPolicy(Policy):
@@ -42,86 +43,65 @@ class SharedValueFunctionPolicy(Policy):
         self.add_components(self.value_network)
 
     @rlgraph_api
-    def get_state_values(self, nn_input, internal_states=None):
+    def get_state_values(self, nn_inputs):  # , internal_states=None
         """
         Returns the state value node's output.
 
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Dict:
                 state_values: The single (but batched) value function node output.
         """
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        if self.value_unfold_time_rank is True:
-            state_values = self.value_network.call(nn_output["output"], nn_input)
-        else:
-            state_values = self.value_network.call(nn_output["output"])
+        nn_outputs = self.get_nn_outputs(nn_inputs)
+        #if self.value_unfold_time_rank is True:
+        #    state_values = self.value_network.call(nn_outputs, nn_inputs)
+        #else:
+        state_values = self.value_network.call(nn_outputs)
 
-        return dict(state_values=state_values["output"], last_internal_states=nn_output.get("last_internal_states"))
+        return dict(state_values=state_values, nn_outputs=nn_outputs)
 
     @rlgraph_api
-    def get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
+    def get_state_values_adapter_outputs_and_parameters(self, nn_inputs):  #, internal_states=None
         """
         Similar to `get_values_logits_probabilities_log_probs`, but also returns in the return dict under key
         `state_value` the output of our state-value function node.
 
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Dict:
+                nn_outputs: The raw NN outputs.
                 state_values: The single (but batched) value function node output.
-                logits: The (reshaped) logits from the ActionAdapter.
+                adapter_outputs: The (reshaped) logits from the ActionAdapter.
                 parameters: The parameters for the distribution (gained from the softmaxed logits or interpreting
                     logits as mean and stddev for a normal distribution).
                 log_probs: The log(probabilities) values.
-                last_internal_states: The last internal states (if network is RNN-based).
         """
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        logits, parameters, log_probs = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
-            nn_output["output"], nn_input
+        nn_outputs = self.get_nn_outputs(nn_inputs)
+        adapter_outputs, parameters, log_probs = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
+        #if self.value_unfold_time_rank is True:
+        #    state_values = self.value_network.call(nn_outputs, nn_inputs)
+        #else:
+        state_values = self.value_network.call(nn_outputs)
+
+        return dict(
+            nn_outputs=nn_outputs, state_values=state_values, adapter_outputs=adapter_outputs,
+            parameters=parameters, log_probs=log_probs
         )
-        if self.value_unfold_time_rank is True:
-            state_values = self.value_network.call(nn_output["output"], nn_input)
-        else:
-            state_values = self.value_network.call(nn_output["output"])
 
-        return dict(state_values=state_values["output"], logits=logits, parameters=parameters, log_probs=log_probs,
-                    last_internal_states=nn_output.get("last_internal_states"))
-
-    @rlgraph_api
     def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-        """
-        Similar to `get_values_logits_probabilities_log_probs`, but also returns in the return dict under key
-        `state_value` the output of our state-value function node.
-
-        Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-
-        Returns:
-            Dict:
-                state_values: The single (but batched) value function node output.
-                logits: The (reshaped) logits from the ActionAdapter.
-                probabilities: The probabilities gained from the softmaxed logits.
-                log_probs: The log(probabilities) values.
-                last_internal_states: The last internal states (if network is RNN-based).
-        """
-        self.logger.warn("Deprecated API method `get_state_values_logits_probabilities_log_probs` used!"
-                         "Use `get_state_values_logits_parameters_log_probs` instead.")
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        logits, parameters, log_probs = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
-            nn_output["output"], nn_input
+        raise RLGraphObsoletedError(
+            "API-method", "get_state_values_logits_probabilities_log_probs",
+            "get_state_values_action_adapter_outputs_and_parameters"
         )
-        if self.value_unfold_time_rank is True:
-            state_values = self.value_network.call(nn_output["output"], nn_input)
-        else:
-            state_values = self.value_network.call(nn_output["output"])
 
-        return dict(state_values=state_values["output"], logits=logits, probabilities=parameters,
-                    parameters=parameters, log_probs=log_probs,
-                    last_internal_states=nn_output.get("last_internal_states"))
+    def get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
+        raise RLGraphObsoletedError(
+            "API-method", "get_state_values_logits_parameters_log_probs",
+            "get_state_values_action_adapter_outputs_and_parameters"
+        )

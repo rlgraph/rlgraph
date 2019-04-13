@@ -65,88 +65,109 @@ class DuelingPolicy(Policy):
         self.add_components(self.dense_layer_state_value_stream, self.state_value_node)
 
     @rlgraph_api
-    def get_state_values(self, nn_input, internal_states=None):
+    def get_state_values(self, nn_inputs):  #, internal_states=None):
         """
         Returns the state value node's output passing some nn-input through the policy and the state-value
         stream.
 
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Dict:
                 state_values: The single (but batched) value function node output.
         """
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        state_values_tmp = self.dense_layer_state_value_stream.call(nn_output["output"])
+        nn_outputs = self.get_nn_outputs(nn_inputs)
+        state_values_tmp = self.dense_layer_state_value_stream.call(nn_outputs)
         state_values = self.state_value_node.call(state_values_tmp)
 
-        return dict(state_values=state_values, last_internal_states=nn_output.get("last_internal_states"))
+        return dict(state_values=state_values, nn_outputs=nn_outputs)
 
     @rlgraph_api
-    def get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
+    def get_state_values_adapter_outputs_and_parameters(self, nn_inputs):
         """
         Similar to `get_values_logits_probabilities_log_probs`, but also returns in the return dict under key
         `state_value` the output of our state-value function node.
 
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Dict:
                 state_values: The single (but batched) value function node output.
-                logits: The (reshaped) logits from the ActionAdapter.
+                action_adapter_outputs: The (reshaped) logits from the ActionAdapter.
                 parameters: The parameters for the distribution (gained from the softmaxed logits or interpreting
                     logits as mean and stddev for a normal distribution).
                 log_probs: The log(probabilities) values.
                 last_internal_states: The last internal states (if network is RNN-based).
         """
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        advantages, _, _ = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
-            nn_output["output"], nn_input
-        )
-        state_values_tmp = self.dense_layer_state_value_stream.call(nn_output["output"])
+        nn_outputs = self.get_nn_outputs(nn_inputs)
+        advantages, _, _ = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
+        state_values_tmp = self.dense_layer_state_value_stream.call(nn_outputs)
         state_values = self.state_value_node.call(state_values_tmp)
 
         q_values = self._graph_fn_calculate_q_values(state_values, advantages)
 
-        parameters, log_probs = self._graph_fn_get_action_adapter_parameters_log_probs(q_values)
+        parameters, log_probs = self._graph_fn_get_parameters_from_q_values(q_values)
 
-        return dict(state_values=state_values, logits=q_values, parameters=parameters, log_probs=log_probs,
-                    last_internal_states=nn_output.get("last_internal_states"),
-                    advantages=advantages, q_values=q_values)
-
-    def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-        raise RLGraphObsoletedError(
-            "API method", "get_state_values_logits_probabilities_log_probs",
-            "get_state_values_logits_parameters_log_probs"
+        return dict(
+            nn_outputs=nn_outputs, adapter_outputs=q_values, state_values=state_values,
+            parameters=parameters, log_probs=log_probs,
+            advantages=advantages, q_values=q_values
         )
 
     @rlgraph_api
-    def get_logits_parameters_log_probs(self, nn_input, internal_states=None):
+    def get_adapter_outputs(self, nn_inputs):
         """
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
 
         Returns:
             Dict:
-                logits: The q-values after adding advantages to state values (and subtracting the mean advantage).
+                nn_outputs: The raw NN outputs.
+                adapter_outputs: The q-values after adding advantages to state values (and subtracting the
+                    mean advantage).
+                advantages:
+                q_values:
+        """
+        nn_outputs = self.get_nn_outputs(nn_inputs)
+        advantages, _, _ = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
+        state_values_tmp = self.dense_layer_state_value_stream.call(nn_outputs)
+        state_values = self.state_value_node.call(state_values_tmp)
+
+        q_values = self._graph_fn_calculate_q_values(state_values, advantages)
+
+        return dict(
+            nn_outputs=nn_outputs,
+            adapter_outputs=q_values,
+            advantages=advantages,
+            q_values=q_values
+        )
+
+    @rlgraph_api
+    def get_adapter_outputs_and_parameters(self, nn_inputs):
+        """
+        Args:
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+
+        Returns:
+            Dict:
+                nn_outputs: The raw NN outputs.
+                adapter_outputs: The q-values after adding advantages to state values (and subtracting the
+                    mean advantage).
                 parameters: The parameters for the distribution (gained from the softmaxed logits or interpreting
                     logits as mean and stddev for a normal distribution).
-                log_probs: The log(probabilities) values.
-                last_internal_states: The final internal states after passing through a possible RNN.
+                log_probs: The log(probabilities) values iff we have a discrete action space.
         """
-        out = self.get_state_values_logits_parameters_log_probs(nn_input, internal_states)
-        return dict(logits=out["logits"], parameters=out["parameters"], log_probs=out["log_probs"],
-                    last_internal_states=out.get("last_internal_states"))
-
-    def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-        raise RLGraphObsoletedError(
-            "API method", "get_logits_probabilities_log_probs",
-            "get_logits_parameters_log_probs"
+        out = self.get_state_values_adapter_outputs_and_parameters(nn_inputs)
+        return dict(
+            nn_outputs=out["nn_outputs"],
+            adapter_outputs=out["adapter_outputs"],
+            parameters=out["parameters"],
+            log_probs=out["log_probs"]
         )
 
     @graph_fn(flatten_ops=True, split_ops=True)
@@ -188,8 +209,20 @@ class DuelingPolicy(Policy):
             return q_values
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_action_adapter_parameters_log_probs(self, key, q_values):
+    def _graph_fn_get_parameters_from_q_values(self, key, q_values):
         """
         """
-        out = self.action_adapters[key].get_parameters_log_probs(q_values)
+        out = self.action_adapters[key].get_parameters_from_adapter_outputs(q_values)
         return out["parameters"], out["log_probs"]
+
+    def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
+        raise RLGraphObsoletedError(
+            "API method", "get_state_values_logits_probabilities_log_probs",
+            "get_state_values_logits_parameters_log_probs"
+        )
+
+    def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
+        raise RLGraphObsoletedError(
+            "API method", "get_logits_probabilities_log_probs",
+            "get_logits_parameters_log_probs"
+        )

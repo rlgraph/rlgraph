@@ -31,7 +31,7 @@ from rlgraph.spaces.space_utils import get_default_distribution_from_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.execution_util import define_by_run_unflatten
 from rlgraph.utils.ops import FlattenedDataOp, DataOpDict, ContainerDataOp, flat_key_lookup, unflatten_op
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -135,227 +135,206 @@ class Policy(Component):
 
     # Define our interface.
     @rlgraph_api
-    def get_nn_output(self, nn_input, internal_states=None):
+    def get_nn_outputs(self, nn_inputs):
         """
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The inputs to our neural network.
 
         Returns:
-            any: The raw output of the neural network (before it's cleaned-up and passed through the ActionAdapter).
+            any: The raw outputs of the neural network (before it's cleaned-up and passed through the ActionAdapter).
         """
-        out = self.neural_network.call(nn_input, internal_states)
-        return dict(output=out["output"], last_internal_states=out.get("last_internal_states"))
+        return self.neural_network.call(nn_inputs)
 
     @rlgraph_api
-    def get_action_layer_output(self, nn_input, internal_states=None):
+    def get_adapter_outputs(self, nn_inputs):
         """
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The inputs to our neural network.
 
         Returns:
-            any: The raw output of the action layer of the ActionAdapter (including possibly the last internal states
-                of a RNN-based NN).
+            any: The (reshaped) outputs of the action layer of the ActionAdapter.
         """
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        action_layer_outputs = self._graph_fn_get_action_layer_outputs(nn_output["output"], nn_input)
+        nn_outputs = self.get_nn_outputs(nn_inputs)
+        action_layer_outputs = self._graph_fn_get_adapter_outputs(nn_outputs)
         # Add last internal states to return value.
-        return dict(output=action_layer_outputs, last_internal_states=nn_output["last_internal_states"])
+        return dict(adapter_outputs=action_layer_outputs, nn_outputs=nn_outputs)
 
     @rlgraph_api
-    def get_logits_parameters_log_probs(self, nn_input, internal_states=None):
+    def get_adapter_outputs_and_parameters(self, nn_inputs):
         """
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Dict:
                 logits: The (reshaped) logits from the ActionAdapter.
                 parameters: The parameters for the distribution (gained from the softmaxed logits or interpreting
                     logits as mean and stddev for a normal distribution).
-                log_probs: The log(probabilities) values.
+                log_probs (Optional): The log(probabilities) values for discrete distributions.
         """
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        logits, parameters, log_probs = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
-            nn_output["output"], nn_input
-        )
-
+        nn_outputs = self.get_nn_outputs(nn_inputs)
+        out = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
         return dict(
-            logits=logits, parameters=parameters, log_probs=log_probs,
-            last_internal_states=nn_output["last_internal_states"]
+            nn_outputs=nn_outputs, adapter_outputs=out[0], parameters=out[1], log_probs=out[2]
         )
 
     @rlgraph_api
-    def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
-        """
-        Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-
-        Returns:
-            Dict:
-                logits: The (reshaped) logits from the ActionAdapter.
-                probabilities: The probabilities gained from the softmaxed logits.
-                log_probs: The log(probabilities) values.
-        """
-        self.logger.warn("Deprecated API method `get_logits_probabilities_log_probs` used!"
-                         "Use `get_logits_parameters_log_probs` instead.")
-        nn_output = self.get_nn_output(nn_input, internal_states)
-        logits, parameters, log_probs = self._graph_fn_get_action_adapter_logits_parameters_log_probs(
-            nn_output["output"], nn_input
-        )
-
-        return dict(
-            logits=logits, probabilities=parameters, parameters=parameters, log_probs=log_probs,
-            last_internal_states=nn_output["last_internal_states"]
-        )
-
-    @rlgraph_api
-    def get_action(self, nn_input, internal_states=None, deterministic=None):
+    def get_action(self, nn_inputs, deterministic=None):  # other_nn_inputs=None,
         """
         Returns an action based on NN output, action adapter output and distribution sampling.
 
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            #other_nn_inputs (DataOp): Inputs to the NN that don't have to be pushed through the preprocessor.
             deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
                 from the distribution in max-likelihood (deterministic) or stochastic fashion.
 
         Returns:
             dict:
                 `action`: The drawn action.
-                `last_internal_states`: The last internal states (if NN is RNN based, otherwise: None).
+                #`last_internal_states`: The last internal states (if NN is RNN based, otherwise: None).
         """
         deterministic = self.deterministic if deterministic is None else deterministic
 
-        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
-        action = self._graph_fn_get_action_components(out["logits"], out["parameters"], deterministic)
-
-        return dict(action=action, last_internal_states=out["last_internal_states"], logits=out["logits"],
-                    parameters=out["parameters"], log_probs=out["log_probs"])
-
-    @rlgraph_api
-    def get_action_and_log_prob(self, nn_input, internal_states=None, deterministic=None):
-        """
-        Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
-            deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
-                from the distribution in max-likelihood (deterministic) or stochastic fashion.
-        Returns:
-            dict:
-                `action`: The drawn action.
-                `log_prob`: The log likelihood of the drawn action.
-                `last_internal_states`: The last internal states (if NN is RNN based, otherwise: None).
-        """
-        deterministic = self.deterministic if deterministic is None else deterministic
-        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
-        action, log_prob = self._graph_fn_get_action_and_log_prob(out["parameters"], deterministic)
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)  #, other_nn_inputs)
+        action = self._graph_fn_get_action_components(out["adapter_outputs"], out["parameters"], deterministic)
 
         return dict(
             action=action,
-            log_prob=log_prob,
-            last_internal_states=out["last_internal_states"]
+            nn_outputs=out["nn_outputs"],
+            adapter_outputs=out["adapter_outputs"],
+            parameters=out["parameters"],
+            log_probs=out.get("log_probs")
+        )
+                # last_internal_states=out["last_internal_states"]
+
+    @rlgraph_api
+    def get_action_and_log_likelihood(self, nn_inputs, deterministic=None):
+        """
+        Args:
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            deterministic (Optional[bool]): If not None, use this to determine whether actions should be drawn
+                from the distribution in max-likelihood (deterministic) or stochastic fashion.
+        Returns:
+            dict:
+                `nn_outputs`: The raw output of the neural network.
+                `adapter_outputs`: The (reshaped) raw action adapter output.
+                `action`: The drawn action.
+                `log_likelihood`: The log probability/log likelihood of the drawn action.
+        """
+        deterministic = self.deterministic if deterministic is None else deterministic
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)
+        action, log_prob = self._graph_fn_get_action_and_log_likelihood(out["parameters"], deterministic)
+
+        return dict(
+            nn_outputs=out["nn_outputs"],
+            adapter_outputs=out["adapter_outputs"],
+            action=action,
+            log_likelihood=log_prob,
         )
 
     @rlgraph_api
-    def get_action_log_probs(self, nn_input, actions, internal_states=None):
+    def get_log_likelihood(self, nn_inputs, actions):
         """
         Computes the log-likelihood for a given set of actions under the distribution induced by a set of states.
 
         Args:
-            nn_input (any): The input to our neural network.
-            actions (any): The actions for which to get log-probs returned.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            actions (any): The actions for which to get the log-likelihood.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Log-probs of actions under current policy
         """
-        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)
 
         # Probabilities under current action.
-        action_log_probs = self._graph_fn_get_distribution_log_probs(out["parameters"], actions)
+        log_likelihood = self._graph_fn_get_distribution_log_likelihood(out["parameters"], actions)
 
-        return dict(action_log_probs=action_log_probs, logits=out["logits"],
-                    last_internal_states=out["last_internal_states"])
+        return dict(log_likelihood=log_likelihood, adapter_outputs=out["adapter_outputs"]
+                    #last_internal_states=out["last_internal_states"]
+        )
 
     @rlgraph_api
-    def get_deterministic_action(self, nn_input, internal_states=None):
+    def get_deterministic_action(self, nn_inputs):
         """
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             any: See `get_action`, but with deterministic force set to True.
         """
-        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
-        action = self._graph_fn_get_action_components(out["logits"], out["parameters"], True)
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)
+        action = self._graph_fn_get_action_components(out["adapter_outputs"], out["parameters"], True)
 
-        return dict(action=action, last_internal_states=out["last_internal_states"])
+        return dict(action=action, nn_outputs=out["nn_outputs"])
 
     @rlgraph_api
-    def get_stochastic_action(self, nn_input, internal_states=None):
+    def get_stochastic_action(self, nn_inputs): #, internal_states=None):
         """
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The input to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             any: See `get_action`, but with deterministic force set to False.
         """
-        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
-        action = self._graph_fn_get_action_components(out["logits"], out["parameters"], False)
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)  # internal_states
+        action = self._graph_fn_get_action_components(out["adapter_outputs"], out["parameters"], False)
 
-        return dict(action=action, last_internal_states=out["last_internal_states"])
+        return dict(action=action, nn_outputs=out["nn_outputs"])
 
     @rlgraph_api
-    def get_entropy(self, nn_input, internal_states=None):
+    def get_entropy(self, nn_inputs):
         """
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The inputs to our neural network.
+            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             any: See Distribution component.
         """
-        out = self.get_logits_parameters_log_probs(nn_input, internal_states)
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)  #, internal_states)
         entropy = self._graph_fn_get_distribution_entropies(out["parameters"])
 
-        return dict(entropy=entropy, last_internal_states=out["last_internal_states"])
+        return dict(entropy=entropy, nn_outputs=out["nn_outputs"])
 
     @graph_fn(flatten_ops={1})
-    def _graph_fn_get_action_layer_outputs(self, nn_output, nn_input):
+    def _graph_fn_get_adapter_outputs(self, nn_outputs):  #, nn_inputs):
         """
         Pushes the given nn_output through all our action adapters and returns a DataOpDict with the keys corresponding
         to our `action_space`.
 
         Args:
-            nn_output (DataOp): The output of our neural network.
+            nn_outputs (DataOp): The output of our neural network.
+            #nn_inputs (DataOp): The original inputs of the NN (that produced the `nn_outputs`).
 
         Returns:
             FlattenedDataOp: A DataOpDict with the different action adapter outputs (keys correspond to
                 structure of `self.action_space`).
         """
-        if isinstance(nn_input, FlattenedDataOp):
-            nn_input = next(iter(nn_input.values()))
+        #if isinstance(nn_inputs, FlattenedDataOp):
+        #    nn_inputs = next(iter(nn_inputs.values()))
 
         ret = FlattenedDataOp()
         for flat_key, action_adapter in self.action_adapters.items():
-            ret[flat_key] = action_adapter.get_logits(nn_output, nn_input)
+            #ret[flat_key] = action_adapter.get_action_adapter_outputs(nn_outputs, nn_inputs)
+            ret[flat_key] = action_adapter.call(nn_outputs)
 
         return ret
 
     @graph_fn(flatten_ops={1})
-    def _graph_fn_get_action_adapter_logits_parameters_log_probs(self, nn_output, nn_input):
+    def _graph_fn_get_adapter_outputs_and_parameters(self, nn_outputs):
         """
         Pushes the given nn_output through all our action adapters' get_logits_parameters_log_probs API's and
         returns a DataOpDict with the keys corresponding to our `action_space`.
 
         Args:
-            nn_output (DataOp): The output of our neural network.
+            nn_outputs (DataOp): The output of our neural network.
+            #nn_inputs (DataOp): The original inputs of the NN (that produced the `nn_outputs`).
 
         Returns:
             tuple:
@@ -364,19 +343,21 @@ class Policy(Component):
                 - FlattenedDataOp: A DataOpDict with the different action adapters' log_probs outputs.
             Note: Keys always correspond to structure of `self.action_space`.
         """
-        logits = FlattenedDataOp()
+        adapter_outputs = FlattenedDataOp()
         parameters = FlattenedDataOp()
         log_probs = FlattenedDataOp()
 
-        if isinstance(nn_input, dict):
-            nn_input = next(iter(nn_input.values()))
+        #if isinstance(nn_inputs, dict):
+        #    nn_inputs = next(iter(nn_inputs.values()))
 
         for flat_key, action_adapter in self.action_adapters.items():
-            out = action_adapter.get_logits_parameters_log_probs(nn_output, nn_input)
-            logits[flat_key], parameters[flat_key], log_probs[flat_key] = \
-                out["logits"], out["parameters"], out["log_probs"]
+            adapter_outs = action_adapter.call(nn_outputs)
+            params = action_adapter.get_parameters_from_adapter_outputs(adapter_outs)
+            #out = action_adapter.get_adapter_outputs_and_parameters(nn_outputs, nn_inputs)
+            adapter_outputs[flat_key], parameters[flat_key], log_probs[flat_key] = \
+                adapter_outs, params["parameters"], params.get("log_probs")
 
-        return logits, parameters, log_probs
+        return adapter_outputs, parameters, log_probs
 
     @graph_fn
     def _graph_fn_get_distribution_entropies(self, parameters):
@@ -404,7 +385,7 @@ class Policy(Component):
         return ret
 
     @graph_fn
-    def _graph_fn_get_distribution_log_probs(self, parameters, actions):
+    def _graph_fn_get_distribution_log_likelihood(self, parameters, actions):
         """
         Pushes the given `probabilities` and actions through all our distributions' `log_prob` API-methods and returns a
         DataOpDict with the keys corresponding to our `action_space`.
@@ -479,9 +460,9 @@ class Policy(Component):
             return define_by_run_unflatten(ret)
 
     @graph_fn(returns=2)
-    def _graph_fn_get_action_and_log_prob(self, parameters, deterministic):
+    def _graph_fn_get_action_and_log_likelihood(self, parameters, deterministic):
         action = FlattenedDataOp()
-        log_prob = FlattenedDataOp()
+        log_prob_or_likelihood = FlattenedDataOp()
         for flat_key, action_space_component in self.action_space.flatten().items():
             # Skip our distribution, iff discrete action-space and deterministic acting (greedy).
             # In that case, one does not need to create a distribution in the graph each act (only to get the argmax
@@ -498,26 +479,27 @@ class Policy(Component):
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
                 action[flat_key] = self._graph_fn_get_deterministic_action_wo_distribution(params)
                 if get_backend() == "tf":
-                    log_prob[flat_key] = tf.reduce_max(params, axis=-1)
+                    log_prob_or_likelihood[flat_key] = tf.log(tf.reduce_max(params, axis=-1))
                 elif get_backend() == "pytorch":
-                    log_prob[flat_key] = torch.max(params, dim=-1)[0]
+                    log_prob_or_likelihood[flat_key] = torch.log(torch.max(params, dim=-1)[0])
             elif isinstance(action_space_component, BoolBox) and \
                     (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
                 if get_backend() == "tf":
                     action[flat_key] = tf.greater(params, 0.5)
+                    log_prob_or_likelihood[flat_key] = tf.log(params)
                 elif get_backend() == "pytorch":
                     action[flat_key] = torch.gt(params, 0.5)
+                    log_prob_or_likelihood[flat_key] = torch.log(params)
 
-                log_prob[flat_key] = params
             else:
-                action[flat_key], log_prob[flat_key] = self.distributions[flat_key].sample_and_log_prob(
+                action[flat_key], log_prob_or_likelihood[flat_key] = self.distributions[flat_key].sample_and_log_prob(
                     params, deterministic
                 )
 
         if len(action) == 1 and "" in action:
-            return action[""], log_prob[""]
+            return action[""], log_prob_or_likelihood[""]
         else:
-            return action, log_prob
+            return action, log_prob_or_likelihood
 
     @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_get_deterministic_action_wo_distribution(self, logits):
@@ -535,3 +517,23 @@ class Policy(Component):
             return tf.argmax(logits, axis=-1, output_type=tf.int32)
         elif get_backend() == "pytorch":
             return torch.argmax(logits, dim=-1).int()
+
+    def get_logits_parameters_log_probs(self, nn_inputs, internal_states=None):
+        raise RLGraphObsoletedError("API-method", "get_logits_parameters_log_probs",
+                                    "get_action_adapter_outputs_and_parameters")
+
+    def get_logits_probabilities_log_probs(self, nn_inputs, internal_states=None):
+        raise RLGraphObsoletedError("API-method", "get_logits_probabilities_log_probs",
+                                    "get_action_adapter_outputs_and_parameters")
+
+    def get_action_and_log_params(self, nn_inputs, internal_states=None, deterministic=None):
+        raise RLGraphObsoletedError("API-method", "get_action_and_log_params", "get_action_and_log_likelihood")
+
+    def get_action_log_probs(self, nn_inputs, actions):
+        raise RLGraphObsoletedError("API-method", "get_action_log_probs", "get_log_likelihood")
+
+    def get_action_layer_output(self, nn_inputs):
+        raise RLGraphObsoletedError("API-method", "get_action_layer_output", "get_action_adapter_outputs")
+
+    def get_nn_output(self, nn_inputs):
+        raise RLGraphObsoletedError("API-method", "get_nn_output", "get_nn_outputs")
