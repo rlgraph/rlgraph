@@ -19,7 +19,8 @@ from __future__ import print_function
 
 import unittest
 
-from rlgraph.components.common import ContainerSplitter, ContainerMerger
+from rlgraph.components.common.container_merger import ContainerMerger
+from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 

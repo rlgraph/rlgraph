@@ -17,18 +17,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-from six.moves import xrange as range_
 import unittest
 
-from rlgraph.components.component import Component
+import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph.components.action_adapters.categorical_distribution_adapter import CategoricalDistributionAdapter
-from rlgraph.components.explorations.exploration import Exploration, EpsilonExploration
+from rlgraph.components.component import Component
 from rlgraph.components.distributions import Categorical, Normal
+from rlgraph.components.explorations.exploration import Exploration
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.ops import DataOpDict
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.ops import DataOpDict
 
 
 class TestExplorations(unittest.TestCase):
@@ -59,7 +60,7 @@ class TestExplorations(unittest.TestCase):
 
         @rlgraph_api(component=exploration_pipeline)
         def get_action(self_, nn_output, time_step):
-            out = action_adapter.get_logits_parameters_log_probs(nn_output)
+            out = action_adapter.get_parameters(nn_output)
             sample = distribution.sample_deterministic(out["parameters"])
             action = exploration.get_action(sample, time_step)
             return action
@@ -139,9 +140,9 @@ class TestExplorations(unittest.TestCase):
 
         @rlgraph_api(component=exploration_pipeline)
         def get_action(self_, nn_output, time_step):
-            out_a = action_adapter_a.get_logits_parameters_log_probs(nn_output)
-            out_b = action_adapter_b.get_logits_parameters_log_probs(nn_output)
-            out_c = action_adapter_c.get_logits_parameters_log_probs(nn_output)
+            out_a = action_adapter_a.get_parameters(nn_output)
+            out_b = action_adapter_b.get_parameters(nn_output)
+            out_c = action_adapter_c.get_parameters(nn_output)
             sample_a = distribution_a.sample_deterministic(out_a["parameters"])
             sample_b = distribution_b.sample_deterministic(out_b["parameters"])
             sample_c = distribution_c.sample_deterministic(out_c["parameters"])

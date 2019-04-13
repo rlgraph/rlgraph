@@ -234,5 +234,5 @@ class TestNNLayer(unittest.TestCase):
 
         expected_outputs, expected_internal_states = lstm_layer(inputs, lstm_matrix, lstm_biases, time_major=False)
 
-        expected = dict(output=expected_outputs, last_internal_states=expected_internal_states)
-        test.test(("call", inputs), expected_outputs=expected)
+        expected = [expected_outputs, expected_internal_states]
+        test.test(("call", inputs), expected_outputs=tuple(expected))

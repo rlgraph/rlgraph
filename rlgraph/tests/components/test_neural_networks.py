@@ -42,7 +42,7 @@ class TestNeuralNetworks(unittest.TestCase):
         neural_net = NeuralNetwork.from_spec(config_from_path("configs/test_simple_nn.json"))  # type: NeuralNetwork
 
         # Do not seed, we calculate expectations manually.
-        test = ComponentTest(component=neural_net, input_spaces=dict(nn_input=space))
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space))
 
         # Batch of size=3.
         input_ = np.array([[0.1, 0.2, 0.3], [1.0, 2.0, 3.0], [10.0, 20.0, 30.0]])
@@ -53,7 +53,7 @@ class TestNeuralNetworks(unittest.TestCase):
 
         expected = dense_layer(input_, w1_value, b1_value)
 
-        test.test(("call", input_), expected_outputs=dict(output=expected), decimals=5)
+        test.test(("call", input_), expected_outputs=expected, decimals=5)
 
         test.terminate()
 
@@ -67,7 +67,7 @@ class TestNeuralNetworks(unittest.TestCase):
         neural_net.add_layer(DenseLayer(units=10, scope="last-layer"))
 
         # Do not seed, we calculate expectations manually.
-        test = ComponentTest(component=neural_net, input_spaces=dict(nn_input=space))
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space))
 
         # Batch of size=3.
         input_ = space.sample(3)
@@ -80,7 +80,7 @@ class TestNeuralNetworks(unittest.TestCase):
             var_dict["test-network/last-layer/dense/kernel"], var_dict["test-network/last-layer/dense/bias"]
         )
 
-        test.test(("call", input_), expected_outputs=dict(output=expected), decimals=5)
+        test.test(("call", input_), expected_outputs=expected, decimals=5)
 
         test.terminate()
 
@@ -97,7 +97,7 @@ class TestNeuralNetworks(unittest.TestCase):
 
         # Do not seed, we calculate expectations manually.
         test = ComponentTest(component=neural_net, input_spaces=dict(
-            nn_input=input_space
+            inputs=input_space
         ))
 
         # Batch of size=2, time-steps=3.
@@ -112,8 +112,8 @@ class TestNeuralNetworks(unittest.TestCase):
         d0_out = dense_layer(input_, w0_value, b0_value)
         lstm_out, last_internal_states = lstm_layer(d0_out, lstm_w_value, lstm_b_value, time_major=False)
 
-        expected = dict(output=lstm_out, last_internal_states=last_internal_states)
-        test.test(("call", input_), expected_outputs=expected, decimals=5)
+        expected = [lstm_out, last_internal_states]
+        test.test(("call", input_), expected_outputs=tuple(expected), decimals=5)
 
         test.terminate()
 
@@ -129,8 +129,8 @@ class TestNeuralNetworks(unittest.TestCase):
         def custom_call(self, input_, internal_states=None):
             d0_out = self.get_sub_component_by_name("d0").call(input_)
             lstm_out = self.get_sub_component_by_name("lstm").call(d0_out, internal_states)
-            d1_out = self.get_sub_component_by_name("d1").call(lstm_out["output"])
-            return dict(output=d1_out, last_internal_states=lstm_out["last_internal_states"])
+            d1_out = self.get_sub_component_by_name("d1").call(lstm_out[0])
+            return d1_out, lstm_out[1]
 
         # Create a simple neural net with the above custom API-method.
         neural_net = NeuralNetwork(
@@ -163,8 +163,8 @@ class TestNeuralNetworks(unittest.TestCase):
         )
         d1_out = dense_layer(lstm_out, w1_value, b1_value)
 
-        expected = dict(output=d1_out, last_internal_states=last_internal_states)
-        test.test(("call", [input_, internal_states]), expected_outputs=expected, decimals=5)
+        expected = [d1_out, last_internal_states]
+        test.test(("call", [input_, internal_states]), expected_outputs=tuple(expected), decimals=5)
 
         test.terminate()
 
