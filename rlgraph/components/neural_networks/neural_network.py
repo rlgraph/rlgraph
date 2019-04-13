@@ -92,7 +92,7 @@ class NeuralNetwork(Stack):
             if unfold_time_rank is not None:
                 kwargs["api_methods"][0]["unfold_time_rank"] = unfold_time_rank
 
-        assert self.functional_api_outputs is False or self.custom_call_given is False, \
+        assert len(self.functional_api_outputs) == 0 or self.custom_call_given is False, \
             "ERROR: If functional API is used to construct network, a custom `call` method must not be provided!"
 
         # Pytorch specific objects.
@@ -110,18 +110,18 @@ class NeuralNetwork(Stack):
                 # Avoid jumping back between layers and calls at runtime.
                 return self._pytorch_fast_path_exec(*([nn_input] + list(nn_inputs)), **kwargs)
 
-        # Functional API (Keras Style assembly).
-        elif self.functional_api_outputs is not None:
+        # Functional API (Keras Style assembly). TODO: Add support for pytorch.
+        elif len(self.functional_api_outputs) > 0:
             self._build_call_via_keras_style_functional_api(*self.functional_api_outputs)
 
         # Auto apply-API -> Handle LSTMs correctly.
         elif self.custom_call_given is False:
-            self._build_auto_call_method(ok_to_overwrite, fold_time_rank, unfold_time_rank)
+            self._build_auto_call_method(fold_time_rank, unfold_time_rank)
 
         # Have super class (Stack) handle registration of given custom `call` method.
         else:
             super(NeuralNetwork, self).build_auto_api_method(
-                stack_api_method_name, component_api_method_name, fold_time_rank, unfold_time_rank, ok_to_overwrite
+                stack_api_method_name, component_api_method_name, fold_time_rank, unfold_time_rank, True
             )
 
     def _unfold(self, original_input, *args_, **kwargs_):
@@ -287,7 +287,9 @@ class NeuralNetwork(Stack):
             prev_output_set = output_set
 
         # Prepend inputs from left-over Space objects in set.
-        apply_code = "@rlgraph_api(component=self, ok_to_overwrite=True)\ndef call(self, *inputs):\n" + apply_code
+        apply_code = "@rlgraph_api(component=self, ok_to_overwrite=True)\n" + \
+                     "def call(self, *inputs):\n" + \
+                     apply_code
 
         # Add all sub-components to this NN.
         self.add_components(*list(sub_components))
@@ -297,10 +299,11 @@ class NeuralNetwork(Stack):
         print(apply_code)
         exec(apply_code, globals(), locals())
 
-    def _build_auto_call_method(self, ok_to_overwrite, fold_time_rank, unfold_time_rank):
-        @rlgraph_api(component=self, ok_to_overwrite=ok_to_overwrite)
-        def call(self_, nn_input, *nn_inputs, **kwargs):
-            inputs = [nn_input] + list(nn_inputs)
+    def _build_auto_call_method(self, fold_time_rank, unfold_time_rank):
+        @rlgraph_api(component=self, ok_to_overwrite=True)
+        def call(self_, *inputs, **kwargs):
+            assert len(inputs) > 0, "ERROR: A NeuralNetwork must have at least 1 input in `*inputs`!"
+            inputs = list(inputs)
             original_input = inputs[0]
 
             # Keep track of the folding status.
@@ -351,6 +354,6 @@ class NeuralNetwork(Stack):
             if args_ == ():
                 return kwargs_
             elif len(args_) == 1:
-                return dict(output=args_[0])
+                return args_[0]
             else:
-                return dict(output=args_)
+                return args_

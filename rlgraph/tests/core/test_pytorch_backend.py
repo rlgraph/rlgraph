@@ -199,7 +199,7 @@ class TestPytorchBackend(unittest.TestCase):
             expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
         )
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 5))
-        test.test(("get_action_layer_output", states), expected_outputs=dict(output=expected_action_layer_output),
+        test.test(("get_action_adapter_outputs", states), expected_outputs=dict(output=expected_action_layer_output),
                   decimals=5)
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)

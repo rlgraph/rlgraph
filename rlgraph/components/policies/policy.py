@@ -50,7 +50,8 @@ class Policy(Component):
             network_spec (Union[NeuralNetwork,dict]): The NeuralNetwork Component or a specification dict to build
                 one.
 
-            action_space (Space): The action Space within which this Component will create actions.
+            action_space (Union[dict,Space]): A specification dict to create the Space within which this Component
+                will create actions or the action Space object directly.
 
             action_adapter_spec (Optional[dict]): A spec-dict to create an ActionAdapter. Use None for the default
                 ActionAdapter object.

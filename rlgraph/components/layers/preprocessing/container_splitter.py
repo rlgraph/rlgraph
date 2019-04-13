@@ -67,7 +67,7 @@ class ContainerSplitter(PreprocessLayer):
                 Returns:
 
                 """
-                out = self._graph_fn_split(inputs)
+                out = self._graph_fn_call(inputs)
                 ret = dict()
                 for i, key in enumerate(self.output_order):
                     ret[key] = out[i]

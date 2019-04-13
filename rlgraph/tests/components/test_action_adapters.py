@@ -34,7 +34,7 @@ class TestActionAdapters(unittest.TestCase):
     def test_simple_action_adapter(self):
         # Last NN layer.
         previous_nn_layer_space = FloatBox(shape=(16,), add_batch_rank=True)
-        logits_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
+        adapter_outputs_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
@@ -42,8 +42,8 @@ class TestActionAdapters(unittest.TestCase):
                                                         activation="relu")
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(
-                nn_input=previous_nn_layer_space,
-                logits=logits_space,
+                inputs=previous_nn_layer_space,
+                adapter_outputs=adapter_outputs_space,
             ), action_space=action_space
         )
         action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
@@ -55,19 +55,19 @@ class TestActionAdapters(unittest.TestCase):
             inputs, action_adapter_params["action-adapter/action-network/action-layer/dense/kernel"]
         )
         expected_logits = np.reshape(expected_action_layer_output, newshape=(2, 3, 2, 2))
-        test.test(("call", inputs), expected_outputs=dict(output=expected_logits), decimals=5)
-        test.test(("get_logits", inputs), expected_outputs=expected_logits, decimals=5)  # w/o the dict
+        test.test(("call", inputs), expected_outputs=expected_logits, decimals=5)
+        #test.test(("get_logits", inputs), expected_outputs=expected_logits, decimals=5)  # w/o the dict
 
         expected_parameters = softmax(expected_logits)
         expected_log_probs = np.log(expected_parameters)
-        test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=dict(
-            logits=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
+        test.test(("get_parameters", inputs), expected_outputs=dict(
+            adapter_outputs=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
         ), decimals=5)
 
     def test_simple_action_adapter_with_batch_apply(self):
         # Last NN layer.
         previous_nn_layer_space = FloatBox(shape=(16,), add_batch_rank=True, add_time_rank=True, time_major=True)
-        logits_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
+        adapter_outputs_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
@@ -77,8 +77,8 @@ class TestActionAdapters(unittest.TestCase):
         )
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(
-                nn_input=previous_nn_layer_space,
-                logits=logits_space
+                inputs=previous_nn_layer_space,
+                adapter_outputs=adapter_outputs_space
             ), action_space=action_space
         )
         action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
@@ -92,35 +92,26 @@ class TestActionAdapters(unittest.TestCase):
         )
         expected_logits = np.reshape(expected_action_layer_output, newshape=(4, 5, 3, 2, 2))
 
-        test.test(
-            ("call", inputs),
-            expected_outputs=dict(output=expected_logits),
-            decimals=4
-        )
-        test.test(
-            ("get_logits", inputs),
-            expected_outputs=expected_logits,
-            decimals=4
-        )
+        test.test(("call", inputs), expected_outputs=expected_logits, decimals=4)
 
         expected_parameters = softmax(expected_logits)
         expected_log_probs = np.log(expected_parameters)
-        test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=dict(
-            logits=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
+        test.test(("get_parameters", inputs), expected_outputs=dict(
+            adapter_outputs=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
         ), decimals=4)
 
     def test_action_adapter_with_complex_lstm_output(self):
         # Last NN layer (LSTM with time rank).
         previous_nn_layer_space = FloatBox(shape=(4,), add_batch_rank=True, add_time_rank=True, time_major=True)
-        logits_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
+        adapter_outputs_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
         # Action Space.
         action_space = IntBox(2, shape=(3, 2))
 
         action_adapter = CategoricalDistributionAdapter(action_space=action_space, biases_spec=False)
         test = ComponentTest(
             component=action_adapter, input_spaces=dict(
-                nn_input=previous_nn_layer_space,
-                logits=logits_space
+                inputs=previous_nn_layer_space,
+                adapter_outputs=adapter_outputs_space
             ), action_space=action_space
         )
         action_adapter_params = test.read_variable_values(action_adapter.variable_registry)
@@ -135,14 +126,14 @@ class TestActionAdapters(unittest.TestCase):
         ).reshape((3, 2, -1))
         # Logits (already well reshaped (same as action space)).
         expected_logits = np.reshape(expected_action_layer_output, newshape=(3, 2, 3, 2, 2))
-        test.test(("call", inputs), expected_outputs=dict(output=expected_logits))
-        test.test(("get_logits", inputs), expected_outputs=expected_logits)
+        test.test(("call", inputs), expected_outputs=expected_logits)
+        #test.test(("get_logits", inputs), expected_outputs=expected_logits)
 
         # Softmax (probs).
         expected_parameters = softmax(expected_logits)
         # Log probs.
         expected_log_probs = np.log(expected_parameters)
-        test.test(("get_logits_parameters_log_probs", inputs), expected_outputs=dict(
-            logits=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
+        test.test(("get_parameters", inputs), expected_outputs=dict(
+            adapter_outputs=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
         ), decimals=5)
 
