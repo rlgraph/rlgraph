@@ -102,72 +102,67 @@ class ActionAdapter(NeuralNetwork):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # Check the input Space.
-        last_nn_layer_space = input_spaces["nn_input"]  # type: Space
+        last_nn_layer_space = input_spaces["inputs[0]"]  # type: Space
         sanity_check_space(last_nn_layer_space, non_allowed_types=[ContainerSpace])
         # Check the action Space.
         #sanity_check_space(self.action_space, must_have_batch_rank=True)
 
+    #@rlgraph_api
+    #def get_action_adapter_outputs(self, nn_input, original_nn_input=None):
+    #    """
+    #    Args:
+    #        nn_input (DataOpRecord): The NN output of the preceding neural network.
+    #        original_nn_input (DataOpRecord): The NN input of the preceding neural network.
+    #            Only needed if unfold_time_rank is True.
+
+    #    Returns:
+    #        SingleDataOp: The logits (action layer outputs + reshaped).
+    #    """
+    #    # If we are unfolding and NOT folding -> pass original input in as well.
+    #    if self.api_methods_options[0].get("unfold_time_rank") and \
+    #            not self.api_methods_options[0].get("fold_time_rank"):
+    #        logits_out = self.call(nn_input, original_nn_input)
+    #    else:
+    #        logits_out = self.call(nn_input)
+    #    return logits_out
+
     @rlgraph_api
-    def get_logits(self, nn_input, original_nn_input=None):
+    def get_parameters(self, *inputs):  #, original_nn_input=None):
         """
         Args:
-            nn_input (DataOpRecord): The NN output of the preceding neural network.
-            original_nn_input (DataOpRecord): The NN input of the preceding neural network.
-                Only needed if unfold_time_rank is True.
-
-        Returns:
-            SingleDataOp: The logits (raw nn_input, BUT reshaped).
-        """
-        # If we are unfolding and NOT folding -> pass original input in as well.
-        if self.api_methods_options[0].get("unfold_time_rank") and \
-                not self.api_methods_options[0].get("fold_time_rank"):
-            logits_out = self.call(nn_input, original_nn_input)
-        else:
-            logits_out = self.call(nn_input)
-        return logits_out["output"]
-
-    @rlgraph_api
-    def get_logits_parameters_log_probs(self, nn_input, original_nn_input=None):
-        """
-        Args:
-            nn_input (DataOpRecord): The NN output of the preceding neural network.
-            original_nn_input (DataOpRecord): The NN input  of the preceding neural network (needed for optional time-rank
-                folding/unfolding purposes).
+            inputs (DataOpRecord): The NN output(s) of the preceding neural network.
+            #original_nn_input (DataOpRecord): The NN input  of the preceding neural network (needed for optional time-rank
+            #    folding/unfolding purposes).
 
         Returns:
             Dict[str,SingleDataOp]:
-                - "logits": The raw nn_input, only reshaped according to the action_space.
+                - "adapter_outputs": The raw nn_input, only reshaped according to the action_space.
                 - "parameters": The softmaxed(logits) for the discrete case and the mean/std values for the continuous
                     case.
-                - "log_probs": log([action probabilities])
+                - "log_probs": log([action probabilities]) iff discrete actions.
         """
-        logits = self.get_logits(nn_input, original_nn_input)
-        out = self.get_parameters_log_probs(logits)
-        return dict(logits=logits, parameters=out["parameters"], log_probs=out["log_probs"])
+        #nn_outputs = self.get_action_adapter_outputs(nn_input, original_nn_input)
+        adapter_outputs = self.call(*inputs)  #, original_nn_input)
+        out = self.get_parameters_from_adapter_outputs(adapter_outputs)
+        return dict(adapter_outputs=adapter_outputs, parameters=out["parameters"], log_probs=out["log_probs"])
 
-    def get_logits_probabilities_log_probs(self, nn_input, original_nn_input=None):
-        raise RLGraphObsoletedError(
-            "API method", "get_logits_probabilities_log_probs", "get_logits_parameters_log_probs"
-        )
-
-    @rlgraph_api
-    def get_parameters_log_probs(self, logits):
+    @rlgraph_api(must_be_complete=False)
+    def get_parameters_from_adapter_outputs(self, adapter_outputs):
         """
         Args:
-            logits (SingleDataOp): The output of some layer that is already reshaped
-                according to our action Space.
+            adapter_outputs (SingleDataOp): The (action-space reshaped) output of the action adapter's action layer.
         """
-        parameters, log_probs = self._graph_fn_get_parameters_log_probs(logits)
+        parameters, log_probs = self._graph_fn_get_parameters_from_adapter_outputs(adapter_outputs)
         return dict(parameters=parameters, log_probs=log_probs)
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
-    def _graph_fn_get_parameters_log_probs(self, logits):
+    def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
         """
         Creates properties/parameters and log-probs from some reshaped output.
 
         Args:
-            logits (SingleDataOp): The output of some layer that is already reshaped
+            adapter_outputs (SingleDataOp): The output of some layer that is already reshaped
                 according to our action Space.
 
         Returns:
@@ -177,3 +172,19 @@ class ActionAdapter(NeuralNetwork):
                 log_probs (DataOp): Simply the log(parameters).
         """
         raise NotImplementedError
+
+    def get_logits(self, nn_input, original_nn_input=None):
+        raise RLGraphObsoletedError("API-method", "get_logits", "call")
+
+    def get_logits_parameters_log_probs(self, nn_input, original_nn_input=None):
+        raise RLGraphObsoletedError(
+            "API method", "get_logits_parameters_log_probs", "get_parameters"
+        )
+
+    def get_logits_probabilities_log_probs(self, nn_input, original_nn_input=None):
+        raise RLGraphObsoletedError(
+            "API method", "get_logits_probabilities_log_probs", "get_parameters"
+        )
+
+    def get_parameters_log_probs(self, logits):
+        raise RLGraphObsoletedError("API-method", "get_parameters_log_probs", "get_parameters_from_adapter_outputs")

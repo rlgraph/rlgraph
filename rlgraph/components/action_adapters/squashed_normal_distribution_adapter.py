@@ -40,12 +40,12 @@ class SquashedNormalDistributionAdapter(ActionAdapter):
         return units, new_shape
 
     @graph_fn
-    def _graph_fn_get_parameters_log_probs(self, last_nn_layer_output):
+    def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
         parameters = None
         log_probs = None
 
         if get_backend() == "tf":
-            mean, log_sd = tf.split(last_nn_layer_output, num_or_size_splits=2, axis=-1)
+            mean, log_sd = tf.split(adapter_outputs, num_or_size_splits=2, axis=-1)
             log_sd = tf.clip_by_value(log_sd, MIN_LOG_STDDEV, MAX_LOG_STDDEV)
 
             # Turn log sd into sd to ascertain always positive stddev values.
@@ -61,7 +61,7 @@ class SquashedNormalDistributionAdapter(ActionAdapter):
             log_probs = DataOpTuple([log_mean, log_sd])
 
         elif get_backend() == "pytorch":
-            mean, log_sd = torch.split(last_nn_layer_output, split_size_or_sections=2, dim=1)
+            mean, log_sd = torch.split(adapter_outputs, split_size_or_sections=2, dim=1)
             log_sd = torch.clamp(log_sd, min=MIN_LOG_STDDEV, max=MAX_LOG_STDDEV)
 
             # Turn log sd into sd.

@@ -41,12 +41,12 @@ class NormalDistributionAdapter(ActionAdapter):
         return units, new_shape
 
     @graph_fn
-    def _graph_fn_get_parameters_log_probs(self, last_nn_layer_output):
+    def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
         parameters = None
         log_probs = None
 
         if get_backend() == "tf":
-            mean, log_sd = tf.split(last_nn_layer_output, num_or_size_splits=2, axis=-1)
+            mean, log_sd = tf.split(adapter_outputs, num_or_size_splits=2, axis=-1)
             log_sd = tf.clip_by_value(log_sd, log(SMALL_NUMBER), -log(SMALL_NUMBER))
 
             # Turn log sd into sd to ascertain always positive stddev values.
@@ -64,7 +64,7 @@ class NormalDistributionAdapter(ActionAdapter):
         elif get_backend() == "pytorch":
             # Continuous actions.
             mean, log_sd = torch.split(
-                last_nn_layer_output, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1
+                adapter_outputs, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1
             )
             log_sd = torch.clamp(log_sd, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER))
 

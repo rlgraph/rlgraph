@@ -41,14 +41,14 @@ class BetaDistributionAdapter(ActionAdapter):
         return units, new_shape
 
     @graph_fn
-    def _graph_fn_get_parameters_log_probs(self, last_nn_layer_output):
+    def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
         parameters = None
         log_probs = None
 
         if get_backend() == "tf":
             # Stabilize both alpha and beta (currently together in last_nn_layer_output).
             parameters = tf.clip_by_value(
-                last_nn_layer_output, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
+                adapter_outputs, clip_value_min=log(SMALL_NUMBER), clip_value_max=-log(SMALL_NUMBER)
             )
             parameters = tf.log((tf.exp(parameters) + 1.0)) + 1.0
             alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
@@ -65,7 +65,7 @@ class BetaDistributionAdapter(ActionAdapter):
         elif get_backend() == "pytorch":
             # Stabilize both alpha and beta (currently together in last_nn_layer_output).
             parameters = torch.clamp(
-                last_nn_layer_output, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
+                adapter_outputs, min=log(SMALL_NUMBER), max=-log(SMALL_NUMBER)
             )
             parameters = torch.log((torch.exp(parameters) + 1.0)) + 1.0
 
