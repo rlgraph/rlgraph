@@ -60,7 +60,7 @@ class PPOLossFunction(LossFunction):
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     @rlgraph_api
-    def loss(self, log_probs, prev_log_probs, baseline_values, prev_baseline_values, rewards, entropy):
+    def loss(self, log_probs, prev_log_probs, baseline_values, prev_baseline_values, advantages, entropy):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -71,7 +71,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, prev_log_probs, baseline_values, prev_baseline_values, rewards, entropy
+            log_probs, prev_log_probs, baseline_values, prev_baseline_values, advantages, entropy
         )
         total_loss = self.loss_average(loss_per_item)
         total_baseline_loss = self.loss_average(baseline_loss_per_item)
@@ -79,11 +79,11 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def loss_per_item(self, log_probs, prev_log_probs, baseline_values, prev_baseline_values, rewards, entropy):
+    def loss_per_item(self, log_probs, prev_log_probs, baseline_values, prev_baseline_values, advantages, entropy):
         # Get losses for each action.
         # Baseline loss for V(s) does not depend on actions, only on state.
-        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, prev_baseline_values, rewards)
-        loss_per_item = self._graph_fn_loss_per_item(log_probs, prev_log_probs, rewards, entropy)
+        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, prev_baseline_values, advantages)
+        loss_per_item = self._graph_fn_loss_per_item(log_probs, prev_log_probs, advantages, entropy)
 
         # Average across actions.
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
@@ -91,11 +91,11 @@ class PPOLossFunction(LossFunction):
         return loss_per_item, baseline_loss_per_item
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_loss_per_item(self, log_probs, prev_log_probs, pg_advantages, entropy):
+    def _graph_fn_loss_per_item(self, log_probs, prev_log_probs, advantages, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
-            pg_advantages (SingleDataOp): The batch of post-processed advantages.
+            advantages (SingleDataOp): The batch of post-processed advantages.
             entropy (SingleDataOp): Policy entropy.
 
         Returns:
@@ -111,14 +111,14 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                pg_advantages = tf.expand_dims(pg_advantages, axis=1)
+                advantages = tf.expand_dims(advantages, axis=1)
 
             clipped_advantages = tf.where(
-                condition=pg_advantages > 0,
-                x=(1 + self.clip_ratio) * pg_advantages,
-                y=(1 - self.clip_ratio) * pg_advantages
+                condition=advantages > 0,
+                x=(1 + self.clip_ratio) * advantages,
+                y=(1 - self.clip_ratio) * advantages
             )
-            loss = -tf.minimum(x=ratio * pg_advantages, y=clipped_advantages)
+            loss = -tf.minimum(x=ratio * advantages, y=clipped_advantages)
             loss += self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
@@ -133,15 +133,15 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                pg_advantages = torch.unsqueeze(pg_advantages, dim=1)
+                advantages = torch.unsqueeze(advantages, dim=1)
 
             clipped_advantages = torch.where(
-                pg_advantages > 0,
-                (1 + self.clip_ratio) * pg_advantages,
-                (1 - self.clip_ratio) * pg_advantages
+                advantages > 0,
+                (1 + self.clip_ratio) * advantages,
+                (1 - self.clip_ratio) * advantages
             )
 
-            loss = -torch.min(ratio * pg_advantages, clipped_advantages)
+            loss = -torch.min(ratio * advantages, clipped_advantages)
             loss += self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
@@ -151,21 +151,21 @@ class PPOLossFunction(LossFunction):
             return loss
 
     @rlgraph_api
-    def _graph_fn_baseline_loss_per_item(self, baseline_values, prev_baseline_values, pg_advantages):
+    def _graph_fn_baseline_loss_per_item(self, baseline_values, prev_baseline_values, advantages):
         """
         Computes the loss for V(s).
 
         Args:
             baseline_values (SingleDataOp): Baseline predictions V(s).
             prev_baseline_values (SingleDataOp): Previous baseline predictions V(s).
-            pg_advantages (SingleDataOp): Advantage values.
+            advantages (SingleDataOp): Advantage values.
 
         Returns:
             SingleDataOp: Baseline loss per item.
         """
         if get_backend() == "tf":
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
-            v_targets = pg_advantages + baseline_values
+            v_targets = advantages + baseline_values
             v_targets = tf.stop_gradient(input=v_targets)
             baseline_loss = (v_targets - baseline_values) ** 2
             if self.value_function_clipping is not None:
@@ -181,7 +181,7 @@ class PPOLossFunction(LossFunction):
         elif get_backend() == "pytorch":
             baseline_values = torch.squeeze(baseline_values, dim=-1)
 
-            v_targets = pg_advantages + baseline_values
+            v_targets = advantages + baseline_values
             v_targets = v_targets.detach()
             baseline_loss = (v_targets - baseline_values) ** 2
             if self.value_function_clipping is not None:
