@@ -23,7 +23,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
-from rlgraph.spaces import Space
+from rlgraph.spaces.space import Space
 from rlgraph.utils.initializer import Initializer
 from rlgraph.utils.util import convert_dtype
 
@@ -37,7 +37,6 @@ class BoxSpace(Space):
     """
     A box in R^n with a shape tuple of len n. Each dimension may be bounded.
     """
-
     def __init__(self, low, high, shape=None, add_batch_rank=False, add_time_rank=False, time_major=False,
                  dtype=np.float32):
         """
