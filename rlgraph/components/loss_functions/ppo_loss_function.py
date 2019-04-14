@@ -39,6 +39,7 @@ class PPOLossFunction(LossFunction):
         """
         Args:
             clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
+            value_function_clipping (float): Clipping value for the baseline object. If None, no clipping is applied.
             **kwargs:
         """
         self.clip_ratio = clip_ratio
@@ -147,7 +148,7 @@ class PPOLossFunction(LossFunction):
             if get_rank(loss) > 1:
                 loss = torch.mean(loss, tuple(range(1, self.ranks_to_reduce + 1)), keepdim=False)
 
-            return loss  #torch.squeeze(loss)
+            return loss
 
     @rlgraph_api
     def _graph_fn_baseline_loss_per_item(self, baseline_values, prev_baseline_values, pg_advantages):
@@ -162,13 +163,13 @@ class PPOLossFunction(LossFunction):
         Returns:
             SingleDataOp: Baseline loss per item.
         """
-        v_targets = None
         if get_backend() == "tf":
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
             v_targets = pg_advantages + baseline_values
             v_targets = tf.stop_gradient(input=v_targets)
             baseline_loss = (v_targets - baseline_values) ** 2
             if self.value_function_clipping is not None:
+                prev_baseline_values = tf.squeeze(input=prev_baseline_values, axis=-1)
                 vf_clipped = prev_baseline_values + tf.clip_by_value(
                     baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
                 )
@@ -179,8 +180,16 @@ class PPOLossFunction(LossFunction):
 
         elif get_backend() == "pytorch":
             baseline_values = torch.squeeze(baseline_values, dim=-1)
+
             v_targets = pg_advantages + baseline_values
             v_targets = v_targets.detach()
-
-        baseline_loss = (v_targets - baseline_values) ** 2
-        return baseline_loss
+            baseline_loss = (v_targets - baseline_values) ** 2
+            if self.value_function_clipping is not None:
+                prev_baseline_values = torch.squeeze(input=prev_baseline_values, dim=-1)
+                vf_clipped = prev_baseline_values + torch.clamp(
+                    baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
+                )
+                clipped_loss = (v_targets - vf_clipped) ** 2
+                return torch.max(baseline_loss, clipped_loss)
+            else:
+                return baseline_loss
