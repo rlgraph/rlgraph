@@ -97,7 +97,7 @@ class DummyNNWithDictInput(NeuralNetwork):
         # Concat everything together, that's the output.
         concatenated_data = self.concat_layer.call(output_a, output_b)
 
-        return dict(output=concatenated_data)
+        return concatenated_data
 
 
 class DummyCallingSubComponentsAPIFromWithinGraphFn(Component):
