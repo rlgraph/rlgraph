@@ -18,16 +18,17 @@ from __future__ import division
 from __future__ import print_function
 
 from functools import partial
+
 import numpy as np
 
-from rlgraph.spaces.space import Space
+from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
+from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
-from rlgraph.spaces.bool_box import BoolBox
+from rlgraph.spaces.multi_discrete import MultiDiscrete
+from rlgraph.spaces.space import Space
 from rlgraph.spaces.text_box import TextBox
-from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
-
 
 Space.__lookup_classes__ = dict({
     "bool": BoolBox,
@@ -38,7 +39,7 @@ Space.__lookup_classes__ = dict({
     int: IntBox,
     np.int32: IntBox,
     "intbox": IntBox,
-    "multidiscrete": IntBox,
+    "multidiscrete": MultiDiscrete,
     "continuous": FloatBox,
     "float": FloatBox,
     "floatbox": FloatBox,
@@ -62,5 +63,5 @@ Space.__lookup_classes__ = dict({
 # Default Space: A float from 0.0 to 1.0.
 Space.__default_constructor__ = partial(FloatBox, 1.0)
 
-__all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox", "TextBox",
+__all__ = ["Space", "BoxSpace", "FloatBox", "IntBox", "BoolBox", "MultiDiscrete", "TextBox",
            "ContainerSpace", "Dict", "Tuple"]

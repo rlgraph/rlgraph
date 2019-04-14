@@ -17,8 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from six.moves import xrange as range_
 import unittest
+
+from six.moves import xrange as range_
 
 from rlgraph.spaces import *
 from rlgraph.utils.ops import FLAT_TUPLE_CLOSE, FLAT_TUPLE_OPEN
@@ -63,6 +64,32 @@ class TestSpaces(unittest.TestCase):
                                 samples = space.sample(size=batch_size)
                                 for s in samples:
                                     self.assertTrue(space.contains(s))
+
+    def test_multi_discrete_space(self):
+        space = MultiDiscrete(high=(2, 3, 4), add_batch_rank=True)
+        self.assertTrue(space.flat_dim_with_categories == 9)
+        for _ in range(50):
+            sample = space.sample(2)
+            self.assertTrue(0 <= sample[0][0] < 2)
+            self.assertTrue(0 <= sample[1][0] < 2)
+            self.assertTrue(0 <= sample[0][1] < 3)
+            self.assertTrue(0 <= sample[1][1] < 3)
+            self.assertTrue(0 <= sample[0][2] < 4)
+            self.assertTrue(0 <= sample[1][2] < 4)
+            self.assertTrue(space.contains(sample[0]))
+            self.assertTrue(space.contains(sample[1]))
+
+    def test_multi_discrete_space_as_single_discrete(self):
+        space = MultiDiscrete(high=4, add_batch_rank=True)
+        self.assertTrue(space.flat_dim_with_categories == 4)
+        for _ in range(10):
+            sample = space.sample(3)
+            self.assertTrue(0 <= sample[0] < 4)
+            self.assertTrue(0 <= sample[1] < 4)
+            self.assertTrue(0 <= sample[2] < 4)
+            self.assertTrue(space.contains(sample[0]))
+            self.assertTrue(space.contains(sample[1]))
+            self.assertTrue(space.contains(sample[2]))
 
     def test_complex_space_sampling_and_check_via_contains(self):
         """

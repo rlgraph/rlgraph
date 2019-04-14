@@ -77,7 +77,12 @@ class BoxSpace(Space):
         # to all values in all dimensions.
         # 0D Space.
         if self._shape == ():
-            assert isinstance(low, (int, float, bool))
+            if isinstance(low, np.ndarray):
+                assert low.shape == (), "ERROR: If shape == (), `low` must be scalar!"
+                low = np.asscalar(low)
+            if isinstance(high, np.ndarray):
+                assert high.shape == (), "ERROR: If shape == (), `high` must be scalar!"
+                high = np.asscalar(high)
             self.global_bounds = (low, high)
         # nD Space (n > 0). Bounds can be single number or individual bounds.
         else:
