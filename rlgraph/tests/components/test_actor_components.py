@@ -17,17 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
 
-from rlgraph.components.neural_networks.actor_component import ActorComponent
+import numpy as np
+
 from rlgraph.components.explorations.exploration import Exploration
-from rlgraph.components.policies.policy import Policy
+from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
+from rlgraph.components.policies.policy import Policy
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.tests.dummy_components_with_sub_components import DummyNNWithDictInput
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.utils.numpy import softmax
 
 
@@ -68,8 +69,9 @@ class TestActorComponents(unittest.TestCase):
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
         expected_preprocessed_state = states * 2
         test.test(("get_preprocessed_state_and_action", states), expected_outputs=dict(
-            preprocessed_state=expected_preprocessed_state, action=expected_actions
-        ))
+            preprocessed_state=expected_preprocessed_state, action=expected_actions,
+            nn_outputs=expected_nn_output
+        ), decimals=5)
 
         # Get actions and action-probs by calling a different API-method.
         states = state_space.sample(5)
@@ -90,8 +92,9 @@ class TestActorComponents(unittest.TestCase):
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
         expected_preprocessed_state = states * 2
         test.test(("get_preprocessed_state_action_and_action_probs", states), expected_outputs=dict(
-            preprocessed_state=expected_preprocessed_state, action=expected_actions, action_probs=expected_action_probs
-        ))
+            preprocessed_state=expected_preprocessed_state, action=expected_actions, action_probs=expected_action_probs,
+            nn_outputs=expected_nn_output
+        ), decimals=5)
 
     def test_actor_component_with_lstm_network(self):
         # state space and internal state space
@@ -113,7 +116,7 @@ class TestActorComponents(unittest.TestCase):
             component=actor_component,
             input_spaces=dict(
                 states=state_space,
-                internal_states=internal_states_space,
+                other_nn_inputs=Tuple(internal_states_space, add_batch_rank=True),
                 time_step=time_step_space
             ),
             action_space=action_space
@@ -204,5 +207,8 @@ class TestActorComponents(unittest.TestCase):
         expected_preprocessed_state = dict(a=states["a"] * 0.5, b=states["b"])
         test.test(
             ("get_preprocessed_state_and_action", states),
-            expected_outputs=dict(preprocessed_state=expected_preprocessed_state, action=expected_actions)
+            expected_outputs=dict(
+                preprocessed_state=expected_preprocessed_state, action=expected_actions,
+                nn_outputs=expected_nn_output
+            )
         )
