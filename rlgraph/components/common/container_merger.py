@@ -40,14 +40,23 @@ class ContainerMerger(Component):
                 - merge(Dict(c=1, d=2), Tuple(3, 4))
                 - returned value: Dict(A=Dict(c=1, d=2), B=Tuple(3, 4))
                 input_names_or_num_items = 3: 3 items will be merged into a Tuple.
+
+        Keyword Args:
+            merge_tuples_into_one (bool): Whether to merge incoming DataOpTuples into one single DataOpTuple.
+                If True:  tupleA + tupleB -> (tupleA[0] + tupleA[1] + tupleA[...] + tupleB[0] + tupleB[1] ...).
+                If False: tupleA + tupleB -> (tupleA + tupleB).
+
+            is_tuple (bool): Whether we should merge a tuple.
         """
+        self.merge_tuples_into_one = kwargs.pop("merge_tuples_into_one", False)
+        self.is_tuple = kwargs.pop("is_tuple", self.merge_tuples_into_one)
+
         super(ContainerMerger, self).__init__(scope=kwargs.pop("scope", "container-merger"), **kwargs)
 
         self.dict_keys = None
-        self.num_items = None
 
         if len(input_names_or_num_items) == 1 and isinstance(input_names_or_num_items[0], int):
-            self.num_items = input_names_or_num_items[0]
+            self.is_tuple = True
         else:
             assert all(isinstance(i, str) and not re.search(r'/', i) for i in input_names_or_num_items), \
                 "ERROR: Not all input names of DictMerger Component '{}' are strings or some of them have '/' " \
@@ -64,15 +73,12 @@ class ContainerMerger(Component):
             spaces.append(input_spaces[key])
             idx += 1
 
-        len_ = len(self.dict_keys) if self.dict_keys else self.num_items
-        assert len(spaces) == len_,\
-            "ERROR: Number of incoming Spaces ({}) does not match number of given `dict_keys/num_items` ({}) in" \
-            "ContainerMerger Component '{}'!".format(len(spaces), len_, self.global_scope)
-
-    #    #for space in spaces:
-    #    #    assert not isinstance(space, ContainerSpace),\
-    #    #        "ERROR: Single Space ({}) going into merger '{}' must not be a Container " \
-    #    #        "Space!".format(space, self.global_scope)
+        # If Tuple -> Incoming inputs could be of any number.
+        if self.dict_keys:
+            len_ = len(self.dict_keys)
+            assert len(spaces) == len_,\
+                "ERROR: Number of incoming Spaces ({}) does not match number of given `dict_keys` ({}) in" \
+                "ContainerMerger Component '{}'!".format(len(spaces), len_, self.global_scope)
 
     @rlgraph_api
     def _graph_fn_merge(self, *inputs):
@@ -85,10 +91,15 @@ class ContainerMerger(Component):
         Returns:
             ContainerDataOp: The DataOpDict or DataOpTuple as a merger of all *inputs.
         """
-        if self.num_items is not None:
+        if self.is_tuple is True:
             ret = []
             for op in inputs:
-                ret.append(op)
+                # Merge single items inside a DataOpTuple into resulting tuple.
+                if self.merge_tuples_into_one and isinstance(op, DataOpTuple):
+                    ret.extend(list(op))
+                # Strict by-input merging.
+                else:
+                    ret.append(op)
             return DataOpTuple(ret)
         else:
             ret = DataOpDict()

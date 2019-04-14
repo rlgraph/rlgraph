@@ -20,86 +20,14 @@ from __future__ import print_function
 import unittest
 
 from rlgraph.components.common.container_merger import ContainerMerger
-from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
 
-class TestSplitterMergerComponents(unittest.TestCase):
+class TestContainerMergerComponents(unittest.TestCase):
     """
-    Tests the ContainerSplitter-, and ContainerMerger-Components.
+    Tests the ContainerMerger Component.
     """
-
-    def test_dict_splitter(self):
-        space = Dict(
-            a=dict(aa=bool, ab=float),
-            b=dict(ba=bool),
-            c=float,
-            d=IntBox(low=0, high=255),
-            e=IntBox(2),
-            f=FloatBox(shape=(3, 2)),
-            g=Tuple(bool, FloatBox(shape=())),
-            add_batch_rank=True
-        )
-        # Define the output-order.
-        splitter = ContainerSplitter("g", "a", "b", "c", "d", "e", "f")
-        test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
-
-        # Get a batch of samples.
-        input_ = space.sample(size=3)
-        expected_output = [
-            input_["g"],
-            input_["a"],
-            input_["b"],
-            input_["c"],
-            input_["d"],
-            input_["e"],
-            input_["f"]
-        ]
-        test.test(("call", input_), expected_outputs=expected_output)
-
-    def test_dict_splitter_with_different_input_space(self):
-        space = Dict(
-            a=Tuple(bool, FloatBox(shape=())),
-            b=FloatBox(shape=()),
-            c=bool,
-            d=IntBox(low=0, high=255),
-            e=dict(ea=float),
-            f=FloatBox(shape=(3, 2)),
-            add_batch_rank=False
-        )
-        # Define the output-order.
-        splitter = ContainerSplitter("b", "c", "d", "a", "f", "e")
-        test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
-
-        # Single sample (no batch rank).
-        input_ = space.sample()
-        expected_outputs = [
-            input_["b"],
-            input_["c"],
-            input_["d"],
-            input_["a"],
-            input_["f"],
-            input_["e"]
-        ]
-
-        test.test(("call", input_), expected_outputs=expected_outputs)
-
-    def test_tuple_splitter(self):
-        space = Tuple(FloatBox(shape=()), bool, IntBox(low=0, high=255), add_batch_rank=True)
-        # Define the output-order.
-        splitter = ContainerSplitter(tuple_length=3)
-        test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
-
-        # Single sample (batch size=6).
-        input_ = space.sample(size=6)
-        expected_outputs = [
-            input_[0],
-            input_[1],
-            input_[2]
-        ]
-
-        test.test(("call", (input_,)), expected_outputs=expected_outputs)
 
     def test_dict_merger_component(self):
         space = Tuple(
@@ -144,5 +72,21 @@ class TestSplitterMergerComponents(unittest.TestCase):
         # Get a single sample.
         sample = space.sample()
         expected_outputs = tuple([sample[0], sample[1], sample[2], sample[3], sample[4], sample[5], sample[6]])
+
+        test.test(("merge", list(sample)), expected_outputs=expected_outputs)
+
+    def test_tuple_merger_component_merging_two_data_op_tuples(self):
+        space = Tuple(
+            Tuple(IntBox(2), IntBox(3)),
+            IntBox(3),
+            Tuple(FloatBox(shape=(3,)), BoolBox(shape=(1,))),
+            add_batch_rank=False
+        )
+        merger = ContainerMerger(merge_tuples_into_one=True)
+        test = ComponentTest(component=merger, input_spaces=dict(inputs=[s for s in space]))
+
+        # Get a single sample.
+        sample = space.sample()
+        expected_outputs = tuple([sample[0][0], sample[0][1], sample[1], sample[2][0], sample[2][1]])
 
         test.test(("merge", list(sample)), expected_outputs=expected_outputs)
