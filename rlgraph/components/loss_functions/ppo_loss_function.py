@@ -34,7 +34,7 @@ class PPOLossFunction(LossFunction):
 
     https://arxiv.org/abs/1707.06347
     """
-    def __init__(self, clip_ratio=0.2, weight_entropy=None,
+    def __init__(self, clip_ratio=0.2, value_function_clipping=None, weight_entropy=None,
                  scope="ppo-loss-function", **kwargs):
         """
         Args:
@@ -43,6 +43,7 @@ class PPOLossFunction(LossFunction):
         """
         self.clip_ratio = clip_ratio
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
+        self.value_function_clipping = value_function_clipping
         self.ranks_to_reduce = None
 
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
@@ -58,7 +59,7 @@ class PPOLossFunction(LossFunction):
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     @rlgraph_api
-    def loss(self, log_probs, prev_log_probs, baseline_values, rewards, entropy):
+    def loss(self, log_probs, prev_log_probs, baseline_values, prev_baseline_values, rewards, entropy):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -69,7 +70,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total baseline loss, baseline loss per item.
         """
         loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, prev_log_probs, baseline_values, rewards, entropy
+            log_probs, prev_log_probs, baseline_values, prev_baseline_values, rewards, entropy
         )
         total_loss = self.loss_average(loss_per_item)
         total_baseline_loss = self.loss_average(baseline_loss_per_item)
@@ -77,10 +78,10 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
 
     @rlgraph_api
-    def loss_per_item(self, log_probs, prev_log_probs, baseline_values, rewards, entropy):
+    def loss_per_item(self, log_probs, prev_log_probs, baseline_values, prev_baseline_values, rewards, entropy):
         # Get losses for each action.
         # Baseline loss for V(s) does not depend on actions, only on state.
-        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, rewards)
+        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, prev_baseline_values, rewards)
         loss_per_item = self._graph_fn_loss_per_item(log_probs, prev_log_probs, rewards, entropy)
 
         # Average across actions.
@@ -149,12 +150,13 @@ class PPOLossFunction(LossFunction):
             return loss  #torch.squeeze(loss)
 
     @rlgraph_api
-    def _graph_fn_baseline_loss_per_item(self, baseline_values, pg_advantages):
+    def _graph_fn_baseline_loss_per_item(self, baseline_values, prev_baseline_values, pg_advantages):
         """
         Computes the loss for V(s).
 
         Args:
             baseline_values (SingleDataOp): Baseline predictions V(s).
+            prev_baseline_values (SingleDataOp): Previous baseline predictions V(s).
             pg_advantages (SingleDataOp): Advantage values.
 
         Returns:
@@ -165,6 +167,16 @@ class PPOLossFunction(LossFunction):
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
             v_targets = pg_advantages + baseline_values
             v_targets = tf.stop_gradient(input=v_targets)
+            baseline_loss = (v_targets - baseline_values) ** 2
+            if self.value_function_clipping is not None:
+                vf_clipped = prev_baseline_values + tf.clip_by_value(
+                    baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
+                )
+                clipped_loss = (v_targets - vf_clipped) ** 2
+                return tf.maximum(baseline_loss, clipped_loss)
+            else:
+                return baseline_loss
+
         elif get_backend() == "pytorch":
             baseline_values = torch.squeeze(baseline_values, dim=-1)
             v_targets = pg_advantages + baseline_values

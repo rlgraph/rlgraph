@@ -45,13 +45,15 @@ class PPOAgent(Agent):
     Paper: https://arxiv.org/abs/1707.06347
     """
 
-    def __init__(self, clip_ratio=0.2, gae_lambda=1.0, clip_rewards=0.0, standardize_advantages=False,
-                 sample_episodes=True, weight_entropy=None, memory_spec=None, **kwargs):
+    def __init__(self, clip_ratio=0.2, gae_lambda=1.0, clip_rewards=0.0, value_function_clipping=None,
+                 standardize_advantages=False, sample_episodes=True, weight_entropy=None, memory_spec=None, **kwargs):
         """
         Args:
             clip_ratio (float): Clipping parameter for likelihood ratio.
             gae_lambda (float): Lambda for generalized advantage estimation.
             clip_rewards (float): Reward clip value. If not 0, rewards will be clipped into this range.
+            value_function_clipping (Optional[float]): If not None, uses clipped value function objective. If None,
+                uses simple value function objective.
             standardize_advantages (bool): If true, standardize advantage values in update.
 
             sample_episodes (bool): If True, the update method interprets the batch_size as the number of
@@ -112,7 +114,7 @@ class PPOAgent(Agent):
             gae_lambda=gae_lambda, discount=self.discount, clip_rewards=clip_rewards
         )
         self.loss_function = PPOLossFunction(
-            clip_ratio=clip_ratio, weight_entropy=weight_entropy
+            clip_ratio=clip_ratio, value_function_clipping=value_function_clipping, weight_entropy=weight_entropy
         )
 
         self.iterations = self.update_spec["num_iterations"]
@@ -223,12 +225,13 @@ class PPOAgent(Agent):
                 else:
                     prev_log_probs = tf.stop_gradient(prev_log_probs)
                 batch_size = tf.shape(preprocessed_states)[0]
+                prior_baseline_values = tf.stop_gradient(value_function.value_output(preprocessed_states))
 
-                baseline_values = value_function.value_output(tf.stop_gradient(preprocessed_states))
+                # Advantages are based on prior baseline values.
                 advantages = tf.cond(
                         pred=apply_postprocessing,
                         true_fn=lambda: gae_function.calc_gae_values(
-                            baseline_values, rewards, terminals, sequence_indices),
+                            prior_baseline_values, rewards, terminals, sequence_indices),
                         false_fn=lambda: rewards
                     )
 
@@ -255,7 +258,9 @@ class PPOAgent(Agent):
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
                     sample_advantages = tf.gather(params=advantages, indices=indices)
                     sample_advantages.set_shape((self.sample_size, ))
-                    sample_baseline_values = tf.gather(params=baseline_values, indices=indices)
+
+                    sample_baseline_values = value_function.value_output(sample_states)
+                    sample_prior_baseline_values = tf.gather(params=prior_baseline_values, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -298,7 +303,7 @@ class PPOAgent(Agent):
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
                             policy_probs["action_log_probs"], sample_prior_log_probs,
-                            sample_baseline_values, sample_advantages,  entropy
+                            sample_baseline_values, sample_prior_baseline_values, sample_advantages,  entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
