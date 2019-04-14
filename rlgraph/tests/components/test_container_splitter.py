@@ -87,7 +87,7 @@ class TestContainerSplitterComponents(unittest.TestCase):
     def test_tuple_splitter(self):
         space = Tuple(FloatBox(shape=()), bool, IntBox(low=0, high=255), add_batch_rank=True)
         # Define the output-order.
-        splitter = ContainerSplitter(tuple_length=3)
+        splitter = ContainerSplitter(tuple_length=len(space))
         test = ComponentTest(component=splitter, input_spaces=dict(inputs=space))
 
         # Single sample (batch size=6).

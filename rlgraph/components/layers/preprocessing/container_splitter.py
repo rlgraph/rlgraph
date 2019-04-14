@@ -46,16 +46,20 @@ class ContainerSplitter(PreprocessLayer):
             tuple_length (Optional[int]): If no output_order is given, use this number to hint how many
                 return values our graph_fn has.
         """
+        self.tuple_length = kwargs.pop("tuple_length", None)
+        assert self.tuple_length or output_order, \
+            "ERROR: one of **kwargs `tuple_length` or `output_order` must be provided in ContainerSplitter " \
+            "(for tuples)!"
+        num_outputs = self.tuple_length or len(output_order)
+
         super(ContainerSplitter, self).__init__(
-            scope=kwargs.pop("scope", "container-splitter"),
-            graph_fn_num_outputs=dict(_graph_fn_call=kwargs.pop("tuple_length", len(output_order))),
+            scope=kwargs.pop("scope", "container-splitter"), graph_fn_num_outputs=dict(_graph_fn_call=num_outputs),
             **kwargs
         )
         self.output_order = output_order
-        if len(self.output_order) == 0:
-            self.output_order = None
-        else:
-            # Only for DictSplitter, define this convenience API-method:
+
+        # Only for DictSplitter, define this convenience API-method:
+        if self.output_order is not None and len(self.output_order) > 0 and isinstance(self.output_order[0], int):
             @rlgraph_api(component=self)
             def split_into_dict(self, inputs):
                 """
@@ -80,7 +84,7 @@ class ContainerSplitter(PreprocessLayer):
         in_space = input_spaces["inputs"]
 
         self.type = type(in_space)
-        if self.output_order is None:
+        if self.output_order is None or len(self.output_order) == 0:
             # Auto-ordering only valid for incoming Tuples.
             assert self.type == Tuple, \
                 "ERROR: Cannot use auto-ordering in ContainerSplitter for input Dict spaces! Only ok for Tuples."
