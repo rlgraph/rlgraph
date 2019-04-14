@@ -7,5 +7,6 @@
       "time_major": false,
       "scope": "lstm-layer"
     }
-  ]
+  ],
+  "num_inputs": 2
 }

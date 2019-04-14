@@ -17,9 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import re
+
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
+from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.utils import force_tuple, force_list
 from rlgraph.utils.decorators import rlgraph_api
@@ -31,15 +34,10 @@ if get_backend() == "pytorch":
 class NeuralNetwork(Stack):
     """
     A NeuralNetwork is a Stack, in which the `call` method is defined either by custom-API-method OR by connecting
-    through all sub-Components' `call` methods.
-    In both cases, a dict should be returned with at least the `output` key set. Possible further keys could
-    be `last_internal_states` for RNN-based NNs and other keys.
-
+    through all sub-Components' `call` methods. The signature of the `call` method is always (self, *inputs).
+    In all cases, 1 or more values may be returned by `call`.
     No other API methods other than `call` should be defined/used.
-
-    TODO: A NeuralNetwork Component correctly handles RNN layers in terms of
     """
-
     def __init__(self, *layers, **kwargs):
         """
         Args:
@@ -50,9 +48,12 @@ class NeuralNetwork(Stack):
             layers (Optional[list]): An optional list of Layer objects or spec-dicts to overwrite(!)
                 *layers.
 
-            outputs (Optional[]): A list or single output NNNode object, indicating that we have to infer the
-                `call` method from the graph given by these outputs. This is used iff a NN is constructed by the
-                Keras-style functional API.
+            outputs (Optional[NNCallOutput]): A list or single output NNCallOutput object, indicating that we have to
+                infer the `call` method from the graph given by these outputs. This is used iff a NN is constructed by
+                the Keras-style functional API.
+
+            num_inputs (Optional[int]): An optional number of inputs the `call` method will take as `*inputs`.
+                If not given, NN will try to infer this value automatically.
 
             fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the apply method.
                 Only for auto-generated `call` method. Default: None.
@@ -64,8 +65,8 @@ class NeuralNetwork(Stack):
         layers_args = kwargs.pop("layers", layers)
         # Add a default scope (if not given) and pass on via kwargs.
         kwargs["scope"] = kwargs.get("scope", "neural-network")
-
         self.functional_api_outputs = force_list(kwargs.pop("outputs", None))
+        self.num_inputs = kwargs.pop("num_inputs", None)
 
         # Force the only API-method to be `call`. No matter whether custom-API or auto-generated (via Stack).
         self.custom_call_given = True
@@ -101,6 +102,9 @@ class NeuralNetwork(Stack):
 
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
+        self.inputs_splitter = ContainerSplitter(tuple_length=self.num_inputs, scope="inputs-splitter_")
+        self.add_components(self.inputs_splitter)
+
     def build_auto_api_method(self, stack_api_method_name, component_api_method_name, fold_time_rank=False,
                               unfold_time_rank=False, ok_to_overwrite=False):
 
@@ -133,7 +137,7 @@ class NeuralNetwork(Stack):
         else:
             assert len(args_) == 1, \
                 "ERROR: time-rank-unfolding not supported for more than one NN-return value!"
-            args_ = (self.unfolder.call(args_[0], original_input),)
+        args_ = (self.unfolder.call(args_[0], original_input),)
         return args_, kwargs_
 
     def _fold(self, *args_, **kwargs_):
@@ -226,6 +230,7 @@ class NeuralNetwork(Stack):
         output_set = set(layer_call_outputs)
         output_id = 0
         sub_components = set()
+        num_inputs = 0
 
         def _all_siblings_in_set(output, set_):
             siblings = []
@@ -273,6 +278,8 @@ class NeuralNetwork(Stack):
             for pos, in_ in enumerate(output.inputs):
                 if in_.space is not None:
                     in_.var_name = "inputs[{}]".format(pos)
+                    if pos + 1 > num_inputs:
+                        num_inputs = pos + 1
                 elif in_.var_name is None:
                     in_.var_name = "out{}".format(output_id)
                     output_id += 1
@@ -294,6 +301,8 @@ class NeuralNetwork(Stack):
         # Add all sub-components to this NN.
         self.add_components(*list(sub_components))
 
+        self.num_inputs = num_inputs
+
         # Execute the code and assign self.call to it.
         print("`apply_code` for NN:")
         print(apply_code)
@@ -301,8 +310,10 @@ class NeuralNetwork(Stack):
 
     def _build_auto_call_method(self, fold_time_rank, unfold_time_rank):
         @rlgraph_api(component=self, ok_to_overwrite=True)
-        def call(self_, *inputs, **kwargs):
-            assert len(inputs) > 0, "ERROR: A NeuralNetwork must have at least 1 input in `*inputs`!"
+        def call(self_, *inputs):
+            if len(inputs) < self.num_inputs:
+                inputs = self.inputs_splitter.call(inputs)
+
             inputs = list(inputs)
             original_input = inputs[0]
 
@@ -322,12 +333,14 @@ class NeuralNetwork(Stack):
                     args_ = tuple([inputs[0]] + list(inputs[2:]))
                 else:
                     args_ = inputs
-            kwargs_ = kwargs
+
+            kwargs_ = {}
 
             # TODO: keep track of LSTMLayers that only return the last time-step (outputs after these Layers
             # TODO: can no longer be folded, their time-rank is gone for the rest of the NN.
             for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
-                if sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
+                if re.search(r'^\.helper-', sub_component.scope) or \
+                        sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_", "inputs-splitter_"]:
                     continue
 
                 # Unfold before an LSTM.
