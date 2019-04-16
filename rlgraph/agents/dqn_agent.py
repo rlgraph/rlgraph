@@ -122,7 +122,7 @@ class DQNAgent(Agent):
             summary_spec=summary_spec,
             saver_spec=saver_spec,
             auto_build=auto_build,
-            name=name,
+            name=name
         )
 
         # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
