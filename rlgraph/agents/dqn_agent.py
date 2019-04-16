@@ -36,10 +36,56 @@ class DQNAgent(Agent):
     [3] Dueling Network Architectures for Deep Reinforcement Learning, Wang et al. - 2016
     [4] https://en.wikipedia.org/wiki/Huber_loss
     """
-    def __init__(self, double_q=True, dueling_q=True, huber_loss=False, n_step=1, shared_container_action_target=True,
-                 memory_spec=None, store_last_memory_batch=False, store_last_q_table=False, **kwargs):
+    def __init__(
+        self,
+        state_space,
+        action_space,
+        discount=0.98,
+        preprocessing_spec=None,
+        network_spec=None,
+        internal_states_space=None,
+        policy_spec=None,
+        exploration_spec=None,
+        execution_spec=None,
+        optimizer_spec=None,
+        observe_spec=None,
+        update_spec=None,
+        summary_spec=None,
+        saver_spec=None,
+        auto_build=True,
+        name="dqn-agent",
+        double_q=True,
+        dueling_q=True,
+        huber_loss=False,
+        n_step=1,
+        shared_container_action_target=True,
+        memory_spec=None,
+        store_last_memory_batch=False,
+        store_last_q_table=False,
+    ):
         """
         Args:
+            state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
+            action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
+            preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
+                preprocessing steps or a PreprocessorStack object itself.
+            discount (float): The discount factor (gamma).
+            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
+                object itself.
+            internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
+                Space object for the Space(s) of the internal (RNN) states.
+            policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
+            exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
+            execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
+            optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
+            observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
+            update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            summary_spec (Optional[dict]): Spec-dict to specify summary settings.
+            saver_spec (Optional[dict]): Spec-dict to specify saver settings.
+            auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
+                graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
+                components before building.
+            name (str): Some name for this Agent object.
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
             huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
@@ -53,7 +99,6 @@ class DQNAgent(Agent):
                 Default: False.
         """
         # Fix action-adapter before passing it to the super constructor.
-        policy_spec = kwargs.pop("policy_spec", dict())
         # Use a DuelingPolicy (instead of a basic Policy) if option is set.
         if dueling_q is True:
             policy_spec["type"] = "dueling-policy"
@@ -62,12 +107,27 @@ class DQNAgent(Agent):
                 policy_spec["units_state_value_stream"] = 128
 
         super(DQNAgent, self).__init__(
-            policy_spec=policy_spec, name=kwargs.pop("name", "dqn-agent"), **kwargs
+            state_space=state_space,
+            action_space=action_space,
+            discount=discount,
+            preprocessing_spec=preprocessing_spec,
+            network_spec=network_spec,
+            internal_states_space=internal_states_space,
+            policy_spec=policy_spec,
+            exploration_spec=exploration_spec,
+            execution_spec=execution_spec,
+            optimizer_spec=optimizer_spec,
+            observe_spec=observe_spec,
+            update_spec=update_spec,
+            summary_spec=summary_spec,
+            saver_spec=saver_spec,
+            auto_build=auto_build,
+            name=name,
         )
 
         # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
         # TODO: of return values when calling _graph_fn_calculate_update_from_external_batch.
-        #self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
+        # self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
 
         # Assert that the synch interval is a multiple of the update_interval.
         if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
