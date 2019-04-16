@@ -89,11 +89,11 @@ class ActorCriticLossFunction(LossFunction):
         return total_loss, loss_per_item, vf_total_loss, vf_loss_per_item
 
     @rlgraph_api
-    def loss_per_item(self, log_probs, baseline_values, rewards, entropy):
+    def loss_per_item(self, log_probs, baseline_values, advantages, entropy):
         # Get losses for each action.
         # Baseline loss for V(s) does not depend on actions, only on state.
-        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, rewards)
-        loss_per_item = self._graph_fn_loss_per_item(log_probs, rewards, entropy)
+        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, advantages)
+        loss_per_item = self._graph_fn_loss_per_item(log_probs, advantages, entropy)
 
         # Average across actions.
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
@@ -101,24 +101,24 @@ class ActorCriticLossFunction(LossFunction):
         return loss_per_item, baseline_loss_per_item
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_loss_per_item(self, log_probs, pg_advantages, entropy):
+    def _graph_fn_loss_per_item(self, log_probs, advantages, entropy):
         """
         Calculates the loss per batch item (summed over all timesteps) using the formula described above in
         the docstring to this class.
 
         Args:
             log_probs (DataOp): Log-likelihood of actions.
-            pg_advantages (DataOp): The received rewards.
+            advantages (DataOp): The received rewards.
             entropy (DataOp): Policy entropy
         Returns:
             SingleDataOp: The loss values per item in the batch, but summed over all timesteps.
         """
         if get_backend() == "tf":
             # # Let the gae-helper function calculate the pg-advantages.
-            pg_advantages = tf.stop_gradient(pg_advantages)
+            advantages = tf.stop_gradient(advantages)
 
             # The policy gradient loss.
-            loss = pg_advantages * -log_probs
+            loss = advantages * -log_probs
             if self.weight_pg != 1.0:
                 loss = self.weight_pg * loss
 
@@ -127,10 +127,10 @@ class ActorCriticLossFunction(LossFunction):
 
             return loss
         elif get_backend() == "pytorch":
-            pg_advantages = pg_advantages.detach()
+            advantages = advantages.detach()
 
             # The policy gradient loss.
-            loss = pg_advantages * log_probs
+            loss = advantages * log_probs
             if self.weight_pg != 1.0:
                 loss = self.weight_pg * loss
 
@@ -139,13 +139,13 @@ class ActorCriticLossFunction(LossFunction):
             return loss
 
     @rlgraph_api
-    def _graph_fn_baseline_loss_per_item(self, baseline_values, pg_advantages):
+    def _graph_fn_baseline_loss_per_item(self, baseline_values, advantages):
         """
         Computes the loss for V(s).
 
         Args:
             baseline_values (SingleDataOp): Baseline predictions V(s).
-            pg_advantages (SingleDataOp): Advantage values.
+            advantages (SingleDataOp): Advantage values.
 
         Returns:
             SingleDataOp: Baseline loss per item.
@@ -153,11 +153,11 @@ class ActorCriticLossFunction(LossFunction):
         v_targets = None
         if get_backend() == "tf":
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
-            v_targets = pg_advantages + baseline_values
+            v_targets = advantages + baseline_values
             v_targets = tf.stop_gradient(input=v_targets)
         elif get_backend() == "pytorch":
             baseline_values = torch.squeeze(baseline_values, dim=-1)
-            v_targets = pg_advantages + baseline_values
+            v_targets = advantages + baseline_values
             v_targets = v_targets.detach()
 
         baseline_loss = (v_targets - baseline_values) ** 2
