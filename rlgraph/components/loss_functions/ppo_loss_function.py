@@ -125,7 +125,7 @@ class PPOLossFunction(LossFunction):
             if get_rank(loss) > 1:
                 loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
 
-            return loss
+            return tf.squeeze(loss)
 
         elif get_backend() == "pytorch":
             # Likelihood ratio and clipped objective.
@@ -148,7 +148,7 @@ class PPOLossFunction(LossFunction):
             if get_rank(loss) > 1:
                 loss = torch.mean(loss, tuple(range(1, self.ranks_to_reduce + 1)), keepdim=False)
 
-            return loss
+            return torch.squeeze(loss, dim=-1)
 
     @rlgraph_api
     def _graph_fn_baseline_loss_per_item(self, baseline_values, prev_baseline_values, advantages):
@@ -174,9 +174,9 @@ class PPOLossFunction(LossFunction):
                     baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
                 )
                 clipped_loss = (v_targets - vf_clipped) ** 2
-                return tf.maximum(baseline_loss, clipped_loss)
+                return tf.squeeze(tf.maximum(baseline_loss, clipped_loss))
             else:
-                return baseline_loss
+                return tf.squeeze(baseline_loss)
 
         elif get_backend() == "pytorch":
             baseline_values = torch.squeeze(baseline_values, dim=-1)
@@ -190,6 +190,6 @@ class PPOLossFunction(LossFunction):
                     baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
                 )
                 clipped_loss = (v_targets - vf_clipped) ** 2
-                return torch.max(baseline_loss, clipped_loss)
+                return torch.squeeze(torch.max(baseline_loss, clipped_loss), dim=-1)
             else:
-                return baseline_loss
+                return torch.squeeze(baseline_loss, dim=-1)
