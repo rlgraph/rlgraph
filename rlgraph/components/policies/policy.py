@@ -156,7 +156,10 @@ class Policy(Component):
             any: The (reshaped) outputs of the action layer of the ActionAdapter.
         """
         nn_outputs = self.get_nn_outputs(nn_inputs)
-        action_layer_outputs = self._graph_fn_get_adapter_outputs(nn_outputs)
+        nn_main_outputs = nn_outputs
+        if self.neural_network.num_outputs > 1:
+            nn_main_outputs = nn_outputs[0]
+        action_layer_outputs = self._graph_fn_get_adapter_outputs(nn_main_outputs)
         # Add last internal states to return value.
         return dict(adapter_outputs=action_layer_outputs, nn_outputs=nn_outputs)
 
@@ -175,7 +178,10 @@ class Policy(Component):
                 log_probs (Optional): The log(probabilities) values for discrete distributions.
         """
         nn_outputs = self.get_nn_outputs(nn_inputs)
-        out = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
+        nn_main_outputs = nn_outputs
+        if self.neural_network.num_outputs > 1:
+            nn_main_outputs = nn_outputs[0]
+        out = self._graph_fn_get_adapter_outputs_and_parameters(nn_main_outputs)
         return dict(
             nn_outputs=nn_outputs, adapter_outputs=out[0], parameters=out[1], log_probs=out[2]
         )
