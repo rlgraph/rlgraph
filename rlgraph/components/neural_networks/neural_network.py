@@ -48,9 +48,9 @@ class NeuralNetwork(Stack):
             layers (Optional[list]): An optional list of Layer objects or spec-dicts to overwrite(!)
                 *layers.
 
-            outputs (Optional[NNCallOutput]): A list or single output NNCallOutput object, indicating that we have to
-                infer the `call` method from the graph given by these outputs. This is used iff a NN is constructed by
-                the Keras-style functional API.
+            outputs (Optional[List[NNCallOutput]]): A list or single output NNCallOutput object,
+                indicating that we have to infer the `call` method from the graph given by these outputs.
+                This is used iff a NN is constructed by the Keras-style functional API.
 
             num_inputs (Optional[int]): An optional number of inputs the `call` method will take as `*inputs`.
                 If not given, NN will try to infer this value automatically.
@@ -66,7 +66,8 @@ class NeuralNetwork(Stack):
         # Add a default scope (if not given) and pass on via kwargs.
         kwargs["scope"] = kwargs.get("scope", "neural-network")
         self.functional_api_outputs = force_list(kwargs.pop("outputs", None))
-        self.num_inputs = kwargs.pop("num_inputs", None)
+        self.num_inputs = kwargs.pop("num_inputs", 1)
+        self.num_outputs = min(len(self.functional_api_outputs), 1)
 
         # Force the only API-method to be `call`. No matter whether custom-API or auto-generated (via Stack).
         self.custom_call_given = True
@@ -102,7 +103,7 @@ class NeuralNetwork(Stack):
 
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
-        self.inputs_splitter = ContainerSplitter(tuple_length=self.num_inputs, scope="inputs-splitter_")
+        self.inputs_splitter = ContainerSplitter(tuple_length=self.num_inputs, scope=".helper-inputs-splitter")
         self.add_components(self.inputs_splitter)
 
     def build_auto_api_method(self, stack_api_method_name, component_api_method_name, fold_time_rank=False,
@@ -311,8 +312,9 @@ class NeuralNetwork(Stack):
     def _build_auto_call_method(self, fold_time_rank, unfold_time_rank):
         @rlgraph_api(component=self, ok_to_overwrite=True)
         def call(self_, *inputs):
-            if len(inputs) < self.num_inputs:
-                inputs = self.inputs_splitter.call(inputs)
+            # Everything is lumped together in inputs[0] but is supposed to be split -> Do this here.
+            if len(inputs) == 1 and self.num_inputs > 1:
+                inputs = self.inputs_splitter.call(inputs[0])
 
             inputs = list(inputs)
             original_input = inputs[0]
@@ -339,8 +341,7 @@ class NeuralNetwork(Stack):
             # TODO: keep track of LSTMLayers that only return the last time-step (outputs after these Layers
             # TODO: can no longer be folded, their time-rank is gone for the rest of the NN.
             for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
-                if re.search(r'^\.helper-', sub_component.scope) or \
-                        sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_", "inputs-splitter_"]:
+                if re.search(r'^\.helper-', sub_component.scope):
                     continue
 
                 # Unfold before an LSTM.
@@ -369,4 +370,5 @@ class NeuralNetwork(Stack):
             elif len(args_) == 1:
                 return args_[0]
             else:
+                self.num_outputs = len(args_)
                 return args_
