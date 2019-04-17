@@ -47,7 +47,7 @@ class ContainerSplitter(PreprocessLayer):
                 return values our graph_fn has.
         """
         self.tuple_length = kwargs.pop("tuple_length", None)
-        assert self.tuple_length or output_order, \
+        assert self.tuple_length or len(output_order) > 0, \
             "ERROR: one of **kwargs `tuple_length` or `output_order` must be provided in ContainerSplitter " \
             "(for tuples)!"
         num_outputs = self.tuple_length or len(output_order)
