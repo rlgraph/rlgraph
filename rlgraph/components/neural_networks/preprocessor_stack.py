@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import re
+
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
 from rlgraph.components.neural_networks.stack import Stack
@@ -63,7 +65,7 @@ class PreprocessorStack(Stack):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":
             for preprocess_layer in self.sub_components.values():  # type: PreprocessLayer
-                if preprocess_layer.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
+                if re.search(r'^\.helper-', preprocess_layer.scope):
                     continue
                 preprocess_layer._graph_fn_reset()
 
@@ -71,7 +73,7 @@ class PreprocessorStack(Stack):
             # Connect each pre-processor's "reset" output op via our graph_fn into one op.
             resets = list()
             for preprocess_layer in self.sub_components.values():  # type: PreprocessLayer
-                if preprocess_layer.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
+                if re.search(r'^\.helper-', preprocess_layer.scope):
                     continue
                 resets.append(preprocess_layer.reset())
             reset_op = self._graph_fn_reset(*resets)
@@ -94,8 +96,9 @@ class PreprocessorStack(Stack):
             Space: The Space after preprocessing.
         """
         for pp in self.sub_components.values():
-            if pp.scope not in ["time-rank-folder_", "time-rank-unfolder_"] or \
-                    (pp.scope == "time-rank-folder_" and self.fold_time_rank) or \
-                    (pp.scope == "time-rank-unfolder_" and self.unfold_time_rank):
+            # not in ["time-rank-folder_", "time-rank-unfolder_"] or \
+            if not re.search(r'\.helper-', pp.scope) or \
+                    (pp.scope == ".helper-time-rank-folder" and self.fold_time_rank) or \
+                    (pp.scope == ".helper-time-rank-unfolder" and self.unfold_time_rank):
                 space = pp.get_preprocessed_space(space)
         return space

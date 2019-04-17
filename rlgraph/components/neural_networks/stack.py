@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import re
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
@@ -63,13 +64,10 @@ class Stack(Component):
         self.api_methods_options = kwargs.pop("api_methods", ["call"])
         super(Stack, self).__init__(*sub_components, scope=kwargs.pop("scope", "stack"), **kwargs)
 
-        self.num_allowed_inputs = None
-        self.num_allowed_returns = None
-
         self.map_api_to_sub_components_api = dict()
 
-        self.folder = ReShape(fold_time_rank=True, scope="time-rank-folder_")
-        self.unfolder = ReShape(unfold_time_rank=True, scope="time-rank-unfolder_")
+        self.folder = ReShape(fold_time_rank=True, scope=".helper-time-rank-folder")
+        self.unfolder = ReShape(unfold_time_rank=True, scope=".helper-time-rank-unfolder")
 
         self.add_components(self.folder, self.unfolder)
 
@@ -155,7 +153,7 @@ class Stack(Component):
             kwargs_ = kwargs
 
             for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
-                if sub_component.scope in ["time-rank-folder_", "time-rank-unfolder_"]:
+                if re.search(r'^\.helper-', sub_component.scope):
                     continue
                 # TODO: python-Components: For now, we call each preprocessor's graph_fn
                 #  directly (assuming that inputs are not ContainerSpaces).
