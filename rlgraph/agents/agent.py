@@ -17,9 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 from collections import defaultdict
 from functools import partial
-import logging
+
 import numpy as np
 
 from rlgraph import get_backend
@@ -30,6 +31,7 @@ from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
+from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.specifiable import Specifiable
 
 if get_backend() == "tf":
@@ -410,8 +412,9 @@ class Agent(Specifiable):
                     self.states_buffer[env_id].extend(preprocessed_states)
                     self.next_states_buffer[env_id].extend(next_states)
                 if self.flat_action_space is not None:
+                    flat_action = flatten_op(actions, scope_separator_at_start=False)
                     for i, flat_key in enumerate(self.flat_action_space.keys()):
-                        self.actions_buffer[env_id][i].extend(actions[flat_key])
+                        self.actions_buffer[env_id][i].append(flat_action[flat_key])
                 else:
                     self.actions_buffer[env_id].extend(actions)
                 self.internals_buffer[env_id].extend(internals)
@@ -427,8 +430,9 @@ class Agent(Specifiable):
                     self.states_buffer[env_id].append(preprocessed_states)
                     self.next_states_buffer[env_id].append(next_states)
                 if self.flat_action_space is not None:
+                    flat_action = flatten_op(actions, scope_separator_at_start=False)
                     for i, flat_key in enumerate(self.flat_action_space.keys()):
-                        self.actions_buffer[env_id][i].append(actions[flat_key])
+                        self.actions_buffer[env_id][i].append(flat_action[flat_key])
                 else:
                     self.actions_buffer[env_id].append(actions)
                 self.internals_buffer[env_id].append(internals)

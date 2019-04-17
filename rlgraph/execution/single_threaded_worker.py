@@ -25,6 +25,7 @@ from six.moves import xrange as range_
 
 from rlgraph.components import PreprocessorStack
 from rlgraph.execution.worker import Worker
+from rlgraph.spaces.containers import Dict, Tuple
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import default_dict
 
@@ -225,14 +226,15 @@ class SingleThreadedWorker(Worker):
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
             env_rewards = [0 for _ in range_(self.num_environments)]
             next_states = None
-            # For container action spaces, we have to treat each key as an array with batch-rank at index 0.
+
+            # For Dict action spaces, we have to treat each key as an array with batch-rank at index 0.
             # The action-dict is then translated into a list of dicts where each dict contains the original data
             # but without the batch-rank.
             # E.g. {'A': array([0, 1]), 'B': array([2, 3])} -> [{'A': 0, 'B': 2}, {'A': 1, 'B': 3}]
-            if self.agent.flat_action_space is not None:
+            if isinstance(self.agent.action_space, Dict):
                 some_key = next(iter(actions))
                 assert isinstance(actions, dict) and isinstance(actions[some_key], np.ndarray),\
-                    "ERROR: Cannot flip container-action batch with dict keys if returned value is not a dict OR " \
+                    "ERROR: Cannot flip Dict-action batch with dict keys if returned value is not a dict OR " \
                     "values of returned value are not np.ndarrays!"
                 # TODO: What if actions come as nested dicts (more than one level deep)?
                 if hasattr(actions[some_key], "len"):
@@ -240,8 +242,18 @@ class SingleThreadedWorker(Worker):
                 else:
                     # Action was not array type.
                     env_actions = [{key: value for key, value in actions.items()}]
-
-            # No flipping necessary.
+            # Tuple action Spaces:
+            # E.g. Tuple(array([0, 1]), array([2, 3])) -> [(0, 2), (1, 3)]
+            elif isinstance(self.agent.action_space, Tuple):
+                assert isinstance(actions, tuple) and isinstance(actions[0], np.ndarray),\
+                    "ERROR: Cannot flip tuple-action batch if returned value is not a tuple OR " \
+                    "values of returned value are not np.ndarrays!"
+                #if hasattr(actions[0], "len"):
+                env_actions = [tuple(value[i] for _, value in enumerate(actions)) for i in range(len(actions[0]))]
+                #else:
+                #    # Action was not array type.
+                #    env_actions = [tuple([value for _, value in enumerate(actions)])]
+            # No container batch-flipping necessary.
             else:
                 env_actions = actions
                 if self.num_environments == 1 and env_actions.shape == ():

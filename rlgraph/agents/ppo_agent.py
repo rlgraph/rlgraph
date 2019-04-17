@@ -27,7 +27,7 @@ from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.execution_util import define_by_run_flatten
-from rlgraph.utils.ops import flatten_op, DataOpDict
+from rlgraph.utils.ops import flatten_op, unflatten_op, DataOpDict, ContainerDataOp, FlattenedDataOp
 from rlgraph.utils.util import strip_list
 
 if get_backend() == "tf":
@@ -216,8 +216,9 @@ class PPOAgent(Agent):
 
             if get_backend() == "tf":
                 # Log probs before update.
-                if isinstance(prev_log_probs, DataOpDict):
-                    for name in prev_log_probs.keys():
+                if isinstance(prev_log_probs, ContainerDataOp):
+                    prev_log_probs = flatten_op(prev_log_probs)
+                    for name, value in prev_log_probs.items():
                         prev_log_probs[name] = tf.stop_gradient(prev_log_probs[name])
                 else:
                     prev_log_probs = tf.stop_gradient(prev_log_probs)
@@ -227,12 +228,14 @@ class PPOAgent(Agent):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
                     indices = tf.range(start=start, limit=start + agent.sample_size) % batch_size
                     sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                    if isinstance(actions, dict):
-                        sample_actions = DataOpDict()
-                        sample_prior_log_probs = DataOpDict()
-                        for name, action in flatten_op(actions, scope_separator_at_start=False).items():
+                    if isinstance(actions, ContainerDataOp):
+                        sample_actions = FlattenedDataOp()
+                        sample_prior_log_probs = FlattenedDataOp()
+                        for name, action in flatten_op(actions).items():
                             sample_actions[name] = tf.gather(params=action, indices=indices)
                             sample_prior_log_probs[name] = tf.gather(params=prev_log_probs[name], indices=indices)
+                        sample_actions = unflatten_op(sample_actions)
+                        sample_prior_log_probs = unflatten_op(sample_prior_log_probs)
                     else:
                         sample_actions = tf.gather(params=actions, indices=indices)
                         sample_prior_log_probs = tf.gather(params=prev_log_probs, indices=indices)
