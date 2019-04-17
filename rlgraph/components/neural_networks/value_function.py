@@ -55,14 +55,12 @@ class ValueFunction(Component):
         self.add_components(self.neural_network)
 
     @rlgraph_api
-    def value_output(self, nn_input, internal_states=None):
+    def value_output(self, nn_inputs):
         """
         Args:
-            nn_input (any): The input to our neural network.
-            internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
+            nn_inputs (any): The inputs to our neural network.
 
         Returns:
             any: Value function estimate V(s) for inputs s.
         """
-        nn_output = self.neural_network.call(nn_input, internal_states)
-        return nn_output["output"]
+        return self.neural_network.call(nn_inputs)
