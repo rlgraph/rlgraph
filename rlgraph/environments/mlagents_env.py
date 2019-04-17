@@ -21,7 +21,7 @@ import numpy as np
 from mlagents.envs.environment import UnityEnvironment
 
 from rlgraph.environments.vector_env import VectorEnv
-from rlgraph.spaces import Dict, IntBox
+from rlgraph.spaces import Dict, Tuple, IntBox
 from rlgraph.spaces.space_utils import get_space_from_op
 
 
@@ -75,11 +75,17 @@ class MLAgentsEnv(VectorEnv):
             state_space = Dict(state_space)
         brain_params = next(iter(self.mlagents_env.brains.values()))
         if brain_params.vector_action_space_type == "discrete":
-            action_space = IntBox(
-                low=np.zeros_like(brain_params.vector_action_space_size, dtype=np.int32),
-                high=np.array(brain_params.vector_action_space_size, dtype=np.int32),
-                shape=(len(brain_params.vector_action_space_size),)
-            )
+            highs = brain_params.vector_action_space_size
+            # MultiDiscrete (Tuple(IntBox)).
+            if any(h != highs[0] for h in highs):
+                action_space = Tuple([IntBox(h) for h in highs])
+            # Normal IntBox:
+            else:
+                action_space = IntBox(
+                    low=np.zeros_like(highs, dtype=np.int32),
+                    high=np.array(highs, dtype=np.int32),
+                    shape=(len(highs),)
+                )
         else:
             action_space = get_space_from_op(first_brain_info.action_masks[0])
         if action_space.dtype == np.float64:
@@ -96,11 +102,9 @@ class MLAgentsEnv(VectorEnv):
         return self
 
     def reset(self, index=0):
-        ## TODO: Can we reset single environments?
-        #if index == 0:
-        #    all_brain_info = self.mlagents_env.reset()
-        #    return self._get_state_from_brain_info(all_brain_info)
-        #else:
+        # Reset entire MLAgentsEnv iff global_done is True.
+        if self.mlagents_env.global_done is True:
+            self.reset_all()
         return self.last_state[index]
 
     def reset_all(self):
@@ -109,8 +113,11 @@ class MLAgentsEnv(VectorEnv):
         return self.last_state
 
     def step(self, actions, text_actions=None, **kwargs):
-        # TODO: Only support vector actions for now.
+        # MLAgents Envs don't like tuple-actions.
+        if isinstance(actions[0], tuple):
+            actions = [list(a) for a in actions]
         all_brain_info = self.mlagents_env.step(
+            # TODO: Only support vector actions for now.
             vector_action=actions, memory=None, text_action=text_actions, value=None
         )
         self.last_state = self._get_state_from_brain_info(all_brain_info)
