@@ -190,7 +190,8 @@ class Distribution(Component):
 
         Args:
             distribution (DataOp): The (already parameterized) backend-specific distribution for which the log
-                probabilities should be calculated. This is simply the output of `self._graph_fn_parameterize`.
+                probabilities should be calculated. This is simply the output of `self._graph_fn_get_distribution`.
+
             values (SingleDataOp): Values for which to compute the log probabilities given `distribution`.
 
         Returns:

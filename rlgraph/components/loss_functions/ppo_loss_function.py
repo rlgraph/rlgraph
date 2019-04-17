@@ -85,7 +85,7 @@ class PPOLossFunction(LossFunction):
         baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, rewards)
         loss_per_item = self._graph_fn_loss_per_item(log_probs, prev_log_probs, rewards, entropy)
 
-        # Average across actions.
+        # Average across action components.
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
 
         return loss_per_item, baseline_loss_per_item

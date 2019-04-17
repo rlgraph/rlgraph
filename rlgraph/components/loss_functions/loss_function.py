@@ -93,13 +93,12 @@ class LossFunction(Component):
         """
         If action space is a container space, average losses for each action.
         """
-        if get_backend() == "tf":
-            if isinstance(self.action_space, ContainerSpace):
+        if isinstance(self.action_space, ContainerSpace):
+            if get_backend() == "tf":
                 loss_per_item = tf.stack(list(loss_per_item.values()))
                 loss_per_item = tf.reduce_mean(loss_per_item, axis=0)
-            return loss_per_item
-        elif get_backend() == "pytorch":
-            if isinstance(self.action_space, ContainerSpace):
+            elif get_backend() == "pytorch":
                 loss_per_item = torch.stack(list(loss_per_item.values()))
                 loss_per_item = torch.mean(loss_per_item, 0)
-            return loss_per_item
+
+        return loss_per_item

@@ -17,22 +17,22 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
-from six.moves import xrange as range_
-
 import copy
 import inspect
-import numpy as np
 import re
 import uuid
+from collections import OrderedDict
+
+import numpy as np
+from six.moves import xrange as range_
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry,\
+from rlgraph.utils import util
+from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
     define_api_method, define_graph_fn
+from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, TraceContext
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, TraceContext
-from rlgraph.utils import util
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -883,14 +883,14 @@ class Component(Specifiable):
             # Should we expose some API-methods of the child?
             for api_method_name, api_method_rec in component.api_methods.items():
                 if api_method_name in expose_apis:
-                    # Hold these here to avoid fixtures (when Components get copied).
+                    # Hold these here to avoid closures (when Components get copied).
                     name_ = api_method_name
                     component_name = component.name
                     must_be_complete = api_method_rec.must_be_complete
 
                     @rlgraph_api(component=self, name=api_method_name, must_be_complete=must_be_complete)
                     def exposed_api_method_wrapper(self, *inputs, **kwargs):
-                        # Complicated way to lookup sub-component's method to avoid fixtures when original
+                        # Complicated way to lookup sub-component's method to avoid closures when original
                         # component gets copied.
                         return getattr(self.sub_components[component_name], name_)(*inputs, **kwargs)
 
