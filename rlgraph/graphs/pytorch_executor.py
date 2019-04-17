@@ -25,7 +25,7 @@ from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
-from rlgraph.utils.execution_util import define_by_run_flatten, define_by_run_unflatten
+from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run_unflatten
 from rlgraph.utils.util import force_torch_tensors
 
 if get_backend() == "pytorch":

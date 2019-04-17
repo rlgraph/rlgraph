@@ -134,7 +134,6 @@ class MemSegmentTree(object):
             result = float('-inf')
         else:
             raise RLGraphError("Unsupported reduce OP. Support ops are [add, min, max].")
-
         start += self.capacity
         limit += self.capacity
 
@@ -145,10 +144,8 @@ class MemSegmentTree(object):
             if limit & 1:
                 limit -= 1
                 result = reduce_op(result, self.values[limit])
-
             start = start >> 1
             limit = limit >> 1
-
         return result
 
     def get_min_value(self, start=0, stop=None):
@@ -199,5 +196,5 @@ class MinSumSegmentTree(object):
             self.sum_segment_tree.values[index] = self.sum_segment_tree.values[update_index] +\
                 self.sum_segment_tree.values[update_index + 1]
             self.min_segment_tree.values[index] = min(self.min_segment_tree.values[update_index],
-                self.min_segment_tree.values[update_index + 1])
+                                                      self.min_segment_tree.values[update_index + 1])
             index = index >> 1

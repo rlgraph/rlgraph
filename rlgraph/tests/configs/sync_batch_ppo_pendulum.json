@@ -5,7 +5,8 @@
   "clip_ratio": 0.3,
   "discount": 0.95,
   "gae_lambda": 0.1,
-  "weight_entropy": 0.01,
+  "weight_entropy": 0.00001,
+  "value_function_clipping": 10.0,
 
   "memory_spec":
   {

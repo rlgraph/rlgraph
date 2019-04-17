@@ -46,3 +46,20 @@ executor = ApexExecutor(
     agent_config=agent_config,
 )
 ```
+
+## How can I use a more complex network structure?
+
+The ``network_spec`` and ```value_function_spec``` configuration
+parameters both take simple lists of layer configurations but also
+accept instances of ```NeuralNetwork``` and ```ValueFuction``` respectively:
+
+```agent = DQNAgent(network_spec=MyNetwork(), **kwargs)```
+
+will use ```MyNetwork``` as the base of the policy object. 
+
+In ```components/neural_networks/```, we show two examples of custom
+value functions. The ```impala_networks``` module illustrates how to compose
+an involved architecture combining LSTM and convolutional stacks from multiple
+inputs for the IMPALA policy networks. In ```sac_networks```, we implement
+a value function that concatenates states and actions which can require
+splitting up a network into different stacks.

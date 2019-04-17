@@ -17,10 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
 from collections import defaultdict
 from functools import partial
-
+import logging
 import numpy as np
 
 from rlgraph import get_backend
@@ -30,8 +29,9 @@ from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.utils.ops import flatten_op
+from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec, \
+    parse_value_function_spec
 from rlgraph.utils.specifiable import Specifiable
 
 if get_backend() == "tf":
@@ -66,13 +66,14 @@ class Agent(Specifiable):
                 Space object for the Space(s) of the internal (RNN) states.
 
             policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
-            value_function_spec (list, dict): Neural network specification for baseline.
+            value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
+                of ValueFunction.
 
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
 
-            value_function_optimizer_spec (dict): Optimizer config for value function otpimizer. If None, the optimizer
+            value_function_optimizer_spec (dict): Optimizer config for value function optimizer. If None, the optimizer
                 spec for the policy is used (same learning rate and optimizer type).
 
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
@@ -125,7 +126,7 @@ class Agent(Specifiable):
             self.logger.info("No preprocessing required.")
 
         # Construct the Policy network.
-        policy_spec = policy_spec or dict()
+        policy_spec = policy_spec or {}
         if "network_spec" not in policy_spec:
             policy_spec["network_spec"] = network_spec
         if "action_space" not in policy_spec:
@@ -137,20 +138,14 @@ class Agent(Specifiable):
         self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # Create non-shared baseline network.
-        self.value_function = None
+        self.value_function = parse_value_function_spec(value_function_spec)
         # TODO move this to specific agents.
-        if value_function_spec is not None:
-            if isinstance(value_function_spec, list):
-                # Use default type if given is list.
-                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
-            self.value_function = ValueFunction.from_spec(value_function_spec)
-            self.value_function.add_components(Synchronizable(), expose_apis="sync")
+        if self.value_function is not None:
             self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
         else:
             self.vars_merger = ContainerMerger("policy", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
-
         self.internal_states_space = Space.from_spec(internal_states_space)
 
         # An object implementing the loss function interface is only strictly needed

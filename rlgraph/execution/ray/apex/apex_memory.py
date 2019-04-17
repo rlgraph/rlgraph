@@ -87,7 +87,7 @@ class ApexMemory(Specifiable):
         Obtains record values for the provided indices.
 
         Args:
-            indices ndarray: Indices to read. Assumed to be not contiguous.
+            indices (ndarray): Indices to read. Assumed to be not contiguous.
 
         Returns:
              dict: Record value dict.

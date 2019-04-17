@@ -56,9 +56,9 @@
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 1024,
-    "batch_size": 1024,
-    "num_iterations": 5,
+    "update_interval": 2048,
+    "batch_size": 2048,
+    "num_iterations": 10,
     "sample_size": 64
   },
 

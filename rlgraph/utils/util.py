@@ -24,7 +24,7 @@ import inspect
 import re
 import sys
 from rlgraph import get_backend
-from rlgraph.utils.execution_util import define_by_run_flatten
+from rlgraph.utils.define_by_run_ops import define_by_run_flatten
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
@@ -54,7 +54,6 @@ root_logger.addHandler(print_logging_handler)
 
 
 # TODO: Consider making "to" non-optional: https://github.com/rlgraph/rlgraph/issues/34
-
 def convert_dtype(dtype, to="tf"):
     """
     Translates any type (tf, numpy, python, etc..) into the respective tensorflow/numpy data type.

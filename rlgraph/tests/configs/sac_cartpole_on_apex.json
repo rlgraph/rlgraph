@@ -40,7 +40,8 @@
     "sync_interval": 1,
     "sync_tau": 0.005,
     "batch_size": 32,
-    "num_iterations": 1
+    "num_iterations": 1,
+    "steps_before_update": 256
   },
 
   "optimizer_spec": {

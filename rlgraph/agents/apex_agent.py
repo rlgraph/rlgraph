@@ -33,15 +33,95 @@ class ApexAgent(DQNAgent):
     to enable external updates of priorities. Ape-X also enables per default dueling and double
     DQN.
     """
-    def __init__(self, memory_spec=None, **kwargs):
+    def __init__(
+        self,
+        state_space,
+        action_space,
+        discount=0.98,
+        preprocessing_spec=None,
+        network_spec=None,
+        internal_states_space=None,
+        policy_spec=None,
+        exploration_spec=None,
+        execution_spec=None,
+        optimizer_spec=None,
+        observe_spec=None,
+        update_spec=None,
+        summary_spec=None,
+        saver_spec=None,
+        auto_build=True,
+        name="apex-agent",
+        double_q=True,
+        dueling_q=True,
+        huber_loss=True,
+        n_step=1,
+        shared_container_action_target=True,
+        memory_spec=None,
+        store_last_memory_batch=False,
+        store_last_q_table=False,
+    ):
         """
         Args:
+            state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
+            action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
+            preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
+                preprocessing steps or a PreprocessorStack object itself.
+            discount (float): The discount factor (gamma).
+            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
+                object itself.
+            internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
+                Space object for the Space(s) of the internal (RNN) states.
+            policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
+            exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
+            execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
+            optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
+            observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
+            update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            summary_spec (Optional[dict]): Spec-dict to specify summary settings.
+            saver_spec (Optional[dict]): Spec-dict to specify saver settings.
+            auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
+                graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
+                components before building.
+            name (str): Some name for this Agent object.
+            double_q (bool): Whether to use the double DQN loss function (see [2]).
+            dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
+            huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
+            n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
+            store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
+                `self.last_memory_batch` for debugging purposes.
+                Default: False.
+            store_last_q_table (bool): Whether to store the Q(s,a) values for the last received batch
+                (memory or external) in `self.last_q_table` for debugging purposes.
+                Default: False.
         """
         assert memory_spec["type"] == "prioritized_replay" or memory_spec["type"] == "mem_prioritized_replay"
-        super(ApexAgent, self).__init__(memory_spec=memory_spec, huber_loss=kwargs.pop("huber_loss", True),
-                                        name=kwargs.pop("name", "apex-agent"), **kwargs)
-
+        super(ApexAgent, self).__init__(
+            state_space=state_space,
+            action_space=action_space,
+            discount=discount,
+            preprocessing_spec=preprocessing_spec,
+            network_spec=network_spec,
+            internal_states_space=internal_states_space,
+            policy_spec=policy_spec,
+            exploration_spec=exploration_spec,
+            execution_spec=execution_spec,
+            optimizer_spec=optimizer_spec,
+            observe_spec=observe_spec,
+            update_spec=update_spec,
+            summary_spec=summary_spec,
+            saver_spec=saver_spec,
+            auto_build=auto_build,
+            name=name,
+            double_q=double_q,
+            dueling_q=dueling_q,
+            huber_loss=huber_loss,
+            n_step=n_step,
+            shared_container_action_target=shared_container_action_target,
+            memory_spec=memory_spec,
+            store_last_memory_batch=store_last_memory_batch,
+            store_last_q_table=store_last_q_table,
+        )
         self.num_updates = 0
 
     def update(self, batch=None):
@@ -91,31 +171,8 @@ class ApexAgent(DQNAgent):
                 )
                 self.last_q_table = q_table
 
-
             # Return [1]=total loss, [2]=loss-per-item (skip [0]=update noop).
             return ret[1], ret[2]
-
-    def get_td_loss(self, batch):
-        """
-        Utility method that just returns the td-loss from a batch without
-        applying an update.
-
-        Args:
-            batch (dict): Input batch.
-
-        Returns:
-            Tuple: Total loss and loss per item.
-        """
-        batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                       batch["next_states"], batch["importance_weights"]]
-        ret = self.graph_executor.execute(("get_td_loss", batch_input))
-
-        # Remove unnecessary return dicts.
-        if isinstance(ret, dict):
-            ret = ret["get_td_loss"]
-
-        # Return [0]=total loss, [1]=loss-per-item
-        return ret[0], ret[1]
 
     def __repr__(self):
         return "ApexAgent"

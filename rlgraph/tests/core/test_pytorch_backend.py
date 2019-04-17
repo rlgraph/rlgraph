@@ -30,7 +30,7 @@ from rlgraph.tests.dummy_components import *
 from rlgraph.tests.dummy_components_with_sub_components import *
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger, softmax
-from rlgraph.utils.execution_util import print_call_chain
+from rlgraph.utils.define_by_run_ops import print_call_chain
 
 
 class TestPytorchBackend(unittest.TestCase):

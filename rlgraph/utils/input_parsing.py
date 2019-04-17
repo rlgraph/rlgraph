@@ -20,6 +20,7 @@ from __future__ import print_function
 import os.path
 
 from rlgraph import get_backend
+from rlgraph.components import Synchronizable, ValueFunction
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.components.optimizers.optimizer import Optimizer
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
@@ -55,29 +56,32 @@ def parse_saver_spec(saver_spec):
     return default_dict(saver_spec, default_spec)
 
 
-#def get_optimizer_from_device_strategy(optimizer_spec, device_strategy='default'):
-#    """
-#    Returns optimizer object based on optimizer_spec and device strategy.
+def parse_value_function_spec(value_function_spec):
+    """
+    Creates value function from spec if needed.
 
-#    Depending on the device strategy, the default optimizer object (e.g. an AdamOptimizer)
-#    will be wrapped into a specific device optimizer
-
-#    Args:
-#        optimizer_spec (dict): Optimizer configuration options.
-#        device_strategy (str): Device strategy to apply onto the optimizer.
-
-#    Returns:
-#        Optimizer: Optimizer object.
-#    """
-#    if device_strategy == 'default' or device_strategy == 'custom':
-#        return Optimizer.from_spec(optimizer_spec)
-#    elif device_strategy == 'multi_gpu_sync':
-#        local_optimizer = Optimizer.from_spec(optimizer_spec)
-#        # Wrap local optimizer in multi device optimizer.
-#        return MultiGpuSynchronizer(local_optimizer=local_optimizer)
-#    else:
-#        raise RLGraphError("Device strategy {} is not allowed. Allowed strategies are 'default', 'custom',"
-#                           "and 'multi_gpu_sync'".format(device_strategy))
+    Args:
+        value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
+            of ValueFunction.
+    Returns:
+        Optional(ValueFunction): None if Spec is None or instance of ValueFunction.
+    """
+    if value_function_spec is None:
+        return None
+    else:
+        vf_sync = Synchronizable()
+        # VF is already instantiated.
+        if isinstance(value_function_spec, ValueFunction):
+            value_function = value_function_spec
+            if vf_sync.name not in value_function.sub_components:
+                value_function.add_components(vf_sync, expose_apis="sync")
+        else:
+            if isinstance(value_function_spec, list):
+                # Use default type if given is layer-list.
+                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
+            value_function = ValueFunction.from_spec(value_function_spec)
+            value_function.add_components(vf_sync, expose_apis="sync")
+        return value_function
 
 
 def parse_summary_spec(summary_spec):

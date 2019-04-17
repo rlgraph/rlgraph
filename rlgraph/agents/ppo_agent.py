@@ -26,7 +26,7 @@ from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.execution_util import define_by_run_flatten
+from rlgraph.utils.define_by_run_ops import define_by_run_flatten
 from rlgraph.utils.ops import flatten_op, unflatten_op, DataOpDict, ContainerDataOp, FlattenedDataOp
 from rlgraph.utils.util import strip_list
 
@@ -45,13 +45,65 @@ class PPOAgent(Agent):
     Paper: https://arxiv.org/abs/1707.06347
     """
 
-    def __init__(self, clip_ratio=0.2, gae_lambda=1.0, clip_rewards=0.0, standardize_advantages=False,
-                 sample_episodes=True, weight_entropy=None, memory_spec=None, **kwargs):
+    def __init__(
+        self,
+        state_space,
+        action_space,
+        discount=0.98,
+        preprocessing_spec=None,
+        network_spec=None,
+        internal_states_space=None,
+        policy_spec=None,
+        value_function_spec=None,
+        execution_spec=None,
+        optimizer_spec=None,
+        value_function_optimizer_spec=None,
+        observe_spec=None,
+        update_spec=None,
+        summary_spec=None,
+        saver_spec=None,
+        auto_build=True,
+        name="ppo-agent",
+        clip_ratio=0.2,
+        gae_lambda=1.0,
+        clip_rewards=0.0,
+        value_function_clipping=None,
+        standardize_advantages=False,
+        sample_episodes=True,
+        weight_entropy=None,
+        memory_spec=None
+    ):
         """
         Args:
+            state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
+            action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
+            preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
+                preprocessing steps or a PreprocessorStack object itself.
+            discount (float): The discount factor (gamma).
+            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
+                object itself.
+            internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
+                Space object for the Space(s) of the internal (RNN) states.
+            policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
+            value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
+                of ValueFunction.
+            execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
+            optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
+            value_function_optimizer_spec (dict): Optimizer config for value function optimizer. If None, the optimizer
+                spec for the policy is used (same learning rate and optimizer type).
+            observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
+            update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            summary_spec (Optional[dict]): Spec-dict to specify summary settings.
+            saver_spec (Optional[dict]): Spec-dict to specify saver settings.
+            auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
+                graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
+                components before building.
+            name (str): Some name for this Agent object.
             clip_ratio (float): Clipping parameter for likelihood ratio.
             gae_lambda (float): Lambda for generalized advantage estimation.
             clip_rewards (float): Reward clip value. If not 0, rewards will be clipped into this range.
+            value_function_clipping (Optional[float]): If not None, uses clipped value function objective. If None,
+                uses simple value function objective.
             standardize_advantages (bool): If true, standardize advantage values in update.
 
             sample_episodes (bool): If True, the update method interprets the batch_size as the number of
@@ -64,14 +116,28 @@ class PPOAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
                 a ring-buffer.
         """
-        if "policy_spec" in kwargs:
-            policy_spec = kwargs.pop("policy_spec")
+        if policy_spec is not None:
             policy_spec["deterministic"] = False
         else:
             policy_spec = dict(deterministic=False)
         super(PPOAgent, self).__init__(
-            policy_spec=policy_spec,  # Set policy to stochastic.
-            name=kwargs.pop("name", "ppo-agent"), **kwargs
+            state_space=state_space,
+            action_space=action_space,
+            discount=discount,
+            preprocessing_spec=preprocessing_spec,
+            network_spec=network_spec,
+            internal_states_space=internal_states_space,
+            policy_spec=policy_spec,
+            value_function_spec=value_function_spec,
+            execution_spec=execution_spec,
+            optimizer_spec=optimizer_spec,
+            value_function_optimizer_spec=value_function_optimizer_spec,
+            observe_spec=observe_spec,
+            update_spec=update_spec,
+            summary_spec=summary_spec,
+            saver_spec=saver_spec,
+            name=name,
+            auto_build=auto_build
         )
         self.sample_episodes = sample_episodes
 
@@ -107,11 +173,12 @@ class PPOAgent(Agent):
                 format(self.observe_spec["buffer_size"], self.memory.capacity)
 
         # The splitter for splitting up the records coming from the memory.
+        self.standardize_advantages = standardize_advantages
         self.gae_function = GeneralizedAdvantageEstimation(
             gae_lambda=gae_lambda, discount=self.discount, clip_rewards=clip_rewards
         )
         self.loss_function = PPOLossFunction(
-            clip_ratio=clip_ratio, standardize_advantages=standardize_advantages, weight_entropy=weight_entropy
+            clip_ratio=clip_ratio, value_function_clipping=value_function_clipping, weight_entropy=weight_entropy
         )
 
         self.iterations = self.update_spec["num_iterations"]
@@ -223,6 +290,19 @@ class PPOAgent(Agent):
                 else:
                     prev_log_probs = tf.stop_gradient(prev_log_probs)
                 batch_size = tf.shape(preprocessed_states)[0]
+                prior_baseline_values = tf.stop_gradient(value_function.value_output(preprocessed_states))
+
+                # Advantages are based on prior baseline values.
+                advantages = tf.cond(
+                        pred=apply_postprocessing,
+                        true_fn=lambda: gae_function.calc_gae_values(
+                            prior_baseline_values, rewards, terminals, sequence_indices),
+                        false_fn=lambda: rewards
+                    )
+
+                if self.standardize_advantages:
+                    mean, std = tf.nn.moments(x=advantages, axes=[0])
+                    advantages = (advantages - mean) / std
 
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
@@ -243,6 +323,11 @@ class PPOAgent(Agent):
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
+                    sample_advantages = tf.gather(params=advantages, indices=indices)
+                    sample_advantages.set_shape((self.sample_size, ))
+
+                    sample_baseline_values = value_function.value_output(sample_states)
+                    sample_prior_baseline_values = tf.gather(params=prior_baseline_values, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -293,7 +378,7 @@ class PPOAgent(Agent):
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
                             policy_probs, sample_prior_log_probs,
-                            baseline_values, sample_rewards,  entropy
+                            sample_baseline_values, sample_prior_baseline_values, sample_advantages,  entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
@@ -351,6 +436,14 @@ class PPOAgent(Agent):
                     prev_log_probs = prev_log_probs.detach()
                 batch_size = preprocessed_states.shape[0]
                 sample_size = min(batch_size, agent.sample_size)
+                prior_baseline_values = value_function.value_output(preprocessed_states).detach()
+                if apply_postprocessing:
+                    advantages = gae_function.calc_gae_values(
+                        prior_baseline_values, rewards, terminals, sequence_indices)
+                else:
+                    advantages = rewards
+                if self.standardize_advantages:
+                    advantages = (advantages - torch.mean(advantages)) / torch.std(advantages)
 
                 for _ in range(agent.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
@@ -367,29 +460,22 @@ class PPOAgent(Agent):
                         sample_actions = torch.index_select(actions, 0, indices)
                         sample_prior_log_probs = torch.index_select(prev_log_probs, 0, indices)
 
-                    sample_rewards = torch.index_select(rewards, 0, indices)
-                    sample_terminals = torch.index_select(terminals, 0, indices)
-                    sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
+                    sample_advantages = torch.index_select(advantages, 0, indices)
+                    sample_prior_baseline_values = torch.index_select(prior_baseline_values, 0, indices)
 
                     policy_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-
-                    baseline_values = value_function.value_output(sample_states)
-                    if apply_postprocessing:
-                        sample_rewards = gae_function.calc_gae_values(
-                            baseline_values, sample_rewards, sample_terminals, sample_sequence_indices)
+                    sample_baseline_values = value_function.value_output(sample_states)
 
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
                         policy_probs["action_log_probs"], sample_prior_log_probs,
-                        baseline_values,  sample_rewards, entropy
+                        sample_baseline_values,  sample_prior_baseline_values, sample_advantages, entropy
                     )
 
                     # Do not need step op.
                     _, loss, loss_per_item = optimizer.step(policy.variables(), loss, loss_per_item)
-
                     _, vf_loss, vf_loss_per_item = \
                         value_function_optimizer.step(value_function.variables(), vf_loss, vf_loss_per_item)
-
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
