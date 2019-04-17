@@ -191,7 +191,7 @@ class Worker(Specifiable):
             # Are we allowed to update?
             if self.agent.timesteps > self.steps_before_update and \
                     (self.agent.observe_spec["buffer_enabled"] is False or  # No update before some data in buffer
-                     self.agent.timesteps >= self.agent.observe_spec["buffer_size"]):
+                     int(self.agent.timesteps / self.num_environments) >= self.agent.observe_spec["buffer_size"]):
                 # Updating according to one update mode:
                 if self.update_mode == "time_steps" and self.agent.timesteps % self.update_interval == 0:
                     return self.execute_update()
