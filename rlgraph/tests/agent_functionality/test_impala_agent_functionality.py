@@ -97,7 +97,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             network_spec=large_impala_architecture, action_space=self.action_space,
             switched_off_apis={
                 #"get_action_from_logits_and_parameters", "get_action_from_logits_and_probabilities",
-                "get_action_log_probs"
+                "get_log_likelihood"
             }
         )
         test = ComponentTest(

@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import graph_fn
-
 from rlgraph.components import Component
+from rlgraph.utils.decorators import graph_fn
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -70,7 +69,7 @@ class IterativeOptimization(Component):
             sample_rewards = tf.gather(params=rewards, indices=sample_indices)
             sample_terminals = tf.gather(params=terminals, indices=sample_indices)
 
-            action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
+            action_log_probs = self.policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
             baseline_values = self.value_function.value_output(sample_states)
 
             loss, loss_per_item, vf_loss, vf_loss_per_item = self.loss.loss(
@@ -92,7 +91,7 @@ class IterativeOptimization(Component):
                     sample_rewards = tf.gather(params=rewards, indices=sample_indices)
                     sample_terminals = tf.gather(params=terminals, indices=sample_indices)
 
-                    action_log_probs = self.policy.get_action_log_probs(sample_states, sample_actions)
+                    action_log_probs = self.policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
                     baseline_values = self.value_function.value_output(sample_states)
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = self.loss.loss(

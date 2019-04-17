@@ -227,13 +227,13 @@ class Policy(Component):
         """
         deterministic = self.deterministic if deterministic is None else deterministic
         out = self.get_adapter_outputs_and_parameters(nn_inputs)
-        action, log_prob = self._graph_fn_get_action_and_log_likelihood(out["parameters"], deterministic)
+        action, log_likelihood = self._graph_fn_get_action_and_log_likelihood(out["parameters"], deterministic)
 
         return dict(
             nn_outputs=out["nn_outputs"],
             adapter_outputs=out["adapter_outputs"],
             action=action,
-            log_likelihood=log_prob,
+            log_likelihood=log_likelihood,
         )
 
     @rlgraph_api
@@ -244,7 +244,6 @@ class Policy(Component):
         Args:
             nn_inputs (any): The input to our neural network.
             actions (any): The actions for which to get the log-likelihood.
-            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Log-probs of actions under current policy
@@ -254,9 +253,7 @@ class Policy(Component):
         # Probabilities under current action.
         log_likelihood = self._graph_fn_get_distribution_log_likelihood(out["parameters"], actions)
 
-        return dict(log_likelihood=log_likelihood, adapter_outputs=out["adapter_outputs"]
-                    #last_internal_states=out["last_internal_states"]
-        )
+        return dict(log_likelihood=log_likelihood, adapter_outputs=out["adapter_outputs"])
 
     @rlgraph_api
     def get_deterministic_action(self, nn_inputs):

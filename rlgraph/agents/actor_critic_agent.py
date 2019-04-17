@@ -166,7 +166,7 @@ class ActorCriticAgent(Agent):
         def update_from_external_batch(root, preprocessed_states, actions, rewards, terminals):
 
             baseline_values = agent.value_function.value_output(preprocessed_states)
-            log_probs = agent.policy.get_action_log_probs(preprocessed_states, actions)["action_log_probs"]
+            log_probs = agent.policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
             entropy = agent.policy.get_entropy(preprocessed_states)["entropy"]
             loss, loss_per_item, vf_loss, vf_loss_per_item = agent.loss_function.loss(
                 log_probs, baseline_values, rewards, entropy

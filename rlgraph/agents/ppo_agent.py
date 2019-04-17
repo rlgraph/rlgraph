@@ -212,7 +212,7 @@ class PPOAgent(Agent):
             value_function_optimizer = root.get_sub_component_by_name(agent.value_function_optimizer.scope)
             vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
             gae_function = root.get_sub_component_by_name(agent.gae_function.scope)
-            prev_log_probs = policy.get_action_log_probs(preprocessed_states, actions)["action_log_probs"]
+            prev_log_probs = policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
 
             if get_backend() == "tf":
                 # Log probs before update.
@@ -276,7 +276,7 @@ class PPOAgent(Agent):
                                 out["loss"] = root._graph_fn_training_step(out["loss"])
                             return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
 
-                    policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
+                    policy_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
                     baseline_values = value_function.value_output(tf.stop_gradient(sample_states))
                     sample_rewards = tf.cond(
                         pred=apply_postprocessing,
@@ -289,7 +289,7 @@ class PPOAgent(Agent):
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
-                            policy_probs["action_log_probs"], sample_prior_log_probs,
+                            policy_probs, sample_prior_log_probs,
                             baseline_values, sample_rewards,  entropy
                         )
 
@@ -368,7 +368,7 @@ class PPOAgent(Agent):
                     sample_terminals = torch.index_select(terminals, 0, indices)
                     sample_sequence_indices = torch.index_select(sequence_indices, 0, indices)
 
-                    policy_probs = policy.get_action_log_probs(sample_states, sample_actions)
+                    policy_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
 
                     baseline_values = value_function.value_output(sample_states)
                     if apply_postprocessing:
