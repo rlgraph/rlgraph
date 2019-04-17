@@ -134,7 +134,7 @@ class TestActorComponents(unittest.TestCase):
             ret = test.test((
                 "get_preprocessed_state_and_action",
                 # expand time dim at 1st slot as we are time-major == False
-                [np.expand_dims(states[i], 1), initial_internal_states, time_step]
+                [np.expand_dims(states[i], 1), tuple([initial_internal_states]), time_step]
             ))
             preprocessed_states[i] = ret["preprocessed_state"][:, 0, :]  # take out time-rank again ()
             actions[i] = ret["action"]
