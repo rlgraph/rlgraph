@@ -29,7 +29,8 @@ script:
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_dqn_agent_short_task_learning.py::TestDQNAgentShortTaskLearning::test_double_dueling_dqn_on_cart_pole';
   # IMPALA: Cartpole.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_impala_agent_short_task_learning.py::TestIMPALAAgentShortTaskLearning::test_impala_on_cart_pole';
-  # PPO: Cartpole.
+  # PPO: Container-Action 2x2 Gridworld and Cartpole.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_ppo_agent_short_task_learning.py::TestPPOShortTaskLearning::test_ppo_on_2x2_grid_world_with_container_actions';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_ppo_agent_short_task_learning.py::TestPPOShortTaskLearning::test_ppo_on_cart_pole';
   # SAC: GaussianDensityAsRewardEnv.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_sac_agent_short_task_learning.py::TestSACShortTaskLearning::test_sac_learning_on_gaussian_density_as_reward_env';
