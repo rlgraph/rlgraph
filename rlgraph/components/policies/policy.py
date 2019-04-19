@@ -26,7 +26,7 @@ from rlgraph.components.action_adapters.action_adapter_utils import get_action_a
 from rlgraph.components.component import Component
 from rlgraph.components.distributions import Distribution
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.spaces import Space, BoolBox, IntBox
+from rlgraph.spaces import Space, BoolBox, IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import get_default_distribution_from_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
@@ -85,6 +85,10 @@ class Policy(Component):
         self.add_components(
             *[self.neural_network] + list(self.action_adapters.values()) + list(self.distributions.values())
         )
+        self.flat_action_space = None
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        self.flat_action_space = action_space.flatten()
 
     def _create_action_adapters_and_distributions(self, action_space, action_adapter_spec):
         if action_space is None:
@@ -234,6 +238,7 @@ class Policy(Component):
         deterministic = self.deterministic if deterministic is None else deterministic
         out = self.get_adapter_outputs_and_parameters(nn_inputs)
         action, log_likelihood = self._graph_fn_get_action_and_log_likelihood(out["parameters"], deterministic)
+        log_likelihood = self._graph_fn_combine_log_likelihood_over_container_keys(log_likelihood)
 
         return dict(
             nn_outputs=out["nn_outputs"],
@@ -242,7 +247,7 @@ class Policy(Component):
             log_likelihood=log_likelihood,
         )
 
-    @rlgraph_api
+    @rlgraph_api(must_be_complete=False)
     def get_log_likelihood(self, nn_inputs, actions):
         """
         Computes the log-likelihood for a given set of actions under the distribution induced by a set of states.
@@ -258,6 +263,7 @@ class Policy(Component):
 
         # Probabilities under current action.
         log_likelihood = self._graph_fn_get_distribution_log_likelihood(out["parameters"], actions)
+        log_likelihood = self._graph_fn_combine_log_likelihood_over_container_keys(log_likelihood)
 
         return dict(log_likelihood=log_likelihood, adapter_outputs=out["adapter_outputs"])
 
@@ -363,6 +369,10 @@ class Policy(Component):
 
         return adapter_outputs, parameters, log_probs
 
+    # TODO: Cannot use flatten_ops=True, split_ops=True, ... here b/c distribution parameters may come as Tuples, which
+    # TODO: would then be flattened as well and therefore mixed with the container-action structure.
+    # TODO: Need some option to specify something like: "flatten according to self.action_space" or flatten according to
+    # TODO: `self.state_space`.
     @graph_fn
     def _graph_fn_get_distribution_entropies(self, parameters):
         """
@@ -388,6 +398,10 @@ class Policy(Component):
                 ret[flat_key] = d.entropy(parameters.flat_key_lookup(flat_key))
         return ret
 
+    # TODO: Cannot use flatten_ops=True, split_ops=True, ... here b/c distribution parameters may come as Tuples, which
+    # TODO: would then be flattened as well and therefore mixed with the container-action structure.
+    # TODO: Need some option to specify something like: "flatten according to self.action_space" or flatten according to
+    # TODO: `self.state_space`.
     @graph_fn
     def _graph_fn_get_distribution_log_likelihood(self, parameters, actions):
         """
@@ -403,7 +417,7 @@ class Policy(Component):
                 to structure of `self.action_space`.
         """
         ret = FlattenedDataOp()
-        for flat_key, action_space_component in self.action_space.flatten().items():
+        for flat_key, action_space_component in self.flat_action_space.items():
             if flat_key == "":
                 if isinstance(parameters, FlattenedDataOp):
                     return self.distributions[flat_key].log_prob(parameters[flat_key], actions)
@@ -415,6 +429,26 @@ class Policy(Component):
                 )
         return ret
 
+    @graph_fn(flatten_ops=True)
+    def _graph_fn_combine_log_likelihood_over_container_keys(self, log_likelihoods):
+        """
+        If action space is a container space, add log-likelihoods (assuming all distribution components are
+        independent).
+        """
+        if isinstance(self.action_space, ContainerSpace):
+            if get_backend() == "tf":
+                log_likelihoods = tf.stack(list(log_likelihoods.values()))
+                log_likelihoods = tf.reduce_sum(log_likelihoods, axis=0)
+            elif get_backend() == "pytorch":
+                log_likelihoods = torch.stack(list(log_likelihoods.values()))
+                log_likelihoods = torch.sum(log_likelihoods, 0)
+
+        return log_likelihoods
+
+    # TODO: Cannot use flatten_ops=True, split_ops=True, ... here b/c distribution parameters may come as Tuples, which
+    # TODO: would then be flattened as well and therefore mixed with the container-action structure.
+    # TODO: Need some option to specify something like: "flatten according to self.action_space" or flatten according to
+    # TODO: `self.state_space`.
     @graph_fn
     def _graph_fn_get_action_components(self, logits, parameters, deterministic):
         ret = {}
@@ -463,6 +497,10 @@ class Policy(Component):
         elif get_backend() == "pytorch":
             return define_by_run_unflatten(ret)
 
+    # TODO: Cannot use flatten_ops=True, split_ops=True, ... here b/c distribution parameters may come as Tuples, which
+    # TODO: would then be flattened as well and therefore mixed with the container-action structure.
+    # TODO: Need some option to specify something like: "flatten according to self.action_space" or flatten according to
+    # TODO: `self.state_space`.
     @graph_fn(returns=2)
     def _graph_fn_get_action_and_log_likelihood(self, parameters, deterministic):
         action = FlattenedDataOp()

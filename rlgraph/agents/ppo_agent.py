@@ -283,12 +283,7 @@ class PPOAgent(Agent):
 
             if get_backend() == "tf":
                 # Log probs before update.
-                if isinstance(prev_log_probs, ContainerDataOp):
-                    prev_log_probs = flatten_op(prev_log_probs)
-                    for name, value in prev_log_probs.items():
-                        prev_log_probs[name] = tf.stop_gradient(prev_log_probs[name])
-                else:
-                    prev_log_probs = tf.stop_gradient(prev_log_probs)
+                prev_log_probs = tf.stop_gradient(prev_log_probs)
                 batch_size = tf.shape(preprocessed_states)[0]
                 prior_baseline_values = tf.stop_gradient(value_function.value_output(preprocessed_states))
 
@@ -310,16 +305,13 @@ class PPOAgent(Agent):
                     sample_states = tf.gather(params=preprocessed_states, indices=indices)
                     if isinstance(actions, ContainerDataOp):
                         sample_actions = FlattenedDataOp()
-                        sample_prior_log_probs = FlattenedDataOp()
                         for name, action in flatten_op(actions).items():
                             sample_actions[name] = tf.gather(params=action, indices=indices)
-                            sample_prior_log_probs[name] = tf.gather(params=prev_log_probs[name], indices=indices)
                         sample_actions = unflatten_op(sample_actions)
-                        sample_prior_log_probs = unflatten_op(sample_prior_log_probs)
                     else:
                         sample_actions = tf.gather(params=actions, indices=indices)
-                        sample_prior_log_probs = tf.gather(params=prev_log_probs, indices=indices)
 
+                    sample_prior_log_probs = tf.gather(params=prev_log_probs, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)

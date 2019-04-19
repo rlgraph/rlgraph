@@ -99,13 +99,11 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
         action = out["action"]
         llh = out["log_likelihood"]
 
-        # Action log-likelihood.
-        expected_action_llh_output = dict(
-            a=np.log(np.array([expected_parameters_output["a"][0][action["a"][0]],
-                               expected_parameters_output["a"][1][action["a"][1]]])),
-            b=np.log(np.array([expected_parameters_output["b"][0][action["b"][0]],
-                               expected_parameters_output["b"][1][action["b"][1]]])),
-        )
+        # Action log-likelihood (sum of the composite llhs).
+        expected_action_llh_output = np.log(np.array([expected_parameters_output["a"][0][action["a"][0]],
+                                                      expected_parameters_output["a"][1][action["a"][1]]])) + \
+                                     np.log(np.array([expected_parameters_output["b"][0][action["b"][0]],
+                                                      expected_parameters_output["b"][1][action["b"][1]]]))
         test.test(
             ("get_log_likelihood", [states, action]), expected_outputs=dict(
                 log_likelihood=expected_action_llh_output, adapter_outputs=expected_action_layer_outputs
@@ -238,20 +236,16 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
         llh = out["log_likelihood"]
 
         # Action log-likelihood.
-        expected_action_llh_output = dict(
-            a=np.log(np.array([expected_parameters_output["a"][0][action["a"][0]],
-                               expected_parameters_output["a"][1][action["a"][1]]])),
-            b=dict(
-                b1=np.log(np.array([expected_parameters_output["b"]["b1"][0][action["b"]["b1"][0]],
-                                    expected_parameters_output["b"]["b1"][1][action["b"]["b1"][1]]
-                                    ])
-                          ),
-                b2=np.log(np.array([expected_parameters_output["b"]["b2"][0][action["b"]["b2"][0]],
-                                    expected_parameters_output["b"]["b2"][1][action["b"]["b2"][1]],
-                                    ])
-                          )
-            )
-        )
+        expected_action_llh_output = np.log(np.array([expected_parameters_output["a"][0][action["a"][0]],
+                                                      expected_parameters_output["a"][1][action["a"][1]]])) + \
+                                     np.log(np.array([expected_parameters_output["b"]["b1"][0][action["b"]["b1"][0]],
+                                                      expected_parameters_output["b"]["b1"][1][action["b"]["b1"][1]]
+                                                      ])
+                                            ) + \
+                                     np.log(np.array([expected_parameters_output["b"]["b2"][0][action["b"]["b2"][0]],
+                                                      expected_parameters_output["b"]["b2"][1][action["b"]["b2"][1]],
+                                                      ])
+                                            )
         test.test(
             ("get_log_likelihood", [states, action]), expected_outputs=dict(
                 log_likelihood=expected_action_llh_output, adapter_outputs=expected_action_layer_outputs
@@ -414,35 +408,31 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
         llh = out["log_likelihood"]
 
         # Action log-likelihood.
-        expected_action_llh_output = tuple([
-            np.log(np.array([[
-                expected_parameters_output[0][0][0][action[0][0][0]],
-                expected_parameters_output[0][0][1][action[0][0][1]],
-                expected_parameters_output[0][0][2][action[0][0][2]],
-            ], [
-                expected_parameters_output[0][1][0][action[0][1][0]],
-                expected_parameters_output[0][1][1][action[0][1][1]],
-                expected_parameters_output[0][1][2][action[0][1][2]],
-            ]])),
-            np.log(np.array([[
-                expected_parameters_output[1][0][0][action[1][0][0]],
-                expected_parameters_output[1][0][1][action[1][0][1]],
-                expected_parameters_output[1][0][2][action[1][0][2]],
-            ], [
-                expected_parameters_output[1][1][0][action[1][1][0]],
-                expected_parameters_output[1][1][1][action[1][1][1]],
-                expected_parameters_output[1][1][2][action[1][1][2]],
-            ]])),
-            dict(a=np.log(np.array([[
-                expected_parameters_output[2]["a"][0][0][action[2]["a"][0][0]],
-                expected_parameters_output[2]["a"][0][1][action[2]["a"][0][1]],
-                expected_parameters_output[2]["a"][0][2][action[2]["a"][0][2]],
-            ], [
-                expected_parameters_output[2]["a"][1][0][action[2]["a"][1][0]],
-                expected_parameters_output[2]["a"][1][1][action[2]["a"][1][1]],
-                expected_parameters_output[2]["a"][1][2][action[2]["a"][1][2]],
-            ]])))
-        ])
+        expected_action_llh_output = np.log(np.array([[
+            expected_parameters_output[0][0][0][action[0][0][0]],
+            expected_parameters_output[0][0][1][action[0][0][1]],
+            expected_parameters_output[0][0][2][action[0][0][2]],
+        ], [
+            expected_parameters_output[0][1][0][action[0][1][0]],
+            expected_parameters_output[0][1][1][action[0][1][1]],
+            expected_parameters_output[0][1][2][action[0][1][2]],
+        ]])) + np.log(np.array([[
+            expected_parameters_output[1][0][0][action[1][0][0]],
+            expected_parameters_output[1][0][1][action[1][0][1]],
+            expected_parameters_output[1][0][2][action[1][0][2]],
+        ], [
+            expected_parameters_output[1][1][0][action[1][1][0]],
+            expected_parameters_output[1][1][1][action[1][1][1]],
+            expected_parameters_output[1][1][2][action[1][1][2]],
+        ]])) + np.log(np.array([[
+            expected_parameters_output[2]["a"][0][0][action[2]["a"][0][0]],
+            expected_parameters_output[2]["a"][0][1][action[2]["a"][0][1]],
+            expected_parameters_output[2]["a"][0][2][action[2]["a"][0][2]],
+        ], [
+            expected_parameters_output[2]["a"][1][0][action[2]["a"][1][0]],
+            expected_parameters_output[2]["a"][1][1][action[2]["a"][1][1]],
+            expected_parameters_output[2]["a"][1][2][action[2]["a"][1][2]],
+        ]]))
         test.test(
             ("get_log_likelihood", [states, action]), expected_outputs=dict(
                 log_likelihood=expected_action_llh_output, adapter_outputs=expected_action_layer_output_unfolded
@@ -620,23 +610,19 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
         llh = out["log_likelihood"]
 
         # Action log-likelihood.
-        expected_action_llh_output = dict(
-            a=(np.array([
-                expected_log_probs_output["a"][0][0][action["a"][0][0]],
-                expected_log_probs_output["a"][0][1][action["a"][0][1]],
-                expected_log_probs_output["a"][0][2][action["a"][0][2]],
-            ]),
-               np.array([
-                   expected_log_probs_output["a"][1][0][action["a"][1][0]],
-                   expected_log_probs_output["a"][1][1][action["a"][1][1]],
-                   expected_log_probs_output["a"][1][2][action["a"][1][2]],
-               ])),
-            b=dict(ba=np.array([
-                expected_log_probs_output["b"]["ba"][0][action["b"]["ba"][0]],
-                expected_log_probs_output["b"]["ba"][1][action["b"]["ba"][1]],
-                expected_log_probs_output["b"]["ba"][2][action["b"]["ba"][2]],
-            ]))
-        )
+        expected_action_llh_output = np.array([
+            expected_log_probs_output["a"][0][0][action["a"][0][0]],
+            expected_log_probs_output["a"][0][1][action["a"][0][1]],
+            expected_log_probs_output["a"][0][2][action["a"][0][2]],
+        ]) + np.array([
+            expected_log_probs_output["a"][1][0][action["a"][1][0]],
+            expected_log_probs_output["a"][1][1][action["a"][1][1]],
+            expected_log_probs_output["a"][1][2][action["a"][1][2]],
+        ]) + np.array([
+            expected_log_probs_output["b"]["ba"][0][action["b"]["ba"][0]],
+            expected_log_probs_output["b"]["ba"][1][action["b"]["ba"][1]],
+            expected_log_probs_output["b"]["ba"][2][action["b"]["ba"][2]],
+        ])
         test.test(
             ("get_log_likelihood", [nn_input, action]), expected_outputs=dict(
                 log_likelihood=expected_action_llh_output, adapter_outputs=expected_q_values_output
