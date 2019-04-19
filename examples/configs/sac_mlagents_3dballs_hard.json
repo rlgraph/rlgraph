@@ -1,0 +1,72 @@
+{
+  "type": "sac",
+
+  "discount": 0.995,
+  "initial_alpha": 0.1,
+  "target_entropy": -1.0,
+  "double_q": true,
+
+  "memory_spec":
+  {
+    "type": "replay",
+    "capacity": 100000
+  },
+
+  "preprocessing_spec":
+  [],
+
+  "observe_spec": {
+    "buffer_size": 200
+  },
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 128,
+      "activation": "relu",
+      "scope": "hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 128,
+      "activation": "relu",
+      "scope": "hidden2"
+    }
+  ],
+
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 128,
+      "activation": "relu",
+      "scope": "vf-hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 128,
+      "activation": "relu",
+      "scope": "vf-hidden2"
+    }
+  ],
+
+  "update_spec": {
+    "update_mode": "time_steps",
+    "do_updates": true,
+    "update_interval": 4,
+    "sync_interval": 16,
+    "sync_tau": 5e-3,
+    "batch_size": 1200,
+    "num_iterations": 1
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 3e-4
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 3e-4
+  }
+}
