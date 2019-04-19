@@ -237,7 +237,24 @@ class RayValueWorker(RayActor):
 
             actions = self.get_action(states=self.preprocessed_states_buffer,
                                       use_exploration=use_exploration, apply_preprocessing=False)
-            next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
+            if self.agent.flat_action_space is not None:
+                some_key = next(iter(actions))
+                assert isinstance(actions, dict) and isinstance(actions[some_key], np.ndarray),\
+                    "ERROR: Cannot flip container-action batch with dict keys if returned value is not a dict OR " \
+                    "values of returned value are not np.ndarrays!"
+                if hasattr(actions[some_key], "len"):
+                    env_actions = [{key: value[i] for key, value in actions.items()} for i in range(len(actions[some_key]))]
+                else:
+                    # Action was not array type.
+                    env_actions = [{key: value for key, value in actions.items()}]
+
+            # No flipping necessary.
+            else:
+                env_actions = actions
+                if self.num_environments == 1 and env_actions.shape == ():
+                    env_actions = [env_actions]
+
+            next_states, step_rewards, terminals, infos = self.vector_env.step(actions=env_actions)
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):
             #     next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
@@ -262,7 +279,7 @@ class RayValueWorker(RayActor):
                 # Each position is the running episode reward of that episode. Add step reward.
                 current_episode_rewards[i] += step_rewards[i]
                 sample_states[env_id].append(state_buffer[i])
-                sample_actions[env_id].append(actions[i])
+                sample_actions[env_id].append(env_actions[i])
                 sample_rewards[env_id].append(step_rewards[i])
                 sample_terminals[env_id].append(terminals[i])
                 current_episode_sample_times[i] += current_iteration_time
@@ -296,7 +313,12 @@ class RayValueWorker(RayActor):
 
                     # Append to final result trajectories.
                     batch_states.extend(post_s)
-                    batch_actions.extend(post_a)
+                    if self.agent.flat_action_space is not None:
+                        # Use actions here, not env actions.
+                        for name in self.agent.flat_action_space.keys():
+                            batch_actions[name].extend(post_a[name])
+                    else:
+                        batch_actions.extend(post_a)
                     batch_rewards.extend(post_r)
                     batch_next_states.extend(post_next_s)
                     batch_terminals.extend(post_t)
@@ -355,7 +377,12 @@ class RayValueWorker(RayActor):
                     sample_terminals[env_id], was_terminal=False)
 
                 batch_states.extend(post_s)
-                batch_actions.extend(post_a)
+                if self.agent.flat_action_space is not None:
+                    # Use actions here, not env actions.
+                    for name in self.agent.flat_action_space.keys():
+                        batch_actions[name].extend(post_a[name])
+                else:
+                    batch_actions.extend(post_a)
                 batch_rewards.extend(post_r)
                 batch_next_states.extend(post_next_s)
                 batch_terminals.extend(post_t)
@@ -408,7 +435,7 @@ class RayValueWorker(RayActor):
         # Adjust env frames for internal env frameskip:
         adjusted_frames = [env_frames * self.env_frame_skip for env_frames in self.sample_env_frames]
         if len(self.finished_episode_rewards) > 0:
-            all_finished_rewards = list()
+            all_finished_rewards = []
             for env_reward_list in self.finished_episode_rewards:
                 all_finished_rewards.extend(env_reward_list)
             min_episode_reward = np.min(all_finished_rewards)
@@ -476,8 +503,16 @@ class RayValueWorker(RayActor):
                     for j in range_(1, self.n_step_adjustment):
                         next_states[i] = next_states[i + j]
                         rewards[i] += self.discount ** j * rewards[i + j]
-                for arr in [states, actions, rewards, next_states, terminals]:
-                    del arr[new_len:]
+
+                if self.agent.flat_action_space is not None:
+                    for arr in [states, rewards, next_states, terminals]:
+                        del arr[new_len:]
+                    # Delete container actions separately.
+                    for name in self.agent.flat_action_space.keys():
+                        del actions[name][new_len:]
+                else:
+                    for arr in [states, actions, rewards, next_states, terminals]:
+                        del arr[new_len:]
 
         return states, actions, rewards, next_states, terminals
 
@@ -487,7 +522,7 @@ class RayValueWorker(RayActor):
 
         Args:
             states (list): List of states.
-            actions (list): List of actions.
+            actions (list, dict): List of actions or dict of lists  for container actions.
             rewards (list): List of rewards.
             next_states: (list): List of next_states.
             terminals (list): List of terminals.
