@@ -84,6 +84,23 @@ class DataOpDict(ContainerDataOp, dict):
     we can store them in sets and use them as lookup keys in other dicts.
     Dict() Spaces produce DataOpDicts when methods like `get_variable` are called on them.
     """
+    def map(self, mapping):
+        """
+        Maps this DataOpDict via a given mapping function to another, corresponding DataOpDict where all individual
+        SingleDataOps are mapped to new SingleDataOps.
+
+        Args:
+            mapping (callable): The mapping function to use on each SingeDataOp.
+
+        Returns:
+            DataOpDict: A copy of this DataOpDict, but all SingeDataOps are mapped via the given mapping function.
+        """
+        flattened_self = flatten_op(self)
+        ret = {}
+        for key, value in flattened_self.items():
+            ret[key] = mapping(key, value)
+        return DataOpDict(dict(unflatten_op(ret)))
+
     def __hash__(self):
         """
         Hash based on sequence of sorted items (keys are all strings, values are always other DataOps).
@@ -95,6 +112,23 @@ class DataOpTuple(ContainerDataOp, tuple):
     """
     A simple wrapper for a (possibly nested) tuple that contains other DataOps.
     """
+    def map(self, mapping):
+        """
+        Maps this DataOpTuple via a given mapping function to another, corresponding DataOpTuple where all individual
+        SingleDataOps are mapped to new SingleDataOps.
+
+        Args:
+            mapping (callable): The mapping function to use on each SingeDataOp.
+
+        Returns:
+            DataOpTuple: A copy of this DataOpTuple, but all SingeDataOps are mapped via the given mapping function.
+        """
+        flattened_self = flatten_op(self)
+        ret = {}
+        for key, value in flattened_self.items():
+            ret[key] = mapping(key, value)
+        return DataOpTuple(*unflatten_op(ret))
+
     def __new__(cls, *components):
         if isinstance(components[0], (list, tuple)):
             assert len(components) == 1
@@ -243,13 +277,13 @@ def flat_key_lookup(container, flat_key, default=None):
     result = container
     for key in key_sequence:
         mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key)
-        # Tuple
+        # Tuple.
         if mo is not None:
             slot = int(mo.group(1))
             if len(result) > slot and default is not None:
                 return default
             result = result[slot]
-        # Dict
+        # Dict.
         else:
             if key not in result and default is not None:
                 return default
