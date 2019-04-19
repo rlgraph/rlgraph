@@ -146,28 +146,6 @@ class RayValueWorker(RayActor):
     def as_remote(cls, num_cpus=None, num_gpus=None):
         return ray.remote(num_cpus=num_cpus, num_gpus=num_gpus)(cls)
 
-    def setup_preprocessor(self, preprocessing_spec, in_space):
-        if preprocessing_spec is not None:
-            # TODO move ingraph for python component assembly.
-            preprocessing_spec = deepcopy(preprocessing_spec)
-            in_space = deepcopy(in_space)
-            # Set scopes.
-            scopes = [preprocessor["scope"] for preprocessor in preprocessing_spec]
-            # Set backend to python.
-            for spec in preprocessing_spec:
-                spec["backend"] = "python"
-            processor_stack = PreprocessorStack(*preprocessing_spec, backend="python")
-            build_space = in_space
-            for sub_comp_scope in scopes:
-                processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
-                    preprocessing_inputs=build_space
-                ), action_space=None)
-                build_space = processor_stack.sub_components[sub_comp_scope].get_preprocessed_space(build_space)
-            processor_stack.reset()
-            return processor_stack
-        else:
-            return None
-
     def setup_agent(self, agent_config, worker_spec):
         """
         Sets up agent, potentially modifying its configuration via worker specific settings.
