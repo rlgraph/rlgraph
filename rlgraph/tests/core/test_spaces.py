@@ -75,7 +75,7 @@ class TestSpaces(unittest.TestCase):
             c=float,
             d=IntBox(low=0, high=1),
             e=IntBox(5),
-            f=FloatBox(shape=(2,2)),
+            f=FloatBox(shape=(2, 2)),
             g=Tuple(float, FloatBox(shape=())),
             add_batch_rank=True
         )
@@ -116,4 +116,46 @@ class TestSpaces(unittest.TestCase):
 
         self.assertTrue(result == expected)
 
+    def test_container_space_mapping(self):
+        space = Tuple(
+            Dict(
+                a=bool,
+                b=IntBox(4),
+                c=Dict(
+                    d=FloatBox(shape=())
+                )
+            ),
+            BoolBox(),
+            IntBox(2),
+            FloatBox(shape=(3, 2)),
+            Tuple(
+                BoolBox(), BoolBox()
+            )
+        )
 
+        def mapping_func(key, primitive_space):
+            # Change each primitive space to IntBox(5).
+            return IntBox(5)
+
+        mapped_space = space.map(mapping=mapping_func)
+
+        self.assertTrue(isinstance(mapped_space[0]["a"], IntBox))
+        self.assertTrue(mapped_space[0]["a"].num_categories == 5)
+        self.assertTrue(mapped_space[3].num_categories == 5)
+        self.assertTrue(mapped_space[4][0].num_categories == 5)
+        self.assertTrue(mapped_space[4][1].num_categories == 5)
+
+        # Same on Dict.
+        space = Dict(
+            a=bool,
+            b=IntBox(4),
+            c=Dict(
+                d=FloatBox(shape=())
+            )
+        )
+        mapped_space = space.map(mapping=mapping_func)
+
+        self.assertTrue(isinstance(mapped_space["a"], IntBox))
+        self.assertTrue(mapped_space["a"].num_categories == 5)
+        self.assertTrue(isinstance(mapped_space["b"], IntBox))
+        self.assertTrue(mapped_space["c"]["d"].num_categories == 5)

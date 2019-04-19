@@ -17,12 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import re
 
-from rlgraph.utils.rlgraph_errors import RLGraphError
-from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE
+import numpy as np
+
 from rlgraph.spaces.space import Space
+from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
 class ContainerSpace(Space):
@@ -151,6 +152,13 @@ class Dict(ContainerSpace, dict):
     def contains(self, sample):
         return isinstance(sample, dict) and all(self[key].contains(sample[key]) for key in self.keys())
 
+    def map(self, mapping):
+        flattened_self = self.flatten(mapping=mapping)
+        return Dict(
+            dict(unflatten_op(flattened_self)),
+            add_batch_rank=self.has_batch_rank, add_time_rank=self.has_time_rank, time_major=self.time_major
+        )
+
     def __repr__(self):
         return "Dict({})".format([(key, self[key].__repr__()) for key in self.keys()])
 
@@ -268,6 +276,13 @@ class Tuple(ContainerSpace, tuple):
     def contains(self, sample):
         return isinstance(sample, (tuple, list, np.ndarray)) and len(self) == len(sample) and \
                all(c.contains(xi) for c, xi in zip(self, sample))
+
+    def map(self, mapping):
+        flattened_self = self.flatten(mapping=mapping)
+        return Tuple(
+            unflatten_op(flattened_self),
+            add_batch_rank=self.has_batch_rank, add_time_rank=self.has_time_rank, time_major=self.time_major
+        )
 
     def __repr__(self):
         return "Tuple({})".format(tuple([cmp.__repr__() for cmp in self]))

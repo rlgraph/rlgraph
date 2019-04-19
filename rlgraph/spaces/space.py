@@ -17,8 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
 import copy
+from collections import OrderedDict
 
 from rlgraph.utils.specifiable import Specifiable
 
@@ -286,6 +286,19 @@ class Space(Specifiable):
             list\_ (list): The list to append the mapped results to (under key=`scope_`).
         """
         list_.append(tuple([scope_, mapping(scope_, self)]))
+
+    def map(self, mapping):
+        """
+        Maps this space via a given mapping function to another, corresponding Space.
+        Mostly useful for ContainerSpaces.
+
+        Args:
+            mapping (callable): The mapping function to use on each (container) sub-Space.
+
+        Returns:
+            Space: A copy of this Space, but all (container) sub-Spaces are mapped via the given mapping function.
+        """
+        raise NotImplementedError
 
     def __repr__(self):
         return "Space(shape=" + str(self.shape) + ")"

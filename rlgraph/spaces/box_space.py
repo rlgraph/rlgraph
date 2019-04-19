@@ -223,6 +223,9 @@ class BoxSpace(Space):
             return False
         return (sample >= self.low).all() and (sample <= self.high).all()
 
+    def map(self, mapping):
+        return mapping(self)
+
     def __repr__(self):
         return "{}({} {} {}{})".format(
             type(self).__name__.title(), self.shape, str(self.dtype), "; +batch" if self.has_batch_rank else
