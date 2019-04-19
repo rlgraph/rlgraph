@@ -23,12 +23,12 @@ from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import Component, Synchronizable, Memory, ValueFunction, ContainerMerger, PrioritizedReplay
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
-from rlgraph.spaces import FloatBox, BoolBox, IntBox, Dict
+from rlgraph.spaces import FloatBox, BoolBox, IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import flatten_op, DataOpTuple
-from rlgraph.utils.util import strip_list
+from rlgraph.utils.util import strip_list, force_list
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -197,16 +197,11 @@ class SACAgentComponent(Component):
             alpha_loss_per_item=alpha_loss_per_item
         )
 
-    @graph_fn
-    def _graph_fn_one_hot(self, env_actions):
-        # TODO move to util
-        # Checking this separately because env actions will be a raw tensor in define-by-run.
-        if isinstance(self.env_action_space, Dict):
-            for name, space in self.env_action_space.flatten(scope_separator_at_start=False).items():
-                if isinstance(space, IntBox):
-                    env_actions[name] = tf.one_hot(env_actions[name], depth=space.num_categories, axis=-1)
-        elif isinstance(self.env_action_space, IntBox):
-            return tf.one_hot(env_actions, depth=self.env_action_space.num_categories, axis=-1)
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    def _graph_fn_one_hot(self, key, env_actions):
+        space = self.agent.flat_action_space[key]
+        if isinstance(space, IntBox):
+            env_actions = tf.one_hot(env_actions, depth=space.num_categories, axis=-1)
         return env_actions
 
     @graph_fn(requires_variable_completeness=True)
@@ -238,17 +233,17 @@ class SACAgentComponent(Component):
     @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, next_states, importance_weights):
         # TODO: internal states
-        samples_next = self._policy.get_action_and_log_prob(next_states, deterministic=False)
+        samples_next = self._policy.get_action_and_log_likelihood(next_states, deterministic=False)
         next_sampled_actions = samples_next["action"]
-        log_probs_next_sampled = samples_next["log_prob"]
+        log_probs_next_sampled = samples_next["log_likelihood"]
 
         q_values_next_sampled = self.get_q_values(
             next_states, next_sampled_actions, target=True
         )
         q_values = self.get_q_values(preprocessed_states, actions)
-        samples = self._policy.get_action_and_log_prob(preprocessed_states, deterministic=False)
+        samples = self._policy.get_action_and_log_likelihood(preprocessed_states, deterministic=False)
         sampled_actions = samples["action"]
-        log_probs_sampled = samples["log_prob"]
+        log_probs_sampled = samples["log_likelihood"]
         q_values_sampled = self.get_q_values(preprocessed_states, sampled_actions)
 
         alpha = self._graph_fn_compute_alpha()
@@ -489,14 +484,10 @@ class SACAgent(Agent):
 
         self.iterations = self.update_spec["num_iterations"]
         self.batch_size = self.update_spec["batch_size"]
-        float_action_space = self.action_space.with_batch_rank()
 
-        if isinstance(self.action_space, Dict):
-            for name, space in float_action_space.flatten(scope_separator_at_start=False).items():
-                if isinstance(space, IntBox):
-                    float_action_space[name] = space.as_one_hot_float_space()
-        elif isinstance(self.action_space, IntBox):
-            float_action_space = float_action_space.as_one_hot_float_space()
+        float_action_space = self.action_space.with_batch_rank().map(
+            mapping=lambda flat_key, space: space.as_one_hot_float_space() if isinstance(space, IntBox) else space
+        )
 
         self.input_spaces.update(dict(
             env_actions=self.action_space.with_batch_rank(),
@@ -589,28 +580,28 @@ class SACAgent(Agent):
 
         # Control, which return value to "pull" (depending on `additional_returns`).
         return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]
-        ret = self.graph_executor.execute((
+        ret = force_list(self.graph_executor.execute((
             call_method,
             [batched_states, not use_exploration],  # deterministic = not use_exploration
             # 0=preprocessed_states, 1=action
             return_ops
-        ))
-        # We have a discrete action space -> Convert Gumble (relaxed one-hot) sample back into int type.
-        if isinstance(self.action_space, Dict):
-            actions = ret[0] if "preprocessed_states" in extra_returns else ret
-            for name, space in self.action_space.flatten(scope_separator_at_start=False).items():
-                if isinstance(space, IntBox):
-                    actions[name] = np.array([np.argmax(actions[name][0], axis=-1).astype(space.dtype)])
+        )))
+        # Convert Gumble (relaxed one-hot) sample back into int type for all discrete composite actions.
+        if isinstance(self.action_space, ContainerSpace):
+            ret[0] = ret[0].map(
+                mapping=lambda key, action: np.argmax(action, axis=-1).astype(action.dtype)
+                if isinstance(self.flat_action_space[key], IntBox) else action
+            )
         elif isinstance(self.action_space, IntBox):
-            if "preprocessed_states" in extra_returns:
-                ret = (np.argmax(ret[0], axis=-1).astype(self.action_space.dtype), ret[1])
-            else:
-                ret = np.argmax(ret, axis=-1).astype(self.action_space.dtype)
+            ret[0] = np.argmax(ret[0], axis=-1).astype(self.action_space.dtype)
 
         if remove_batch_rank:
-            return strip_list(ret)
+            ret[0] = strip_list(ret[0])
+
+        if "preprocessed_states" in extra_returns:
+            return ret[0], ret[1]
         else:
-            return ret
+            return ret[0]
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute((self.root_component.insert_records, [preprocessed_states, actions, rewards, next_states, terminals]))

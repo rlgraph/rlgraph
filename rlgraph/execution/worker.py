@@ -256,9 +256,9 @@ class Worker(Specifiable):
             return self.agent.get_action(states=states, use_exploration=use_exploration,
                                          apply_preprocessing=apply_preprocessing, extra_returns=extra_returns)
 
-    def log_finished_episode(self, reward, duration, timesteps, env_num=0):
-        self.logger.debug("Finished episode: reward={}, actions={}, duration={}s.".format(
-            reward, duration, timesteps))
+    def log_finished_episode(self, episode_return, duration, timesteps, env_num=0):
+        self.logger.debug("Finished episode: return={}, actions={}, duration={}s.".format(
+            episode_return, duration, timesteps))
 
         if self.episode_finish_callback:
-            self.episode_finish_callback(reward=reward, duration=duration, timesteps=timesteps, env_num=env_num)
+            self.episode_finish_callback(episode_return=episode_return, duration=duration, timesteps=timesteps, env_num=env_num)

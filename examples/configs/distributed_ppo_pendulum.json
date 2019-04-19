@@ -12,7 +12,7 @@
     "type": "ring_buffer",
     "capacity": 2048
   },
-   "preprocessing_spec": [
+  "preprocessing_spec": [
     {
       "type": "moving_standardize",
       "scope": "moving-standardize"

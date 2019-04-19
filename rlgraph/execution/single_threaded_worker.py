@@ -290,7 +290,7 @@ class SingleThreadedWorker(Worker):
                     self.finished_episode_timesteps[i].append(self.episode_timesteps[i])
 
                     self.log_finished_episode(
-                        reward=self.episode_returns[i],
+                        episode_return=self.episode_returns[i],
                         duration=episode_duration,
                         timesteps=self.episode_timesteps[i],
                         env_num=i

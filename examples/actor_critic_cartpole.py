@@ -31,13 +31,11 @@ import os
 import sys
 
 import numpy as np
-
 from absl import flags
 
 from rlgraph.agents import Agent
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution import SingleThreadedWorker
-
 
 FLAGS = flags.FLAGS
 
@@ -68,13 +66,13 @@ def main(argv):
         action_space=env.action_space
     )
 
-    rewards = []
+    episode_returns = []
 
-    def episode_finished_callback(reward, duration, timesteps, **kwargs):
-        rewards.append(reward)
-        if len(rewards) % 10 == 0:
+    def episode_finished_callback(episode_return, duration, timesteps, **kwargs):
+        episode_returns.append(episode_return)
+        if len(episode_returns) % 10 == 0:
             print("Episode {} finished: reward={:.2f}, average reward={:.2f}.".format(
-                len(rewards), reward, np.mean(rewards[-10:])
+                len(episode_returns), episode_return, np.mean(episode_returns[-10:])
             ))
 
     worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False, worker_executes_preprocessing=False,
@@ -87,7 +85,7 @@ def main(argv):
     # Note: A basic actor critic is very sensitive to hyper-parameters and might collapse after reaching the maximum
     # reward. In practice, it would be recommended to stop training when a reward threshold is reached.
     print("Mean reward: {:.2f} / over the last 10 episodes: {:.2f}".format(
-        np.mean(rewards), np.mean(rewards[-10:])
+        np.mean(episode_returns), np.mean(episode_returns[-10:])
     ))
 
 

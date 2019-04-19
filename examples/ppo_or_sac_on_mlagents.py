@@ -18,7 +18,7 @@ Example script for training a Proximal policy optimization agent on an ML-Agents
 
 Usage:
 
-python ppo_on_mlagents.py [--config configs/ppo_on_mlagents_[3d_ball|tennis]_env.json]
+python ppo_or_sac_on_mlagents.py [--config configs/ppo_on_mlagents_[3d_ball|tennis]_env.json]
 
 """
 
@@ -35,6 +35,7 @@ from rlgraph.execution import SingleThreadedWorker
 
 FLAGS = flags.FLAGS
 
+# Use different configs here for either PPO or SAC algos.
 flags.DEFINE_string('config', './configs/ppo_mlagents_3dball.json', 'Agent config file.')
 
 
@@ -55,18 +56,23 @@ def main(argv):
         state_space=env.state_space,
         action_space=env.action_space
     )
-    rewards = []
+    episode_returns = []
 
-    def episode_finished_callback(reward, duration, timesteps, **kwargs):
-        rewards.append(reward)
-        if len(rewards) % 10 == 0:
-            print("Episode {} finished: reward={:.2f}, average reward={:.2f}.".format(
-                len(rewards), reward, np.mean(rewards[-10:])
-            ))
+    def episode_finished_callback(episode_return, duration, timesteps, **kwargs):
+        episode_returns.append(episode_return)
+        finished_episodes = len(episode_returns)
+        if finished_episodes % 4 == 0:
+            print(
+                "Episode {} finished in {:d}sec: total avg. reward={:.2f}; last 10 episodes={:.2f}; last "
+                "100 episodes={:.2f}".format(
+                    finished_episodes, int(duration), np.mean(episode_returns),
+                    np.mean(episode_returns[-min(finished_episodes, 10):]),
+                    np.mean(episode_returns[-min(finished_episodes, 100):])
+                )
+            )
 
     worker = SingleThreadedWorker(
         env_spec=env, agent=agent, render=False, worker_executes_preprocessing=False,
-        #synchronous_reset=True,
         episode_finish_callback=episode_finished_callback
     )
     print("Starting workload, this will take some time for the agents to build.")
@@ -75,7 +81,7 @@ def main(argv):
     worker.execute_timesteps(100000, use_exploration=True)
 
     print("Mean reward: {:.2f} / over the last 10 episodes: {:.2f}".format(
-        np.mean(rewards), np.mean(rewards[-10:])
+        np.mean(episode_returns), np.mean(episode_returns[-10:])
     ))
 
 
