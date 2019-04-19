@@ -155,13 +155,11 @@ If you use RLgraph in your research, please cite the following paper: [link](htt
 
 
 ```
-@ARTICLE{Schaarschmidt2018rlgraph,
-    author = {{Schaarschmidt}, M. and {Mika}, S. and {Fricke}, K. and {Yoneki}, E.},
-    title = "{RLgraph: Modular Computation Graphs for Deep Reinforcement Learning}",
-    journal = {ArXiv e-prints},
-    archivePrefix = "arXiv",
-    eprint = {1810.09028},
-    year = 2018,
-    month = oct
+@InProceedings{Schaarschmidt2019,
+  author    = {Schaarschmidt, Michael and Mika, Sven and Fricke, Kai and Yoneki, Eiko},
+  title     = {{RLgraph: Modular Computation Graphs for Deep Reinforcement Learning}},
+  booktitle = {{Proceedings of the 2nd Conference on Systems and Machine Learning (SysML)}},
+  year      = {2019},
+  month     = apr,
 }
 ```
