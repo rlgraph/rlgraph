@@ -1,0 +1,119 @@
+{
+  "type": "apex",
+  "discount": 0.99,
+  "store_last_q_table": true,
+  "memory_spec": {
+    "type": "prioritized_replay",
+    "capacity": 128
+  },
+   "preprocessing_spec": [
+    {
+      "type": "convert-type",
+      "to_dtype": "float32"
+    }
+  ],
+  "network_spec":
+  [
+    {
+        "type": "dense",
+        "units": 16,
+        "activation": "lrelu"
+    }
+  ],
+  "policy_spec": {
+    "type": "dueling-policy",
+    "units_state_value_stream": 16,
+    "action_adapter_spec":
+    {
+      "turn": {
+        "pre_network_spec": [
+          {
+            "type": "dense",
+            "units": 16,
+            "activation": "lrelu"
+          }
+        ]
+      },
+      "forward": {
+        "pre_network_spec": [
+          {
+            "type": "dense",
+            "units": 16,
+            "activation": "lrelu"
+          }
+        ]
+      },
+      "jump": {
+        "pre_network_spec": [
+          {
+            "type": "dense",
+            "units": 16,
+            "activation": "lrelu"
+          }
+        ]
+      }
+    }
+  },
+   "saver_spec": null,
+  "execution_spec": {
+    "session_config": {
+      "log_device_placement": false,
+      "allow_soft_placement": true
+    },
+    "ray_spec": {
+      "executor_spec": {
+        "redis_address": null,
+        "num_cpus": 4,
+        "num_gpus": 0,
+        "weight_sync_steps": 32,
+        "replay_sampling_task_depth": 1,
+        "env_interaction_task_depth": 1,
+        "num_worker_samples": 25,
+        "learn_queue_size": 1,
+        "num_sample_workers": 1,
+        "num_replay_workers": 1
+      },
+      "worker_spec": {
+        "num_worker_environments": 1,
+        "num_background_envs": 1,
+        "execution_spec": {
+          "gpu_spec": { "gpus_enabled" : false}
+        },
+        "n_step_adjustment": 0,
+        "worker_executes_postprocessing": false,
+        "sample_exploration": false,
+        "exploration_min_value": 0.5
+      },
+      "apex_replay_spec": {
+        "memory_spec": {
+          "capacity": 512
+        },
+        "clip_rewards": false,
+        "min_sample_memory_size": 24,
+        "n_step_adjustment": 1
+      }
+    }
+  },
+  "exploration_spec":
+  {
+    "epsilon_spec": {
+      "decay_spec": {
+        "type": "linear_decay",
+        "from": 1.0,
+        "to": 0.2,
+        "start_timestep": 0,
+        "num_timesteps": 1000
+      }
+    }
+  },
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "batch_size": 64,
+    "sync_interval": 32
+  },
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.01
+  }
+}
