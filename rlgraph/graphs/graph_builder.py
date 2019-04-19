@@ -64,7 +64,9 @@ class GraphBuilder(Specifiable):
         # The name of this model. Our root-Component gets this name.
         self.logger = logging.getLogger(__name__)
         self.name = name
-        self.action_space = action_space
+        self.action_space = None
+        if action_space is not None:
+            self.action_space = Space.from_spec(action_space)
         self.summary_spec = parse_summary_spec(summary_spec)
         self.max_build_iterations = max_build_iterations
         # Set of components that have been analyzed on why they remain input-incomplete.
