@@ -11,7 +11,7 @@
   "memory_spec":
   {
     "type": "ring-buffer",
-    "capacity": 32
+    "capacity": 200
   },
 
   "preprocessing_spec":
@@ -19,14 +19,14 @@
   ],
 
   "observe_spec": {
-    "buffer_size": 8
+    "buffer_size": 100
   },
 
   "network_spec":
   [
     {
       "type": "dense",
-      "units": 32,
+      "units": 128,
       "activation": "linear",
       "scope": "hidden"
     }
@@ -36,7 +36,7 @@
   [
     {
       "type": "dense",
-      "units": 32,
+      "units": 128,
       "activation": "linear",
       "scope": "vf-hidden"
     }
@@ -45,14 +45,14 @@
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 32,
-    "batch_size": 32,
+    "update_interval": 16,
+    "batch_size": 64,
     "num_iterations": 10,
-    "sample_size": 4
+    "sample_size": 16
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.00025
+    "learning_rate": 0.0025
   }
 }

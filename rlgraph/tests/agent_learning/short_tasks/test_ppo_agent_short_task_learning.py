@@ -21,12 +21,12 @@ import logging
 import os
 import unittest
 
-from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.agents import PPOAgent
+from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.spaces import FloatBox
-from rlgraph.utils import root_logger
 from rlgraph.tests.test_util import config_from_path
+from rlgraph.utils import root_logger
 
 
 class TestPPOShortTaskLearning(unittest.TestCase):
@@ -60,6 +60,9 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         print(results)
 
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 2)
         # Assume we have learned something.
         self.assertGreater(results["mean_episode_reward"], -0.2)
 
@@ -67,6 +70,12 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         """
         Creates a PPO agent and runs it via a Runner on a simple 2x2 GridWorld using container actions.
         """
+        # -----
+        # |^|H|
+        # -----
+        # | |G|  ^=start, looking up
+        # -----
+
         # ftj = forward + turn + jump
         env_spec = dict(world="2x2", action_type="ftj", state_representation="xy+orientation")
         dummy_env = GridWorld.from_spec(env_spec)
@@ -79,7 +88,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=dummy_env.action_space
         )
 
-        time_steps = 10000
+        time_steps = 5000
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld.from_spec(env_spec),
             agent=agent,
@@ -88,7 +97,14 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             render=False
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
-        print("Results =", results)
+
+        print(results)
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 2)
+        # Assume we have learned something.
+        self.assertGreaterEqual(results["mean_episode_reward"], -2.0)
 
     def test_ppo_on_cart_pole(self):
         """
