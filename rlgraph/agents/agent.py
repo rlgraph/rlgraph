@@ -17,21 +17,22 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 from collections import defaultdict
 from functools import partial
-import logging
+
 import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
-    ValueFunction, ContainerMerger, ContainerSplitter
+    ContainerMerger, ContainerSplitter
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec, \
     parse_value_function_spec
+from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.specifiable import Specifiable
 
 if get_backend() == "tf":
@@ -98,8 +99,7 @@ class Agent(Specifiable):
             if isinstance(self.state_space, ContainerSpace) else None
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
         self.action_space = Space.from_spec(action_space).with_batch_rank(False)
-        self.flat_action_space = self.action_space.flatten(scope_separator_at_start=False)\
-            if isinstance(self.action_space, ContainerSpace) else None
+        self.flat_action_space = self.action_space.flatten() if isinstance(self.action_space, ContainerSpace) else None
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
         self.discount = discount
@@ -407,7 +407,7 @@ class Agent(Specifiable):
                     self.states_buffer[env_id].extend(preprocessed_states)
                     self.next_states_buffer[env_id].extend(next_states)
                 if self.flat_action_space is not None:
-                    flat_action = flatten_op(actions, scope_separator_at_start=False)
+                    flat_action = flatten_op(actions)
                     for i, flat_key in enumerate(self.flat_action_space.keys()):
                         self.actions_buffer[env_id][i].append(flat_action[flat_key])
                 else:
@@ -425,7 +425,7 @@ class Agent(Specifiable):
                     self.states_buffer[env_id].append(preprocessed_states)
                     self.next_states_buffer[env_id].append(next_states)
                 if self.flat_action_space is not None:
-                    flat_action = flatten_op(actions, scope_separator_at_start=False)
+                    flat_action = flatten_op(actions)
                     for i, flat_key in enumerate(self.flat_action_space.keys()):
                         self.actions_buffer[env_id][i].append(flat_action[flat_key])
                 else:
