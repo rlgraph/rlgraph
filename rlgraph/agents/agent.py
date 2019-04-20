@@ -437,9 +437,16 @@ class Agent(Specifiable):
             buffer_is_full = len(self.rewards_buffer[env_id]) >= self.observe_spec["buffer_size"]
 
             # If the buffer (per environment) is full OR the episode was aborted:
-            # Change terminal of last record artificially to True, insert and flush the buffer.
+            # Change terminal of last record artificially to True (also give warning "buffer too small"),
+            # insert and flush the buffer.
             if buffer_is_full or self.terminals_buffer[env_id][-1]:
-                self.terminals_buffer[env_id][-1] = True
+                # Warn if full and last terminal is False.
+                if buffer_is_full and not self.terminals_buffer[env_id][-1]:
+                    self.logger.warning(
+                        "Buffer of size {} of Agent '{}' may be too small! Had to add artificial terminal=True "
+                        "to end.".format(self.observe_spec["buffer_size"], self)
+                    )
+                    self.terminals_buffer[env_id][-1] = True
 
                 # TODO: Apply n-step post-processing if necessary.
                 if self.flat_action_space is not None:
