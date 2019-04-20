@@ -68,7 +68,7 @@
 
   "observe_spec":
   {
-    "buffer_size": 8
+    "buffer_size": 32
   },
 
   "update_spec": {

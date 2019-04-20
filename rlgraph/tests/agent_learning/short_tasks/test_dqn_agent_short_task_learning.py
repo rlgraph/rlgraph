@@ -18,16 +18,17 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import numpy as np
 import os
 import unittest
 
-from rlgraph.environments import GridWorld, OpenAIGymEnv
+import numpy as np
+
 from rlgraph.agents import DQNAgent
+from rlgraph.environments import GridWorld, OpenAIGymEnv
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.spaces import FloatBox, IntBox
-from rlgraph.utils import root_logger
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
+from rlgraph.utils import root_logger
 
 
 class TestDQNAgentShortTaskLearning(unittest.TestCase):
@@ -170,7 +171,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], -7)
+        self.assertGreaterEqual(results["mean_episode_reward"], -2.0)
         self.assertGreaterEqual(results["max_episode_reward"], -1.0)
         self.assertLessEqual(results["episodes_executed"], time_steps / 3)
 
