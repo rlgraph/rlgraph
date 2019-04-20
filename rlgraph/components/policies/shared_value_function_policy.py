@@ -97,11 +97,11 @@ class SharedValueFunctionPolicy(Policy):
     def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
         raise RLGraphObsoletedError(
             "API-method", "get_state_values_logits_probabilities_log_probs",
-            "get_state_values_action_adapter_outputs_and_parameters"
+            "get_state_values_adapter_outputs_and_parameters"
         )
 
     def get_state_values_logits_parameters_log_probs(self, nn_input, internal_states=None):
         raise RLGraphObsoletedError(
             "API-method", "get_state_values_logits_parameters_log_probs",
-            "get_state_values_action_adapter_outputs_and_parameters"
+            "get_state_values_adapter_outputs_and_parameters"
         )
