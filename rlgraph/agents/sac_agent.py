@@ -199,7 +199,8 @@ class SACAgentComponent(Component):
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_one_hot(self, key, env_actions):
-        space = self.agent.flat_action_space[key]
+        space = self.agent.flat_action_space[key] if self.agent.flat_action_space is not None else \
+            self.agent.action_space
         if isinstance(space, IntBox):
             env_actions = tf.one_hot(env_actions, depth=space.num_categories, axis=-1)
         return env_actions
