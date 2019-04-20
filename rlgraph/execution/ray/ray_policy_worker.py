@@ -83,6 +83,10 @@ class RayPolicyWorker(RayActor):
         self.agent = self.setup_agent(agent_config, worker_spec)
         self.worker_frameskip = frameskip
 
+        #  Flag for container actions.
+        self.container_actions = self.agent.flat_action_space is not None
+        self.action_space = self.agent.flat_action_space
+
         # Save these so they can be fetched after training if desired.
         self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
         self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
@@ -166,7 +170,11 @@ class RayPolicyWorker(RayActor):
         env_frames = 0
 
         # Final result batch.
-        batch_states, batch_actions, batch_rewards, batch_terminals = [], [], [], []
+        if self.container_actions:
+            batch_actions = {k: [] for k in self.action_space.keys()}
+        else:
+            batch_actions = []
+        batch_states, batch_rewards, batch_next_states, batch_terminals = [], [], [], []
 
         # Running trajectories.
         sample_states, sample_actions, sample_rewards, sample_terminals = {}, {}, {}, {}
@@ -175,7 +183,10 @@ class RayPolicyWorker(RayActor):
         # from previous execution was terminal for that environment.
         for i, env_id in enumerate(self.env_ids):
             sample_states[env_id] = []
-            sample_actions[env_id] = []
+            if self.container_actions:
+                sample_actions[env_id] = {k: [] for k in self.action_space.keys()}
+            else:
+                sample_actions[env_id] = []
             sample_rewards[env_id] = []
             sample_terminals[env_id] = []
 
@@ -204,6 +215,22 @@ class RayPolicyWorker(RayActor):
                                       use_exploration=use_exploration, apply_preprocessing=False)
 
             next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
+            if self.agent.flat_action_space is not None:
+                some_key = next(iter(actions))
+                assert isinstance(actions, dict) and isinstance(actions[some_key], np.ndarray),\
+                    "ERROR: Cannot flip container-action batch with dict keys if returned value is not a dict OR " \
+                    "values of returned value are not np.ndarrays!"
+                if hasattr(actions[some_key], "__len__"):
+                    env_actions = [{key: value[i] for key, value in actions.items()} for i in range(len(actions[some_key]))]
+                else:
+                    # Action was not array type.
+                    env_actions = actions
+            # No flipping necessary.
+            else:
+                env_actions = actions
+                if self.num_environments == 1 and env_actions.shape == ():
+                    env_actions = [env_actions]
+
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):
             #     next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
@@ -228,7 +255,11 @@ class RayPolicyWorker(RayActor):
                 # Each position is the running episode reward of that episode. Add step reward.
                 current_episode_rewards[i] += step_rewards[i]
                 sample_states[env_id].append(state_buffer[i])
-                sample_actions[env_id].append(actions[i])
+                if self.container_actions:
+                    for name in self.action_space.keys():
+                        sample_actions[env_id][name].append(env_actions[i][name])
+                else:
+                    sample_actions[env_id].append(env_actions[i])
                 sample_rewards[env_id].append(step_rewards[i])
                 sample_terminals[env_id].append(terminals[i])
                 current_episode_sample_times[i] += current_iteration_time
@@ -246,13 +277,21 @@ class RayPolicyWorker(RayActor):
 
                     # Append to final result trajectories.
                     batch_states.extend(sample_states[env_id])
-                    batch_actions.extend(sample_actions[env_id])
+                    if self.agent.flat_action_space is not None:
+                        # Use actions here, not env actions.
+                        for name in self.agent.flat_action_space.keys():
+                            batch_actions[name].extend(sample_actions[env_id][name])
+                    else:
+                        batch_actions.extend(sample_actions[env_id])
                     batch_rewards.extend(sample_rewards[env_id])
                     batch_terminals.extend(sample_terminals[env_id])
 
                     # Reset running trajectory for this env.
                     sample_states[env_id] = []
-                    sample_actions[env_id] = []
+                    if self.container_actions:
+                        sample_actions[env_id] = {k: [] for k in self.action_space.keys()}
+                    else:
+                        sample_actions[env_id] = []
                     sample_rewards[env_id] = []
                     sample_terminals[env_id] = []
 
@@ -290,7 +329,12 @@ class RayPolicyWorker(RayActor):
             # This env was not terminal -> need to process remaining trajectory
             if not terminals[i]:
                 batch_states.extend(sample_states[env_id])
-                batch_actions.extend(sample_actions[env_id])
+                if self.agent.flat_action_space is not None:
+                    # Use actions here, not env actions.
+                    for name in self.agent.flat_action_space.keys():
+                        batch_actions[name].extend(sample_actions[env_id][name])
+                else:
+                    batch_actions.extend(sample_actions[env_id])
                 batch_rewards.extend(sample_rewards[env_id])
                 batch_terminals.extend(sample_terminals[env_id])
 
