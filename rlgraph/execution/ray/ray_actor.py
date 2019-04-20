@@ -27,8 +27,7 @@ class RayActor(object):
     """
     Generic Ray actor. All classes implementing ray actors should inherit from this.
     """
-    @staticmethod
-    def get_host():
+    def get_host(self):
         """
         Returns host node identifier.
 
@@ -37,8 +36,7 @@ class RayActor(object):
         """
         return os.uname()[1]
 
-    @staticmethod
-    def setup_preprocessor(preprocessing_spec, in_space):
+    def setup_preprocessor(self, preprocessing_spec, in_space):
         if preprocessing_spec is not None:
             preprocessing_spec = deepcopy(preprocessing_spec)
             in_space = deepcopy(in_space)
