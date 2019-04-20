@@ -59,7 +59,7 @@ class ContainerSplitter(PreprocessLayer):
         self.output_order = output_order
 
         # Only for DictSplitter, define this convenience API-method:
-        if self.output_order is not None and len(self.output_order) > 0 and isinstance(self.output_order[0], int):
+        if self.output_order is not None and len(self.output_order) > 0 and isinstance(self.output_order[0], str):
             @rlgraph_api(component=self)
             def split_into_dict(self, inputs):
                 """
