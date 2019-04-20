@@ -86,7 +86,7 @@ class TestApexExecutor(unittest.TestCase):
             action_type="ftj",
             state_representation="xy+orientation"
         )
-        agent_config = config_from_path("configs/apex_agent_for_2x2_gridworld.json")
+        agent_config = config_from_path("configs/dqn_agent_for_2x2_gridworld_with_container_actions.json")
         executor = ApexExecutor(
             environment_spec=env_spec,
             agent_config=agent_config,
