@@ -149,4 +149,3 @@ class ApexMemory(Specifiable):
         for index, loss in zip(indices, update):
             self.merged_segment_tree.insert(index, loss ** self.alpha)
             self.max_priority = max(self.max_priority, loss)
-

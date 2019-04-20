@@ -572,9 +572,14 @@ class RayValueWorker(RayActor):
         compressed_next_states = compressed_states[self.n_step_adjustment:] + \
                                  [ray_compress(np.asarray(next_s,dtype=util.convert_dtype(dtype=env_dtype, to='np')))
                                   for next_s in next_states[-self.n_step_adjustment:]]
+        if self.container_actions:
+            for name in self.action_space.keys():
+                actions[name] = np.array(actions[name])
+        else:
+            actions = np.array(actions)
         return dict(
             states=compressed_states,
-            actions=np.array(actions),
+            actions=actions,
             rewards=np.array(rewards),
             terminals=np.array(terminals),
             next_states=compressed_next_states,
