@@ -235,7 +235,7 @@ class SingleThreadedWorker(Worker):
                     "ERROR: Cannot flip container-action batch with dict keys if returned value is not a dict OR " \
                     "values of returned value are not np.ndarrays!"
                 # TODO: What if actions come as nested dicts (more than one level deep)?
-                if hasattr(actions[some_key], "len"):
+                if hasattr(actions[some_key], "__len__"):
                     env_actions = [{key: value[i] for key, value in actions.items()} for i in range(len(actions[some_key]))]
                 else:
                     # Action was not array type.
