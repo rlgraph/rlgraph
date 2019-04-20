@@ -16,7 +16,7 @@
   [],
 
   "observe_spec": {
-    "buffer_size": 200
+    "buffer_size": 1500
   },
 
   "network_spec":
