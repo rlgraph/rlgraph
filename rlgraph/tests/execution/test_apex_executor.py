@@ -77,7 +77,7 @@ class TestApexExecutor(unittest.TestCase):
 
     def test_learning_2x2_grid_world_container_actions(self):
         """
-        Tests Apex container aciton functionality.
+        Tests Apex container action functionality.
         """
         env_spec = dict(
             type="grid-world",

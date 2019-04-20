@@ -50,6 +50,31 @@ class TestSyncBatchExecutor(unittest.TestCase):
         print("Finished executing workload:")
         print(result)
 
+    def test_learning_2x2_grid_world_container_actions(self):
+        """
+        Tests sync batch container action functionality.
+        """
+        env_spec = dict(
+            type="grid-world",
+            world="2x2",
+            save_mode=False,
+            action_type="ftj",
+            state_representation="xy+orientation"
+        )
+        agent_config = config_from_path("configs/sync_batch_ppo_gridworld_with_container_actions.json")
+        executor = SyncBatchExecutor(
+            environment_spec=env_spec,
+            agent_config=agent_config,
+        )
+        # Define executor, test assembly.
+        print("Successfully created executor.")
+
+        # Executes actual workload.
+        result = executor.execute_workload(workload=dict(
+            num_timesteps=10000, report_interval=100, report_interval_min_seconds=1)
+        )
+        print(result)
+
     def test_ppo_learning_pendulum(self):
         """
         Tests if sync-batch ppo can solve Pendulum.
