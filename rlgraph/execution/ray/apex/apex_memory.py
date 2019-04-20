@@ -31,7 +31,7 @@ class ApexMemory(Specifiable):
     """
     Apex prioritized replay implementing compression.
     """
-    def __init__(self, state_space, action_space, capacity=1000, alpha=1.0, beta=1.0):
+    def __init__(self, state_space=None, action_space=None, capacity=1000, alpha=1.0, beta=1.0):
         """
         Args:
             state_space (dict): State spec.
@@ -43,9 +43,8 @@ class ApexMemory(Specifiable):
         super(ApexMemory, self).__init__()
 
         self.state_space = state_space
-        self.actions_spec = action_space
+        self.action_space = action_space
         self.container_actions = isinstance(action_space, dict)
-
         self.memory_values = []
         self.index = 0
         self.capacity = capacity
@@ -100,7 +99,7 @@ class ApexMemory(Specifiable):
         """
         states = []
         if self.container_actions:
-            actions = {k: [] for k in self.actions_spec.keys()}
+            actions = {k: [] for k in self.action_space.keys()}
         else:
             actions = []
         rewards = []
@@ -111,7 +110,7 @@ class ApexMemory(Specifiable):
             states.append(ray_decompress(state))
 
             if self.container_actions:
-                for name in self.actions_spec.keys():
+                for name in self.action_space.keys():
                     actions[name].append(action[name])
             else:
                 actions.append(action)
@@ -119,9 +118,14 @@ class ApexMemory(Specifiable):
             terminals.append(terminal)
             next_states.append(ray_decompress(next_state))
 
+        if self.container_actions:
+            for name in self.action_space.keys():
+                actions[name] = np.array(actions[name])
+        else:
+            actions = np.array(actions)
         return dict(
             states=np.asarray(states),
-            actions=np.asarray(actions),
+            actions=actions,
             rewards=np.asarray(rewards),
             terminals=np.asarray(terminals),
             next_states=np.asarray(next_states)

@@ -29,6 +29,7 @@ from rlgraph.execution.ray import RayValueWorker
 from rlgraph.execution.ray.apex.ray_memory_actor import RayMemoryActor
 from rlgraph.execution.ray.ray_executor import RayExecutor
 from rlgraph.execution.ray.ray_util import create_colocated_ray_actors, RayTaskPool, RayWeight
+from rlgraph.spaces import Dict
 
 if get_distributed_backend() == "ray":
     import ray
@@ -98,7 +99,10 @@ class ApexExecutor(RayExecutor):
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
         self.apex_replay_spec["memory_spec"]["state_space"] = environment.state_space
-        self.apex_replay_spec["memory_spec"]["action_space"] = environment.action_space
+        if isinstance(environment.action_space, Dict):
+            self.apex_replay_spec["memory_spec"]["action_space"] = dict(environment.action_space)
+        else:
+            self.apex_replay_spec["memory_spec"]["action_space"] = environment.action_space
 
         # Start Ray cluster and connect to it.
         self.local_agent = Agent.from_spec(self.agent_config)
@@ -224,7 +228,6 @@ class ApexExecutor(RayExecutor):
                 # The ray worker is passed along because we need to update its priorities later in the subsequent
                 # task (see loop below).
                 # Copy due to memory leaks in Ray, see https://github.com/ray-project/ray/pull/3484/
-
                 self.update_worker.input_queue.put((ray_memory, sampled_batch and sampled_batch.copy()))
                 queue_inserts += 1
 
