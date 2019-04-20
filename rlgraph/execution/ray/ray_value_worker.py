@@ -253,12 +253,11 @@ class RayValueWorker(RayActor):
                 assert isinstance(actions, dict) and isinstance(actions[some_key], np.ndarray),\
                     "ERROR: Cannot flip container-action batch with dict keys if returned value is not a dict OR " \
                     "values of returned value are not np.ndarrays!"
-                if hasattr(actions[some_key], "len"):
+                if hasattr(actions[some_key], "__len__"):
                     env_actions = [{key: value[i] for key, value in actions.items()} for i in range(len(actions[some_key]))]
                 else:
                     # Action was not array type.
-                    env_actions = [{key: value for key, value in actions.items()}]
-
+                    env_actions = actions
             # No flipping necessary.
             else:
                 env_actions = actions
