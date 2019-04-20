@@ -211,10 +211,9 @@ class RayPolicyWorker(RayActor):
                 else:
                     self.preprocessed_states_buffer[i] = env_states[i]
 
-            actions = self.get_action(states=self.preprocessed_states_buffer,
-                                      use_exploration=use_exploration, apply_preprocessing=False)
+            actions = self.agent.get_action(states=self.preprocessed_states_buffer,
+                                            use_exploration=use_exploration, apply_preprocessing=False)
 
-            next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
             if self.agent.flat_action_space is not None:
                 some_key = next(iter(actions))
                 assert isinstance(actions, dict) and isinstance(actions[some_key], np.ndarray),\
@@ -230,7 +229,7 @@ class RayPolicyWorker(RayActor):
                 env_actions = actions
                 if self.num_environments == 1 and env_actions.shape == ():
                     env_actions = [env_actions]
-
+            next_states, step_rewards, terminals, infos = self.vector_env.step(actions=env_actions)
             # Worker frameskip not needed as done in env.
             # for _ in range_(self.worker_frameskip):
             #     next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
@@ -444,7 +443,3 @@ class RayPolicyWorker(RayActor):
             terminals=terminals
         ), len(rewards)
 
-    def get_action(self, states, use_exploration, apply_preprocessing):
-        action = self.agent.get_action(states=states, use_exploration=use_exploration,
-                                       apply_preprocessing=apply_preprocessing)
-        return [action] if action.shape == () else action
