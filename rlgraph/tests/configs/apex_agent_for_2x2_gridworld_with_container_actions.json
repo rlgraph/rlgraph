@@ -9,7 +9,8 @@
    "preprocessing_spec": [
     {
       "type": "convert-type",
-      "to_dtype": "float32"
+      "to_dtype": "float32",
+      "scope": "convert"
     }
   ],
   "network_spec":

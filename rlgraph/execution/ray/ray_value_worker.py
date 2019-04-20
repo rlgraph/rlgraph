@@ -102,6 +102,10 @@ class RayValueWorker(RayActor):
         self.agent = self.setup_agent(agent_config, worker_spec)
         self.worker_frameskip = frameskip
 
+        #  Flag for container actions.
+        self.container_actions = self.agent.flat_action_space is not None
+        self.action_space = self.agent.flat_action_space
+
         # Save these so they can be fetched after training if desired.
         self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
         self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
@@ -202,7 +206,11 @@ class RayValueWorker(RayActor):
         env_frames = 0
         last_episode_rewards = []
         # Final result batch.
-        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminals = [], [], [], [], []
+        if self.container_actions:
+            batch_actions = {k: [] for k in self.action_space.keys()}
+        else:
+            batch_actions = []
+        batch_states, batch_rewards, batch_next_states, batch_terminals = [], [], [], []
 
         # Running trajectories.
         sample_states, sample_actions, sample_rewards, sample_terminals = {}, {}, {}, {}
