@@ -342,7 +342,7 @@ class RayValueWorker(RayActor):
                     # Reset running trajectory for this env.
                     sample_states[env_id] = []
                     if self.container_actions:
-                        sample_actions = {k: [] for k in self.action_space.keys()}
+                        sample_actions[env_id] = {k: [] for k in self.action_space.keys()}
                     else:
                         sample_actions[env_id] = []
                     sample_rewards[env_id] = []
