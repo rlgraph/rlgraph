@@ -198,7 +198,13 @@ def merge_samples(samples, decompress=False):
     batch = {}
     sample_layout = samples[0].sample_batch
     for key in sample_layout.keys():
-        batch[key] = np.concatenate([sample.sample_batch[key] for sample in samples])
+        # E.g. action dict.
+        if isinstance(sample_layout[key], dict):
+            batch[key] = {}
+            for name in sample_layout[key].keys():
+                batch[key][name] = np.concatenate([sample.sample_batch[key][name] for sample in samples])
+        else:
+            batch[key] = np.concatenate([sample.sample_batch[key] for sample in samples])
 
     if decompress:
         assert "states" in batch
