@@ -120,7 +120,7 @@ class ApexMemory(Specifiable):
 
         if self.container_actions:
             for name in self.action_space.keys():
-                actions[name] = np.array(actions[name])
+                actions[name] = np.squeeze(np.array(actions[name]))
         else:
             actions = np.array(actions)
         return dict(

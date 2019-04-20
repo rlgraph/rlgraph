@@ -17,7 +17,7 @@
   [
     {
         "type": "dense",
-        "units": 16,
+        "units": 32,
         "activation": "lrelu"
     }
   ],
@@ -115,6 +115,6 @@
   },
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.01
+    "learning_rate": 0.001
   }
 }

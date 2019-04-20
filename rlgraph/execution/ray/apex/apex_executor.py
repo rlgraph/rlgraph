@@ -99,6 +99,8 @@ class ApexExecutor(RayExecutor):
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
         self.apex_replay_spec["memory_spec"]["state_space"] = environment.state_space
+
+        # Ray cannot serialise Dict, must be dict.
         if isinstance(environment.action_space, Dict):
             self.apex_replay_spec["memory_spec"]["action_space"] = dict(environment.action_space)
         else:
