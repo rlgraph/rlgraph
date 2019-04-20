@@ -97,6 +97,8 @@ class ApexExecutor(RayExecutor):
             environment = self.environment_spec()
         self.agent_config["state_space"] = environment.state_space
         self.agent_config["action_space"] = environment.action_space
+        self.apex_replay_spec["state_space"] = environment.state_space
+        self.apex_replay_spec["action_space"] = environment.action_space
 
         # Start Ray cluster and connect to it.
         self.local_agent = Agent.from_spec(self.agent_config)

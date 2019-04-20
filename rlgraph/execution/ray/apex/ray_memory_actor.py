@@ -81,9 +81,15 @@ class RayMemoryActor(RayActor):
         else:
             rewards = records["rewards"]
         for i in range_(num_records):
+            # If Actions is dict with vectors per key, convert to single dict.
+            if isinstance(records["actions"], dict):
+                action = {k: v[i] for k, v in records["actions"].items()}
+            else:
+                action = records["actions"][i]
+
             self.memory.insert_records((
                 records["states"][i],
-                records["actions"][i],
+                action,
                 rewards[i],
                 records["terminals"][i],
                 records["next_states"][i],

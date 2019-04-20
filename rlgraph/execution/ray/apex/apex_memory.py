@@ -31,14 +31,20 @@ class ApexMemory(Specifiable):
     """
     Apex prioritized replay implementing compression.
     """
-    def __init__(self, capacity=1000, alpha=1.0, beta=1.0):
+    def __init__(self, state_space, action_space, capacity=1000, alpha=1.0, beta=1.0):
         """
         Args:
+            state_space (dict): State spec.
+            action_space (dict): Actions spec.
             capacity (int): Max capacity.
             alpha (float): Initial weight.
             beta (float): Prioritisation factor.
         """
         super(ApexMemory, self).__init__()
+
+        self.state_space = state_space
+        self.actions_spec = action_space
+        self.container_actions = isinstance(action_space, dict)
 
         self.memory_values = []
         self.index = 0
@@ -93,14 +99,22 @@ class ApexMemory(Specifiable):
              dict: Record value dict.
         """
         states = []
-        actions = []
+        if self.container_actions:
+            actions = {k: [] for k in self.actions_spec.keys()}
+        else:
+            actions = []
         rewards = []
         terminals = []
         next_states = []
         for index in indices:
             state, action, reward, terminal, next_state, weight = self.memory_values[index]
             states.append(ray_decompress(state))
-            actions.append(action)
+
+            if self.container_actions:
+                for name in self.actions_spec.keys():
+                    actions[name].append(action[name])
+            else:
+                actions.append(action)
             rewards.append(reward)
             terminals.append(terminal)
             next_states.append(ray_decompress(next_state))
