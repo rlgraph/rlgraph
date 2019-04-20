@@ -220,7 +220,10 @@ class RayValueWorker(RayActor):
         # from previous execution was terminal for that environment.
         for i, env_id in enumerate(self.env_ids):
             sample_states[env_id] = []
-            sample_actions[env_id] = []
+            if self.container_actions:
+                sample_actions[env_id] = {k: [] for k in self.action_space.keys()}
+            else:
+                sample_actions[env_id] = []
             sample_rewards[env_id] = []
             sample_terminals[env_id] = []
 
@@ -287,7 +290,12 @@ class RayValueWorker(RayActor):
                 # Each position is the running episode reward of that episode. Add step reward.
                 current_episode_rewards[i] += step_rewards[i]
                 sample_states[env_id].append(state_buffer[i])
-                sample_actions[env_id].append(env_actions[i])
+
+                if self.container_actions:
+                    for name in self.action_space.keys():
+                        sample_actions[env_id][name].append(env_actions[i][name])
+                else:
+                    sample_actions[env_id].append(env_actions[i])
                 sample_rewards[env_id].append(step_rewards[i])
                 sample_terminals[env_id].append(terminals[i])
                 current_episode_sample_times[i] += current_iteration_time
@@ -333,7 +341,10 @@ class RayValueWorker(RayActor):
 
                     # Reset running trajectory for this env.
                     sample_states[env_id] = []
-                    sample_actions[env_id] = []
+                    if self.container_actions:
+                        sample_actions = {k: [] for k in self.action_space.keys()}
+                    else:
+                        sample_actions[env_id] = []
                     sample_rewards[env_id] = []
                     sample_terminals[env_id] = []
 
