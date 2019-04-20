@@ -331,7 +331,6 @@ class Policy(Component):
 
         ret = FlattenedDataOp()
         for flat_key, action_adapter in self.action_adapters.items():
-            #ret[flat_key] = action_adapter.get_action_adapter_outputs(nn_outputs, nn_inputs)
             ret[flat_key] = action_adapter.call(nn_outputs)
 
         return ret
@@ -562,11 +561,11 @@ class Policy(Component):
 
     def get_logits_parameters_log_probs(self, nn_inputs, internal_states=None):
         raise RLGraphObsoletedError("API-method", "get_logits_parameters_log_probs",
-                                    "get_action_adapter_outputs_and_parameters")
+                                    "get_adapter_outputs_and_parameters")
 
     def get_logits_probabilities_log_probs(self, nn_inputs, internal_states=None):
         raise RLGraphObsoletedError("API-method", "get_logits_probabilities_log_probs",
-                                    "get_action_adapter_outputs_and_parameters")
+                                    "get_adapter_outputs_and_parameters")
 
     def get_action_and_log_params(self, nn_inputs, internal_states=None, deterministic=None):
         raise RLGraphObsoletedError("API-method", "get_action_and_log_params", "get_action_and_log_likelihood")
@@ -575,7 +574,7 @@ class Policy(Component):
         raise RLGraphObsoletedError("API-method", "get_action_log_probs", "get_log_likelihood")
 
     def get_action_layer_output(self, nn_inputs):
-        raise RLGraphObsoletedError("API-method", "get_action_layer_output", "get_action_adapter_outputs")
+        raise RLGraphObsoletedError("API-method", "get_action_layer_output", "get_adapter_outputs")
 
     def get_nn_output(self, nn_inputs):
         raise RLGraphObsoletedError("API-method", "get_nn_output", "get_nn_outputs")

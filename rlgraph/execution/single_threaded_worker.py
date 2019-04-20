@@ -237,6 +237,7 @@ class SingleThreadedWorker(Worker):
                     "ERROR: Cannot flip Dict-action batch with dict keys if returned value is not a dict OR " \
                     "values of returned value are not np.ndarrays!"
                 # TODO: What if actions come as nested dicts (more than one level deep)?
+                # TODO: Use DataOpDict/Tuple's new `map` method.
                 if hasattr(actions[some_key], "len"):
                     env_actions = [{key: value[i] for key, value in actions.items()} for i in range(len(actions[some_key]))]
                 else:
@@ -248,11 +249,8 @@ class SingleThreadedWorker(Worker):
                 assert isinstance(actions, tuple) and isinstance(actions[0], np.ndarray),\
                     "ERROR: Cannot flip tuple-action batch if returned value is not a tuple OR " \
                     "values of returned value are not np.ndarrays!"
-                #if hasattr(actions[0], "len"):
+                # TODO: Use DataOpDict/Tuple's new `map` method.
                 env_actions = [tuple(value[i] for _, value in enumerate(actions)) for i in range(len(actions[0]))]
-                #else:
-                #    # Action was not array type.
-                #    env_actions = [tuple([value for _, value in enumerate(actions)])]
             # No container batch-flipping necessary.
             else:
                 env_actions = actions
