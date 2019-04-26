@@ -170,7 +170,7 @@ class PPOAgent(Agent):
         # Make sure the python buffer is not larger than our memory capacity.
         assert self.observe_spec["buffer_size"] <= self.memory.capacity, \
             "ERROR: Buffer's size ({}) in `observe_spec` must be smaller or equal to the memory's capacity ({})!". \
-                format(self.observe_spec["buffer_size"], self.memory.capacity)
+            format(self.observe_spec["buffer_size"], self.memory.capacity)
 
         # The splitter for splitting up the records coming from the memory.
         self.standardize_advantages = standardize_advantages

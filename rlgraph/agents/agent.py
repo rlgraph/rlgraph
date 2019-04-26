@@ -635,3 +635,10 @@ class Agent(Specifiable):
             any: Post-processed batch.
         """
         pass
+
+    def __repr__(self):
+        """
+        Returns:
+            str: A short, but informative description for this Agent.
+        """
+        raise NotImplementedError
