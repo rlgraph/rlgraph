@@ -1,0 +1,103 @@
+{
+  "type": "ppo",
+  "sample_episodes": false,
+  "standardize_advantages": false,
+  "clip_ratio": 0.2,
+  "discount": 0.99,
+  "gae_lambda": 1.0,
+  "weight_entropy": 0.01,
+
+  "memory_spec":
+  {
+    "type": "ring_buffer",
+    "capacity": 1000
+  },
+
+  "preprocessing_spec":
+  [   {
+      "type": "convert-type",
+      "to_dtype": "float32",
+      "scope": "convert"
+    }
+  ],
+
+
+  "observe_spec": {
+    "buffer_size": 200
+  },
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "hidden2"
+    }
+  ],
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "vf-hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 32,
+      "activation": "tanh",
+      "scope": "vf-hidden2"
+    }
+  ],
+
+  "update_spec": {
+    "update_mode": "time_steps",
+    "do_updates": true,
+    "update_interval": 200,
+    "batch_size": 200,
+    "num_iterations": 10,
+    "sample_size": 50
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.001
+  },
+
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.001
+  },
+  "execution_spec": {
+    "session_config": {
+      "log_device_placement": false,
+      "allow_soft_placement": true
+    },
+    "ray_spec": {
+      "executor_spec": {
+        "redis_address": null,
+        "num_cpus": 8,
+        "num_gpus": 0,
+        "num_worker_samples": 50,
+        "num_sample_workers": 2
+      },
+      "worker_spec": {
+        "num_worker_environments": 2,
+        "num_background_envs": 1,
+        "execution_spec": {
+          "gpu_spec": { "gpus_enabled" : false}
+        },
+        "worker_executes_postprocessing": true,
+        "sample_exploration": false,
+        "exploration_min_value": 0.5,
+        "compress_states": false
+      }
+    }
+  }
+}

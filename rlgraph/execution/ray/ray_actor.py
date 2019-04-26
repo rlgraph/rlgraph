@@ -18,6 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+from copy import deepcopy
+
+from rlgraph.components import PreprocessorStack
 
 
 class RayActor(object):
@@ -33,4 +36,23 @@ class RayActor(object):
         """
         return os.uname()[1]
 
-
+    def setup_preprocessor(self, preprocessing_spec, in_space):
+        if preprocessing_spec is not None:
+            preprocessing_spec = deepcopy(preprocessing_spec)
+            in_space = deepcopy(in_space)
+            # Set scopes.
+            scopes = [preprocessor["scope"] for preprocessor in preprocessing_spec]
+            # Set backend to python.
+            for spec in preprocessing_spec:
+                spec["backend"] = "python"
+            processor_stack = PreprocessorStack(*preprocessing_spec, backend="python")
+            build_space = in_space
+            for sub_comp_scope in scopes:
+                processor_stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(
+                    preprocessing_inputs=build_space
+                ), action_space=None)
+                build_space = processor_stack.sub_components[sub_comp_scope].get_preprocessed_space(build_space)
+            processor_stack.reset()
+            return processor_stack
+        else:
+            return None
