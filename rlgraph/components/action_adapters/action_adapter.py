@@ -38,7 +38,7 @@ class ActionAdapter(NeuralNetwork):
     - Reshaping (according to the action Space).
     - Translating the reshaped outputs (logits) into probabilities (by softmaxing) and log-probabilities (log).
     """
-    def __init__(self, action_space=None, weights_spec=None, biases_spec=None, activation=None,
+    def __init__(self, action_space, weights_spec=None, biases_spec=None, activation=None,
                  pre_network_spec=None, scope="action-adapter", **kwargs):
         """
         Args:
@@ -62,8 +62,6 @@ class ActionAdapter(NeuralNetwork):
                 last action layer. If None, only the action layer itself is applied.
         """
         # Build the action layer for this adapter based on the given action-space.
-        #self.action_space = None
-        #if action_space is not None:
         self.action_space = action_space.with_batch_rank()
         assert not isinstance(self.action_space, ContainerSpace),\
             "ERROR: ActionAdapter cannot handle ContainerSpaces!"
