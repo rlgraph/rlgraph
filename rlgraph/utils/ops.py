@@ -146,7 +146,7 @@ class FlattenedDataOp(DataOp, OrderedDict):
     pass
 
 
-def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=True):
+def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=True, mapping=None):
     """
     Flattens a single ContainerDataOp or a native python dict/tuple into a FlattenedDataOp with auto-key generation.
 
@@ -164,11 +164,14 @@ def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=Tr
 
     # Are we in the non-recursive (first) call?
     if op_tuple_list is None:
-        # Flatten a SingleDataOp -> return FlattenedDataOp with only-key=""
+        # Flatten a SingleDataOp -> return FlattenedDataOp with only-key="".
         if not isinstance(op, (ContainerDataOp, dict, tuple)):
             return FlattenedDataOp([("", op)])
         op_tuple_list = []
         ret = True
+
+    if mapping is not None:
+        op = mapping(op)
 
     if isinstance(op, dict):
         if scope_separator_at_start:
@@ -178,7 +181,9 @@ def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=Tr
         for key in sorted(op.keys()):
             # Make sure we have no double slashes from flattening an already FlattenedDataOp.
             scope = (key_scope[:-1] if len(key) == 0 or key[0] == "/" else key_scope) + key
-            flatten_op(op[key], key_scope=scope, op_tuple_list=op_tuple_list, scope_separator_at_start=True)
+            flatten_op(
+                op[key], key_scope=scope, op_tuple_list=op_tuple_list, scope_separator_at_start=True, mapping=mapping
+            )
     elif isinstance(op, tuple):
         if scope_separator_at_start:
             key_scope += FLATTEN_SCOPE_PREFIX + FLAT_TUPLE_OPEN
@@ -186,9 +191,8 @@ def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=Tr
             key_scope += "" + FLAT_TUPLE_OPEN
         for i, c in enumerate(op):
             flatten_op(c, key_scope=key_scope + str(i) + FLAT_TUPLE_CLOSE, op_tuple_list=op_tuple_list,
-                       scope_separator_at_start=True)
+                       scope_separator_at_start=True, mapping=mapping)
     else:
-        assert not isinstance(op, (dict, tuple))
         op_tuple_list.append((key_scope, op))
 
     # Non recursive (first) call -> Return the final FlattenedDataOp.
