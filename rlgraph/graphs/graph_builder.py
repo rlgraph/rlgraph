@@ -32,7 +32,7 @@ from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
-from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, TraceContext
+from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, unflatten_op, TraceContext
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, force_tuple, get_shape
@@ -842,8 +842,13 @@ class GraphBuilder(Specifiable):
 
             # API returns a dict.
             if len(self.api[api_method_name][1]) > 0 and self.api[api_method_name][1][0].kwarg is not None:
-                fetch_dict[api_method_name] = {op_rec.kwarg: op_rec.op for op_rec in self.api[api_method_name][1] if
-                                               return_ops is None or op_rec.kwarg in return_ops}
+                for op_rec in self.api[api_method_name][1]:
+                    if return_ops is None or op_rec.kwarg in return_ops:
+                        if api_method_name not in fetch_dict:
+                            fetch_dict[api_method_name] = {}
+                        flat_ops = flatten_op(op_rec.op, mapping=lambda o: o.op if isinstance(o, DataOpRecord) else o)
+                        fetch_dict[api_method_name][op_rec.kwarg] = unflatten_op(flat_ops)
+
                 if return_ops is not None:
                     assert all(op in fetch_dict[api_method_name] for op in return_ops),\
                         "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
