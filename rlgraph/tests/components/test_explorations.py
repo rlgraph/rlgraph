@@ -240,7 +240,7 @@ class TestExplorations(unittest.TestCase):
 
         @rlgraph_api(component=exploration_pipeline)
         def get_action(self_, nn_output):
-            _, parameters, _ = action_adapter.get_logits_parameters_log_probs(nn_output)
+            parameters = action_adapter.get_adapter_outputs_and_parameters(nn_output)["parameters"]
             sample_stochastic = distribution.sample_stochastic(parameters)
             sample_deterministic = distribution.sample_deterministic(parameters)
             action = exploration.get_action(sample_stochastic, sample_deterministic)

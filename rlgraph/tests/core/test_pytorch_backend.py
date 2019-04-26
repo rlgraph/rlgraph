@@ -192,23 +192,26 @@ class TestPytorchBackend(unittest.TestCase):
         states = np.array([[-0.08, 0.4, -0.05, -0.55], [13.0, -14.0, 10.0, -16.0]])
         # Raw NN-output.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
-        test.test(("get_nn_output", states), expected_outputs=dict(output=expected_nn_output), decimals=6)
+        test.test(("get_nn_output", states), expected_outputs=expected_nn_output, decimals=6)
 
         # Raw action layer output; Expected shape=(2,5): 2=batch, 5=action categories
         expected_action_layer_output = np.matmul(
             expected_nn_output, policy_params["policy/action-adapter/action-layer/dense/kernel"]
         )
         expected_action_layer_output = np.reshape(expected_action_layer_output, newshape=(2, 5))
-        test.test(("get_action_adapter_outputs", states), expected_outputs=dict(output=expected_action_layer_output),
-                  decimals=5)
+        test.test(
+            ("get_adapter_outputs", states, ["adapter_outputs"]),
+            expected_outputs=dict(adapter_outputs=expected_action_layer_output),
+            decimals=5
+        )
 
         expected_actions = np.argmax(expected_action_layer_output, axis=-1)
-        test.test(("get_action", states), expected_outputs=dict(action=expected_actions, last_internal_states=None))
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probabilities_output = softmax(expected_action_layer_output, axis=-1)
-        test.test(("get_logits_parameters_log_probs", states, [0, 1, 2]), expected_outputs=dict(
-            logits=expected_action_layer_output,
+        test.test(("get_adapter_outputs_and_parameters", states, [0, 1, 2]), expected_outputs=dict(
+            adapter_outputs=expected_action_layer_output,
             parameters=expected_probabilities_output,
             log_probs=np.log(expected_probabilities_output)
         ), decimals=5)

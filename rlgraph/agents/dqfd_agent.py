@@ -330,12 +330,12 @@ class DQFDAgent(Agent):
             optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
 
             # Get the different Q-values.
-            q_values_s = policy.get_logits_parameters_log_probs(preprocessed_states)["logits"]
-            qt_values_sp = target_policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
+            q_values_s = policy.get_adapter_outputs(preprocessed_states)["adapter_outputs"]
+            qt_values_sp = target_policy.get_adapter_outputs(preprocessed_next_states)["adapter_outputs"]
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
+                q_values_sp = policy.get_adapter_outputs(preprocessed_next_states)["adapter_outputs"]
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins, q_values_sp,
@@ -362,12 +362,12 @@ class DQFDAgent(Agent):
             loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
 
             # Get the different Q-values.
-            q_values_s = policy.get_logits_parameters_log_probs(preprocessed_states)["logits"]
-            qt_values_sp = target_policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
+            q_values_s = policy.get_adapter_outputs(preprocessed_states)["adapter_outputs"]
+            qt_values_sp = target_policy.get_adapter_outputs(preprocessed_next_states)["adapter_outputs"]
 
             q_values_sp = None
             if self.double_q:
-                q_values_sp = policy.get_logits_parameters_log_probs(preprocessed_next_states)["logits"]
+                q_values_sp = policy.get_adapter_outputs(preprocessed_next_states)["adapter_outputs"]
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins,

@@ -218,11 +218,11 @@ class DuelingPolicy(Policy):
     def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
         raise RLGraphObsoletedError(
             "API method", "get_state_values_logits_probabilities_log_probs",
-            "get_state_values_logits_parameters_log_probs"
+            "get_state_values_adpater_outputs_and_parameters"
         )
 
     def get_logits_probabilities_log_probs(self, nn_input, internal_states=None):
         raise RLGraphObsoletedError(
             "API method", "get_logits_probabilities_log_probs",
-            "get_logits_parameters_log_probs"
+            "get_adapter_outputs_and_parameters"
         )
