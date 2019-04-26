@@ -139,8 +139,8 @@ class TestActorComponents(unittest.TestCase):
             preprocessed_states[i] = ret["preprocessed_state"][:, 0, :]  # take out time-rank again ()
             actions[i] = ret["action"]
             # Check c/h-state shape.
-            self.assertEqual(ret["last_internal_states"][0].shape, (2, 3))  # batch-size=2, LSTM units=3
-            self.assertEqual(ret["last_internal_states"][1].shape, (2, 3))
+            self.assertEqual(ret["nn_outputs"][1][0].shape, (2, 3))  # batch-size=2, LSTM units=3
+            self.assertEqual(ret["nn_outputs"][1][1].shape, (2, 3))
 
         # Check all preprocessed states (easy: just divided by 10).
         expected_preprocessed_state = states / 10
