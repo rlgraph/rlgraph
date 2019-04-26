@@ -18,13 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 import math
-import numpy as np
 import random
-from six.moves import xrange as range_
 import time
 
-from rlgraph.environments import Environment
+import numpy as np
+from six.moves import xrange as range_
+
 import rlgraph.spaces as spaces
+from rlgraph.environments import Environment
 
 
 class GridWorld(Environment):
@@ -99,6 +100,19 @@ class GridWorld(Environment):
             "WWWW    WW    W ",
             "    FF   W      ",
             "  H          H G"
+        ],
+        "4-room": [
+            "     W     ",
+            "     W     ",
+            "        G  ",
+            "     W     ",
+            "     W     ",
+            "W WWWW     ",
+            "     WWW WW",
+            "     W     ",
+            "  S  W     ",
+            "           ",
+            "     W     "
         ]
     }
 
