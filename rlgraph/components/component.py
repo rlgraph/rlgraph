@@ -856,12 +856,12 @@ class Component(Specifiable):
                 component = Component.from_spec(component)
             # Make sure no two components with the same name are added to this one (own scope doesn't matter).
             if component.name in self.sub_components:
-                raise RLGraphError("ERROR: Sub-Component with name '{}' already exists in this one!".
-                                   format(component.name))
+                raise RLGraphError("ERROR: Sub-Component with name '{}' already exists in '{}'!".
+                                   format(component.name, self.global_scope))
             # Make sure each Component can only be added once to a parent/container Component.
             elif component.parent_component is not None:
                 raise RLGraphError(
-                    "ERROR: Sub-Component with name '{}' has already been added once to a container Component! Each "
+                    "ERROR: Sub-Component with name '{}' has already been added once to a containing Component! Each "
                     "Component can only be added once to a parent.".format(component.name)
                 )
             # Make sure we don't add to ourselves.
