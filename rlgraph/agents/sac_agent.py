@@ -104,7 +104,7 @@ class SACAgentComponent(Component):
         for s in ["states", "actions", "env_actions", "preprocessed_states", "rewards", "terminals"]:
             sanity_check_space(input_spaces[s], must_have_batch_rank=True)
 
-        self.env_action_space = input_spaces["env_actions"]
+        self.env_action_space = input_spaces["env_actions"].flatten()
 
     def create_variables(self, input_spaces, action_space=None):
         self.steps_since_last_sync = self.get_variable("steps_since_last_sync", dtype="int", initializer=0)
@@ -199,10 +199,8 @@ class SACAgentComponent(Component):
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_one_hot(self, key, env_actions):
-        space = self.agent.flat_action_space[key] if self.agent.flat_action_space is not None else \
-            self.agent.action_space
-        if isinstance(space, IntBox):
-            env_actions = tf.one_hot(env_actions, depth=space.num_categories, axis=-1)
+        if isinstance(self.env_action_space[key], IntBox):
+            env_actions = tf.one_hot(env_actions, depth=self.env_action_space[key].num_categories, axis=-1)
         return env_actions
 
     @graph_fn(requires_variable_completeness=True)
