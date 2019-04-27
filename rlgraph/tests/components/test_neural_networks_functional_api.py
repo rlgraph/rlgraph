@@ -26,9 +26,9 @@ from rlgraph.components.layers.preprocessing.container_splitter import Container
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.strings import StringToHashBucket, EmbeddingLookup
 from rlgraph.components.neural_networks import NeuralNetwork
-from rlgraph.spaces import Dict, FloatBox, TextBox
+from rlgraph.spaces import Dict, FloatBox, TextBox, Tuple, IntBox
 from rlgraph.tests.component_test import ComponentTest
-from rlgraph.utils.numpy import dense_layer, relu, lstm_layer
+from rlgraph.utils.numpy import dense_layer, relu, lstm_layer, one_hot
 
 
 class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
@@ -89,6 +89,40 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
 
         # Don't expect internal states (our NN does not return these as per the functional API definition above).
         test.test(("call", input_), expected_outputs=expected_out, decimals=5)
+
+        test.terminate()
+
+    def test_functional_api_two_inputs(self):
+        # Define an input Space first (tuple of two input tensors).
+        input_space = Tuple([IntBox(3), FloatBox(shape=(4,))], add_batch_rank=True)
+
+        # One-hot flatten the int tensor.
+        flatten_layer_out = ReShape(flatten=True, flatten_categories=True)(input_space[0])
+        # Run the float tensor through two dense layers.
+        dense_1_out = DenseLayer(units=3, scope="d1")(input_space[1])
+        dense_2_out = DenseLayer(units=5, scope="d2")(dense_1_out)
+        # Concat everything.
+        cat_out = ConcatLayer()(flatten_layer_out, dense_2_out)
+
+        # Use the `outputs` arg to allow your network to trace back the data flow until the input space.
+        neural_net = NeuralNetwork(outputs=cat_out)
+
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=input_space))
+
+        var_dict = neural_net.variable_registry
+        w1_value = test.read_variable_values(var_dict["neural-network/d1/dense/kernel"])
+        b1_value = test.read_variable_values(var_dict["neural-network/d1/dense/bias"])
+        w2_value = test.read_variable_values(var_dict["neural-network/d2/dense/kernel"])
+        b2_value = test.read_variable_values(var_dict["neural-network/d2/dense/bias"])
+
+        # Batch of size=n.
+        input_ = input_space.sample(4)
+
+        expected = np.concatenate([  # concat everything
+            one_hot(input_[0]),  # int flattening
+            dense_layer(dense_layer(input_[1], w1_value, b1_value), w2_value, b2_value)  # float -> 2 x dense
+        ], axis=-1)
+        out = test.test(("call", input_), expected_outputs=expected)
 
         test.terminate()
 
