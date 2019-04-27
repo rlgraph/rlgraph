@@ -102,7 +102,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertLessEqual(results["episodes_executed"], time_steps / 2)
+        self.assertLessEqual(results["episodes_executed"], time_steps)
         # Assume we have learned something.
         self.assertGreaterEqual(results["mean_episode_reward"], -2.0)
 
