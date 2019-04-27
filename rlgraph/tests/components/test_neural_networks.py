@@ -34,7 +34,31 @@ class TestNeuralNetworks(unittest.TestCase):
     """
     Tests for assembling from json and running different NeuralNetworks.
     """
-    def test_simple_nn(self):
+    def test_simple_nn_using_layers(self):
+        # Space must contain batch dimension (otherwise, NNlayer will complain).
+        space = FloatBox(shape=(4,), add_batch_rank=True)
+
+        # Create a simple neural net from json.
+        nn_layers = config_from_path("configs/test_simple_nn.json")
+        neural_net = NeuralNetwork(*nn_layers["layers"])
+
+        # Do not seed, we calculate expectations manually.
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=space))
+
+        # Batch of size=3.
+        input_ = space.sample(4)
+        # Calculate output manually.
+        var_dict = neural_net.get_variables("hidden-layer/dense/kernel", "hidden-layer/dense/bias", global_scope=False)
+        w1_value = test.read_variable_values(var_dict["hidden-layer/dense/kernel"])
+        b1_value = test.read_variable_values(var_dict["hidden-layer/dense/bias"])
+
+        expected = dense_layer(input_, w1_value, b1_value)
+
+        test.test(("call", input_), expected_outputs=expected, decimals=5)
+
+        test.terminate()
+
+    def test_simple_nn_using_from_spec(self):
         # Space must contain batch dimension (otherwise, NNlayer will complain).
         space = FloatBox(shape=(3,), add_batch_rank=True)
 
