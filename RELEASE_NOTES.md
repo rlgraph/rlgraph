@@ -1,6 +1,18 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.4 - 27.4.2019
+
+- Agents now support fully customized baselines where ```value_function_spec``` can now 
+  be any instance of ValueFunction and does not need to be a list of layers.
+  See FAQ for more detail.
+- Added support for unity MLAgents environment.
+- Added support for Keras-style functional neural network compositions. Details will be added to the
+  FAQ.
+- Added support for vectorised container actions in Ray executors.
+- GAE standardization in PPO is now performed across the entire batch, not sampled sub-batches, 
+  which may improve performance when the option is enabled.
+
 ## RLgraph 0.3.5/6 - 2.4.2019
 
 - Fixed bug regarding build timing of graph functions calling other graph functions,
