@@ -32,11 +32,12 @@ class IntBox(BoxSpace):
     """
     def __init__(self, low=None, high=None, shape=None, dtype="int32", **kwargs):
         """
-        Three kinds of valid input:
+        Valid inputs:
             IntBox(6)  # only high is given -> low assumed to be 0 (0D scalar).
             IntBox(0, 2) # low and high are given as scalars and shape is assumed to be 0D scalar.
             IntBox(-1, 1, (3,4)) # low and high are scalars, and shape is provided.
             IntBox(np.array([-1,-2]), np.array([2,4])) # low and high are arrays of the same shape (no shape given!)
+
         NOTE: The `high` value for IntBoxes is excluded. Valid values thus are from the interval: [low,high[
         """
         if low is None:
