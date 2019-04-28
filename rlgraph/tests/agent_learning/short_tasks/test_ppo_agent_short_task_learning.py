@@ -122,7 +122,9 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
-            render=self.is_windows
+            render=False,  #self.is_windows
+            episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
+            print("episode return {}; steps={}".format(episode_return, timesteps))
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -149,9 +151,11 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
-            render=self.is_windows
+            render=False,  #self.is_windows,
+            episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
+            print("episode return {}; steps={}".format(episode_return, timesteps))
         )
-        results = worker.execute_episodes(500, use_exploration=True)
+        results = worker.execute_episodes(5000, use_exploration=True)
 
         print(results)
 

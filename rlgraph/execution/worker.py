@@ -20,10 +20,9 @@ from __future__ import print_function
 import logging
 
 import numpy as np
-from six.moves import xrange as range_
-
 from rlgraph.environments import VectorEnv, SequentialVectorEnv
 from rlgraph.utils.specifiable import Specifiable
+from six.moves import xrange as range_
 
 
 class Worker(Specifiable):
@@ -261,4 +260,4 @@ class Worker(Specifiable):
             episode_return, duration, timesteps))
 
         if self.episode_finish_callback:
-            self.episode_finish_callback(episode_return=episode_return, duration=duration, timesteps=timesteps, env_num=env_num)
+            self.episode_finish_callback(episode_return, duration, timesteps, env_num)
