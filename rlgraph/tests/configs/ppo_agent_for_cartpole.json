@@ -2,10 +2,10 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": false,
-  "clip_ratio": 0.2,
+  "clip_ratio": 0.1,
   "discount": 0.99,
   "gae_lambda": 1.0,
-  "weight_entropy": 0.01,
+  "weight_entropy": 0.001,
 
   "memory_spec":
   {
@@ -29,13 +29,13 @@
     {
       "type": "dense",
       "units": 32,
-      "activation": "tanh",
+      "activation": "linear",
       "scope": "hidden1"
     },
     {
       "type": "dense",
       "units": 32,
-      "activation": "tanh",
+      "activation": "linear",
       "scope": "hidden2"
     }
   ],
@@ -44,13 +44,13 @@
     {
       "type": "dense",
       "units": 32,
-      "activation": "tanh",
+      "activation": "linear",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
       "units": 32,
-      "activation": "tanh",
+      "activation": "linear",
       "scope": "vf-hidden2"
     }
   ],
@@ -58,7 +58,7 @@
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 200,
+    "update_interval": 16,
     "batch_size": 200,
     "num_iterations": 10,
     "sample_size": 50
