@@ -3,37 +3,43 @@
 
   "sample_episodes": false,
   "standardize_advantages": true,
-  "clip_ratio": 0.1,
+  "clip_ratio": 0.2,
   "discount": 0.995,
-  "gae_lambda": 0.8,
+  "gae_lambda": 0.95,
   "weight_entropy": 0.001,
 
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 3000
+    "capacity": 20480
   },
 
   "preprocessing_spec":
   [],
 
   "observe_spec": {
-    "buffer_size": 1500
+    "buffer_size": 1000
   },
 
   "network_spec":
   [
     {
       "type": "dense",
-      "units": 256,
+      "units": 512,
       "activation": "relu",
       "scope": "hidden1"
     },
     {
       "type": "dense",
-      "units": 256,
+      "units": 512,
       "activation": "relu",
       "scope": "hidden2"
+    },
+    {
+      "type": "dense",
+      "units": 512,
+      "activation": "relu",
+      "scope": "hidden3"
     }
   ],
 
@@ -41,25 +47,31 @@
   [
     {
       "type": "dense",
-      "units": 256,
+      "units": 512,
       "activation": "relu",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
-      "units": 256,
+      "units": 512,
       "activation": "relu",
       "scope": "vf-hidden2"
+    },
+    {
+      "type": "dense",
+      "units": 512,
+      "activation": "relu",
+      "scope": "vf-hidden3"
     }
   ],
 
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 1500,
-    "batch_size": 1500,
+    "update_interval": 2048,
+    "batch_size": 2048,
     "num_iterations": 10,
-    "sample_size": 500
+    "sample_size": 512
   },
 
   "optimizer_spec": {
