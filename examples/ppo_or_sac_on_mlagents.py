@@ -35,7 +35,7 @@ from rlgraph.execution import SingleThreadedWorker
 FLAGS = flags.FLAGS
 
 # Use different configs here for either PPO or SAC algos.
-flags.DEFINE_string('config', './configs/ppo_mlagents_3dball.json', 'Agent config file.')
+flags.DEFINE_string('config', './configs/ppo_mlagents_banana_collector.json', 'Agent config file.')
 
 
 def main(argv):
@@ -77,7 +77,7 @@ def main(argv):
     print("Starting workload, this will take some time for the agents to build.")
 
     # Use exploration is true for training, false for evaluation.
-    worker.execute_timesteps(100000, use_exploration=True)
+    worker.execute_timesteps(10000000, use_exploration=True)
 
     print("Mean reward: {:.2f} / over the last 10 episodes: {:.2f}".format(
         np.mean(episode_returns), np.mean(episode_returns[-10:])

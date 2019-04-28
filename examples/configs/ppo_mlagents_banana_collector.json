@@ -1,21 +1,23 @@
 {
-  "type": "sac",
+  "type": "ppo",
+  "sample_episodes": false,
+  "standardize_advantages": true,
+  "clip_ratio": 0.1,
   "discount": 0.995,
-  "initial_alpha": 0.1,
-  "target_entropy": -1.0,
-  "double_q": true,
+  "gae_lambda": 0.8,
+  "weight_entropy": 0.001,
 
   "memory_spec":
   {
-    "type": "replay",
-    "capacity": 100000
+    "type": "ring_buffer",
+    "capacity": 3000
   },
 
   "preprocessing_spec":
   [],
 
   "observe_spec": {
-    "buffer_size": 200
+    "buffer_size": 1500
   },
 
   "network_spec":
@@ -53,11 +55,10 @@
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 4,
-    "sync_interval": 16,
-    "sync_tau": 5e-3,
-    "batch_size": 1200,
-    "num_iterations": 1
+    "update_interval": 1500,
+    "batch_size": 1500,
+    "num_iterations": 10,
+    "sample_size": 500
   },
 
   "optimizer_spec": {
