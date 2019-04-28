@@ -35,6 +35,10 @@ from rlgraph.execution import SingleThreadedWorker
 FLAGS = flags.FLAGS
 
 # Use different configs here for either PPO or SAC algos.
+# - ./configs/ppo_mlagents_banana_collector.json learns the BananaCollector Env and reaches the benchmark (10)
+#   after about 1500 episodes using PPO with container actions.
+# - ./configs/ppo_mlagents_3dball_hard.json learns the 3DBall (hard version) Env using PPO.
+# - ./configs/sac_mlagents_3dball_hard.json learns the 3DBall (hard version) Env using SAC.
 flags.DEFINE_string('config', './configs/ppo_mlagents_banana_collector.json', 'Agent config file.')
 
 
