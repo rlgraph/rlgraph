@@ -4,7 +4,7 @@
   "standardize_advantages": true,
   "clip_ratio": 0.1,
   "discount": 0.995,
-  "gae_lambda": 0.95,
+  "gae_lambda": 0.6,
   "weight_entropy": 0.001,
   "value_function_clipping": 10.0,
 
@@ -57,7 +57,7 @@
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 128,
+    "update_interval": 200,
     "batch_size": 512,
     "num_iterations": 10,
     "sample_size": 128
