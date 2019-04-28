@@ -101,7 +101,7 @@ class SequenceHelper(Component):
                 sequence_lengths.append(length)
             return torch.tensor(sequence_lengths, dtype=torch.int32)
 
-    @rlgraph_api(returns=2, must_be_complete=False)
+    @rlgraph_api(returns=2)
     def _graph_fn_calc_sequence_decays(self, sequence_indices, decay=0.9):
         """
         Computes decays for sequence indices, e.g. for generalized advantage estimation.
@@ -224,42 +224,41 @@ class SequenceHelper(Component):
             )
             sequence_indices = tf.cast(sequence_indices, dtype=tf.int32)
 
-            def insert_body(index, forward_index, write_index, length, prev_v, decayed_values):
-                # Decay is based on length, so val = decay^length
-                decay_val = tf.pow(x=decay, y=tf.cast(length, dtype=tf.float32))
-                accum_v = prev_v + values[index] * decay_val
-
-                # Write decayed val into array.
-                decayed_values = decayed_values.write(write_index, accum_v)
-                prev_v = accum_v
-
-                # Reset length to 0 if terminal encountered.
+            def insert_body(index, prev_v, decayed_values):
                 # NOTE: We cannot prev_v to 0.0 because values[index] might have a more complex shape,
                 # so this violates shape checks.
-                length, prev_v = tf.cond(
-                    pred=tf.equal(sequence_indices[forward_index], tf.ones_like(sequence_indices[forward_index])),
-                    true_fn=lambda: (0, tf.zeros_like(prev_v)),
-                    false_fn=lambda: (length, prev_v)
+                prev_v = tf.cond(
+                    pred=tf.equal(sequence_indices[index], tf.ones_like(sequence_indices[index])),
+                    true_fn=lambda: tf.zeros_like(prev_v),
+                    false_fn=lambda: prev_v
                 )
                 # index = tf.Print(index, [index, prev_v], summarize=100, message="index, prev = ")
 
-                # Increase write-index and length of sub-sequence, decrease loop index in reverse iteration.
-                return index - 1, forward_index + 1, write_index + 1, length + 1, prev_v, decayed_values
+                # Decay is based on length, so val = decay^length
+                accum_v = values[index] + decay * prev_v
 
-            def cond(index, forward_index, write_index, length, prev_v, decayed_values):
+                # Write decayed val into array.
+                decayed_values = decayed_values.write(index, accum_v)
+                prev_v = accum_v
+
+                # Increase write-index and length of sub-sequence, decrease loop index in reverse iteration.
+                return index - 1, prev_v, decayed_values
+
+            def cond(index, prev_v, decayed_values):
                 # Scan in reverse.
                 return index >= 0
 
-            _, _, _, _, _, decayed_values = tf.while_loop(
+            _, _, decayed_values = tf.while_loop(
                 cond=cond,
                 body=insert_body,
                 # loop index, index writing to tensor array, current length of sub-sequence, previous val (float)
-                loop_vars=[elems - 1, 0, 0, 0, tf.zeros_like(values[-1]), decayed_values],
+                loop_vars=[elems - 1, tf.zeros_like(values[-1]), decayed_values],
                 back_prop=False
             )
 
             decayed_values = decayed_values.stack()
-            return tf.stop_gradient(tf.reverse(tensor=decayed_values, axis=[0]))
+            return tf.stop_gradient(decayed_values)
+
         elif get_backend() == "pytorch":
             # Scan all sequences in reverse:
             discounted = []
