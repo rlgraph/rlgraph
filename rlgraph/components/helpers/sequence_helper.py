@@ -260,28 +260,24 @@ class SequenceHelper(Component):
             return tf.stop_gradient(decayed_values)
 
         elif get_backend() == "pytorch":
-            # Scan all sequences in reverse:
-            discounted = []
-            i = 0
-            length = 0
+            # Scan sequences in reverse:
+            decayed_values = []
+            i = len(values.data) - 1
             prev_v = 0
             for v in reversed(values.data):
-                # Accumulate prior value.
-                accum_v = prev_v + v * pow(decay, length)
-                discounted.append(accum_v)
-                prev_v = accum_v
-
                 # Arrived at new sequence, start over.
                 if sequence_indices[i] == 1:
-                    length = 0
                     prev_v = 0
 
-                # Increase length of current sub-sequence.
-                length += 1
-                i += 1
+                # Accumulate prior value.
+                accum_v = v + decay * prev_v
+                decayed_values.append(accum_v)
+                prev_v = accum_v
+
+                i -= 1
 
             # Reverse, convert, and return final.
-            return torch.tensor(list(reversed(discounted)), dtype=torch.float32)
+            return torch.tensor(list(reversed(decayed_values)), dtype=torch.float32)
 
     @rlgraph_api
     def _graph_fn_bootstrap_values(self, rewards, values, terminals, sequence_indices, discount=0.99):
