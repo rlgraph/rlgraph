@@ -35,27 +35,19 @@ class TestSequenceHelper(unittest.TestCase):
         decay=float
     )
 
-    def test_calc_sequence_lengths(self):
+    @staticmethod
+    def decay_td_sequence(td_errors, decay=0.99, value_next=0.0):
+        discounted_td_errors = np.zeros_like(td_errors)
+        running_add = value_next
+        for t in reversed(range(0, td_errors.size)):
+            running_add = running_add * decay + td_errors[t]
+            discounted_td_errors[t] = running_add
+        return discounted_td_errors
+
+    @staticmethod
+    def deltas(baseline, reward, discount, terminals, sequence_values):
         """
-        Tests counting sequence lengths based on terminal configurations.
-        """
-        sequence_helper = SequenceHelper()
-        test = ComponentTest(component=sequence_helper, input_spaces=self.input_spaces)
-        input_ = np.asarray([0, 0, 0, 0])
-        test.test(("calc_sequence_lengths", input_), expected_outputs=[4])
-
-        input_ = np.asarray([0, 0, 1, 0])
-        test.test(("calc_sequence_lengths", input_), expected_outputs=[3, 1])
-
-        input_ = np.asarray([1, 1, 1, 1])
-        test.test(("calc_sequence_lengths", input_), expected_outputs=[1, 1, 1, 1])
-
-        input_ = np.asarray([1, 0, 0, 1])
-        test.test(("calc_sequence_lengths", input_), expected_outputs=[1, 3])
-
-    def deltas(self, baseline, reward, discount, terminals, sequence_values):
-        """
-        Computes expected deltas:
+        Computes expected 1-step TD errors over a sequence of rewards, terminals, sequence-indices:
 
         delta = reward + discount * bootstrapped_values[1:] - bootstrapped_values[:-1]
         """
@@ -64,7 +56,7 @@ class TestSequenceHelper(unittest.TestCase):
         i = 0
         for _ in range(len(baseline)):
             if np.all(sequence_values[i]):
-                # Compute deltas for this subsequence.
+                # Compute deltas for this sub-sequence.
                 # Cannot do this all at once because we would need the correct offsets for each sub-sequence.
                 baseline_slice = list(baseline[start_index:i + 1])
 
@@ -89,6 +81,24 @@ class TestSequenceHelper(unittest.TestCase):
             i += 1
 
         return np.array(deltas)
+
+    def test_calc_sequence_lengths(self):
+        """
+        Tests counting sequence lengths based on terminal configurations.
+        """
+        sequence_helper = SequenceHelper()
+        test = ComponentTest(component=sequence_helper, input_spaces=self.input_spaces)
+        input_ = np.asarray([0, 0, 0, 0])
+        test.test(("calc_sequence_lengths", input_), expected_outputs=[4])
+
+        input_ = np.asarray([0, 0, 1, 0])
+        test.test(("calc_sequence_lengths", input_), expected_outputs=[3, 1])
+
+        input_ = np.asarray([1, 1, 1, 1])
+        test.test(("calc_sequence_lengths", input_), expected_outputs=[1, 1, 1, 1])
+
+        input_ = np.asarray([1, 0, 0, 1])
+        test.test(("calc_sequence_lengths", input_), expected_outputs=[1, 3])
 
     def test_bootstrapping(self):
         """
@@ -181,12 +191,3 @@ class TestSequenceHelper(unittest.TestCase):
             ("reverse_apply_decays_to_sequence", [td_errors, indices, decay_value]),
             expected_outputs=expected_output_sequence_manual
         )
-
-    @staticmethod
-    def decay_td_sequence(td_errors, decay=0.99, value_next=0.0):
-        discounted_td_errors = np.zeros_like(td_errors)
-        running_add = value_next
-        for t in reversed(range(0, td_errors.size)):
-            running_add = running_add * decay + td_errors[t]
-            discounted_td_errors[t] = running_add
-        return discounted_td_errors
