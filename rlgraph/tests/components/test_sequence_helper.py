@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
 
+import numpy as np
 from rlgraph.components.helpers.sequence_helper import SequenceHelper
-from rlgraph.spaces import IntBox, FloatBox, BoolBox
+from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 
 
@@ -53,7 +53,7 @@ class TestSequenceHelper(unittest.TestCase):
         input_ = np.asarray([1, 0, 0, 1])
         test.test(("calc_sequence_lengths", input_), expected_outputs=[1, 3])
 
-    def deltas(self,  baseline, reward, discount, terminals, sequence_values):
+    def deltas(self, baseline, reward, discount, terminals, sequence_values):
         """
         Computes expected deltas:
 
@@ -158,3 +158,35 @@ class TestSequenceHelper(unittest.TestCase):
 
         recursive_assert_almost_equal(x=lengths, y=[1, 1, 1, 1])
         recursive_assert_almost_equal(x=decays, y=expected_decays)
+
+    def test_reverse_apply_decays_to_sequence(self):
+        """
+        Tests reverse decaying a sequence of .
+        """
+        sequence_helper = SequenceHelper()
+        decay_value = 0.5
+
+        test = ComponentTest(component=sequence_helper, input_spaces=self.input_spaces)
+        td_errors = np.asarray([0.1, 0.2, 0.3, 0.4])
+        indices = np.array([0, 0, 0, 1])
+        expected_output_sequence_manual = np.asarray([
+            0.1 + 0.5 * 0.2 + 0.25 * 0.3 + 0.125 * 0.4,
+            0.2 + 0.5 * 0.3 + 0.25 * 0.4,
+            0.3 + 0.5 * 0.4,
+            0.4
+        ])
+        expected_output_sequence_numpy = self.decay_td_sequence(td_errors, decay=decay_value)
+        recursive_assert_almost_equal(expected_output_sequence_manual, expected_output_sequence_numpy)
+        test.test(
+            ("reverse_apply_decays_to_sequence", [td_errors, indices, decay_value]),
+            expected_outputs=expected_output_sequence_manual
+        )
+
+    @staticmethod
+    def decay_td_sequence(td_errors, decay=0.99, value_next=0.0):
+        discounted_td_errors = np.zeros_like(td_errors)
+        running_add = value_next
+        for t in reversed(range(0, td_errors.size)):
+            running_add = running_add * decay + td_errors[t]
+            discounted_td_errors[t] = running_add
+        return discounted_td_errors
