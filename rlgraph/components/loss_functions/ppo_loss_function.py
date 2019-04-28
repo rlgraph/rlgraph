@@ -95,7 +95,7 @@ class PPOLossFunction(LossFunction):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
-            advantages (SingleDataOp): The batch of post-processed advantages.
+            advantages (SingleDataOp): The batch of post-processed generalized advantage estimations (GAEs).
             entropy (SingleDataOp): Policy entropy.
 
         Returns:
@@ -118,6 +118,7 @@ class PPOLossFunction(LossFunction):
                 x=(1 + self.clip_ratio) * advantages,
                 y=(1 - self.clip_ratio) * advantages
             )
+            #clipped_advantages = tf.clip_by_value(ratio, 1.0 - self.clip_ratio, 1.0 + self.clip_ratio) * advantages
             loss = -tf.minimum(x=ratio * advantages, y=clipped_advantages)
 
             # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
@@ -142,8 +143,9 @@ class PPOLossFunction(LossFunction):
                 (1 + self.clip_ratio) * advantages,
                 (1 - self.clip_ratio) * advantages
             )
-
+            #clipped_advantages = torch.clamp(ratio, 1.0 - self.clip_ratio, 1.0 + self.clip_ratio) * advantages
             loss = -torch.min(ratio * advantages, clipped_advantages)
+
             # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
             loss -= self.weight_entropy * entropy
 
