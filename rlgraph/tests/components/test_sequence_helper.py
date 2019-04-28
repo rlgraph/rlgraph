@@ -161,7 +161,7 @@ class TestSequenceHelper(unittest.TestCase):
 
     def test_reverse_apply_decays_to_sequence(self):
         """
-        Tests reverse decaying a sequence of .
+        Tests reverse decaying a sequence of 1-step TD errors for GAE.
         """
         sequence_helper = SequenceHelper()
         decay_value = 0.5

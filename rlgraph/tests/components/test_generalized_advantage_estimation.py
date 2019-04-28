@@ -60,7 +60,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
     def discount_all(values, decay, terminal):
         # Discounts multiple sub-sequences by keeping track of terminals.
         discounted = []
-        i = 0
+        i = len(values) - 1
         prev_v = 0.0
         for v in reversed(values):
             # Arrived at new sequence, start over.
@@ -73,7 +73,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
             discounted.append(accum_v)
             prev_v = accum_v
 
-            i += 1
+            i -= 1
         return list(reversed(discounted))
 
     def gae_helper(self, baseline, reward, gamma, gae_lambda, terminals, sequence_indices):
