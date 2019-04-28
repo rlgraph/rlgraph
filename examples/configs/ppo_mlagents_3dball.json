@@ -2,10 +2,10 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": false,
-  "clip_ratio": 0.2,
-  "discount": 0.99,
-  "gae_lambda": 1.0,
-  "weight_entropy": 0.01,
+  "clip_ratio": 0.1,
+  "discount": 0.995,
+  "gae_lambda": 0.8,
+  "weight_entropy": 0.001,
 
   "memory_spec":
   {
