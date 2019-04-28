@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
 
+import numpy as np
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
@@ -61,22 +61,18 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         # Discounts multiple sub-sequences by keeping track of terminals.
         discounted = []
         i = 0
-        length = 0
         prev_v = 0.0
         for v in reversed(values):
-            # Accumulate prior value.
-            accum_v = prev_v + v * pow(decay, length)
-            discounted.append(accum_v)
-            prev_v = accum_v
-
             # Arrived at new sequence, start over.
             if np.all(terminal[i]):
                 print("Resetting discount after processing i = ", i)
-                length = 0
                 prev_v = 0.0
 
-            # Increase length of current sub-sequence.
-            length += 1
+            # Accumulate prior value.
+            accum_v = v + decay * prev_v
+            discounted.append(accum_v)
+            prev_v = accum_v
+
             i += 1
         return list(reversed(discounted))
 
@@ -96,7 +92,7 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
                     print("Appending boot-strap val 0 at index.", i)
                     baseline_slice.append(0)
                 else:
-                    print("Appending boot-strap val {} at index {}.".format(baseline[i], i))
+                    print("Appending boot-strap val {} at index {}.".format(baseline[i], i+1))
                     baseline_slice.append(baseline[i])
                 adjusted_v = np.asarray(baseline_slice)
 
@@ -111,13 +107,52 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
         print("len deltas = ", len(deltas))
         return np.asarray(self.discount_all(deltas, gamma * gae_lambda, terminals))
 
+    def test_with_manual_numbers_and_lambda_0_5(self):
+        lambda_ = 0.5
+        lg = lambda_ * self.gamma
+        gae = GeneralizedAdvantageEstimation(gae_lambda=lambda_, discount=self.gamma)
+
+        test = ComponentTest(component=gae, input_spaces=self.input_spaces)
+
+        # Batch of 2 sequences.
+        rewards_ = np.array([0.1, 0.2, 0.3])
+        baseline_values_ = np.array([1.0, 2.0, 3.0])
+        terminals_ = np.array([False, False, False])
+
+        # Final sequence index must always be true.
+        sequence_indices = np.array([False, False, True])
+        input_ = [baseline_values_, rewards_, terminals_, sequence_indices]
+
+        # Test TD-error outputs.
+        td = np.array([1.08, 1.17, 0.27])
+        test.test(("calc_td_errors", input_), expected_outputs=td, decimals=5)
+
+        expected_gaes_manual = np.array([
+            td[0] + lg * td[1] + lg * lg * td[2],
+            td[1] + lg * td[2],
+            td[2]
+        ])
+        expected_gaes_helper = self.gae_helper(
+            baseline_values_, rewards_, self.gamma, lambda_, terminals_, sequence_indices
+        )
+        recursive_assert_almost_equal(expected_gaes_manual, expected_gaes_helper, decimals=5)
+        advantages = test.test(("calc_gae_values", input_), expected_outputs=expected_gaes_manual)
+
+        print("Rewards:", rewards_)
+        print("Baseline-values:", baseline_values_)
+        print("Terminals:", terminals_)
+        print("Expected advantage:", expected_gaes_manual)
+        print("Got advantage:", advantages)
+
+        test.terminate()
+
     def test_single_non_terminal_sequence(self):
         gae = GeneralizedAdvantageEstimation(gae_lambda=self.gae_lambda, discount=self.gamma)
 
         test = ComponentTest(component=gae, input_spaces=self.input_spaces)
 
-        rewards_ = self.rewards.sample(10, fill_value=0.5)
-        baseline_values_ = self.baseline_values.sample(10, fill_value=1.0)
+        rewards_ = self.rewards.sample(10)  #, fill_value=0.5)
+        baseline_values_ = self.baseline_values.sample(10)  #, fill_value=1.0)
         terminals_ = self.terminals.sample(size=10, fill_value=False)
 
         # Final sequence index must always be true.
@@ -136,6 +171,9 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
         advantage = test.test(("calc_gae_values", input_))
         recursive_assert_almost_equal(advantage_expected, advantage, decimals=5)
+        print("Rewards:", rewards_)
+        print("Baseline-values:", baseline_values_)
+        print("Terminals:", terminals_)
         print("Expected advantage:", advantage_expected)
         print("Got advantage:", advantage)
 
@@ -146,8 +184,8 @@ class TestGeneralizedAdvantageEstimation(unittest.TestCase):
 
         test = ComponentTest(component=gae, input_spaces=self.input_spaces)
 
-        rewards_ = self.rewards.sample(10, fill_value=0.5)
-        baseline_values_ = self.baseline_values.sample(10, fill_value=1.0)
+        rewards_ = self.rewards.sample(10)  #, fill_value=0.5)
+        baseline_values_ = self.baseline_values.sample(10)  #, fill_value=1.0)
         terminals_ = [False] * 10
         terminals_[5] = True
         sequence_indices = [False] * 10
