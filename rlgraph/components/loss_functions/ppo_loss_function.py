@@ -119,7 +119,9 @@ class PPOLossFunction(LossFunction):
                 y=(1 - self.clip_ratio) * advantages
             )
             loss = -tf.minimum(x=ratio * advantages, y=clipped_advantages)
-            loss += self.weight_entropy * entropy
+
+            # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
+            loss -= self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
             if get_rank(loss) > 1:
@@ -142,7 +144,8 @@ class PPOLossFunction(LossFunction):
             )
 
             loss = -torch.min(ratio * advantages, clipped_advantages)
-            loss += self.weight_entropy * entropy
+            # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
+            loss -= self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
             if get_rank(loss) > 1:

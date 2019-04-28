@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.spaces import IntBox, ContainerSpace
+from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
@@ -122,8 +121,8 @@ class ActorCriticLossFunction(LossFunction):
             if self.weight_pg != 1.0:
                 loss = self.weight_pg * loss
 
-            # The entropy regularizer term.
-            loss += self.weight_entropy * entropy
+            # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
+            loss -= self.weight_entropy * entropy
 
             return loss
         elif get_backend() == "pytorch":
@@ -134,8 +133,8 @@ class ActorCriticLossFunction(LossFunction):
             if self.weight_pg != 1.0:
                 loss = self.weight_pg * loss
 
-            # The entropy regularizer term.
-            loss += self.weight_entropy * entropy
+            # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
+            loss -= self.weight_entropy * entropy
             return loss
 
     @rlgraph_api
