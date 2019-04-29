@@ -20,7 +20,6 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
-
 from rlgraph.components.layers.nn import DenseLayer, LSTMLayer, ConcatLayer, Conv2DLayer
 from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.layers.preprocessing.reshape import ReShape
@@ -92,7 +91,7 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
 
         test.terminate()
 
-    def test_functional_api_two_inputs(self):
+    def test_functional_api_two_space_inputs(self):
         # Define an input Space first (tuple of two input tensors).
         input_space = Tuple([IntBox(3), FloatBox(shape=(4,))], add_batch_rank=True)
 

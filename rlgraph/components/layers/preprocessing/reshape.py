@@ -18,10 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
-from rlgraph.spaces import IntBox, FloatBox
+from rlgraph.spaces import BoolBox, FloatBox, IntBox
 from rlgraph.spaces.space_utils import sanity_check_space, get_space_from_op
 from rlgraph.utils import pytorch_one_hot
 from rlgraph.utils.decorators import rlgraph_api
@@ -55,7 +54,7 @@ class ReShape(PreprocessLayer):
                 If flatten is True, new_shape must be None.
 
             flatten_categories (Union[Dict[str,int],int]): Only important if `flatten` is True and incoming space is
-                an IntBox. Specifies, how to also flatten IntBox categories by giving the exact number of int
+                an Int/BoolBox. Specifies, how to also flatten Int/BoolBox categories by giving the exact number of int
                 categories generally or by flat-dict key.
                 Default: None.
 
@@ -97,9 +96,10 @@ class ReShape(PreprocessLayer):
 
             # Determine the actual shape (not batch/time ranks).
             if self.flatten is True:
-                if type(single_space) == IntBox and self.flatten_categories is not False:
+                if type(single_space) in (IntBox, BoolBox) and self.flatten_categories is not False:
                     assert self.flatten_categories is not None,\
-                        "ERROR: `flatten_categories` must not be None if `flatten` is True and input is IntBox!"
+                        "ERROR: `flatten_categories` must not be None if `flatten` is True and input is " \
+                        "{}!".format(type(single_space).__name__)
                     new_shape = (self.get_num_categories(key, single_space),)
                     class_ = FloatBox
                 else:
@@ -132,8 +132,12 @@ class ReShape(PreprocessLayer):
         return ret
 
     def get_num_categories(self, key, single_space):
-        if self.flatten_categories is True and isinstance(single_space, IntBox):
-            num_categories = single_space.flat_dim_with_categories
+        if self.flatten_categories is True:
+            if isinstance(single_space, IntBox):
+                num_categories = single_space.flat_dim_with_categories
+            else:
+                assert isinstance(single_space, BoolBox)
+                num_categories = 2
         elif isinstance(self.flatten_categories, dict):
             if key.startswith(FLATTEN_SCOPE_PREFIX):
                 key = key[1:]
@@ -254,6 +258,8 @@ class ReShape(PreprocessLayer):
             space = get_space_from_op(inputs)
             num_categories = self.get_num_categories(key, space)
             if num_categories and num_categories > 1:
+                if inputs.dtype == tf.bool:
+                    inputs = tf.cast(inputs, dtype=tf.int32)
                 inputs_ = tf.one_hot(
                     inputs, depth=num_categories, axis=-1, dtype="float32"
                 )
