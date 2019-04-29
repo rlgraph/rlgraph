@@ -18,7 +18,7 @@ Example script for training a Proximal policy optimization agent on an ML-Agents
 
 Usage:
 
-python ppo_or_sac_on_mlagents.py [--config configs/ppo_on_mlagents_[3d_ball|tennis]_env.json]
+python ppo_or_sac_on_mlagents.py [--config ./configs/ppo_mlagents_[3dball_hard|banana_collector].json]
 
 """
 
