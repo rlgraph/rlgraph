@@ -79,7 +79,7 @@ def one_hot(x, depth=0, on_value=1, off_value=0):
     https://gist.github.com/qianyizhang/07ee1c15cad08afb03f5de69349efc30.
 
     Args:
-        x (np.ndarray): The input to be one-hot.
+        x (np.ndarray): The input to be one-hot encoded.
         depth (int): The max. number to be one-hot encoded (size of last rank).
         on_value (float): The value to use for on. Default: 1.0.
         off_value (float): The value to use for off. Default: 0.0.
@@ -87,6 +87,11 @@ def one_hot(x, depth=0, on_value=1, off_value=0):
     Returns:
         np.ndarray: The one-hot encoded equivalent of the input array.
     """
+    # Handle bool arrays correctly.
+    if x.dtype == np.bool_:
+        x = x.astype(np.int)
+        depth = 2
+
     if depth == 0:
         depth = np.max(x) + 1
     assert np.max(x) < depth, "ERROR: The max. index of `x` ({}) is larger than depth ({})!".format(np.max(x), depth)
