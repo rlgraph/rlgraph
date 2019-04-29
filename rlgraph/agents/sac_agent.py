@@ -18,10 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import Component, Synchronizable, Memory, ValueFunction, ContainerMerger, PrioritizedReplay
+from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.spaces import FloatBox, BoolBox, IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
@@ -89,12 +89,14 @@ class SACAgentComponent(Component):
         q_names = ["q_{}".format(i) for i in range(len(self._q_functions))]
         self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
 
-        self.add_components(policy, preprocessor, memory, self._merger, self.loss_function,
-                            optimizer, vf_optimizer, self._q_vars_merger)  # , self._q_vars_splitter)
-        self.add_components(*self._q_functions)
-        self.add_components(*self._target_q_functions)
-        if self.alpha_optimizer is not None:
-            self.add_components(self.alpha_optimizer)
+        # Component to flatten any arbitrary action space into a 1D-(one-hot-if-int/bool)-vector.
+        self.action_flattener = ReShape(flatten=True, flatten_categories=True, flatten_containers=True)
+
+        self.add_components(
+            policy, preprocessor, memory, self._merger, self.loss_function, self.alpha_optimizer,
+            optimizer, vf_optimizer, self._q_vars_merger, self.action_flattener
+        )
+        self.add_components(*(self._q_functions + self._target_q_functions))
 
         self.steps_since_last_sync = None
         self.q_sync_spec = q_sync_spec
@@ -160,7 +162,7 @@ class SACAgentComponent(Component):
     def update_from_external_batch(
         self, preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights
     ):
-        actions = self._graph_fn_one_hot(env_actions)
+        actions = self.action_flattener.call(env_actions)
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
             self.get_losses(preprocessed_states, actions, rewards, terminals, next_states, importance_weights)
 
@@ -197,11 +199,12 @@ class SACAgentComponent(Component):
             alpha_loss_per_item=alpha_loss_per_item
         )
 
-    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_one_hot(self, key, env_actions):
-        if isinstance(self.env_action_space[key], IntBox):
-            env_actions = tf.one_hot(env_actions, depth=self.env_action_space[key].num_categories, axis=-1)
-        return env_actions
+    ## TODO: replace this with a ReShape(flatten=True, flatten_categories=True, flatten_containers=True) Component.
+    #@graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    #def _graph_fn_one_hot(self, key, env_actions):
+    #    if isinstance(self.env_action_space[key], IntBox):
+    #        env_actions = tf.one_hot(env_actions, depth=self.env_action_space[key].num_categories, axis=-1)
+    #    return env_actions
 
     @graph_fn(requires_variable_completeness=True)
     def _graph_fn_update_alpha(self, alpha_loss, alpha_loss_per_item):
