@@ -1,26 +1,31 @@
 ## Release notes
 Summarizes updates in recent releases.
 
-## RLgraph 0.4 - 27.4.2019
+## RLgraph 0.4.1 - 2019/04/28
+- Fixed a bug in the SequencerHelper Component causing GAEs to be calculated incorrectly.
+  This bug fix largely improved PPO learning performance (see MLAgents example script and
+  config for "BananaCollector").
+
+## RLgraph 0.4 - 2019/04/27
 
 - Agents now support fully customized baselines where ```value_function_spec``` can now 
   be any instance of ValueFunction and does not need to be a list of layers.
   See FAQ for more detail.
 - Added support for unity MLAgents environment.
-- Added support for Keras-style functional neural network compositions. Details will be added to the
-  FAQ.
+- Added support for Keras-style functional neural network compositions.
+  Details will be added to the FAQ.
 - Added support for vectorised container actions in Ray executors.
 - GAE standardization in PPO is now performed across the entire batch, not sampled sub-batches, 
   which may improve performance when the option is enabled.
 
-## RLgraph 0.3.5/6 - 2.4.2019
+## RLgraph 0.3.5/6 - 2019/04/02
 
 - Fixed bug regarding build timing of graph functions calling other graph functions,
   where the call context now accounts for nested calls to be timed more accurately.
 - Fixed a number of shape bugs related to container observations in the agent buffer.
 - Fixed a bug in the PPO loss function related to updating prior log probs.
 
-## RLgraph 0.3.4 - 29.3.2019
+## RLgraph 0.3.4 - 2019/03/29
 
 - Ray executors now allow passing in callables
   creating custom environments instead of environment specs.
@@ -33,7 +38,7 @@ Summarizes updates in recent releases.
 - SAC agent now supports image inputs in the value function and container actions.
 - Fixed a number of bugs related to action vectorization and preprocessing in SAC.
 
-## RLgraph 0.3.3 - 25.2.2019
+## RLgraph 0.3.3 - 2019/02/25
 
 - Added soft actor critic implementation (contributed by @janislavjankov) 
 - Separated out action adapters to be able to handle different bounded distributions
@@ -42,7 +47,7 @@ Summarizes updates in recent releases.
 - Fixed a number of shape bugs in various torch implementations
 - Fixed a bug relating to assigning references instead of just copying weights when syncing torch Parmeter objects
 
-## RLgraph 0.3.2 - 9.2.2019
+## RLgraph 0.3.2 - 2019/02/09
 - Fixed a number of bugs in internal state management for PyTorch which now
   allow to unify variable creation in most components
 - Fixed bug in PyTorch GAE calculation
@@ -51,7 +56,7 @@ Summarizes updates in recent releases.
 - Changed some single node configurations in examples to use less memory and only
   one replay worker (Ape-X).
 
-## RLgraph 0.3.1 - 27.1.2019
+## RLgraph 0.3.1 - 2019/01/27
 
 - Fixed count bug in synchronous Ray executor
 - Fixed bugs related to episode-fetching in the ring-buffer 
@@ -59,7 +64,7 @@ Summarizes updates in recent releases.
 - Added reward-clipping option to GAE
 - Added post-processing flag to DQN multi-gpu mode
 
-## RLgraph 0.3.0 - 25.1.2019
+## RLgraph 0.3.0 - 2019/01/25
 
 - Added Ray executor for distributed policy optimization, e.g. distributed PPO on Ray.
 - Allow use of api and graph functions from list comprehensions and lambdas
@@ -71,7 +76,7 @@ Summarizes updates in recent releases.
 - Allow for in-graph and external post-processing via extra flag
 - Fixed bug in continuous action policies which made distribution parameters to be parsed incorrectly
 
-## RLgraph 0.2.3 - 15.12.2018
+## RLgraph 0.2.3 - 2018/12/15
 
 - Improved LSTM-layer handling with keras-style api in network to manage sequences
 - Added new LSTM example in examples folder
@@ -80,15 +85,15 @@ Summarizes updates in recent releases.
 - Improved memory usage of various Ray tasks by avoiding defensive copies,
   following improvements in Ray's memory management.
   
-## RLgraph 0.2.2 - 3.12.2018
+## RLgraph 0.2.2 - 2018/12/3
 - Implemented support for advanced decorator options for PyTorch backend
 - Various bugfixes in PyTorch utilities needed for PPO/Actor critic
 
-## RLgraph 0.2.1 - 25.11.2018
+## RLgraph 0.2.1 - 2018/11/25
 - Updated actor-critic to support external value functions
 - Fixed bugs related to hardcoded entropy for categoricals in loss functions
 
-## RLgraph 0.2.0 - 23.11.2018
+## RLgraph 0.2.0 - 2018/11/23
 - Introduced support for container actions so actions can now be specified as dicts of
 arbitrary numbers of sub-actions.
 - Added agent a number of learning tests to CI
