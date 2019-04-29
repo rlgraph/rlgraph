@@ -20,7 +20,6 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
-
 from rlgraph.components.layers import ReShape
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.spaces import *
@@ -169,7 +168,7 @@ class TestReShapePreprocessors(unittest.TestCase):
         inputs = in_space.sample(size=8)
         inputs_before_folding = in_space_before_folding.sample(size=(4, 2))
         expected = np.reshape(inputs, newshape=(4, 2, 4, 4))
-        out = reshape._graph_fn_call(inputs, inputs_before_folding)
+        out = reshape.call(inputs, inputs_before_folding)
 
         recursive_assert_almost_equal(out, expected)
 
@@ -260,3 +259,57 @@ class TestReShapePreprocessors(unittest.TestCase):
         inputs = in_space.sample(size=(time_rank, 12))
 
         test.test(("call", inputs), expected_outputs=inputs)
+
+    def test_on_bool_box(self):
+        in_space = BoolBox(shape=(2,), add_batch_rank=True)
+
+        reshape = ReShape(flatten=True, flatten_categories=True)
+
+        test = ComponentTest(component=reshape, input_spaces=dict(inputs=in_space))
+        test.test("reset")
+        inputs = in_space.sample(3)
+        expected = np.reshape(one_hot(inputs, depth=2), newshape=(3, 2*2))
+        test.test(("call", inputs), expected_outputs=expected)
+
+    def test_reshape_on_mixed_container_space(self):
+        in_space = Tuple([
+            IntBox(5),
+            FloatBox(shape=(2, 3)),
+            BoolBox(shape=(2,))
+        ], add_batch_rank=True)
+
+        reshape = ReShape(flatten=True, flatten_categories=True)
+
+        test = ComponentTest(component=reshape, input_spaces=dict(
+            inputs=in_space
+        ))
+        test.test("reset")
+        inputs = in_space.sample(3)
+        expected = tuple([
+            np.reshape(one_hot(inputs[0], depth=5), newshape=(3, 5)).astype(dtype=np.float32),
+            np.reshape(inputs[1], newshape=(3, 2*3)),
+            np.reshape(one_hot(inputs[2]), newshape=(3, 2*2)).astype(dtype=np.float32)
+        ])
+        test.test(("call", tuple([inputs])), expected_outputs=expected)
+
+    def test_reshape_on_mixed_container_space_with_container_flattening_option(self):
+        in_space = Tuple([
+            IntBox(5),
+            FloatBox(shape=(2, 3)),
+            BoolBox(shape=(2,))
+        ], add_batch_rank=True)
+
+        reshape = ReShape(flatten=True, flatten_categories=True, flatten_containers=True)
+
+        test = ComponentTest(component=reshape, input_spaces=dict(
+            inputs=in_space
+        ))
+        test.test("reset")
+        inputs = in_space.sample(3)
+        expected = np.concatenate([
+            np.reshape(one_hot(inputs[0], depth=5), newshape=(3, 5)).astype(dtype=np.float32),
+            np.reshape(inputs[1], newshape=(3, 2*3)),
+            np.reshape(one_hot(inputs[2]), newshape=(3, 2*2)).astype(dtype=np.float32)
+        ], axis=-1)
+        test.test(("call", tuple([inputs])), expected_outputs=expected)
+

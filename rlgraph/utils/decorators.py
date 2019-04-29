@@ -374,14 +374,20 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
 
     def decorator_func(wrapped_func):
         def _graph_fn_wrapper(self, *args, **kwargs):
+            # Direct execution.
             if self.execution_mode == "define_by_run":
-                # Direct execution.
-                return self.graph_builder.execute_define_by_run_graph_fn(self, wrapped_func,  dict(
-                        flatten_ops=flatten_ops, split_ops=split_ops,
-                        add_auto_key_as_first_param=add_auto_key_as_first_param
-                        ), *args, **kwargs)
+                if self.backend == "python":
+                    if add_auto_key_as_first_param:
+                        return wrapped_func(self, "", *args, ** kwargs)
+                    else:
+                        return wrapped_func(self, *args, **kwargs)
+                else:
+                    return self.graph_builder.execute_define_by_run_graph_fn(self, wrapped_func,  dict(
+                            flatten_ops=flatten_ops, split_ops=split_ops,
+                            add_auto_key_as_first_param=add_auto_key_as_first_param
+                            ), *args, **kwargs)
+            # Wrap construction of graph functions with op records.
             else:
-                # Wrap construction of graph functions with op records.
                 return graph_fn_wrapper(
                     self, wrapped_func, returns, dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
