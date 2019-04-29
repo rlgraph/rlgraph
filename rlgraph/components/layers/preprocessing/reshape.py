@@ -23,7 +23,7 @@ from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessL
 from rlgraph.spaces import BoolBox, FloatBox, IntBox
 from rlgraph.spaces.space_utils import sanity_check_space, get_space_from_op
 from rlgraph.utils import pytorch_one_hot
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.numpy import one_hot
 from rlgraph.utils.ops import unflatten_op, FLATTEN_SCOPE_PREFIX
 
@@ -39,8 +39,8 @@ class ReShape(PreprocessLayer):
     Also supports special options for time/batch rank manipulations and complete flattening
     (including IntBox categories).
     """
-    def __init__(self, new_shape=None, flatten=False, flatten_categories=None, fold_time_rank=False,
-                 unfold_time_rank=False, time_major=None, scope=None, **kwargs):
+    def __init__(self, new_shape=None, flatten=False, flatten_categories=None, flatten_containers=False,
+                 fold_time_rank=False, unfold_time_rank=False, time_major=None, scope=None, **kwargs):
         """
         Args:
             new_shape (Optional[Dict[str,Tuple[int]],Tuple[int]]): A dict of str/tuples or a single tuple
@@ -57,6 +57,11 @@ class ReShape(PreprocessLayer):
                 an Int/BoolBox. Specifies, how to also flatten Int/BoolBox categories by giving the exact number of int
                 categories generally or by flat-dict key.
                 Default: None.
+
+            flatten_containers (bool): Only important if `flatten` is True and `flatten_categories` is True and
+                incoming space is a ContainerSpace.
+                Will flatten each sub-space separately and then concatenate the results into one single (possibly
+                one-hot) vector.
 
             fold_time_rank (bool): Whether to fold the time rank into a single batch rank.
                 E.g. from (None, None, 2, 3) to (None, 2, 3). Providing both `fold_time_rank` (True) and
@@ -85,12 +90,18 @@ class ReShape(PreprocessLayer):
         self.new_shape = new_shape
         self.flatten = flatten
         self.flatten_categories = flatten_categories
+        self.flatten_containers = flatten_containers
+        assert flatten_containers is not True or (flatten is True and flatten_categories is True),\
+            "ERROR: If `flatten_containers` is True, `flatten` and `flatten_categories` must be True as well!"
         self.fold_time_rank = fold_time_rank
         self.unfold_time_rank = unfold_time_rank
         self.time_major = time_major
 
+        self.concat_layer = None
+
     def get_preprocessed_space(self, space):
         ret = {}
+        joint_dims = 0
         for key, single_space in space.flatten().items():
             class_ = type(single_space)
 
@@ -104,6 +115,7 @@ class ReShape(PreprocessLayer):
                     class_ = FloatBox
                 else:
                     new_shape = (single_space.flat_dim,)
+                joint_dims += new_shape[0]
             else:
                 new_shape = self.new_shape[key] if isinstance(self.new_shape, dict) else self.new_shape
 
@@ -128,25 +140,43 @@ class ReShape(PreprocessLayer):
                 ret[key] = class_(shape=single_space.shape if new_shape is None else new_shape,
                                   add_batch_rank=single_space.has_batch_rank,
                                   add_time_rank=single_space.has_time_rank, time_major=time_major)
-        ret = unflatten_op(ret)
+
+        # Default behavior: Keep container sub-spaces separate.
+        if self.flatten_containers is not True:
+            ret = unflatten_op(ret)
+        else:
+            some_space = next(iter(ret.values()))
+            ret = FloatBox(
+                shape=(joint_dims,),
+                add_batch_rank=some_space.has_batch_rank, add_time_rank=some_space.has_time_rank,
+                time_major=some_space.time_major
+            )
         return ret
 
     def get_num_categories(self, key, single_space):
         if self.flatten_categories is True:
             if isinstance(single_space, IntBox):
-                num_categories = single_space.flat_dim_with_categories
-            else:
-                assert isinstance(single_space, BoolBox)
-                num_categories = 2
-        elif isinstance(self.flatten_categories, dict):
+                return single_space.flat_dim_with_categories
+            elif isinstance(single_space, BoolBox):
+                return 2
+
+        if isinstance(self.flatten_categories, dict):
             if key.startswith(FLATTEN_SCOPE_PREFIX):
                 key = key[1:]
-            num_categories = self.flatten_categories.get(key, 1)
-        else:
-            num_categories = self.flatten_categories
-        return num_categories
+            return self.flatten_categories.get(key, 1)
 
-    @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+        return self.flatten_categories
+
+    @rlgraph_api
+    def call(self, inputs, input_before_time_rank_folding=None):
+        # Do normal split-reshaping per container item.
+        reshaped = self._graph_fn_call(inputs, input_before_time_rank_folding)
+        # Handle container-flattening of all items if option set to True.
+        if self.flatten_containers:
+            reshaped = self._graph_fn_merge_container(reshaped)
+        return reshaped
+
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_call(self, key, inputs, input_before_time_rank_folding=None):
         """
         Reshapes the input to the specified new shape.
@@ -319,3 +349,10 @@ class ReShape(PreprocessLayer):
                         reshaped._time_rank = 0 if space.time_major is True else 1
 
                 return reshaped
+
+    @graph_fn(flatten_ops=True)
+    def _graph_fn_merge_container(self, inputs):
+        if get_backend() == "tf":
+            return tf.concat(list(inputs.values()), axis=-1)
+        elif get_backend() == "pytorch":
+            return torch.cat(list(inputs.values()), axis=-1)
