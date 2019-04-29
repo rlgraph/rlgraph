@@ -21,7 +21,6 @@ import json
 import os
 
 import numpy as np
-
 from rlgraph import get_backend
 
 if get_backend() == "pytorch":
@@ -85,7 +84,7 @@ def terminal_records(record_space, num_samples):
     return record_sample
 
 
-def recursive_assert_almost_equal(x, y, decimals=7):
+def recursive_assert_almost_equal(x, y, decimals=7, atol=None, rtol=None):
     """
     Checks two structures (dict, DataOpDict, tuple, DataOpTuple, list, np.array, float, int, etc..) for (almost!)
     numeric identity.
@@ -96,6 +95,8 @@ def recursive_assert_almost_equal(x, y, decimals=7):
         x (any): The first value to be compared (to `y`).
         y (any): The second value to be compared (to `x`).
         decimals (int): The number of digits after the floating point up to which all numeric values have to match.
+        atol (float): Absolute tolerance of the difference between x and y (overrides `decimals` if given).
+        rtol (float): Relative tolerance of the difference between x and y (overrides `decimals` if given).
     """
     # A dict type.
     if isinstance(x, dict):
@@ -103,7 +104,7 @@ def recursive_assert_almost_equal(x, y, decimals=7):
         y_keys = set(x.keys())
         for key, value in x.items():
             assert key in y, "ERROR: y does not have x's key='{}'!".format(key)
-            recursive_assert_almost_equal(value, y[key], decimals=decimals)
+            recursive_assert_almost_equal(value, y[key], decimals=decimals, atol=atol, rtol=rtol)
             y_keys.remove(key)
         assert not y_keys, "ERROR: y contains keys ({}) that are not in x!".format(list(y_keys))
     # A tuple type.
@@ -112,7 +113,7 @@ def recursive_assert_almost_equal(x, y, decimals=7):
         assert len(y) == len(x), "ERROR: y does not have the same length as " \
                                  "x ({} vs {})!".format(len(y), len(x))
         for i, value in enumerate(x):
-            recursive_assert_almost_equal(value, y[i], decimals=decimals)
+            recursive_assert_almost_equal(value, y[i], decimals=decimals, atol=atol, rtol=rtol)
     # Boolean comparison.
     elif isinstance(x, (np.bool_, bool)):
         assert bool(x) is bool(y), "ERROR: x ({}) is not y ({})!".format(x, y)
@@ -129,4 +130,14 @@ def recursive_assert_almost_equal(x, y, decimals=7):
                 x = x.detach().numpy()
             if isinstance(y, torch.Tensor):
                 y = y.detach().numpy()
-        np.testing.assert_almost_equal(x, y, decimal=decimals)
+        # Using decimals.
+        if atol is None and rtol is None:
+            np.testing.assert_almost_equal(x, y, decimal=decimals)
+        # Using atol/rtol.
+        else:
+            # Provide defaults for either one of atol/rtol.
+            if atol is None:
+                atol = 0
+            if rtol is None:
+                rtol = 1e-7
+            np.testing.assert_allclose(x, y, atol=atol, rtol=rtol)
