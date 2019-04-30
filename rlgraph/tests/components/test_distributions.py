@@ -19,12 +19,13 @@ from __future__ import print_function
 
 import unittest
 
+import numpy as np
+from scipy.stats import norm, beta
+
 from rlgraph.components.distributions import *
 from rlgraph.spaces import *
-from rlgraph.utils.numpy import softmax
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
-
-import numpy as np
+from rlgraph.utils.numpy import softmax
 
 
 class TestDistributions(unittest.TestCase):
@@ -34,11 +35,13 @@ class TestDistributions(unittest.TestCase):
     def test_bernoulli(self):
         # Create 5 bernoulli distributions (or a multiple thereof if we use batch-size > 1).
         param_space = FloatBox(shape=(5,), add_batch_rank=True)
+        values_space = BoolBox(shape=(5,), add_batch_rank=True)
 
         # The Component to test.
-        bernoulli = Bernoulli(switched_off_apis={"log_prob", "kl_divergence"})
+        bernoulli = Bernoulli(switched_off_apis={"kl_divergence"})
         input_spaces = dict(
             parameters=param_space,
+            values=values_space,
             deterministic=bool,
         )
         test = ComponentTest(component=bernoulli, input_spaces=input_spaces)
@@ -62,14 +65,22 @@ class TestDistributions(unittest.TestCase):
 
         recursive_assert_almost_equal(np.mean(outs), 0.5, decimals=1)
 
+        # Test log-likelihood outputs.
+        test.test(("log_prob", [
+            np.array([[0.1, 0.2, 0.3, 0.4, 0.5]]),
+            np.array([[True, False, False, True, True]])
+        ]), expected_outputs=np.log(np.array([[0.1, 0.8, 0.7, 0.4, 0.5]])))  # probs that's the result is True
+
     def test_categorical(self):
         # Create 5 categorical distributions of 3 categories each.
         param_space = FloatBox(shape=(5, 3), add_batch_rank=True)
+        values_space = IntBox(3, shape=(5,), add_batch_rank=True)
 
         # The Component to test.
-        categorical = Categorical(switched_off_apis={"log_prob", "kl_divergence"})
+        categorical = Categorical(switched_off_apis={"kl_divergence"})
         input_spaces = dict(
             parameters=param_space,
+            values=values_space,
             deterministic=bool,
         )
         test = ComponentTest(component=categorical, input_spaces=input_spaces)
@@ -93,6 +104,12 @@ class TestDistributions(unittest.TestCase):
 
         recursive_assert_almost_equal(np.mean(outs), 1.0, decimals=1)
 
+        # Test log-likelihood outputs.
+        test.test(("log_prob", [
+            np.array([[[0.1, 0.8, 0.1], [0.2, 0.2, 0.6], [0.3, 0.3, 0.4], [0.4, 0.1, 0.5], [0.5, 0.05, 0.45]]]),
+            np.array([[1, 2, 0, 1, 1]])
+        ]), expected_outputs=np.log(np.array([[0.8, 0.6, 0.3, 0.1, 0.05]])))
+
     def test_normal(self):
         # Create 5 normal distributions (2 parameters (mean and stddev) each).
         param_space = Tuple(
@@ -100,13 +117,15 @@ class TestDistributions(unittest.TestCase):
             FloatBox(shape=(5,)),  # stddev
             add_batch_rank=True
         )
+        values_space = FloatBox(shape=(5,), add_batch_rank=True)
         input_spaces = dict(
             parameters=param_space,
+            values=values_space,
             deterministic=bool,
         )
 
         # The Component to test.
-        normal = Normal(switched_off_apis={"log_prob", "kl_divergence"})
+        normal = Normal(switched_off_apis={"kl_divergence"})
         test = ComponentTest(component=normal, input_spaces=input_spaces)
 
         # Batch of size=2 and deterministic (True).
@@ -129,6 +148,15 @@ class TestDistributions(unittest.TestCase):
 
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
 
+        # Test log-likelihood outputs.
+        means = np.array([[0.1, 0.2, 0.3, 0.4, 100.0]])
+        stds = np.array([[0.8, 0.2, 0.3, 2.0, 50.0]])
+        values = np.array([[1.0, 2.0, 0.4, 10.0, 5.4]])
+        test.test(
+            ("log_prob", [tuple([means, stds]), values]),
+            expected_outputs=np.log(norm.pdf(values, means, stds)), decimals=4
+        )
+
     def test_multivariate_normal(self):
         # Create batch0=n (batch-rank), batch1=2 (can be used for m mixed Gaussians), num-events=3 (trivariate)
         # distributions (2 parameters (mean and stddev) each).
@@ -139,13 +167,15 @@ class TestDistributions(unittest.TestCase):
             FloatBox(shape=(num_mixed_gaussians, num_events)),  # diag (variance)
             add_batch_rank=True
         )
+        values_space = FloatBox(shape=(num_mixed_gaussians, num_events), add_batch_rank=True)
         input_spaces = dict(
             parameters=param_space,
+            values=values_space,
             deterministic=bool,
         )
 
         # The Component to test.
-        multivariate_normal = MultivariateNormal(num_events=num_events, switched_off_apis={"log_prob", "kl_divergence"})
+        multivariate_normal = MultivariateNormal(num_events=num_events, switched_off_apis={"kl_divergence"})
         test = ComponentTest(component=multivariate_normal, input_spaces=input_spaces)
 
         input_ = [input_spaces["parameters"].sample(4), True]
@@ -167,6 +197,16 @@ class TestDistributions(unittest.TestCase):
 
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
 
+        # Test log-likelihood outputs (against scipy).
+        means = values_space.sample(2)
+        stds = values_space.sample(2)
+        values = values_space.sample(2)
+        test.test(
+            ("log_prob", [tuple([means, stds]), values]),
+            # Sum up the individual log-probs as we have a diag (independent) covariance matrix.
+            expected_outputs=np.sum(np.log(norm.pdf(values, means, stds)), axis=-1), decimals=4
+        )
+
     def test_beta(self):
         # Create 5 beta distributions (2 parameters (alpha and beta) each).
         param_space = Tuple(
@@ -174,13 +214,15 @@ class TestDistributions(unittest.TestCase):
             FloatBox(shape=(5,)),  # beta
             add_batch_rank=True
         )
+        values_space = FloatBox(shape=(5,), add_batch_rank=True)
         input_spaces = dict(
             parameters=param_space,
+            values=values_space,
             deterministic=bool,
         )
 
         # The Component to test.
-        beta_distribution = Beta(switched_off_apis={"log_prob", "kl_divergence"})
+        beta_distribution = Beta(switched_off_apis={"kl_divergence"})
         test = ComponentTest(component=beta_distribution, input_spaces=input_spaces)
 
         # Batch of size=2 and deterministic (True).
@@ -204,6 +246,15 @@ class TestDistributions(unittest.TestCase):
 
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
 
+        # Test log-likelihood outputs (against scipy).
+        means = values_space.sample(1)
+        stds = values_space.sample(1)
+        values = values_space.sample(1)
+        test.test(
+            ("log_prob", [tuple([means, stds]), values]),
+            expected_outputs=np.log(beta.pdf(values, means, stds)), decimals=4
+        )
+
     def test_mixture(self):
         # Create a mixture distribution consisting of 3 bivariate normals.
         num_distributions = 3
@@ -226,8 +277,10 @@ class TestDistributions(unittest.TestCase):
             },
             add_batch_rank=True
         )
+        values_space = FloatBox(shape=(num_events_per_multivariate,), add_batch_rank=True)
         input_spaces = dict(
             parameters=param_space,
+            values=values_space,
             deterministic=bool,
         )
 
@@ -235,7 +288,7 @@ class TestDistributions(unittest.TestCase):
         mixture = MixtureDistribution(
             # Try different spec types.
             MultivariateNormal(), "multi-variate-normal", "multivariate_normal",
-            switched_off_apis={"entropy", "log_prob", "kl_divergence"}
+            switched_off_apis={"entropy", "kl_divergence"}
         )
         test = ComponentTest(component=mixture, input_spaces=input_spaces)
 
@@ -277,6 +330,20 @@ class TestDistributions(unittest.TestCase):
 
         recursive_assert_almost_equal(np.mean(np.array(outs), axis=0), expected, decimals=1)
 
+        # Test log-likelihood outputs (against scipy).
+        params = param_space.sample(1)
+        # Make sure categorical params are softmaxed.
+        category_probs = softmax(params["categorical"][0])
+        values = values_space.sample(1)
+        expected = \
+            category_probs[0] * \
+            np.sum(np.log(norm.pdf(values[0], params["parameters0"][0][0], params["parameters0"][1][0])), axis=-1) + \
+            category_probs[1] * \
+            np.sum(np.log(norm.pdf(values[0], params["parameters1"][0][0], params["parameters1"][1][0])), axis=-1) + \
+            category_probs[2] * \
+            np.sum(np.log(norm.pdf(values[0], params["parameters2"][0][0], params["parameters2"][1][0])), axis=-1)
+        test.test(("log_prob", [params, values]), expected_outputs=np.array([expected]), decimals=1)
+
     def test_squashed_normal(self):
         param_space = Tuple(
             FloatBox(shape=(1,)),
@@ -292,6 +359,31 @@ class TestDistributions(unittest.TestCase):
 
         squashed_distribution = SquashedNormal(switched_off_apis={"kl_divergence"}, low=-1.0, high=1.0)
         test = ComponentTest(component=squashed_distribution, input_spaces=input_spaces)
+
+        input_ = [param_space.sample(5), values_space.sample(5)]
+
+        out = test.test(("log_prob", input_), expected_outputs=None)
+
+        print(out)
+
+    def test_joint_cumulative_distribution(self):
+        param_space = Dict({
+            "a": FloatBox(shape=(4,)),  # 4-discrete
+            "b": Tuple([FloatBox(shape=(9,)), FloatBox(shape=(9,))])  # 9-variate normal
+        }, add_batch_rank=True)
+
+        values_space = Dict({"a": IntBox(4), "b": FloatBox(shape=(9,))}, add_batch_rank=True)
+
+        input_spaces = dict(
+            parameters=param_space,
+            deterministic=bool,
+            values=values_space
+        )
+
+        joined_cumulative_distribution = JointCumulativeDistribution(sub_distributions_spec=dict(
+            a=Categorical(), b=Normal()
+        ), switched_off_apis={"kl_divergence"})
+        test = ComponentTest(component=joined_cumulative_distribution, input_spaces=input_spaces)
 
         input_ = [param_space.sample(5), values_space.sample(5)]
 
