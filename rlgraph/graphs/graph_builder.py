@@ -47,8 +47,7 @@ elif get_backend() == "pytorch":
 class GraphBuilder(Specifiable):
     """
     The graph builder assembles the RLGraph meta-graph by tracing through
-    components, sockets and connections and creating the underlying computation
-    graph.
+    components' API methods and thereby creates the underlying computation graph.
     """
     def __init__(self, name="model", action_space=None, summary_spec=None, max_build_iterations=3000):
         """
@@ -485,10 +484,11 @@ class GraphBuilder(Specifiable):
         Args:
             op_rec_column (DataOpRecordColumnIntoGraphFn): The column of DataOpRecords to be fed through the
                 graph_fn.
+
             create_new_out_column (Optional[bool]): If given, whether to produce the out op-record column
                 (or use the one already in the meta-graph). If True and the `op_rec_column` already links to an out
                 op-rec column, raises an error.
-                Default: None, meaning only create a new column if one dies not exist.
+                Default: None, meaning only create a new column if one does not exist.
 
         Returns:
             DataOpRecordColumnFromGraphFn: The op-record column coming out of the graph_fn. This column may have
@@ -579,7 +579,7 @@ class GraphBuilder(Specifiable):
                 self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
                 TraceContext.CONTEXT_START = None
                 TraceContext.ACTIVE_CALL_CONTEXT = False
-        # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
+        # Make sure everything coming from a computation is always a tuple.
         ops = force_tuple(ops)
 
         # Always un-flatten all return values. Otherwise, we would allow Dict Spaces
