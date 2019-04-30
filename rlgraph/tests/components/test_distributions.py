@@ -129,7 +129,7 @@ class TestDistributions(unittest.TestCase):
         test = ComponentTest(component=normal, input_spaces=input_spaces)
 
         # Batch of size=2 and deterministic (True).
-        input_ = [input_spaces["parameters"].sample(2), True]
+        input_ = [param_space.sample(2), True]
         expected = input_[0][0]   # 0 = mean
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(50):
@@ -137,7 +137,7 @@ class TestDistributions(unittest.TestCase):
             test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
-        input_ = [input_spaces["parameters"].sample(1), False]
+        input_ = [param_space.sample(1), False]
         expected = input_[0][0]  # 0 = mean
         outs = []
         for _ in range(50):
@@ -346,25 +346,54 @@ class TestDistributions(unittest.TestCase):
 
     def test_squashed_normal(self):
         param_space = Tuple(
-            FloatBox(shape=(1,)),
-            FloatBox(shape=(1,)),
+            FloatBox(shape=(5,)),
+            FloatBox(shape=(5,)),
             add_batch_rank=True
         )
-        values_space = FloatBox(shape=(1,), add_batch_rank=True)
+        values_space = FloatBox(shape=(5,), add_batch_rank=True)
         input_spaces = dict(
             parameters=param_space,
             deterministic=bool,
             values=values_space
         )
 
-        squashed_distribution = SquashedNormal(switched_off_apis={"kl_divergence"}, low=-1.0, high=1.0)
+        low, high = -1.0, 1.0
+        squashed_distribution = SquashedNormal(switched_off_apis={"kl_divergence"}, low=low, high=high)
         test = ComponentTest(component=squashed_distribution, input_spaces=input_spaces)
 
-        input_ = [param_space.sample(5), values_space.sample(5)]
+        # Batch of size=2 and deterministic (True).
+        input_ = [param_space.sample(2), True]
+        expected = ((np.tanh(input_[0][0]) + 1.0) / 2.0) * (high - low) + low   # 0 = mean
+        # Sample n times, expect always mean value (deterministic draw).
+        for _ in range(50):
+            test.test(("draw", input_), expected_outputs=expected)
+            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
 
-        out = test.test(("log_prob", input_), expected_outputs=None)
+        # Batch of size=1 and non-deterministic -> expect roughly the mean.
+        input_ = [param_space.sample(1), False]
+        expected = ((np.tanh(input_[0][0]) + 1.0) / 2.0) * (high - low) + low  # 0 = mean
+        outs = []
+        for _ in range(50):
+            out = test.test(("draw", input_))
+            outs.append(out)
+            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            outs.append(out)
 
-        print(out)
+        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+
+        # Test log-likelihood outputs.
+        means = np.array([[0.1, 0.2, 0.3, 0.4, 100.0]])
+        stds = np.array([[0.8, 0.2, 0.3, 2.0, 50.0]])
+        # Make sure values are within low and high.
+        values = np.array([[0.99, 0.2, 0.4, -0.1, -0.8542]])
+
+        # TODO: understand and comment the following formula to get the log-prob.
+        # Unsquash values, then get log-llh from regular gaussian.
+        unsquashed_values = np.arctanh((values - low) / (high - low) * 2.0 - 1.0)
+        log_prob_unsquashed = np.log(norm.pdf(unsquashed_values, means, stds))
+        log_prob = log_prob_unsquashed - np.sum(np.log(1 - np.tanh(unsquashed_values) ** 2), axis=-1, keepdims=True)
+
+        test.test(("log_prob", [tuple([means, stds]), values]), expected_outputs=log_prob, decimals=4)
 
     def test_joint_cumulative_distribution(self):
         param_space = Dict({
