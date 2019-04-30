@@ -89,6 +89,9 @@ def get_space_from_op(op):
         add_time_rank = False
         for key, value in op.items():
             spec[key] = get_space_from_op(value)
+            # Return
+            if spec[key] == 0:
+                return 0
             if spec[key].has_batch_rank:
                 add_batch_rank = True
             if spec[key].has_time_rank:
