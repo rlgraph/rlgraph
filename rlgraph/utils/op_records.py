@@ -280,11 +280,22 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         """
         assert all(op is not None for op in ops)  # just make sure
 
+        flatten_alongside = None
+        if isinstance(self.flatten_ops, str):
+            flatten_alongside = self.component.__getattribute__(self.flatten_ops)
+
         # The returned sequence of output ops.
         ret = []
         for i, op in enumerate(ops):
-            if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and i in self.flatten_ops):
-                ret.append(flatten_op(op))
+            if self.flatten_ops is True or isinstance(self.flatten_ops, str) or \
+                    (isinstance(self.flatten_ops, (set, dict)) and i in self.flatten_ops):
+                fa = flatten_alongside
+                if isinstance(self.flatten_ops, dict):
+                    fa = self.component.__getattribute__(self.flatten_ops[i])
+                if fa is not None:
+                    assert isinstance(fa, dict), \
+                        "ERROR: Given `flatten_alongside` property ('{}') is not a dict!".format(fa)
+                ret.append(flatten_op(op, flatten_alongside=fa))
             else:
                 ret.append(op)
 
@@ -292,8 +303,15 @@ class DataOpRecordColumnIntoGraphFn(DataOpRecordColumn):
         kwarg_ret = {}
         if len(kwarg_ops) > 0:
             for key, op in kwarg_ops.items():
-                if self.flatten_ops is True or (isinstance(self.flatten_ops, set) and key in self.flatten_ops):
-                    kwarg_ret[key] = flatten_op(op)
+                if self.flatten_ops is True or isinstance(self.flatten_ops, str) or \
+                        (isinstance(self.flatten_ops, (set, dict)) and key in self.flatten_ops):
+                    fa = flatten_alongside
+                    if isinstance(self.flatten_ops, dict):
+                        fa = self.component.__getattribute__(self.flatten_ops[key])
+                    if fa is not None:
+                        assert isinstance(fa, dict), \
+                            "ERROR: Given `flatten_alongside` property ('{}') is not a dict!".format(fa)
+                    kwarg_ret[key] = flatten_op(op, flatten_alongside=fa)
                 else:
                     kwarg_ret[key] = op
 

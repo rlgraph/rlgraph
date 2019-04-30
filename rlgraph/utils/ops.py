@@ -146,7 +146,9 @@ class FlattenedDataOp(DataOp, OrderedDict):
     pass
 
 
-def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=True, mapping=None):
+def flatten_op(
+        op, key_scope="", op_tuple_list=None, scope_separator_at_start=True, mapping=None, flatten_alongside=None
+):
     """
     Flattens a single ContainerDataOp or a native python dict/tuple into a FlattenedDataOp with auto-key generation.
 
@@ -156,6 +158,10 @@ def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=Tr
         op_tuple_list (list): The list of tuples (key, value) to be converted into the final FlattenedDataOp.
         scope_separator_at_start (bool): If to prepend a scope separator before the first key in a
             recursive structure. Default false.
+        mapping (Optional[callable]): An optional mapping function for op (and all nested ops) to be passed through.
+        flatten_alongside (Optional[dict]): If given, flatten only according to this dictionary, not any further down
+            the nested input structure of `op`. This is useful to flatten e.g. along some action-space, but not
+            further down (e.g. into the tuple of a distribution's parameters).
 
     Returns:
         FlattenedDataOp: The flattened representation of the op.
@@ -181,17 +187,28 @@ def flatten_op(op, key_scope="", op_tuple_list=None, scope_separator_at_start=Tr
         for key in sorted(op.keys()):
             # Make sure we have no double slashes from flattening an already FlattenedDataOp.
             scope = (key_scope[:-1] if len(key) == 0 or key[0] == "/" else key_scope) + key
-            flatten_op(
-                op[key], key_scope=scope, op_tuple_list=op_tuple_list, scope_separator_at_start=True, mapping=mapping
-            )
+            # If current flat-key is already in `alongside` structure, stop the flattening here.
+            if flatten_alongside is not None and scope in flatten_alongside:
+                op_tuple_list.append((scope, op[key]))
+            else:
+                flatten_op(
+                    op[key], key_scope=scope, op_tuple_list=op_tuple_list, scope_separator_at_start=True,
+                    mapping=mapping, flatten_alongside=flatten_alongside
+                )
     elif isinstance(op, tuple):
         if scope_separator_at_start:
             key_scope += FLATTEN_SCOPE_PREFIX + FLAT_TUPLE_OPEN
         else:
             key_scope += "" + FLAT_TUPLE_OPEN
         for i, c in enumerate(op):
-            flatten_op(c, key_scope=key_scope + str(i) + FLAT_TUPLE_CLOSE, op_tuple_list=op_tuple_list,
-                       scope_separator_at_start=True, mapping=mapping)
+            # If current flat-key is already in `alongside` structure, stop the flattening here.
+            if flatten_alongside is not None and key_scope in flatten_alongside:
+                op_tuple_list.append((key_scope, c))
+            else:
+                flatten_op(
+                    c, key_scope=key_scope + str(i) + FLAT_TUPLE_CLOSE, op_tuple_list=op_tuple_list,
+                    scope_separator_at_start=True, mapping=mapping, flatten_alongside=flatten_alongside
+                )
     else:
         op_tuple_list.append((key_scope, op))
 
