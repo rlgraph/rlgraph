@@ -28,6 +28,7 @@ import sys
 
 import numpy as np
 from absl import flags
+
 from rlgraph.agents import Agent
 from rlgraph.environments import MLAgentsEnv
 from rlgraph.execution import SingleThreadedWorker
@@ -61,7 +62,7 @@ def main(argv):
     )
     episode_returns = []
 
-    def episode_finished_callback(episode_return, duration, timesteps, env_num):
+    def episode_finished_callback(episode_return, duration, timesteps, **kwargs):
         episode_returns.append(episode_return)
         finished_episodes = len(episode_returns)
         if finished_episodes % 4 == 0:
