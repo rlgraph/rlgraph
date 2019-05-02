@@ -129,7 +129,7 @@ class ActorCriticLossFunction(LossFunction):
             advantages = advantages.detach()
 
             # The policy gradient loss.
-            loss = advantages * log_probs
+            loss = advantages * -log_probs
             if self.weight_pg != 1.0:
                 loss = self.weight_pg * loss
 
