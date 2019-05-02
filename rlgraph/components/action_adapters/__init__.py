@@ -25,6 +25,7 @@ from rlgraph.components.action_adapters.beta_distribution_adapter import BetaDis
 from rlgraph.components.action_adapters.categorical_distribution_adapter import CategoricalDistributionAdapter
 from rlgraph.components.action_adapters.gumbel_softmax_distribution_adapter import GumbelSoftmaxDistributionAdapter
 from rlgraph.components.action_adapters.normal_distribution_adapter import NormalDistributionAdapter
+from rlgraph.components.action_adapters.normal_mixture_distribution_adapter import NormalMixtureDistributionAdapter
 from rlgraph.components.action_adapters.squashed_normal_distribution_adapter import SquashedNormalDistributionAdapter
 
 ActionAdapter.__lookup_classes__ = dict(
@@ -35,6 +36,8 @@ ActionAdapter.__lookup_classes__ = dict(
     gumbelsoftmaxdistributionadapter=GumbelSoftmaxDistributionAdapter,
     gumbelsoftmaxadapter=GumbelSoftmaxDistributionAdapter,
     normaldistributionadapter=NormalDistributionAdapter,
+    normalmixtureadapter=NormalMixtureDistributionAdapter,
+    normalmixturedistributionadapter=NormalMixtureDistributionAdapter,
     squashednormaladapter=SquashedNormalDistributionAdapter,
     squashednormaldistributionadapter=SquashedNormalDistributionAdapter,
 )
