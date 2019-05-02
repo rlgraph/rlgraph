@@ -20,12 +20,11 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
-from scipy.stats import norm, beta
-
 from rlgraph.components.distributions import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 from rlgraph.utils.numpy import softmax
+from scipy.stats import norm, beta
 
 
 class TestDistributions(unittest.TestCase):
@@ -222,21 +221,22 @@ class TestDistributions(unittest.TestCase):
         )
 
         # The Component to test.
-        beta_distribution = Beta(switched_off_apis={"kl_divergence"})
+        low, high = -1.0, 2.0
+        beta_distribution = Beta(low=low, high=high, switched_off_apis={"kl_divergence"})
         test = ComponentTest(component=beta_distribution, input_spaces=input_spaces)
 
         # Batch of size=2 and deterministic (True).
         input_ = [input_spaces["parameters"].sample(2), True]
         # Mean for a Beta distribution: 1 / [1 + (beta/alpha)]
-        expected = 1.0 / (1.0 + input_[0][1] / input_[0][0])
+        expected = (1.0 / (1.0 + input_[0][1] / input_[0][0])) * (high - low) + low
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
+            test.test(("draw", input_), expected_outputs=expected, decimals=5)
+            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected, decimals=5)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
         input_ = [input_spaces["parameters"].sample(1), False]
-        expected = 1.0 / (1.0 + input_[0][1] / input_[0][0])
+        expected = (1.0 / (1.0 + input_[0][1] / input_[0][0])) * (high - low) + low
         outs = []
         for _ in range(50):
             out = test.test(("draw", input_))
@@ -247,12 +247,13 @@ class TestDistributions(unittest.TestCase):
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
 
         # Test log-likelihood outputs (against scipy).
-        means = values_space.sample(1)
-        stds = values_space.sample(1)
+        alpha_ = values_space.sample(1)
+        beta_ = values_space.sample(1)
         values = values_space.sample(1)
+        values_scaled = values * (high - low) + low
         test.test(
-            ("log_prob", [tuple([means, stds]), values]),
-            expected_outputs=np.log(beta.pdf(values, means, stds)), decimals=4
+            ("log_prob", [tuple([alpha_, beta_]), values_scaled]),
+            expected_outputs=np.log(beta.pdf(values, alpha_, beta_)), decimals=4
         )
 
     def test_mixture(self):
@@ -398,24 +399,89 @@ class TestDistributions(unittest.TestCase):
     def test_joint_cumulative_distribution(self):
         param_space = Dict({
             "a": FloatBox(shape=(4,)),  # 4-discrete
-            "b": Tuple([FloatBox(shape=(9,)), FloatBox(shape=(9,))])  # 9-variate normal
+            "b": Dict({"ba": Tuple([FloatBox(shape=(3,)), FloatBox(0.1, 1.0, shape=(3,))]),  # 3-variate normal
+                       "bb": Tuple([FloatBox(shape=(2,)), FloatBox(shape=(2,))]),  # beta -1 to 1
+                       "bc": Tuple([FloatBox(shape=(4,)), FloatBox(0.1, 1.0, shape=(4,))]),  # normal (dim=4)
+                       })
         }, add_batch_rank=True)
 
-        values_space = Dict({"a": IntBox(4), "b": FloatBox(shape=(9,))}, add_batch_rank=True)
+        values_space = Dict({
+            "a": IntBox(4),
+            "b": Dict({
+                "ba": FloatBox(shape=(3,)),
+                "bb": FloatBox(shape=(2,)),
+                "bc": FloatBox(shape=(4,))
+            })
+        }, add_batch_rank=True)
 
         input_spaces = dict(
             parameters=param_space,
-            deterministic=bool,
-            values=values_space
+            values=values_space,
+            deterministic=bool
         )
 
-        joined_cumulative_distribution = JointCumulativeDistribution(sub_distributions_spec=dict(
-            a=Categorical(), b=Normal()
-        ), switched_off_apis={"kl_divergence"})
+        low, high = -1.0, 1.0
+        joined_cumulative_distribution = JointCumulativeDistribution(distribution_specs={
+            "/a": Categorical(), "/b/ba": MultivariateNormal(), "/b/bb": Beta(low=low, high=high), "/b/bc": Normal()
+        }, switched_off_apis={"kl_divergence"})
         test = ComponentTest(component=joined_cumulative_distribution, input_spaces=input_spaces)
 
-        input_ = [param_space.sample(5), values_space.sample(5)]
+        # Batch of size=2 and deterministic (True).
+        input_ = [param_space.sample(2), True]
+        input_[0]["a"] = softmax(input_[0]["a"])
+        expected_mean = {
+            "a": np.argmax(input_[0]["a"], axis=-1),
+            "b": {
+                "ba": input_[0]["b"]["ba"][0],  # [0]=Mean
+                # Mean for a Beta distribution: 1 / [1 + (beta/alpha)] * range + low
+                "bb": (1.0 / (1.0 + input_[0]["b"]["bb"][1] / input_[0]["b"]["bb"][0])) * (high - low) + low,
+                "bc": input_[0]["b"]["bc"][0],
+            }
+        }
+        # Sample n times, expect always mean value (deterministic draw).
+        for _ in range(50):
+            test.test(("draw", input_), expected_outputs=expected_mean)
+            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected_mean)
 
-        out = test.test(("log_prob", input_), expected_outputs=None)
+        # Batch of size=1 and non-deterministic -> expect roughly the mean.
+        input_ = [param_space.sample(1), False]
+        input_[0]["a"] = softmax(input_[0]["a"])
+        expected_mean = {
+            "a": np.sum(input_[0]["a"] * np.array([0, 1, 2, 3])),
+            "b": {
+                "ba": input_[0]["b"]["ba"][0],  # [0]=Mean
+                # Mean for a Beta distribution: 1 / [1 + (beta/alpha)] * range + low
+                "bb": (1.0 / (1.0 + input_[0]["b"]["bb"][1] / input_[0]["b"]["bb"][0])) * (high - low) + low,
+                "bc": input_[0]["b"]["bc"][0],
+            }
+        }
 
-        print(out)
+        outs = []
+        for _ in range(100):
+            out = test.test(("draw", input_))
+            outs.append(out)
+            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            outs.append(out)
+
+        recursive_assert_almost_equal(np.mean(np.stack([o["a"][0] for o in outs], axis=0), axis=0), expected_mean["a"], atol=0.2)
+        recursive_assert_almost_equal(np.mean(np.stack([o["b"]["ba"][0] for o in outs], axis=0), axis=0),
+                                      expected_mean["b"]["ba"][0], decimals=1)
+        recursive_assert_almost_equal(np.mean(np.stack([o["b"]["bb"][0] for o in outs], axis=0), axis=0),
+                                      expected_mean["b"]["bb"][0], decimals=1)
+        recursive_assert_almost_equal(np.mean(np.stack([o["b"]["bc"][0] for o in outs], axis=0), axis=0),
+                                      expected_mean["b"]["bc"][0], decimals=1)
+
+        # Test log-likelihood outputs.
+        params = param_space.sample(1)
+        params["a"] = softmax(params["a"])
+        # Make sure beta-values are within 0.0 and 1.0 for the numpy calculation (which doesn't have scaling).
+        values = values_space.sample(1)
+        log_prob_beta = np.log(beta.pdf(values["b"]["bb"], params["b"]["bb"][0], params["b"]["bb"][1]))
+        # Now do the scaling for b/bb (beta values).
+        values["b"]["bb"] = values["b"]["bb"] * (high - low) + low
+        expected_log_llh = np.log(params["a"][0][values["a"][0]]) + \
+            np.sum(np.log(norm.pdf(values["b"]["ba"][0], params["b"]["ba"][0], params["b"]["ba"][1]))) + \
+            np.sum(log_prob_beta) + \
+            np.sum(np.log(norm.pdf(values["b"]["bc"][0], params["b"]["bc"][0], params["b"]["bc"][1])))
+
+        test.test(("log_prob", [params, values]), expected_outputs=expected_log_llh, decimals=1)
