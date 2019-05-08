@@ -513,6 +513,7 @@ class APIMethodRecord(object):
         self.keyword_only = []
         # List of args that have a default value.
         self.default_args = []
+        self.default_values = []  # and their actual default values
 
         self.in_op_columns = []
         self.out_op_columns = []
@@ -530,6 +531,7 @@ class APIMethodRecord(object):
                 else:
                     self.non_args_kwargs.append(param.name)
                 self.default_args.append(param.name)
+                self.default_values.append(param.default)
             # *args
             elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                 self.args_name = param.name
