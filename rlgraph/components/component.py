@@ -881,18 +881,26 @@ class Component(Specifiable):
             )
 
             # Should we expose some API-methods of the child?
+            # Only if parent does not have that method yet (otherwise, use parent method).
             for api_method_name, api_method_rec in component.api_methods.items():
-                if api_method_name in expose_apis:
-                    # Hold these here to avoid closures (when Components get copied).
-                    name_ = api_method_name
-                    component_name = component.name
-                    must_be_complete = api_method_rec.must_be_complete
-
-                    @rlgraph_api(component=self, name=api_method_name, must_be_complete=must_be_complete)
-                    def exposed_api_method_wrapper(self, *inputs, **kwargs):
-                        # Complicated way to lookup sub-component's method to avoid closures when original
-                        # component gets copied.
-                        return getattr(self.sub_components[component_name], name_)(*inputs, **kwargs)
+                if api_method_name in expose_apis and not api_method_name in self.api_methods:
+                    # Build exposed method code per string, then eval it.
+                    code = "@rlgraph_api(component=self, must_be_complete={}, ok_to_overwrite=False)\n".format(
+                        api_method_rec.must_be_complete
+                    )
+                    code += "def {}(self, ".format(api_method_name)
+                    args_str = ""
+                    args_str_w_default = ""
+                    for i, ak in enumerate(api_method_rec.non_args_kwargs):
+                        args_str += ak + ", "
+                        args_str_w_default += ak + ("="+str(api_method_rec.default_values[api_method_rec.default_args.index(ak)]) if ak in api_method_rec.default_args else "") + ", "
+                    args_str += ("*"+api_method_rec.args_name+", " if api_method_rec.args_name else "")
+                    args_str += ("**"+api_method_rec.kwargs_name+", " if api_method_rec.kwargs_name else "")
+                    args_str = args_str[:-2]  # cut last ', '
+                    code += args_str_w_default + "):\n"
+                    code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(component.name, api_method_name, args_str)
+                    print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
+                    exec(code, globals(), locals())
 
         # Add own reusable scope to front of all sub-components' reusable scope.
         if self.reuse_variable_scope is not None:
@@ -1192,6 +1200,7 @@ class Component(Specifiable):
             indices (Optional[np.ndarray,tf.Tensor]): Indices (if any) to fetch from the variable.
             dtype (Optional[torch.dtype]): Optional dtype to convert read values to.
             shape (Optional[tuple]): Optional default shape.
+
         Returns:
             any: Variable values.
         """
