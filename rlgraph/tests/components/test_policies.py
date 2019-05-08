@@ -383,7 +383,7 @@ class TestPolicies(unittest.TestCase):
         expected_state_values = np.matmul(relu(np.matmul(
             expected_nn_output,
             ComponentTest.read_params("dueling-policy/dense-layer-state-value-stream", policy_params)
-        )),
+        ), 0.1),
             ComponentTest.read_params("dueling-policy/state-value-node", policy_params))
         test.test(
             ("get_state_values", nn_input, ["state_values", "nn_outputs"]),
