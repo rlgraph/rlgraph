@@ -823,6 +823,10 @@ class GraphBuilder(Specifiable):
             if isinstance(api_method_call, (list, tuple)):
                 api_method_name = api_method_call[0] if not callable(api_method_call[0]) else \
                     api_method_call[0].__name__
+
+                if api_method_name not in self.api:
+                    raise RLGraphError("No API-method with name '{}' found!".format(api_method_name))
+
                 # If input is one dict: Check first placeholder for being a dict as well and if so, do a normal 1:1
                 # mapping, otherwise, roll out the input dict as a list.
                 if isinstance(api_method_call[1], dict) and \
