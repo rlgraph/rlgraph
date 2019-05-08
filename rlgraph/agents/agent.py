@@ -165,11 +165,11 @@ class Agent(Specifiable):
                 return []
             return tuple([[] for _ in range(i)])
 
-        self.states_buffer = defaultdict(list)  # partial(fact_, len(self.flat_state_space)))
+        self.states_buffer = defaultdict(list)
         self.actions_buffer = defaultdict(partial(factory_, len(self.flat_action_space or [])))
         self.internals_buffer = defaultdict(list)
         self.rewards_buffer = defaultdict(list)
-        self.next_states_buffer = defaultdict(list)  # partial(fact_, len(self.flat_state_space)))
+        self.next_states_buffer = defaultdict(list)
         self.terminals_buffer = defaultdict(list)
 
         self.observe_spec = parse_observe_spec(observe_spec)
@@ -214,12 +214,12 @@ class Agent(Specifiable):
         """
         if env_id is None:
             env_id = self.default_env
-        del self.states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
-        del self.actions_buffer[env_id]  # = ([] for _ in range(len(self.flat_action_space)))
-        del self.internals_buffer[env_id]  # = []
-        del self.rewards_buffer[env_id]  # = []
-        del self.next_states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
-        del self.terminals_buffer[env_id]  # = []
+        del self.states_buffer[env_id]
+        del self.actions_buffer[env_id]
+        del self.internals_buffer[env_id]
+        del self.rewards_buffer[env_id]
+        del self.next_states_buffer[env_id]
+        del self.terminals_buffer[env_id]
 
     def define_graph_api(self, *args, **kwargs):
         """

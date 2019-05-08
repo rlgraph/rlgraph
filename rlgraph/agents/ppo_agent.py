@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import ContainerMerger, Memory, RingBuffer, PPOLossFunction
@@ -258,7 +259,7 @@ class PPOAgent(Agent):
 
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root, apply_postprocessing):
+        def update_from_memory(root, apply_postprocessing=True):
             if agent.sample_episodes:
                 records = agent.memory.get_episodes(self.update_spec["batch_size"])
             else:
@@ -276,7 +277,7 @@ class PPOAgent(Agent):
         # multiple parents are not allowed currently.
         @rlgraph_api(component=self.root_component)
         def _graph_fn_update_from_external_batch(
-                root, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing
+                root, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing=True
         ):
             """
             Calls iterative optimization by repeatedly sub-sampling.
