@@ -78,6 +78,8 @@ class Policy(Component):
         # For discrete approximations.
         self.gumbel_softmax_temperature = self.distributions_spec.get("gumbel_softmax_temperature", 1.0)
 
+        self.action_space = None
+        self.flat_action_space = None
         self._create_action_adapters_and_distributions(
             action_space=action_space, action_adapter_spec=action_adapter_spec
         )
@@ -85,10 +87,6 @@ class Policy(Component):
         self.add_components(
             *[self.neural_network] + list(self.action_adapters.values()) + list(self.distributions.values())
         )
-        self.flat_action_space = None
-
-    def check_input_spaces(self, input_spaces, action_space=None):
-        self.flat_action_space = action_space.flatten()
 
     def _create_action_adapters_and_distributions(self, action_space, action_adapter_spec):
         if action_space is None:
@@ -100,12 +98,18 @@ class Policy(Component):
         else:
             self.action_space = Space.from_spec(action_space)
 
+        self.flat_action_space = self.action_space.flatten()
+
         # Figure out our Distributions.
-        for i, (flat_key, action_component) in enumerate(self.action_space.flatten().items()):
+        for i, (flat_key, action_component) in enumerate(self.flat_action_space.items()):
             # Spec dict.
             if isinstance(action_adapter_spec, dict):
-                aa_spec = flat_key_lookup(action_adapter_spec, flat_key, action_adapter_spec)
-                aa_spec["action_space"] = action_component
+                # If not specified in dict -> auto-generate AA-spec.
+                aa_spec = flat_key_lookup(action_adapter_spec, flat_key, False)
+                if aa_spec is False:
+                    aa_spec = dict(action_space=action_component)
+                else:
+                    aa_spec["action_space"] = action_component
             # Simple type spec.
             elif not isinstance(action_adapter_spec, ActionAdapter):
                 aa_spec = dict(action_space=action_component)
@@ -312,8 +316,8 @@ class Policy(Component):
 
         return dict(entropy=entropy, nn_outputs=out["nn_outputs"])
 
-    @graph_fn(flatten_ops={1})
-    def _graph_fn_get_adapter_outputs(self, nn_outputs):  #, nn_inputs):
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    def _graph_fn_get_adapter_outputs(self, flat_key, nn_outputs):  #, nn_inputs):
         """
         Pushes the given nn_output through all our action adapters and returns a DataOpDict with the keys corresponding
         to our `action_space`.
@@ -326,17 +330,24 @@ class Policy(Component):
             FlattenedDataOp: A DataOpDict with the different action adapter outputs (keys correspond to
                 structure of `self.action_space`).
         """
+        # NN outputs are already split -> Feed flat-key NN output directly into its corresponding action_adapter.
+        if flat_key in self.action_adapters:
+            return self.action_adapters[flat_key].call(nn_outputs)
+        # Many NN outputs, but no action adapters specified for this one -> return nn_outputs as is.
+        elif flat_key != "":
+            return nn_outputs, nn_outputs, None
+
         #if isinstance(nn_inputs, FlattenedDataOp):
         #    nn_inputs = next(iter(nn_inputs.values()))
 
         ret = FlattenedDataOp()
-        for flat_key, action_adapter in self.action_adapters.items():
-            ret[flat_key] = action_adapter.call(nn_outputs)
+        for aa_flat_key, action_adapter in self.action_adapters.items():
+            ret[aa_flat_key] = action_adapter.call(nn_outputs)
 
         return ret
 
-    @graph_fn(flatten_ops={1})
-    def _graph_fn_get_adapter_outputs_and_parameters(self, nn_outputs):
+    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
+    def _graph_fn_get_adapter_outputs_and_parameters(self, flat_key, nn_outputs):
         """
         Pushes the given nn_output through all our action adapters' get_logits_parameters_log_probs API's and
         returns a DataOpDict with the keys corresponding to our `action_space`.
@@ -352,28 +363,33 @@ class Policy(Component):
                 - FlattenedDataOp: A DataOpDict with the different action adapters' log_probs outputs.
             Note: Keys always correspond to structure of `self.action_space`.
         """
-        adapter_outputs = FlattenedDataOp()
-        parameters = FlattenedDataOp()
-        log_probs = FlattenedDataOp()
-
         #if isinstance(nn_inputs, dict):
         #    nn_inputs = next(iter(nn_inputs.values()))
 
-        for flat_key, action_adapter in self.action_adapters.items():
+        # NN outputs are already split -> Feed flat-key NN output directly into its corresponding action_adapter.
+        if flat_key in self.action_adapters:
+            adapter_outs = self.action_adapters[flat_key].call(nn_outputs)
+            params = self.action_adapters[flat_key].get_parameters_from_adapter_outputs(adapter_outs)
+            return adapter_outs, params["parameters"], params.get("log_probs")
+        # Many NN outputs, but no action adapters specified for this one -> return nn_outputs as is.
+        elif flat_key != "":
+            return nn_outputs, nn_outputs, None
+
+        # There is only a single NN-output, but many action adapters.
+        adapter_outputs = FlattenedDataOp()
+        parameters = FlattenedDataOp()
+        log_probs = FlattenedDataOp()
+        for aa_flat_key, action_adapter in self.action_adapters.items():
             adapter_outs = action_adapter.call(nn_outputs)
             params = action_adapter.get_parameters_from_adapter_outputs(adapter_outs)
             #out = action_adapter.get_adapter_outputs_and_parameters(nn_outputs, nn_inputs)
-            adapter_outputs[flat_key], parameters[flat_key], log_probs[flat_key] = \
+            adapter_outputs[aa_flat_key], parameters[aa_flat_key], log_probs[aa_flat_key] = \
                 adapter_outs, params["parameters"], params.get("log_probs")
 
         return adapter_outputs, parameters, log_probs
 
-    # TODO: Cannot use flatten_ops=True, split_ops=True, ... here b/c distribution parameters may come as Tuples, which
-    # TODO: would then be flattened as well and therefore mixed with the container-action structure.
-    # TODO: Need some option to specify something like: "flatten according to self.action_space" or flatten according to
-    # TODO: `self.state_space`.
-    @graph_fn
-    def _graph_fn_get_distribution_entropies(self, parameters):
+    @graph_fn(flatten_ops="flat_action_space", split_ops=True, add_auto_key_as_first_param=True)
+    def _graph_fn_get_distribution_entropies(self, flat_key, parameters):
         """
         Pushes the given `probabilities` through all our distributions' `entropy` API-methods and returns a
         DataOpDict with the keys corresponding to our `action_space`.
@@ -383,19 +399,19 @@ class Policy(Component):
                 container the parameter pieces for each action component.
 
         Returns:
-            FlattenedDataOp: A DataOpDict with the different distributions' `entropy` outputs. Keys always correspond to
-                structure of `self.action_space`.
+            SingleDataOp: The DataOp with the `entropy` outputs for the given flat_key distribution.
         """
-        ret = FlattenedDataOp()
-        for flat_key, d in self.distributions.items():
-            if flat_key == "":
-                if isinstance(parameters, FlattenedDataOp):
-                    return d.entropy(parameters[flat_key])
-                else:
-                    return d.entropy(parameters)
-            else:
-                ret[flat_key] = d.entropy(parameters.flat_key_lookup(flat_key))
-        return ret
+        #ret = FlattenedDataOp()
+        #for flat_key, d in self.distributions.items():
+        #    if flat_key == "":
+        #        if isinstance(parameters, FlattenedDataOp):
+        #            return d.entropy(parameters[flat_key])
+        #        else:
+        #            return d.entropy(parameters)
+        #    else:
+        #        ret[flat_key] = d.entropy(parameters.flat_key_lookup(flat_key))
+        #return ret
+        return self.distributions[flat_key].entropy(parameters)
 
     # TODO: Cannot use flatten_ops=True, split_ops=True, ... here b/c distribution parameters may come as Tuples, which
     # TODO: would then be flattened as well and therefore mixed with the container-action structure.
