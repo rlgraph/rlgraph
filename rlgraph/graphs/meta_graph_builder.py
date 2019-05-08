@@ -54,6 +54,8 @@ class MetaGraphBuilder(Specifiable):
 
         # Sanity check input_spaces dict.
         if input_spaces is not None:
+            assert isinstance(input_spaces, dict),\
+                "ERROR: `input_spaces` must be a dict with keys=API-arg-names and values=Spaces!"
             for input_param_name in input_spaces.keys():
                 if input_param_name not in root_component.api_method_inputs:
                     raise RLGraphError(
