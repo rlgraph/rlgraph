@@ -68,6 +68,6 @@ def get_distribution_spec_from_action_adapter(action_adapter):
         return dict(type="squashed-normal")
     elif action_adapter_type_str == "NormalMixtureDistributionAdapter":
         # TODO: MixtureDistribution is generic (any sub-distributions, but its AA is not (only supports mixture-Normal))
-        return dict(type="mixture", _args=["multivariate-normal" for _ in range(action_adapter.size_mixture)])
+        return dict(type="mixture", _args=["multivariate-normal" for _ in range(action_adapter.num_mixtures)])
     else:
         raise RLGraphError("'{}' is an unknown ActionAdapter type!".format(action_adapter_type_str))

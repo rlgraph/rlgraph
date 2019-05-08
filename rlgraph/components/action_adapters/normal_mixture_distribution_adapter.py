@@ -25,23 +25,23 @@ if get_backend() == "tf":
 
 
 class NormalMixtureDistributionAdapter(NormalDistributionAdapter):
-    def __init__(self, action_space, size_mixture=1, scope="normal-mixture-adapter", **kwargs):
+    def __init__(self, action_space, num_mixtures=1, scope="normal-mixture-adapter", **kwargs):
         """
         Args:
-            size_mixture (int): The mixture's size (number of sub-distributions to categorically sample from).
+            num_mixtures (int): The mixture's size (number of sub-distributions to categorically sample from).
                 Default: 1 (no mixture).
         """
-        self.size_mixture = size_mixture
+        self.num_mixtures = num_mixtures
         super(NormalMixtureDistributionAdapter, self).__init__(action_space, scope=scope, **kwargs)
 
     def get_units_and_shape(self):
-        if self.size_mixture == 1:
+        if self.num_mixtures == 1:
             return super(NormalMixtureDistributionAdapter, self).get_units_and_shape()
 
         new_shape = list(self.action_space.get_shape(with_category_rank=True))
-        new_shape = tuple(new_shape[:-1] + [self.size_mixture + self.size_mixture * 2 * new_shape[-1]])
+        new_shape = tuple(new_shape[:-1] + [self.num_mixtures + self.num_mixtures * 2 * new_shape[-1]])
         last_dim = self.action_space.get_shape()[-1]
-        units = self.size_mixture + self.size_mixture * last_dim * 2
+        units = self.num_mixtures + self.num_mixtures * last_dim * 2
         return units, new_shape
 
     @graph_fn
@@ -60,7 +60,7 @@ class NormalMixtureDistributionAdapter(NormalDistributionAdapter):
                 log_probs (DataOp): Simply the log(parameters).
         """
         # Shortcut: If no mixture distribution, let ActionAdapter parent deal with everything.
-        if self.size_mixture == 1:
+        if self.num_mixtures == 1:
             return super(NormalMixtureDistributionAdapter, self)._graph_fn_get_parameters_from_adapter_outputs(
                 adapter_outputs
             )
@@ -77,13 +77,13 @@ class NormalMixtureDistributionAdapter(NormalDistributionAdapter):
             log_probs = DataOpDict()
 
             # Nodes encode the following:
-            # - [size_mixture] (for categorical)
+            # - [num_mixtures] (for categorical)
             # - []
 
             # Unbounded -> Mixture Multivariate Normal distribution.
             last_dim = self.action_space.get_shape()[-1]
             categorical, means, log_sds = tf.split(adapter_outputs, num_or_size_splits=[
-                self.size_mixture, self.size_mixture * last_dim, self.size_mixture * last_dim
+                self.num_mixtures, self.num_mixtures * last_dim, self.num_mixtures * last_dim
             ], axis=-1)
 
             # Parameterize the categorical distribution, which will pick one of the mixture ones.
@@ -98,13 +98,13 @@ class NormalMixtureDistributionAdapter(NormalDistributionAdapter):
             log_means = tf.log(means)
 
             # Split into one for each item in the Mixture.
-            means = tf.split(means, num_or_size_splits=self.size_mixture, axis=-1)
-            log_means = tf.split(log_means, num_or_size_splits=self.size_mixture, axis=-1)
-            sds = tf.split(sds, num_or_size_splits=self.size_mixture, axis=-1)
-            log_sds = tf.split(log_sds, num_or_size_splits=self.size_mixture, axis=-1)
+            means = tf.split(means, num_or_size_splits=self.num_mixtures, axis=-1)
+            log_means = tf.split(log_means, num_or_size_splits=self.num_mixtures, axis=-1)
+            sds = tf.split(sds, num_or_size_splits=self.num_mixtures, axis=-1)
+            log_sds = tf.split(log_sds, num_or_size_splits=self.num_mixtures, axis=-1)
 
             # Store each mixture item's parameters in DataOpDict.
-            for i in range(self.size_mixture):
+            for i in range(self.num_mixtures):
                 mean = means[i]
                 mean._batch_rank = 0
                 sd = sds[i]
