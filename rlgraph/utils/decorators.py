@@ -306,7 +306,6 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             flatten_ops=flatten_ops, split_ops=split_ops, add_auto_key_as_first_param=add_auto_key_as_first_param,
             requires_variable_completeness=requires_variable_completeness
         )
-
         # Registers the given method with the Component (if not already done so).
         if component is not None:
             define_api_method(component, api_method_rec, copy_record=False)
@@ -433,7 +432,12 @@ def define_api_method(component, api_method_record, copy_record=True):
     """
     # Deep copy the record (in case this got registered the normal way with via decorating a class method).
     if copy_record:
-        api_method_record = copy.deepcopy(api_method_record)
+        comp_ = api_method_record.component
+        # Don't copy component. Will be set to something else anyway (would create an unnecessary ghost component).
+        api_method_record.component = None
+        api_method_record_copy = copy.deepcopy(api_method_record)
+        api_method_record.component = comp_
+        api_method_record = api_method_record_copy
     api_method_record.component = component
 
     # Raise errors if `name` already taken in this Component.
@@ -467,7 +471,8 @@ def define_api_method(component, api_method_record, copy_record=True):
     param_list = list(inspect.signature(api_method_record.func).parameters.values())[skip_args:]
 
     for param in param_list:
-        component.api_methods[api_method_record.name].input_names.append(param.name)
+        if param.name not in component.api_methods[api_method_record.name].input_names:
+            component.api_methods[api_method_record.name].input_names.append(param.name)
         if param.name not in component.api_method_inputs:
             # This param has a default value.
             if param.default != inspect.Parameter.empty:
