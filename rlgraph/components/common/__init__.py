@@ -29,6 +29,7 @@ from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.sampler import Sampler
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
+from rlgraph.components.common.stop_gradient import StopGradient
 from rlgraph.components.common.synchronizable import Synchronizable
 
 DecayComponent.__lookup_classes__ = dict(
@@ -49,7 +50,7 @@ NoiseComponent.__default_constructor__ = GaussianNoise
 
 
 __all__ = ["BatchApply", "ContainerMerger",
-           "Synchronizable", "RepeaterStack", "Slice",
+           "Synchronizable", "StopGradient", "RepeaterStack", "Slice",
            "DecayComponent", "ConstantDecay", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
            "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
            "Sampler", "BatchSplitter", "MultiGpuSynchronizer"]
