@@ -22,7 +22,6 @@ from collections import defaultdict
 from functools import partial
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
     ContainerMerger, ContainerSplitter
@@ -221,6 +220,7 @@ class Agent(Specifiable):
         del self.next_states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
         del self.terminals_buffer[env_id]  # = []
 
+    # TODO: To be obsoleted once all Agents use their own AgentComponents.
     def define_graph_api(self, *args, **kwargs):
         """
         Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
