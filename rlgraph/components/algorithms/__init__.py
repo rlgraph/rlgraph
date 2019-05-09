@@ -1,4 +1,4 @@
-# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 The RLgraph authors, All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,3 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
+from rlgraph.components.algorithms.ppo_algorithm_component import PPOAlgorithmComponent
+
+AlgorithmComponent.__lookup_classes__ = dict(
+    algorithmcomponent=AlgorithmComponent,
+    ppoalgorithmcomponent=PPOAlgorithmComponent
+)
+
+__all__ = [] + \
+          list(set(map(lambda x: x.__name__, AlgorithmComponent.__lookup_classes__.values())))
