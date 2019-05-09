@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph.agents import Agent
-from rlgraph.components.algorithms.ppo_root_component import PPOAgentComponent
+from rlgraph.components.algorithms.ppo_algorithm_component import PPOAlgorithmComponent
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
 from rlgraph.utils.util import strip_list
@@ -175,7 +174,7 @@ class PPOAgent(Agent):
         self.batch_size = self.update_spec["batch_size"]
 
         # Change our root-component to PPO.
-        self.root_component = PPOAgentComponent(
+        self.root_component = PPOAlgorithmComponent(
             self, memory_spec, gae_lambda, clip_rewards, clip_ratio, value_function_clipping, weight_entropy
         )
 

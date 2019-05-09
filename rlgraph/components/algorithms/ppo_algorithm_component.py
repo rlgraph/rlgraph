@@ -33,11 +33,11 @@ if get_backend() == "pytorch":
     import torch
 
 
-class PPOAgentComponent(AlgorithmComponent):
+class PPOAlgorithmComponent(AlgorithmComponent):
     def __init__(self, agent,
                  memory_spec, gae_lambda, clip_rewards, clip_ratio, value_function_clipping, weight_entropy,
                  scope="ppo-agent-component", **kwargs):
-        super(PPOAgentComponent, self).__init__(agent, scope=scope, **kwargs)
+        super(PPOAlgorithmComponent, self).__init__(agent, scope=scope, **kwargs)
 
         self.memory = Memory.from_spec(memory_spec)
         assert isinstance(self.memory, RingBuffer), "ERROR: PPO memory must be ring-buffer for episode-handling!"
@@ -91,22 +91,22 @@ class PPOAgentComponent(AlgorithmComponent):
     # Insert into memory.
     @rlgraph_api
     def insert_records(self, preprocessed_states, actions, rewards, terminals):
-        records = self.agent.merger.merge(preprocessed_states, actions, rewards, terminals)
-        return self.agent.memory.insert_records(records)
+        records = self.merger.merge(preprocessed_states, actions, rewards, terminals)
+        return self.memory.insert_records(records)
 
     @rlgraph_api
     def post_process(self, preprocessed_states, rewards, terminals, sequence_indices):
         baseline_values = self.agent.value_function.value_output(preprocessed_states)
-        pg_advantages = self.agent.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
+        pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
         return pg_advantages
 
     # Learn from memory.
     @rlgraph_api
     def update_from_memory(self, apply_postprocessing):
         if self.agent.sample_episodes:
-            records = self.agent.memory.get_episodes(self.agent.update_spec["batch_size"])
+            records = self.memory.get_episodes(self.agent.update_spec["batch_size"])
         else:
-            records = self.agent.memory.get_records(self.agent.update_spec["batch_size"])
+            records = self.memory.get_records(self.agent.update_spec["batch_size"])
 
         # Route to post process and update method.
         # Use terminals as sequence indices.
@@ -133,10 +133,10 @@ class PPOAgentComponent(AlgorithmComponent):
         policy = self.get_sub_component_by_name(self.agent.policy.scope)
         value_function = self.get_sub_component_by_name(self.agent.value_function.scope)
         optimizer = self.get_sub_component_by_name(self.agent.optimizer.scope)
-        loss_function = self.get_sub_component_by_name(self.agent.loss_function.scope)
+        loss_function = self.get_sub_component_by_name(self.loss_function.scope)
         value_function_optimizer = self.get_sub_component_by_name(self.agent.value_function_optimizer.scope)
         vars_merger = self.get_sub_component_by_name(self.agent.vars_merger.scope)
-        gae_function = self.get_sub_component_by_name(self.agent.gae_function.scope)
+        gae_function = self.get_sub_component_by_name(self.gae_function.scope)
         prev_log_probs = policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
 
         if get_backend() == "tf":
