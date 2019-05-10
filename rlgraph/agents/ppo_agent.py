@@ -19,21 +19,11 @@ from __future__ import print_function
 
 import numpy as np
 
-from rlgraph import get_backend
 from rlgraph.agents import Agent
-from rlgraph.components import ContainerMerger, Memory, RingBuffer, PPOLossFunction
-from rlgraph.components.helpers import GeneralizedAdvantageEstimation
+from rlgraph.components.algorithms.ppo_algorithm_component import PPOAlgorithmComponent
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
-from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.define_by_run_ops import define_by_run_flatten
-from rlgraph.utils.ops import flatten_op, unflatten_op, DataOpDict, ContainerDataOp, FlattenedDataOp
 from rlgraph.utils.util import strip_list
-
-if get_backend() == "tf":
-    import tensorflow as tf
-if get_backend() == "pytorch":
-    import torch
 
 
 class PPOAgent(Agent):
@@ -131,22 +121,12 @@ class PPOAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
                 a ring-buffer.
         """
-        if policy_spec is not None:
-            policy_spec["deterministic"] = False
-        else:
-            policy_spec = dict(deterministic=False)
         super(PPOAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
             discount=discount,
-            preprocessing_spec=preprocessing_spec,
-            network_spec=network_spec,
             internal_states_space=internal_states_space,
-            policy_spec=policy_spec,
-            value_function_spec=value_function_spec,
             execution_spec=execution_spec,
-            optimizer_spec=optimizer_spec,
-            value_function_optimizer_spec=value_function_optimizer_spec,
             observe_spec=observe_spec,
             update_spec=update_spec,
             summary_spec=summary_spec,
@@ -156,12 +136,26 @@ class PPOAgent(Agent):
         )
         self.sample_episodes = sample_episodes
 
+        if policy_spec is not None:
+            policy_spec["deterministic"] = False
+        else:
+            policy_spec = dict(deterministic=False)
+
         # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
         # TODO: of return values when calling _graph_fn_calculate_update_from_external_batch.
         # self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
 
+        # Change our root-component to PPO.
+        self.root_component = PPOAlgorithmComponent(
+            agent=self, memory_spec=memory_spec, gae_lambda=gae_lambda, clip_rewards=clip_rewards, clip_ratio=clip_ratio,
+            value_function_clipping=value_function_clipping, weight_entropy=weight_entropy,
+            preprocessing_spec=preprocessing_spec, policy_spec=policy_spec, network_spec=network_spec,
+            value_function_spec=value_function_spec,
+            exploration_spec=None, optimizer_spec=optimizer_spec,
+            value_function_optimizer_spec=value_function_optimizer_spec
+        )
+
         # Extend input Space definitions to this Agent's specific API-methods.
-        preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
 
@@ -170,320 +164,30 @@ class PPOAgent(Agent):
             policy_weights="variables:policy",
             value_function_weights="variables:value-function",
             deterministic=bool,
-            preprocessed_states=preprocessed_state_space,
+            preprocessed_states=self.root_component.preprocessed_state_space.with_batch_rank(),
             rewards=reward_space,
             terminals=terminal_space,
             sequence_indices=BoolBox(add_batch_rank=True),
             apply_postprocessing=bool
         ))
 
-        # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = ContainerMerger("states", "actions", "rewards", "terminals")
-        self.memory = Memory.from_spec(memory_spec)
-        assert isinstance(self.memory, RingBuffer), "ERROR: PPO memory must be ring-buffer for episode-handling!"
-
-        # Make sure the python buffer is not larger than our memory capacity.
-        assert self.observe_spec["buffer_size"] <= self.memory.capacity, \
-            "ERROR: Buffer's size ({}) in `observe_spec` must be smaller or equal to the memory's capacity ({})!". \
-            format(self.observe_spec["buffer_size"], self.memory.capacity)
-
         # The splitter for splitting up the records coming from the memory.
         self.standardize_advantages = standardize_advantages
-        self.gae_function = GeneralizedAdvantageEstimation(
-            gae_lambda=gae_lambda, discount=self.discount, clip_rewards=clip_rewards
-        )
-        self.loss_function = PPOLossFunction(
-            clip_ratio=clip_ratio, value_function_clipping=value_function_clipping, weight_entropy=weight_entropy
-        )
-
         self.iterations = self.update_spec["num_iterations"]
         self.sample_size = self.update_spec["sample_size"]
         self.batch_size = self.update_spec["batch_size"]
 
-        # Add all our sub-components to the core.
-        self.root_component.add_components(
-            self.preprocessor, self.merger, self.memory,
-            self.policy, self.exploration,
-            self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer, self.vars_merger,
-            self.vars_splitter, self.gae_function
-        )
-        # Define the Agent's (root-Component's) API.
-        self.define_graph_api()
-        self.build_options = dict(vf_optimizer=self.value_function_optimizer)
+        self.build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
 
         if self.auto_build:
             self._build_graph(
-                [self.root_component], self.input_spaces, optimizer=self.optimizer,
+                [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
                 # Important: Use sample-size, not batch-size as the sub-samples (from a batch) are the ones that get
                 # multi-gpu-split.
                 batch_size=self.update_spec["sample_size"],
                 build_options=self.build_options
             )
             self.graph_built = True
-
-    def define_graph_api(self):
-        super(PPOAgent, self).define_graph_api()
-
-        agent = self
-
-        # Reset operation (resets preprocessor).
-        if self.preprocessing_required:
-            @rlgraph_api(component=self.root_component)
-            def reset_preprocessor(root):
-                reset_op = agent.preprocessor.reset()
-                return reset_op
-
-        # Act from preprocessed states.
-        @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(root, preprocessed_states, deterministic=False):
-            out = agent.policy.get_action(preprocessed_states, deterministic=deterministic)
-            return out["action"], preprocessed_states
-
-        # State (from environment) to action with preprocessing.
-        @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(root, states, deterministic=False):
-            preprocessed_states = agent.preprocessor.preprocess(states)
-            return root.action_from_preprocessed_state(preprocessed_states, deterministic)
-
-        # Insert into memory.
-        @rlgraph_api(component=self.root_component)
-        def insert_records(root, preprocessed_states, actions, rewards, terminals):
-            records = agent.merger.merge(preprocessed_states, actions, rewards, terminals)
-            return agent.memory.insert_records(records)
-
-        @rlgraph_api(component=self.root_component)
-        def post_process(root, preprocessed_states, rewards, terminals, sequence_indices):
-            baseline_values = agent.value_function.value_output(preprocessed_states)
-            pg_advantages = agent.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
-            return pg_advantages
-
-        # Learn from memory.
-        @rlgraph_api(component=self.root_component)
-        def update_from_memory(root, apply_postprocessing=True):
-            if agent.sample_episodes:
-                records = agent.memory.get_episodes(self.update_spec["batch_size"])
-            else:
-                records = agent.memory.get_records(self.update_spec["batch_size"])
-
-            # Route to post process and update method.
-            # Use terminals as sequence indices.
-            sequence_indices = records["terminals"]
-            return root.update_from_external_batch(
-                records["states"], records["actions"], records["rewards"], records["terminals"],
-                sequence_indices, apply_postprocessing
-            )
-
-        # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
-        # multiple parents are not allowed currently.
-        @rlgraph_api(component=self.root_component)
-        def _graph_fn_update_from_external_batch(
-                root, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing=True
-        ):
-            """
-            Calls iterative optimization by repeatedly sub-sampling.
-            """
-            multi_gpu_sync_optimizer = root.sub_components.get("multi-gpu-synchronizer")
-
-            # Return values.
-            loss, loss_per_item, vf_loss, vf_loss_per_item = None, None, None, None
-
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            value_function = root.get_sub_component_by_name(agent.value_function.scope)
-            optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
-            loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
-            value_function_optimizer = root.get_sub_component_by_name(agent.value_function_optimizer.scope)
-            vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
-            gae_function = root.get_sub_component_by_name(agent.gae_function.scope)
-            prev_log_probs = policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
-
-            if get_backend() == "tf":
-                # Log probs before update.
-                prev_log_probs = tf.stop_gradient(prev_log_probs)
-                batch_size = tf.shape(preprocessed_states)[0]
-                prior_baseline_values = tf.stop_gradient(value_function.value_output(preprocessed_states))
-
-                # Advantages are based on prior baseline values.
-                advantages = tf.cond(
-                        pred=apply_postprocessing,
-                        true_fn=lambda: gae_function.calc_gae_values(
-                            prior_baseline_values, rewards, terminals, sequence_indices),
-                        false_fn=lambda: rewards
-                    )
-
-                if self.standardize_advantages:
-                    mean, std = tf.nn.moments(x=advantages, axes=[0])
-                    advantages = (advantages - mean) / std
-
-                def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
-                    start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
-                    indices = tf.range(start=start, limit=start + agent.sample_size) % batch_size
-                    sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                    if isinstance(actions, ContainerDataOp):
-                        sample_actions = FlattenedDataOp()
-                        for name, action in flatten_op(actions).items():
-                            sample_actions[name] = tf.gather(params=action, indices=indices)
-                        sample_actions = unflatten_op(sample_actions)
-                    else:
-                        sample_actions = tf.gather(params=actions, indices=indices)
-
-                    sample_prior_log_probs = tf.gather(params=prev_log_probs, indices=indices)
-                    sample_rewards = tf.gather(params=rewards, indices=indices)
-                    sample_terminals = tf.gather(params=terminals, indices=indices)
-                    sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
-                    sample_advantages = tf.gather(params=advantages, indices=indices)
-                    sample_advantages.set_shape((self.sample_size, ))
-
-                    sample_baseline_values = value_function.value_output(sample_states)
-                    sample_prior_baseline_values = tf.gather(params=prior_baseline_values, indices=indices)
-
-                    # If we are a multi-GPU root:
-                    # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-                    if multi_gpu_sync_optimizer is not None:
-                        main_policy_vars = agent.policy.variables()
-                        main_vf_vars = agent.value_function.variables()
-                        all_vars = agent.vars_merger.merge(main_policy_vars, main_vf_vars)
-                        # grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
-                        out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
-                            all_vars,
-                            sample_states, sample_actions, sample_rewards, sample_terminals, sample_sequence_indices,
-                            apply_postprocessing=apply_postprocessing
-                        )
-                        avg_grads_and_vars_policy, avg_grads_and_vars_vf = agent.vars_splitter.call(
-                            out["avg_grads_and_vars_by_component"]
-                        )
-                        policy_step_op = agent.optimizer.apply_gradients(avg_grads_and_vars_policy)
-                        vf_step_op = agent.value_function_optimizer.apply_gradients(avg_grads_and_vars_vf)
-                        step_op = root._graph_fn_group(policy_step_op, vf_step_op)
-                        step_and_sync_op = multi_gpu_sync_optimizer.sync_variables_to_towers(
-                            step_op, all_vars
-                        )
-                        loss_vf, loss_per_item_vf = out["additional_return_0"], out["additional_return_1"]
-
-                        # Have to set all shapes here due to strict loop-var shape requirements.
-                        out["loss"].set_shape(())
-                        loss_vf.set_shape(())
-                        loss_per_item_vf.set_shape((agent.sample_size,))
-                        out["loss_per_item"].set_shape((agent.sample_size,))
-
-                        with tf.control_dependencies([step_and_sync_op]):
-                            if index_ == 0:
-                                # Increase the global training step counter.
-                                out["loss"] = root._graph_fn_training_step(out["loss"])
-                            return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
-
-                    policy_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-                    baseline_values = value_function.value_output(tf.stop_gradient(sample_states))
-                    sample_rewards = tf.cond(
-                        pred=apply_postprocessing,
-                        true_fn=lambda: gae_function.calc_gae_values(
-                            baseline_values, sample_rewards, sample_terminals, sample_sequence_indices),
-                        false_fn=lambda: sample_rewards
-                    )
-                    sample_rewards.set_shape((agent.sample_size, ))
-                    entropy = policy.get_entropy(sample_states)["entropy"]
-
-                    loss, loss_per_item, vf_loss, vf_loss_per_item = \
-                        loss_function.loss(
-                            policy_probs, sample_prior_log_probs,
-                            sample_baseline_values, sample_prior_baseline_values, sample_advantages, entropy
-                        )
-
-                    if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
-                        policy_grads_and_vars = optimizer.calculate_gradients(policy.variables(), loss)
-                        vf_grads_and_vars = value_function_optimizer.calculate_gradients(
-                            value_function.variables(), vf_loss
-                        )
-                        grads_and_vars_by_component = vars_merger.merge(policy_grads_and_vars, vf_grads_and_vars)
-                        return grads_and_vars_by_component, loss, loss_per_item, vf_loss, vf_loss_per_item
-                    else:
-                        step_op, loss, loss_per_item = optimizer.step(
-                            policy.variables(), loss, loss_per_item
-                        )
-                        loss.set_shape(())
-                        loss_per_item.set_shape((agent.sample_size,))
-
-                        vf_step_op, vf_loss, vf_loss_per_item = value_function_optimizer.step(
-                            value_function.variables(), vf_loss, vf_loss_per_item
-                        )
-                        vf_loss.set_shape(())
-                        vf_loss_per_item.set_shape((agent.sample_size,))
-
-                        with tf.control_dependencies([step_op, vf_step_op]):
-                            return index_ + 1, loss, loss_per_item, vf_loss, vf_loss_per_item
-
-                def cond(index_, loss_, loss_per_item_, v_loss_, v_loss_per_item_):
-                    return index_ < agent.iterations
-
-                init_loop_vars = [
-                    0,
-                    tf.zeros(shape=(), dtype=tf.float32),
-                    tf.zeros(shape=(agent.sample_size,)),
-                    tf.zeros(shape=(), dtype=tf.float32),
-                    tf.zeros(shape=(agent.sample_size,))
-                ]
-
-                if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
-                    return opt_body(*init_loop_vars)
-                else:
-                    index, loss, loss_per_item, vf_loss, vf_loss_per_item = tf.while_loop(
-                        cond=cond,
-                        body=opt_body,
-                        loop_vars=init_loop_vars,
-                        parallel_iterations=1
-                    )
-                    # Increase the global training step counter.
-                    loss = root._graph_fn_training_step(loss)
-                    return loss, loss_per_item, vf_loss, vf_loss_per_item
-
-            elif get_backend() == "pytorch":
-                if isinstance(prev_log_probs, dict):
-                    for name in actions.keys():
-                        prev_log_probs[name] = prev_log_probs[name].detach()
-                else:
-                    prev_log_probs = prev_log_probs.detach()
-                batch_size = preprocessed_states.shape[0]
-                sample_size = min(batch_size, agent.sample_size)
-                prior_baseline_values = value_function.value_output(preprocessed_states).detach()
-                if apply_postprocessing:
-                    advantages = gae_function.calc_gae_values(
-                        prior_baseline_values, rewards, terminals, sequence_indices)
-                else:
-                    advantages = rewards
-                if self.standardize_advantages:
-                    advantages = (advantages - torch.mean(advantages)) / torch.std(advantages)
-
-                for _ in range(agent.iterations):
-                    start = int(torch.rand(1) * (batch_size - 1))
-                    indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
-                    sample_states = torch.index_select(preprocessed_states, 0, indices)
-
-                    if isinstance(actions, dict):
-                        sample_actions = DataOpDict()
-                        sample_prior_log_probs = DataOpDict()
-                        for name, action in define_by_run_flatten(actions, scope_separator_at_start=False).items():
-                            sample_actions[name] = torch.index_select(action, 0, indices)
-                            sample_prior_log_probs[name] = torch.index_select(prev_log_probs[name], 0, indices)
-                    else:
-                        sample_actions = torch.index_select(actions, 0, indices)
-                        sample_prior_log_probs = torch.index_select(prev_log_probs, 0, indices)
-
-                    sample_advantages = torch.index_select(advantages, 0, indices)
-                    sample_prior_baseline_values = torch.index_select(prior_baseline_values, 0, indices)
-
-                    policy_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-                    sample_baseline_values = value_function.value_output(sample_states)
-
-                    entropy = policy.get_entropy(sample_states)["entropy"]
-                    loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
-                        policy_probs, sample_prior_log_probs,
-                        sample_baseline_values,  sample_prior_baseline_values, sample_advantages, entropy
-                    )
-
-                    # Do not need step op.
-                    _, loss, loss_per_item = optimizer.step(policy.variables(), loss, loss_per_item)
-                    _, vf_loss, vf_loss_per_item = \
-                        value_function_optimizer.step(value_function.variables(), vf_loss, vf_loss_per_item)
-                return loss, loss_per_item, vf_loss, vf_loss_per_item
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
@@ -564,7 +268,7 @@ class PPOAgent(Agent):
             if sequence_indices is None:
                 sequence_indices = batch["terminals"]
 
-            pps_dtype = self.preprocessed_state_space.dtype
+            pps_dtype = self.root_component.preprocessed_state_space.dtype
             batch["states"] = np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np'))
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            sequence_indices, apply_postprocessing]
@@ -589,7 +293,7 @@ class PPOAgent(Agent):
         Resets our preprocessor, but only if it contains stateful PreprocessLayer Components (meaning
         the PreprocessorStack has at least one variable defined).
         """
-        if self.preprocessing_required and len(self.preprocessor.variable_registry) > 0:
+        if self.root_component.preprocessing_required and len(self.root_component.preprocessor.variable_registry) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
     def post_process(self, batch):

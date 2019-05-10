@@ -24,14 +24,11 @@ from functools import partial
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
-    ContainerMerger, ContainerSplitter
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec, \
-    parse_value_function_spec
+from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
 from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.specifiable import Specifiable
 
@@ -45,11 +42,9 @@ class Agent(Specifiable):
     """
 
     def __init__(self, state_space, action_space, discount=0.98,
-                 preprocessing_spec=None, network_spec=None, internal_states_space=None,
-                 policy_spec=None, value_function_spec=None,
-                 exploration_spec=None, execution_spec=None, optimizer_spec=None, value_function_optimizer_spec=None,
-                 observe_spec=None, update_spec=None,
-                 summary_spec=None, saver_spec=None, auto_build=True, name="agent"):
+                 internal_states_space=None, execution_spec=None,
+                 observe_spec=None, update_spec=None, summary_spec=None, saver_spec=None, auto_build=True,
+                 name="agent"):
         """
         Args:
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
@@ -105,57 +100,18 @@ class Agent(Specifiable):
         self.discount = discount
         self.build_options = {}
 
-        # The agent's root-Component.
-        self.root_component = Component(name=self.name, nesting_level=0)
-
         # Define the input-Spaces:
         # Tag the input-Space to `self.set_weights` as equal to whatever the variables-Space will be for
         # the Agent's policy Component.
         self.input_spaces = dict(
             states=self.state_space.with_batch_rank(),
         )
-
-        # Construct the Preprocessor.
-        self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
-        self.preprocessed_state_space = self.preprocessor.get_preprocessed_space(self.state_space)
-        self.preprocessing_required = preprocessing_spec is not None and len(preprocessing_spec) > 0
-        if self.preprocessing_required:
-            self.logger.info("Preprocessing required.")
-            self.logger.info("Parsed preprocessed-state space definition: {}".format(self.preprocessed_state_space))
-        else:
-            self.logger.info("No preprocessing required.")
-
-        # Construct the Policy network.
-        policy_spec = policy_spec or {}
-        if "network_spec" not in policy_spec:
-            policy_spec["network_spec"] = network_spec
-        if "action_space" not in policy_spec:
-            policy_spec["action_space"] = self.action_space
-        self.policy_spec = policy_spec
-        # The behavioral policy of the algorithm. Also the one that gets updated.
-        self.policy = Policy.from_spec(self.policy_spec)
-        # Done by default.
-        self.policy.add_components(Synchronizable(), expose_apis="sync")
-
-        # Create non-shared baseline network.
-        self.value_function = parse_value_function_spec(value_function_spec)
-        # TODO move this to specific agents.
-        if self.value_function is not None:
-            self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
-            self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
-        else:
-            self.vars_merger = ContainerMerger("policy", scope="variable-dict-merger")
-            self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
         self.internal_states_space = Space.from_spec(internal_states_space)
 
-        # An object implementing the loss function interface is only strictly needed
-        # if automatic device strategies like multi-gpu are enabled. This is because
-        # the device strategy needs to know the name of the loss function to infer the appropriate
-        # operations.
-        self.loss_function = None
-
-        self.exploration = Exploration.from_spec(exploration_spec)
+        self.observe_spec = parse_observe_spec(observe_spec)
         self.execution_spec = parse_execution_spec(execution_spec)
+        # Save spec in case agent needs to create more optimizers e.g. for baseline.
+        #self.optimizer_spec = optimizer_spec
 
         # Python-side experience buffer for better performance (may be disabled).
         self.default_env = "env_0"
@@ -172,26 +128,11 @@ class Agent(Specifiable):
         self.next_states_buffer = defaultdict(list)
         self.terminals_buffer = defaultdict(list)
 
-        self.observe_spec = parse_observe_spec(observe_spec)
-
         # Global time step counter.
         self.timesteps = 0
 
-        # Create the Agent's optimizer based on optimizer_spec and execution strategy.
-        self.optimizer = None
-        if optimizer_spec is not None:
-            # Save spec in case agent needs to create more optimizers e.g. for baseline.
-            self.optimizer_spec = optimizer_spec
-            self.optimizer = Optimizer.from_spec(optimizer_spec)
-
-        self.value_function_optimizer = None
-        if self.value_function is not None:
-            if value_function_optimizer_spec is None:
-                vf_optimizer_spec = self.optimizer_spec
-            else:
-                vf_optimizer_spec = value_function_optimizer_spec
-            vf_optimizer_spec["scope"] = "value-function-optimizer"
-            self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
+        # The agent's root-Component.
+        self.root_component = None
 
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
         self.update_spec = parse_update_spec(update_spec)
@@ -221,6 +162,7 @@ class Agent(Specifiable):
         del self.next_states_buffer[env_id]
         del self.terminals_buffer[env_id]
 
+    # TODO: To be obsoleted once all Agents use their own AgentComponents.
     def define_graph_api(self, *args, **kwargs):
         """
         Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
@@ -319,7 +261,7 @@ class Agent(Specifiable):
 
         # TODO let agent have a list of root-components
         return self._build_graph(
-            [self.root_component], self.input_spaces, optimizer=self.optimizer,
+            [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
             build_options=self.build_options, batch_size=self.update_spec["batch_size"]
         )
 
@@ -334,7 +276,7 @@ class Agent(Specifiable):
         Returns:
             np.array: Preprocessed states.
         """
-        if self.preprocessing_required:
+        if self.root_component.preprocessing_required:
             return self.call_api_method("preprocess_states", states)
         else:
             # Return identity.
@@ -471,8 +413,8 @@ class Agent(Specifiable):
                 self.reset_env_buffers(env_id)
         else:
             if not batched:
-                preprocessed_states = self.preprocessed_state_space.force_batch(preprocessed_states)
-                next_states = self.preprocessed_state_space.force_batch(next_states)
+                preprocessed_states = self.root_component.preprocessed_state_space.force_batch(preprocessed_states)
+                next_states = self.root_component.preprocessed_state_space.force_batch(next_states)
                 actions = self.action_space.force_batch(actions)
                 rewards = [rewards]
                 terminals = [terminals]
