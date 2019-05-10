@@ -34,9 +34,10 @@ if get_backend() == "pytorch":
 
 
 class PPOAlgorithmComponent(AlgorithmComponent):
-    def __init__(self, agent,
-                 memory_spec, gae_lambda, clip_rewards, clip_ratio, value_function_clipping, weight_entropy,
+    def __init__(self, agent, memory_spec=None, gae_lambda=1.0, clip_rewards=0.0, clip_ratio=0.2,
+                 value_function_clipping=None, weight_entropy=None,
                  scope="ppo-agent-component", **kwargs):
+
         super(PPOAlgorithmComponent, self).__init__(agent, scope=scope, **kwargs)
 
         self.memory = Memory.from_spec(memory_spec)
@@ -57,35 +58,24 @@ class PPOAlgorithmComponent(AlgorithmComponent):
             clip_ratio=clip_ratio, value_function_clipping=value_function_clipping, weight_entropy=weight_entropy
         )
 
-        # Add the Agent's components.
-        self.add_components(
-            self.agent.preprocessor, self.agent.policy, self.agent.value_function, self.agent.exploration,
-            self.agent.optimizer, self.agent.value_function_optimizer,
-            self.agent.vars_merger, self.agent.vars_splitter
-        )
-
         # Add our self-created ones.
         self.add_components(self.memory, self.merger, self.gae_function, self.loss_function)
 
-        # TODO: For now, use `self.agent` everywhere.
-        # TODO: But try to move as many sub-components' references (e.g. self.agent.policy) directly here into this one.
-        # TODO: self.agent should only be used for non-default settings (e.g. `self.agent.update_spec`).
-
     @rlgraph_api
     def reset_preprocessor(self):
-        reset_op = self.agent.preprocessor.reset()
+        reset_op = self.preprocessor.reset()
         return reset_op
 
     # Act from preprocessed states.
     @rlgraph_api
     def action_from_preprocessed_state(self, preprocessed_states, deterministic=False):
-        out = self.agent.policy.get_action(preprocessed_states, deterministic=deterministic)
+        out = self.policy.get_action(preprocessed_states, deterministic=deterministic)
         return out["action"], preprocessed_states
 
     # State (from environment) to action with preprocessing.
     @rlgraph_api
     def get_preprocessed_state_and_action(self, states, deterministic=False):
-        preprocessed_states = self.agent.preprocessor.preprocess(states)
+        preprocessed_states = self.preprocessor.preprocess(states)
         return self.action_from_preprocessed_state(preprocessed_states, deterministic)
 
     # Insert into memory.
@@ -96,7 +86,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
 
     @rlgraph_api
     def post_process(self, preprocessed_states, rewards, terminals, sequence_indices):
-        baseline_values = self.agent.value_function.value_output(preprocessed_states)
+        baseline_values = self.value_function.value_output(preprocessed_states)
         pg_advantages = self.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
         return pg_advantages
 
@@ -130,12 +120,12 @@ class PPOAlgorithmComponent(AlgorithmComponent):
         # Return values.
         loss, loss_per_item, vf_loss, vf_loss_per_item = None, None, None, None
 
-        policy = self.get_sub_component_by_name(self.agent.policy.scope)
-        value_function = self.get_sub_component_by_name(self.agent.value_function.scope)
-        optimizer = self.get_sub_component_by_name(self.agent.optimizer.scope)
+        policy = self.get_sub_component_by_name(self.policy.scope)
+        value_function = self.get_sub_component_by_name(self.value_function.scope)
+        optimizer = self.get_sub_component_by_name(self.optimizer.scope)
         loss_function = self.get_sub_component_by_name(self.loss_function.scope)
-        value_function_optimizer = self.get_sub_component_by_name(self.agent.value_function_optimizer.scope)
-        vars_merger = self.get_sub_component_by_name(self.agent.vars_merger.scope)
+        value_function_optimizer = self.get_sub_component_by_name(self.value_function_optimizer.scope)
+        vars_merger = self.get_sub_component_by_name(self.vars_merger.scope)
         gae_function = self.get_sub_component_by_name(self.gae_function.scope)
         prev_log_probs = policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
 
@@ -182,20 +172,20 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 # If we are a multi-GPU root:
                 # Simply feeds everything into the multi-GPU sync optimizer's method and return.
                 if multi_gpu_sync_optimizer is not None:
-                    main_policy_vars = self.agent.policy.variables()
-                    main_vf_vars = self.agent.value_function.variables()
-                    all_vars = self.agent.vars_merger.merge(main_policy_vars, main_vf_vars)
+                    main_policy_vars = self.policy.variables()
+                    main_vf_vars = self.value_function.variables()
+                    all_vars = self.vars_merger.merge(main_policy_vars, main_vf_vars)
                     # grads_and_vars, loss, loss_per_item, vf_loss, vf_loss_per_item = \
                     out = multi_gpu_sync_optimizer.calculate_update_from_external_batch(
                         all_vars,
                         sample_states, sample_actions, sample_rewards, sample_terminals, sample_sequence_indices,
                         apply_postprocessing=apply_postprocessing
                     )
-                    avg_grads_and_vars_policy, avg_grads_and_vars_vf = self.agent.vars_splitter.call(
+                    avg_grads_and_vars_policy, avg_grads_and_vars_vf = self.vars_splitter.call(
                         out["avg_grads_and_vars_by_component"]
                     )
-                    policy_step_op = self.agent.optimizer.apply_gradients(avg_grads_and_vars_policy)
-                    vf_step_op = self.agent.value_function_optimizer.apply_gradients(avg_grads_and_vars_vf)
+                    policy_step_op = self.optimizer.apply_gradients(avg_grads_and_vars_policy)
+                    vf_step_op = self.value_function_optimizer.apply_gradients(avg_grads_and_vars_vf)
                     step_op = self._graph_fn_group(policy_step_op, vf_step_op)
                     step_and_sync_op = multi_gpu_sync_optimizer.sync_variables_to_towers(
                         step_op, all_vars

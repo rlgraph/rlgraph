@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph.agents import Agent
 from rlgraph.components.algorithms.ppo_algorithm_component import PPOAlgorithmComponent
 from rlgraph.spaces import BoolBox, FloatBox
@@ -120,23 +121,12 @@ class PPOAgent(Agent):
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
                 a ring-buffer.
         """
-        if policy_spec is not None:
-            policy_spec["deterministic"] = False
-        else:
-            policy_spec = dict(deterministic=False)
-
         super(PPOAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
             discount=discount,
-            preprocessing_spec=preprocessing_spec,
-            network_spec=network_spec,
             internal_states_space=internal_states_space,
-            policy_spec=policy_spec,
-            value_function_spec=value_function_spec,
             execution_spec=execution_spec,
-            optimizer_spec=optimizer_spec,
-            value_function_optimizer_spec=value_function_optimizer_spec,
             observe_spec=observe_spec,
             update_spec=update_spec,
             summary_spec=summary_spec,
@@ -146,12 +136,26 @@ class PPOAgent(Agent):
         )
         self.sample_episodes = sample_episodes
 
+        if policy_spec is not None:
+            policy_spec["deterministic"] = False
+        else:
+            policy_spec = dict(deterministic=False)
+
         # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
         # TODO: of return values when calling _graph_fn_calculate_update_from_external_batch.
         # self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
 
+        # Change our root-component to PPO.
+        self.root_component = PPOAlgorithmComponent(
+            agent=self, memory_spec=memory_spec, gae_lambda=gae_lambda, clip_rewards=clip_rewards, clip_ratio=clip_ratio,
+            value_function_clipping=value_function_clipping, weight_entropy=weight_entropy,
+            preprocessing_spec=preprocessing_spec, policy_spec=policy_spec, network_spec=network_spec,
+            value_function_spec=value_function_spec,
+            exploration_spec=None, optimizer_spec=optimizer_spec,
+            value_function_optimizer_spec=value_function_optimizer_spec
+        )
+
         # Extend input Space definitions to this Agent's specific API-methods.
-        preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
 
@@ -160,7 +164,7 @@ class PPOAgent(Agent):
             policy_weights="variables:policy",
             value_function_weights="variables:value-function",
             deterministic=bool,
-            preprocessed_states=preprocessed_state_space,
+            preprocessed_states=self.root_component.preprocessed_state_space.with_batch_rank(),
             rewards=reward_space,
             terminals=terminal_space,
             sequence_indices=BoolBox(add_batch_rank=True),
@@ -173,16 +177,11 @@ class PPOAgent(Agent):
         self.sample_size = self.update_spec["sample_size"]
         self.batch_size = self.update_spec["batch_size"]
 
-        # Change our root-component to PPO.
-        self.root_component = PPOAlgorithmComponent(
-            self, memory_spec, gae_lambda, clip_rewards, clip_ratio, value_function_clipping, weight_entropy
-        )
-
-        self.build_options = dict(vf_optimizer=self.value_function_optimizer)
+        self.build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
 
         if self.auto_build:
             self._build_graph(
-                [self.root_component], self.input_spaces, optimizer=self.optimizer,
+                [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
                 # Important: Use sample-size, not batch-size as the sub-samples (from a batch) are the ones that get
                 # multi-gpu-split.
                 batch_size=self.update_spec["sample_size"],
@@ -269,7 +268,7 @@ class PPOAgent(Agent):
             if sequence_indices is None:
                 sequence_indices = batch["terminals"]
 
-            pps_dtype = self.preprocessed_state_space.dtype
+            pps_dtype = self.root_component.preprocessed_state_space.dtype
             batch["states"] = np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np'))
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            sequence_indices, apply_postprocessing]
@@ -294,7 +293,7 @@ class PPOAgent(Agent):
         Resets our preprocessor, but only if it contains stateful PreprocessLayer Components (meaning
         the PreprocessorStack has at least one variable defined).
         """
-        if self.preprocessing_required and len(self.preprocessor.variable_registry) > 0:
+        if self.root_component.preprocessing_required and len(self.root_component.preprocessor.variable_registry) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
     def post_process(self, batch):
