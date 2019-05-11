@@ -108,11 +108,11 @@ class PPOAlgorithmComponent(AlgorithmComponent):
 
     # Learn from memory.
     @rlgraph_api
-    def update_from_memory(self, apply_postprocessing):
-        if self.agent.sample_episodes:
-            records = self.memory.get_episodes(self.agent.update_spec["batch_size"])
+    def update_from_memory(self, apply_postprocessing=True):
+        if self.sample_episodes:
+            records = self.memory.get_episodes(self.batch_size)
         else:
-            records = self.memory.get_records(self.agent.update_spec["batch_size"])
+            records = self.memory.get_records(self.batch_size)
 
         # Route to post process and update method.
         # Use terminals as sequence indices.
@@ -126,7 +126,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
     # multiple parents are not allowed currently.
     @rlgraph_api
     def _graph_fn_update_from_external_batch(
-            self, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing
+            self, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing=True
     ):
         """
         Calls iterative optimization by repeatedly sub-sampling.
