@@ -76,16 +76,18 @@ class AlgorithmComponent(Component):
         else:
             self.logger.info("No preprocessing required.")
 
-        # Construct the Policy and its NeuralNetwork.
-        # Adjust/auto-generate a policy_spec so it always contains a network spec and action_space.
-        policy_spec = policy_spec or {}
-        if "network_spec" not in policy_spec:
-            policy_spec["network_spec"] = network_spec
-        if "action_space" not in policy_spec:
-            policy_spec["action_space"] = self.agent.action_space
-        self.policy = Policy.from_spec(policy_spec)
-        # Done by default.
-        self.policy.add_components(Synchronizable(), expose_apis="sync")
+        # Construct the Policy and its NeuralNetwork (if policy-spec or network given).
+        if policy_spec is None and network_spec is None:
+            self.policy = None
+        else:
+            # Adjust/auto-generate a policy_spec so it always contains a network spec and action_space.
+            policy_spec = policy_spec or {}
+            if "network_spec" not in policy_spec:
+                policy_spec["network_spec"] = network_spec
+            if "action_space" not in policy_spec:
+                policy_spec["action_space"] = self.agent.action_space
+            self.policy = Policy.from_spec(policy_spec)
+            self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # Create non-shared baseline network.
         self.value_function = parse_value_function_spec(value_function_spec)
@@ -122,6 +124,7 @@ class AlgorithmComponent(Component):
         self.add_components(self.preprocessor, self.policy, self.value_function, self.vars_merger, self.vars_splitter,
                             self.exploration, self.optimizer, self.value_function_optimizer)
 
+        # Get state value default API.
         if self.value_function is not None:
             # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
             # value-function never performs any forward pass (only used as variable storage).
@@ -129,6 +132,30 @@ class AlgorithmComponent(Component):
             def get_state_values(self_, preprocessed_states):
                 #vf = self_.get_sub_component_by_name(self_.value_function.scope)
                 return self_.value_function.value_output(preprocessed_states)
+
+        # Default getter and setter for policy/vf weights.
+        if self.policy is not None:
+            @rlgraph_api(component=self)
+            def get_weights(self):
+                # policy = self.policy(self.agent.policy.scope)
+                policy_weights = self.policy.variables()
+                value_function_weights = None
+                if self.value_function is not None:
+                    # value_func = self.get_sub_component_by_name(self.agent.value_function.scope)
+                    value_function_weights = self.value_function.variables()
+                return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
+
+            @rlgraph_api(component=self, must_be_complete=False)
+            def set_weights(self, policy_weights, value_function_weights=None):
+                # policy = self.get_sub_component_by_name(self.agent.policy.scope)
+                policy_sync_op = self.policy.sync(policy_weights)
+                if value_function_weights is not None:
+                    assert self.value_function is not None
+                    # vf = self.get_sub_component_by_name(self.agent.value_function.scope)
+                    vf_sync_op = self.value_function.sync(value_function_weights)
+                    return self._graph_fn_group(policy_sync_op, vf_sync_op)
+                else:
+                    return policy_sync_op
 
     @rlgraph_api
     def update_from_memory(self, **kwargs):
@@ -139,28 +166,6 @@ class AlgorithmComponent(Component):
         raise NotImplementedError
 
     # Add API methods for syncing.
-    @rlgraph_api
-    def get_weights(self):
-        #policy = self.policy(self.agent.policy.scope)
-        policy_weights = self.policy.variables()
-        value_function_weights = None
-        if self.value_function is not None:
-            #value_func = self.get_sub_component_by_name(self.agent.value_function.scope)
-            value_function_weights = self.value_function.variables()
-        return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
-
-    @rlgraph_api(must_be_complete=False)
-    def set_weights(self, policy_weights, value_function_weights=None):
-        #policy = self.get_sub_component_by_name(self.agent.policy.scope)
-        policy_sync_op = self.policy.sync(policy_weights)
-        if value_function_weights is not None:
-            assert self.value_function is not None
-            #vf = self.get_sub_component_by_name(self.agent.value_function.scope)
-            vf_sync_op = self.value_function.sync(value_function_weights)
-            return self._graph_fn_group(policy_sync_op, vf_sync_op)
-        else:
-            return policy_sync_op
-
     # TODO: Replace this with future on-the-fly-API-components.
     @graph_fn
     def _graph_fn_group(self, *ops):
