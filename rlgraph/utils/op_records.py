@@ -136,12 +136,13 @@ class DataOpRecordColumn(object):
                     # Dict instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
                     # ContainerMerger Component.
                     if isinstance(args[i], dict):
-                        first_element = next(iter(args[i].values()))
+                        keys = list(args[i].keys())
+                        first_element = args[i][keys[0]]
                         if isinstance(first_element, DataOpRecord):
                             merger_component = first_element.column.component.get_helper_component(
-                                "container-merger", _args=list(args[i].keys())
+                                "container-merger", _args=keys
                             )
-                            args[i] = merger_component.merge(*list(args[i].values()))
+                            args[i] = merger_component.merge(*[args[i][k] for k in keys])
                     # Tuple instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
                     # ContainerMerger Component.
                     elif isinstance(args[i], tuple) and isinstance(args[i][0], DataOpRecord):
