@@ -124,7 +124,6 @@ class PPOAgent(Agent):
         super(PPOAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
-            discount=discount,
             internal_states_space=internal_states_space,
             execution_spec=execution_spec,
             observe_spec=observe_spec,
@@ -134,8 +133,6 @@ class PPOAgent(Agent):
             name=name,
             auto_build=auto_build
         )
-        self.sample_episodes = sample_episodes
-
         if policy_spec is not None:
             policy_spec["deterministic"] = False
         else:
@@ -147,8 +144,8 @@ class PPOAgent(Agent):
 
         # Change our root-component to PPO.
         self.root_component = PPOAlgorithmComponent(
-            agent=self, memory_spec=memory_spec, gae_lambda=gae_lambda, clip_rewards=clip_rewards, clip_ratio=clip_ratio,
-            value_function_clipping=value_function_clipping, weight_entropy=weight_entropy,
+            agent=self, discount=discount, memory_spec=memory_spec, gae_lambda=gae_lambda, clip_rewards=clip_rewards,
+            clip_ratio=clip_ratio, value_function_clipping=value_function_clipping, weight_entropy=weight_entropy,
             preprocessing_spec=preprocessing_spec, policy_spec=policy_spec, network_spec=network_spec,
             value_function_spec=value_function_spec,
             exploration_spec=None, optimizer_spec=optimizer_spec,

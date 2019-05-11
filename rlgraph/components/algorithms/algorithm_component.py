@@ -32,13 +32,39 @@ class AlgorithmComponent(Component):
     """
     The root component of some Algorithm/Agent.
     """
-    def __init__(self, agent, preprocessing_spec=None, policy_spec=None, network_spec = None, value_function_spec=None,
+    def __init__(self, agent, discount=0.98, preprocessing_spec=None, policy_spec=None, network_spec = None,
+                 value_function_spec=None,
                  exploration_spec=None, optimizer_spec=None, value_function_optimizer_spec=None,
                  scope="algorithm-component", **kwargs):
+        """
+        Args:
+            discount (float): The discount factor (gamma).
+
+            preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
+                preprocessing steps or a PreprocessorStack object itself.
+
+            policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
+
+            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
+                object itself.
+
+            value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
+                of ValueFunction.
+
+            exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
+
+            optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
+
+            value_function_optimizer_spec (dict): Optimizer config for value function optimizer. If None, the optimizer
+                spec for the policy is used (same learning rate and optimizer type).
+        """
+
         super(AlgorithmComponent, self).__init__(scope=scope, **kwargs)
 
         self.agent = agent
         self.nesting_level = 0
+
+        self.discount = discount
 
         # Construct the Preprocessor.
         self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)

@@ -41,7 +41,7 @@ class Agent(Specifiable):
     Generic agent defining RLGraph-API operations and parses and sanitizes configuration specs.
     """
 
-    def __init__(self, state_space, action_space, discount=0.98,
+    def __init__(self, state_space, action_space,
                  internal_states_space=None, execution_spec=None,
                  observe_spec=None, update_spec=None, summary_spec=None, saver_spec=None, auto_build=True,
                  name="agent"):
@@ -50,28 +50,10 @@ class Agent(Specifiable):
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
             action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
 
-            preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
-                preprocessing steps or a PreprocessorStack object itself.
-
-            discount (float): The discount factor (gamma).
-
-            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
-                object itself.
-
             internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
                 Space object for the Space(s) of the internal (RNN) states.
 
-            policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
-            value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
-                of ValueFunction.
-
-            exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
-            optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
-
-            value_function_optimizer_spec (dict): Optimizer config for value function optimizer. If None, the optimizer
-                spec for the policy is used (same learning rate and optimizer type).
-
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
@@ -97,7 +79,6 @@ class Agent(Specifiable):
         self.flat_action_space = self.action_space.flatten() if isinstance(self.action_space, ContainerSpace) else None
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
-        self.discount = discount
         self.build_options = {}
 
         # Define the input-Spaces:

@@ -464,8 +464,7 @@ class Component(Specifiable):
                 has its own `trainable` property set to either True or False.
 
             from_space (Optional[Space,str]): Whether to create this variable from a Space object
-                (shape and dtype are not needed then). The Space object can be given directly or via the name
-                of the in-Socket holding the Space.
+                (shape and dtype are not needed then).
 
             add_batch_rank (Optional[bool,int]): If True and `from_space` is given, will add a 0th (1st) rank (None) to
                 the created variable. If it is an int, will add that int instead of None.
