@@ -149,7 +149,10 @@ class PPOAgent(Agent):
             preprocessing_spec=preprocessing_spec, policy_spec=policy_spec, network_spec=network_spec,
             value_function_spec=value_function_spec,
             exploration_spec=None, optimizer_spec=optimizer_spec,
-            value_function_optimizer_spec=value_function_optimizer_spec
+            value_function_optimizer_spec=value_function_optimizer_spec,
+            sample_episodes=sample_episodes, standardize_advantages=standardize_advantages,
+            batch_size=self.update_spec["batch_size"], sample_size=self.update_spec["sample_size"],
+            num_iterations=self.update_spec["num_iterations"]
         )
 
         # Extend input Space definitions to this Agent's specific API-methods.
@@ -167,12 +170,6 @@ class PPOAgent(Agent):
             sequence_indices=BoolBox(add_batch_rank=True),
             apply_postprocessing=bool
         ))
-
-        # The splitter for splitting up the records coming from the memory.
-        self.standardize_advantages = standardize_advantages
-        self.iterations = self.update_spec["num_iterations"]
-        self.sample_size = self.update_spec["sample_size"]
-        self.batch_size = self.update_spec["batch_size"]
 
         self.build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
 

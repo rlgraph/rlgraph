@@ -35,10 +35,26 @@ if get_backend() == "pytorch":
 
 class PPOAlgorithmComponent(AlgorithmComponent):
     def __init__(self, agent, memory_spec=None, gae_lambda=1.0, clip_rewards=0.0, clip_ratio=0.2,
-                 value_function_clipping=None, weight_entropy=None,
+                 value_function_clipping=None, weight_entropy=None, sample_episodes=True, standardize_advantages=False,
+                 batch_size=128, sample_size=32, num_iterations=10,
                  scope="ppo-agent-component", **kwargs):
+        """
+        Args:
+            sample_episodes (bool): If True, the update method interprets the batch_size as the number of
+                episodes to fetch from the memory. If False, batch_size will refer to the number of time-steps. This
+                is especially relevant for environments where episode lengths may vastly differ throughout training. For
+                example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
+
+            standardize_advantages (bool): If true, standardize advantage values in update.
+        """
 
         super(PPOAlgorithmComponent, self).__init__(agent, scope=scope, **kwargs)
+
+        self.sample_episodes = sample_episodes
+        self.standardize_advantages = standardize_advantages
+        self.batch_size = batch_size
+        self.sample_size = sample_size
+        self.num_iterations = num_iterations
 
         self.memory = Memory.from_spec(memory_spec)
         assert isinstance(self.memory, RingBuffer), "ERROR: PPO memory must be ring-buffer for episode-handling!"
@@ -52,7 +68,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
         self.merger = ContainerMerger("states", "actions", "rewards", "terminals")
 
         self.gae_function = GeneralizedAdvantageEstimation(
-            gae_lambda=gae_lambda, discount=self.agent.discount, clip_rewards=clip_rewards
+            gae_lambda=gae_lambda, discount=self.discount, clip_rewards=clip_rewards
         )
         self.loss_function = PPOLossFunction(
             clip_ratio=clip_ratio, value_function_clipping=value_function_clipping, weight_entropy=weight_entropy
@@ -143,13 +159,13 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 false_fn=lambda: rewards
             )
 
-            if self.agent.standardize_advantages:
+            if self.standardize_advantages:
                 mean, std = tf.nn.moments(x=advantages, axes=[0])
                 advantages = (advantages - mean) / std
 
             def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                 start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
-                indices = tf.range(start=start, limit=start + self.agent.sample_size) % batch_size
+                indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
                 sample_states = tf.gather(params=preprocessed_states, indices=indices)
                 if isinstance(actions, ContainerDataOp):
                     sample_actions = FlattenedDataOp()
@@ -164,7 +180,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 sample_terminals = tf.gather(params=terminals, indices=indices)
                 sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
                 sample_advantages = tf.gather(params=advantages, indices=indices)
-                sample_advantages.set_shape((self.agent.sample_size, ))
+                sample_advantages.set_shape((self.sample_size, ))
 
                 sample_baseline_values = value_function.value_output(sample_states)
                 sample_prior_baseline_values = tf.gather(params=prior_baseline_values, indices=indices)
@@ -195,8 +211,8 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                     # Have to set all shapes here due to strict loop-var shape requirements.
                     out["loss"].set_shape(())
                     loss_vf.set_shape(())
-                    loss_per_item_vf.set_shape((self.agent.sample_size,))
-                    out["loss_per_item"].set_shape((self.agent.sample_size,))
+                    loss_per_item_vf.set_shape((self.sample_size,))
+                    out["loss_per_item"].set_shape((self.sample_size,))
 
                     with tf.control_dependencies([step_and_sync_op]):
                         if index_ == 0:
@@ -212,7 +228,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                         baseline_values, sample_rewards, sample_terminals, sample_sequence_indices),
                     false_fn=lambda: sample_rewards
                 )
-                sample_rewards.set_shape((self.agent.sample_size, ))
+                sample_rewards.set_shape((self.sample_size, ))
                 entropy = policy.get_entropy(sample_states)["entropy"]
 
                 loss, loss_per_item, vf_loss, vf_loss_per_item = \
@@ -233,26 +249,26 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                         policy.variables(), loss, loss_per_item
                     )
                     loss.set_shape(())
-                    loss_per_item.set_shape((self.agent.sample_size,))
+                    loss_per_item.set_shape((self.sample_size,))
 
                     vf_step_op, vf_loss, vf_loss_per_item = value_function_optimizer.step(
                         value_function.variables(), vf_loss, vf_loss_per_item
                     )
                     vf_loss.set_shape(())
-                    vf_loss_per_item.set_shape((self.agent.sample_size,))
+                    vf_loss_per_item.set_shape((self.sample_size,))
 
                     with tf.control_dependencies([step_op, vf_step_op]):
                         return index_ + 1, loss, loss_per_item, vf_loss, vf_loss_per_item
 
             def cond(index_, loss_, loss_per_item_, v_loss_, v_loss_per_item_):
-                return index_ < self.agent.iterations
+                return index_ < self.num_iterations
 
             init_loop_vars = [
                 0,
                 tf.zeros(shape=(), dtype=tf.float32),
-                tf.zeros(shape=(self.agent.sample_size,)),
+                tf.zeros(shape=(self.sample_size,)),
                 tf.zeros(shape=(), dtype=tf.float32),
-                tf.zeros(shape=(self.agent.sample_size,))
+                tf.zeros(shape=(self.sample_size,))
             ]
 
             if hasattr(self, "is_multi_gpu_tower") and self.is_multi_gpu_tower is True:
@@ -275,17 +291,17 @@ class PPOAlgorithmComponent(AlgorithmComponent):
             else:
                 prev_log_probs = prev_log_probs.detach()
             batch_size = preprocessed_states.shape[0]
-            sample_size = min(batch_size, self.agent.sample_size)
+            sample_size = min(batch_size, self.sample_size)
             prior_baseline_values = value_function.value_output(preprocessed_states).detach()
             if apply_postprocessing:
                 advantages = gae_function.calc_gae_values(
                     prior_baseline_values, rewards, terminals, sequence_indices)
             else:
                 advantages = rewards
-            if self.agent.standardize_advantages:
+            if self.standardize_advantages:
                 advantages = (advantages - torch.mean(advantages)) / torch.std(advantages)
 
-            for _ in range(self.agent.iterations):
+            for _ in range(self.num_iterations):
                 start = int(torch.rand(1) * (batch_size - 1))
                 indices = torch.arange(start=start, end=start + sample_size, dtype=torch.long) % batch_size
                 sample_states = torch.index_select(preprocessed_states, 0, indices)
