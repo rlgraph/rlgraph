@@ -21,13 +21,11 @@ import time
 from copy import deepcopy
 
 import numpy as np
-from six.moves import xrange as range_
-
 from rlgraph.components import PreprocessorStack
 from rlgraph.execution.worker import Worker
 from rlgraph.spaces.containers import Dict, Tuple
 from rlgraph.utils.rlgraph_errors import RLGraphError
-from rlgraph.utils.util import default_dict
+from six.moves import xrange as range_
 
 
 class SingleThreadedWorker(Worker):
@@ -212,17 +210,22 @@ class SingleThreadedWorker(Worker):
                     else:
                         self.preprocessed_states_buffer[i] = env_states[i]
                 # TODO extra returns when worker is not applying preprocessing.
-                actions = self.agent.get_action(
+                # TODO: get_action should always return a dict.
+                get_action_out = self.agent.get_action(
                     states=self.preprocessed_states_buffer, use_exploration=use_exploration,
                     apply_preprocessing=self.apply_preprocessing
                 )
                 preprocessed_states = np.array(self.preprocessed_states_buffer)
             else:
-                actions, preprocessed_states = self.agent.get_action(
-                    states=np.array(env_states), use_exploration=use_exploration,
-                    apply_preprocessing=True, extra_returns="preprocessed_states"
+                get_action_out = self.agent.get_action(
+                    states=np.array(env_states), use_exploration=use_exploration, apply_preprocessing=True,
+                    extra_returns=["preprocessed_states"] + list(self.agent.custom_buffers.keys())
                 )
+                preprocessed_states = get_action_out.pop("preprocessed_states")
 
+            # Extract other data (Agent-specific) from `get_action` outputs.
+            actions = get_action_out.pop("actions")
+            other_data = get_action_out
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
             env_rewards = [0 for _ in range_(self.num_environments)]
             next_states = None
@@ -316,7 +319,7 @@ class SingleThreadedWorker(Worker):
                     next_states[i] = np.array(self.preprocessors[env_id].preprocess(env_states[i]))  # next_state
                 self._observe(
                     self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],
-                    episode_terminals[i]
+                    episode_terminals[i], **other_data
                 )
             self.update_if_necessary()
             timesteps_executed += self.num_environments
@@ -380,12 +383,13 @@ class SingleThreadedWorker(Worker):
 
         return results
 
-    def _observe(self, env_ids, states, actions, rewards, next_states, terminals):
+    def _observe(self, env_ids, states, actions, rewards, next_states, terminals, **other_data):
         # TODO: If worker does not execute preprocessing, next state is not preprocessed here.
         # Observe per environment.
         self.agent.observe(
             preprocessed_states=states, actions=actions, internals=[],
             rewards=rewards, next_states=next_states,
-            terminals=terminals, env_id=env_ids
+            terminals=terminals,
+            env_id=env_ids, **other_data
         )
 
