@@ -17,17 +17,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import operator
-from six.moves import xrange as range_
 
+import numpy as np
 from rlgraph import get_backend
+from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
+from rlgraph.components.memories.memory import Memory
 from rlgraph.utils import util, DataOpDict
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
-from rlgraph.components.memories.memory import Memory
-from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
-from rlgraph.utils.decorators import rlgraph_api
+from six.moves import xrange as range_
 
 if get_backend() == "pytorch":
     import torch
@@ -75,9 +75,9 @@ class MemPrioritizedReplay(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        if records is None or get_rank(records[self.terminal_key]) == 0:
+        if records is None or get_rank(records[self.some_key]) == 0:
             return
-        num_records = len(records[self.terminal_key])
+        num_records = len(records[self.some_key])
 
         if num_records == 1:
             if self.index >= self.size:

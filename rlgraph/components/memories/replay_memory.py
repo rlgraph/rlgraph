@@ -20,10 +20,9 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils import util, DataOpDict
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
 from rlgraph.utils.util import get_batch_size
-from rlgraph.utils.decorators import rlgraph_api
-
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -55,14 +54,12 @@ class ReplayMemory(Memory):
     def create_variables(self, input_spaces, action_space=None):
         super(ReplayMemory, self).create_variables(input_spaces, action_space)
 
-        # Record space must contain 'terminals' for a replay memory.
-        assert 'terminals' in self.record_space
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        num_records = get_batch_size(records[self.terminal_key])
+        num_records = get_batch_size(records[self.some_key])
         if get_backend() == "tf":
             # List of indices to update (insert from `index` forward and roll over at `self.capacity`).
             update_indices = tf.range(start=self.index, limit=self.index + num_records) % self.capacity

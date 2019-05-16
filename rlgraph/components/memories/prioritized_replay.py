@@ -18,10 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph import get_backend
-from rlgraph.components.memories.memory import Memory
 from rlgraph.components.helpers.segment_tree import SegmentTree
+from rlgraph.components.memories.memory import Memory
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import get_batch_size
 
@@ -69,9 +68,6 @@ class PrioritizedReplay(Memory):
     def create_variables(self, input_spaces, action_space=None):
         super(PrioritizedReplay, self).create_variables(input_spaces, action_space)
 
-        # Record space must contain 'terminals' for a replay memory.
-        assert 'terminals' in self.record_space
-
         # Main buffer index.
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
 
@@ -105,7 +101,7 @@ class PrioritizedReplay(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        num_records = get_batch_size(records[self.terminal_key])
+        num_records = get_batch_size(records[self.some_key])
         index = self.read_variable(self.index)
         update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
