@@ -21,11 +21,12 @@ import logging
 import os
 import unittest
 
-from rlgraph.environments import OpenAIGymEnv, GridWorld
+import numpy as np
 from rlgraph.agents import ActorCriticAgent
+from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
-from rlgraph.utils import root_logger
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
+from rlgraph.utils import root_logger
 
 
 class TestActorCriticShortTaskLearning(unittest.TestCase):
@@ -48,7 +49,7 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
             execution_spec=dict(seed=13),
         )
 
-        time_steps = 30000
+        time_steps = 3000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
@@ -58,6 +59,13 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print(results)
+
+        # Check value function outputs for states 0 and 1.
+        values = agent.graph_executor.execute(
+            ("get_state_values", np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]]))
+        )[0]
+        recursive_assert_almost_equal(values[0], 0.0, decimals=1)  # state 0 should have a value of 0.0
+        recursive_assert_almost_equal(values[1], 1.0, decimals=1)  # state 1 should have a value of +1.0
 
         # Assume we have learned something.
         self.assertGreater(results["mean_episode_reward"], -0.1)

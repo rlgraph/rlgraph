@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, ContainerMerger, ContainerSplitter, RingBuffer
+from rlgraph.components import Memory, RingBuffer
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
 from rlgraph.spaces import FloatBox, BoolBox
@@ -133,24 +132,20 @@ class ActorCriticAgent(Agent):
             deterministic=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
+            advantages=reward_space,
             terminals=terminal_space,
             sequence_indices=BoolBox(add_batch_rank=True)
         ))
 
-        # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = ContainerMerger("states", "actions", "rewards", "terminals")
         self.memory = Memory.from_spec(memory_spec)
         assert isinstance(self.memory, RingBuffer), \
             "ERROR: Actor-critic memory must be ring-buffer for episode-handling."
-        # The splitter for splitting up the records coming from the memory.
-        self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals")
-
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount,
                                                            clip_rewards=clip_rewards)
         self.loss_function = ActorCriticLossFunction(weight_entropy=weight_entropy)
 
         # Add all our sub-components to the core.
-        sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
+        sub_components = [self.preprocessor, self.memory, self.policy,
                           self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer,
                           self.gae_function]
         self.root_component.add_components(*sub_components)
@@ -194,13 +189,13 @@ class ActorCriticAgent(Agent):
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
         def insert_records(root, preprocessed_states, actions, rewards, terminals):
-            records = agent.merger.merge(preprocessed_states, actions, rewards, terminals)
+            records = dict(states=preprocessed_states, actions=actions, rewards=rewards, terminals=terminals)
             return agent.memory.insert_records(records)
 
         @rlgraph_api(component=self.root_component)
         def post_process(root, preprocessed_states, rewards, terminals, sequence_indices):
-            baseline_values = agent.value_function.value_output(preprocessed_states)
-            pg_advantages = agent.gae_function.calc_gae_values(baseline_values, rewards, terminals, sequence_indices)
+            state_values = agent.value_function.value_output(preprocessed_states)
+            pg_advantages = agent.gae_function.calc_gae_values(state_values, rewards, terminals, sequence_indices)
             return pg_advantages
 
         # Learn from memory.
@@ -210,27 +205,25 @@ class ActorCriticAgent(Agent):
                 records = agent.memory.get_episodes(agent.update_spec["batch_size"])
             else:
                 records = agent.memory.get_records(agent.update_spec["batch_size"])
-            preprocessed_s, actions, rewards, terminals = agent.splitter.call(records)
-            sequence_indices = terminals
             return root.post_process_and_update(
-                preprocessed_s, actions, rewards, terminals, sequence_indices
+                records["states"], records["actions"], records["rewards"], records["terminals"],
+                records["sequence_indices"]
             )
 
         # First post-process, then update (so we can separately update already post-processed data).
         @rlgraph_api(component=self.root_component)
         def post_process_and_update(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
-            rewards = root.post_process(preprocessed_states, rewards, terminals, sequence_indices)
-            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals)
+            advantages = root.post_process(preprocessed_states, rewards, terminals, sequence_indices)
+            return root.update_from_external_batch(preprocessed_states, actions, advantages, terminals)
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
-        def update_from_external_batch(root, preprocessed_states, actions, rewards, terminals):
-
+        def update_from_external_batch(root, preprocessed_states, actions, advantages, terminals):
             baseline_values = agent.value_function.value_output(preprocessed_states)
             log_probs = agent.policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
             entropy = agent.policy.get_entropy(preprocessed_states)["entropy"]
             loss, loss_per_item, vf_loss, vf_loss_per_item = agent.loss_function.loss(
-                log_probs, baseline_values, rewards, entropy
+                log_probs, baseline_values, advantages, entropy
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
