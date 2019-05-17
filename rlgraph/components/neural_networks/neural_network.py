@@ -103,7 +103,9 @@ class NeuralNetwork(Stack):
 
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
-        self.inputs_splitter = ContainerSplitter(tuple_length=self.num_inputs, scope=".helper-inputs-splitter")
+        self.inputs_splitter = None
+        if self.num_inputs > 1:
+            self.inputs_splitter = ContainerSplitter(tuple_length=self.num_inputs, scope=".helper-inputs-splitter")
         self.add_components(self.inputs_splitter)
 
     def build_auto_api_method(self, stack_api_method_name, component_api_method_name, fold_time_rank=False,
