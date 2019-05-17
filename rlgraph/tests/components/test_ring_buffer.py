@@ -100,6 +100,13 @@ class TestRingBufferMemory(unittest.TestCase):
         self.assertEqual(num_episodes_value, 0)
         self.assertEqual(np.sum(episode_index_values), 0)
 
+        # If we fetch n elements, we expect to see exactly the last n.
+        for last_n in range(1, 6):
+            batch = test.test(("get_records", last_n), expected_outputs=None)
+            recursive_assert_almost_equal(batch["actions"]["action1"], observation["actions"]["action1"][-last_n:])
+            recursive_assert_almost_equal(batch["states"]["state2"], observation["states"]["state2"][-last_n:])
+            recursive_assert_almost_equal(batch["terminals"], observation["terminals"][-last_n:])
+
     def test_episode_indices_when_inserting(self):
         """
         Tests if episodes indices and counts are set correctly when inserting

@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
 
+import numpy as np
 from rlgraph.components.loss_functions import DQNLossFunction
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -71,7 +71,7 @@ class TestDQNLossFunctions(unittest.TestCase):
         L = 3150.037225
         """
 
-        # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
+        # Batch size=2 -> Expect 2 values returned by `loss_per_item`.
         expected_loss_per_item = np.array([64.979996, 6235.09445], dtype=np.float32)
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
@@ -124,7 +124,7 @@ class TestDQNLossFunctions(unittest.TestCase):
         L = 0.290725
         """
 
-        # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
+        # Batch size=2 -> Expect 2 values returned by `loss_per_item`.
         expected_loss_per_item = np.array([0.5202, 0.06125], dtype=np.float32)
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item, decimals=4)
         # Expect the mean over the batch.
@@ -180,7 +180,7 @@ class TestDQNLossFunctions(unittest.TestCase):
         L = 5.3509128625
         """
 
-        # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
+        # Batch size=2 -> Expect 2 values returned by `loss_per_item`.
         expected_loss_per_item = np.array([0.138689725, 10.563136], dtype=np.float32)
         print(test.test(("loss_per_item", input_), expected_outputs=None))
         # Just expect the mean over the batch.
@@ -264,7 +264,7 @@ class TestDQNLossFunctions(unittest.TestCase):
         L = 17.9921875
         """
 
-        # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
+        # Batch size=2 -> Expect 2 values returned by `loss_per_item`.
         expected_loss_per_item = np.array([0.28125, 0.125, 69.03125, 2.53125], dtype=np.float32)
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item)
         # Expect the mean over the batch.
@@ -324,7 +324,7 @@ class TestDQNLossFunctions(unittest.TestCase):
                =2.88
         """
 
-        # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
+        # Batch size=2 -> Expect 2 values returned by `loss_per_item`.
         expected_loss_per_item = np.array([2.8800], dtype=np.float32)
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item, decimals=4)
         # Just expect the mean over the batch.
@@ -402,7 +402,7 @@ class TestDQNLossFunctions(unittest.TestCase):
             
         """
 
-        # Batch size=2 -> Expect 2 values in the `loss_per_item` out-Socket.
+        # Batch size=2 -> Expect 2 values returned by `loss_per_item`.
         expected_loss_per_item = np.array([2.1204, 2.88], dtype=np.float32)
         test.test(("loss_per_item", input_), expected_outputs=expected_loss_per_item, decimals=4, print=True)
         # Just expect the mean over the batch.
