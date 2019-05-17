@@ -22,10 +22,9 @@ import random
 import time
 
 import numpy as np
-from six.moves import xrange as range_
-
 import rlgraph.spaces as spaces
 from rlgraph.environments import Environment
+from six.moves import xrange as range_
 
 
 class GridWorld(Environment):
@@ -101,7 +100,7 @@ class GridWorld(Environment):
             "    FF   W      ",
             "  H          H G"
         ],
-        "4-room": [
+        "4-room": [  # 30=start state, 79=goal state
             "     W     ",
             "     W     ",
             "        G  ",

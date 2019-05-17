@@ -55,7 +55,7 @@ class SACValueNetwork(ValueFunction):
 
             self.image_stack = Stack(image_components, scope="image-stack")
 
-            # Remainings layers should be dense.
+            # Remaining layers should be dense.
             for layer_spec in self.network_spec[len(image_components):]:
                 assert layer_spec["type"] == "dense", "Only expecting dense layers after image " \
                                                       "stack but found spec: {}.".format(layer_spec)

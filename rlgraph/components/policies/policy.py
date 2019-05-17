@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
@@ -391,8 +390,8 @@ class Policy(Component):
     @graph_fn(flatten_ops="flat_action_space", split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_get_distribution_entropies(self, flat_key, parameters):
         """
-        Pushes the given `probabilities` through all our distributions' `entropy` API-methods and returns a
-        DataOpDict with the keys corresponding to our `action_space`.
+        Pushes `parameters` through the respective self.distributions' `entropy` API-methods and returns a
+        DataOp with the entropy values.
 
         Args:
             parameters (DataOp): The parameters to define a distribution. This could be a ContainerDataOp, which

@@ -855,16 +855,16 @@ class GraphBuilder(Specifiable):
 
                 if return_ops is not None:
                     assert all(op in fetch_dict[api_method_name] for op in return_ops),\
-                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
-                        return_ops)
+                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `{}`!".format(
+                        return_ops, api_method_name)
             # API returns a tuple.
             else:
                 fetch_dict[api_method_name] = [op_rec.op for i, op_rec in enumerate(self.api[api_method_name][1]) if
                                                return_ops is None or i in return_ops]
                 if return_ops is not None:
                     assert len(fetch_dict[api_method_name]) == len(return_ops),\
-                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `api_method_call`!".format(
-                        return_ops)
+                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `{}`!".format(
+                        return_ops, api_method_name)
 
             for i, param in enumerate(params):
                 if param is None:
