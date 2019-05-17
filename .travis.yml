@@ -27,6 +27,8 @@ script:
   # Test learning capabilities (only one test per Agent).
   # DQN: Cartpole with dueling- and double-Q.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_dqn_agent_short_task_learning.py::TestDQNAgentShortTaskLearning::test_double_dueling_dqn_on_cart_pole';
+  # ActorCritic: GridWorld tests.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_actor_critic_agent_short_task_learning.py::TestActorCriticShortTaskLearning::test_actor_critic_on_2x2_grid_world';
   # IMPALA: Cartpole.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/agent_learning/short_tasks/test_impala_agent_short_task_learning.py::TestIMPALAAgentShortTaskLearning::test_impala_on_cart_pole';
   # PPO: Container-Action 2x2 Gridworld and Cartpole.
