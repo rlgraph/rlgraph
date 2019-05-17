@@ -22,10 +22,9 @@ import random
 import time
 
 import numpy as np
-from six.moves import xrange as range_
-
 import rlgraph.spaces as spaces
 from rlgraph.environments import Environment
+from six.moves import xrange as range_
 
 
 class GridWorld(Environment):
@@ -101,7 +100,7 @@ class GridWorld(Environment):
             "    FF   W      ",
             "  H          H G"
         ],
-        "4-room": [
+        "4-room": [  # 30=start state, 79=goal state
             "     W     ",
             "     W     ",
             "        G  ",
@@ -163,7 +162,7 @@ class GridWorld(Environment):
         # `world` is a list of lists that needs to be indexed using y/x pairs (first row, then column).
         self.world = world
         self.n_row, self.n_col = self.world.shape
-        (start_x,), (start_y,) = np.nonzero(self.world == "S")
+        (start_y,), (start_x,) = np.nonzero(self.world == "S")
 
         # Figure out our state space.
         assert state_representation in ["discrete", "xy", "xy+orientation", "camera"]
@@ -188,7 +187,7 @@ class GridWorld(Environment):
         self.reward_function = reward_function
 
         # Store the goal position for proximity calculations (for "potential" reward function).
-        (self.goal_x,), (self.goal_y,) = np.nonzero(self.world == "G")
+        (self.goal_y,), (self.goal_x,) = np.nonzero(self.world == "G")
 
         # Specify the actual action spaces.
         self.action_type = action_type
@@ -341,20 +340,25 @@ class GridWorld(Environment):
         return state, reward, terminal
 
     def render(self):
+        print(self.render_as_txt())
+
+    def render_as_txt(self):
         actor = "X"
         if self.action_type == "ftj":
             actor = "^" if self.orientation == 0 else ">" if self.orientation == 90 else "v" if \
                 self.orientation == 180 else "<"
 
         # paints itself
+        txt = ""
         for row in range_(len(self.world)):
             for col, val in enumerate(self.world[row]):
                 if self.x == col and self.y == row:
-                    print(actor, end="")
+                    txt += actor
                 else:
-                    print(val, end="")
-            print()
-        print()
+                    txt += val
+            txt += "\n"
+        txt += "\n"
+        return txt
 
     def __str__(self):
         return "GridWorld({})".format(self.description)
