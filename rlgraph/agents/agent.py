@@ -485,6 +485,32 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
+    def update_if_necessary(self, num_environments=1):
+        """
+        Calls update on the agent according to the update schedule set for this worker.
+
+        Args:
+            num_environments (int): Timesteps executed thus far.
+
+        Returns:
+            float: The summed up loss (over all self.update_steps).
+        """
+        if self.update_spec.get("do_updates"):
+            # Are we allowed to update?
+            if self.timesteps > self.update_spec.get("steps_before_update", 0) and \
+                    (self.observe_spec["buffer_enabled"] is False or  # No update before some data in buffer
+                     int(self.timesteps / num_environments) >= self.observe_spec["buffer_size"]):
+                # Updating according to one update mode:
+                if self.update_spec.get("update_mode", "time_steps") == "time_steps" and \
+                        self.timesteps % self.update_spec["update_interval"] == 0:
+                    return self.update()
+                # Do not do modulo here - this would be called every step in one episode otherwise.
+                elif self.update_spec.get("update_mode") == "episodes" and \
+                        self.episodes_since_update == self.update_spec["update_interval"]:
+                    self.episodes_since_update = 0
+                    return self.update()
+        return None
+
     def update(self, batch=None, **kwargs):
         """
         Performs an update on the computation graph either via externally experience or

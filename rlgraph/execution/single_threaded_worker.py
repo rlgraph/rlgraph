@@ -102,24 +102,26 @@ class SingleThreadedWorker(Worker):
         else:
             return None
 
-    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
+    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, # update_spec=None,
+                          use_exploration=True,
                           frameskip=None, reset=True):
         return self._execute(
             num_timesteps=num_timesteps,
             max_timesteps_per_episode=max_timesteps_per_episode,
             use_exploration=use_exploration,
-            update_spec=update_spec,
+            #update_spec=update_spec,
             frameskip=frameskip,
             reset=reset
         )
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, # update_spec=None,
+                         use_exploration=True,
                          frameskip=None, reset=True):
         return self._execute(
             num_episodes=num_episodes,
             max_timesteps_per_episode=max_timesteps_per_episode,
             use_exploration=use_exploration,
-            update_spec=update_spec,
+            #update_spec=update_spec,
             frameskip=frameskip,
             reset=reset
         )
@@ -130,7 +132,7 @@ class SingleThreadedWorker(Worker):
         num_episodes=None,
         max_timesteps_per_episode=None,
         use_exploration=True,
-        update_spec=None,
+        #update_spec=None,
         frameskip=None,
         reset=True
     ):
@@ -146,9 +148,9 @@ class SingleThreadedWorker(Worker):
                 when picking actions. Default: True.
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
-            update_spec (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
-                Matches the structure of an Agent's update_spec dict and will be "defaulted" by that dict.
-                See `input_parsing/parse_update_spec.py` for more details.
+            #update_spec (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
+            #    Matches the structure of an Agent's update_spec dict and will be "defaulted" by that dict.
+            #    See `input_parsing/parse_update_spec.py` for more details.
             frameskip (Optional[int]): How often actions are repeated after retrieving them from the agent.
                 Rewards are accumulated over the number of skips. Use None for the Worker's default value.
             reset (bool): Whether to reset the environment and all the Worker's internal counters.
@@ -160,8 +162,8 @@ class SingleThreadedWorker(Worker):
         assert num_timesteps is not None or num_episodes is not None,\
             "ERROR: One of `num_timesteps` or `num_episodes` must be provided!"
         # Are we updating or just acting/observing?
-        update_spec = default_dict(update_spec, self.agent.update_spec)
-        self.set_update_schedule(update_spec)
+        #update_spec = default_dict(update_spec, self.agent.update_spec)
+        #self.set_update_schedule(update_spec)
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
@@ -176,7 +178,7 @@ class SingleThreadedWorker(Worker):
         episode_terminals = self.episode_terminals
         if reset is True:
             self.env_frames = 0
-            self.episodes_since_update = 0
+            self.agent.episodes_since_update = 0
             self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
             self.finished_episode_durations = [[] for _ in range_(self.num_environments)]
             self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
@@ -284,7 +286,7 @@ class SingleThreadedWorker(Worker):
                 # Do accounting for finished episodes.
                 if episode_terminals[i]:
                     episodes_executed += 1
-                    self.episodes_since_update += 1
+                    self.agent.episodes_since_update += 1
                     episode_duration = time.perf_counter() - self.episode_starts[i]
                     self.finished_episode_rewards[i].append(self.episode_returns[i])
                     self.finished_episode_durations[i].append(episode_duration)
@@ -321,7 +323,9 @@ class SingleThreadedWorker(Worker):
                     self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],
                     episode_terminals[i], **other_data
                 )
-            self.update_if_necessary()
+            loss = self.agent.update_if_necessary()
+            if loss is not None:
+                self.log_finished_update(loss=loss)
             timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 
