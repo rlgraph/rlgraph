@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph.agents import Agent
 from rlgraph.components.algorithms.ppo_algorithm_component import PPOAlgorithmComponent
 from rlgraph.spaces import BoolBox, FloatBox
@@ -156,19 +155,17 @@ class PPOAgent(Agent):
         )
 
         # Extend input Space definitions to this Agent's specific API-methods.
-        reward_space = FloatBox(add_batch_rank=True)
-        terminal_space = BoolBox(add_batch_rank=True)
-
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             policy_weights="variables:policy",
             value_function_weights="variables:value-function",
             deterministic=bool,
             preprocessed_states=self.root_component.preprocessed_state_space.with_batch_rank(),
-            rewards=reward_space,
-            terminals=terminal_space,
+            rewards=FloatBox(add_batch_rank=True),
+            terminals=BoolBox(add_batch_rank=True),
             sequence_indices=BoolBox(add_batch_rank=True),
-            apply_postprocessing=bool
+            apply_postprocessing=bool,
+            num_records=int
         ))
 
         self.build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
@@ -183,6 +180,7 @@ class PPOAgent(Agent):
             )
             self.graph_built = True
 
+    # TODO: Move into Agent base class (it's always the same duplicate code).
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
         Args:
@@ -201,10 +199,10 @@ class PPOAgent(Agent):
         extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
-            call_method = "get_preprocessed_state_and_action"
+            call_method = "get_actions"
             batched_states = self.state_space.force_batch(states)
         else:
-            call_method = "action_from_preprocessed_state"
+            call_method = "get_actions_from_preprocessed_states"
             batched_states = states
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
@@ -213,7 +211,7 @@ class PPOAgent(Agent):
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
+        return_ops = ["actions"] + list(extra_returns)
         ret = self.graph_executor.execute((
             call_method,
             [batched_states, not use_exploration],  # deterministic = not use_exploration
@@ -225,9 +223,11 @@ class PPOAgent(Agent):
         else:
             return ret
 
-    # TODO make next states optional in observe API.
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
-        self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
+        sequence_indices = kwargs.pop("sequence_indices")
+        self.graph_executor.execute(
+            ("insert_records", [preprocessed_states, actions, rewards, terminals, sequence_indices])
+        )
 
     def update(self, batch=None, sequence_indices=None, apply_postprocessing=True):
         """
@@ -279,8 +279,8 @@ class PPOAgent(Agent):
                 if isinstance(ret, dict):
                     ret = ret["update_from_external_batch"]
 
-        # [0] loss, [1] loss per item
-        return ret[0], ret[1]
+        # [0/2] policy loss + vf loss, [1/3] losses per item
+        return ret[0] + ret[2], ret[1] + ret[3]
 
     def reset(self):
         """
