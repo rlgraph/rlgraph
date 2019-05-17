@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 from rlgraph import get_backend
 from rlgraph.agents import Agent
-from rlgraph.components import ContainerMerger, Memory, RingBuffer, PPOLossFunction
+from rlgraph.components import Memory, RingBuffer, PPOLossFunction
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
@@ -176,8 +176,6 @@ class PPOAgent(Agent):
             apply_postprocessing=bool
         ))
 
-        # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = ContainerMerger("states", "actions", "rewards", "terminals")
         self.memory = Memory.from_spec(memory_spec)
         assert isinstance(self.memory, RingBuffer), "ERROR: PPO memory must be ring-buffer for episode-handling!"
 
@@ -201,7 +199,7 @@ class PPOAgent(Agent):
 
         # Add all our sub-components to the core.
         self.root_component.add_components(
-            self.preprocessor, self.merger, self.memory,
+            self.preprocessor, self.memory,
             self.policy, self.exploration,
             self.loss_function, self.optimizer, self.value_function, self.value_function_optimizer, self.vars_merger,
             self.vars_splitter, self.gae_function
@@ -247,7 +245,7 @@ class PPOAgent(Agent):
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
         def insert_records(root, preprocessed_states, actions, rewards, terminals):
-            records = agent.merger.merge(preprocessed_states, actions, rewards, terminals)
+            records = dict(states=preprocessed_states, actions=actions, rewards=rewards, terminals=terminals)
             return agent.memory.insert_records(records)
 
         @rlgraph_api(component=self.root_component)
@@ -265,8 +263,7 @@ class PPOAgent(Agent):
                 records = agent.memory.get_records(self.update_spec["batch_size"])
 
             # Route to post process and update method.
-            # Use terminals as sequence indices.
-            sequence_indices = records["terminals"]
+            sequence_indices = records["terminals"]  # TODO: return correct seq-indices automatically from mem
             return root.update_from_external_batch(
                 records["states"], records["actions"], records["rewards"], records["terminals"],
                 sequence_indices, apply_postprocessing
