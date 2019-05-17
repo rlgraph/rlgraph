@@ -33,14 +33,19 @@ elif get_backend() == "pytorch":
 
 class RingBuffer(Memory):
     """
-    Simple ring-buffer to be used for on-policy sampling based on sample count
-    or episodes. Fetches most recently added memories.
-
-    API:
-        get_episodes(num_episodes) -> Returns `num_episodes` episodes from the memory.
+    Simple ring-buffer to be used for on-policy sampling based on sample count or episodes.
+    Fetches most recently added memories.
     """
-    def __init__(self, capacity=1000, scope="ring-buffer", **kwargs):
+    def __init__(self, capacity=1000, scope="ring-buffer", **kwargs):  #auto_sequence_indices=True
+        """
+        Args:
+            #auto_sequence_indices (bool): Whether to add sequence_indices=True automatically whenever data is inserted
+            #    and the last item does not have `terminal`=True. This requires `sequence_indices` to be a key in
+            #    `self.record_space`.
+        """
         super(RingBuffer, self).__init__(capacity, scope=scope, **kwargs)
+
+        #self.auto_sequence_indices = auto_sequence_indices
 
         self.index = None
         self.states = None
@@ -51,12 +56,10 @@ class RingBuffer(Memory):
     def create_variables(self, input_spaces, action_space=None):
         super(RingBuffer, self).create_variables(input_spaces, action_space)
 
-        # Record space must contain 'terminals' and 'sequence_indices' for a ring buffer memory.
-        # - Terminals are used to know when an episode has ended.
-        assert "terminals" in self.record_space, "ERROR: `record_space` must contain 'terminals' key!"
-        # - Sequence-indices are used to set to True if a continuous stretch of fetched records ends,
-        #   but the episode is not terminated yet. This is important for GAE calculations in PG algorithms.
-        assert "sequence_indices" in self.record_space, "ERROR: `record_space` must contain 'sequence_indices' key!"
+        # Record space must contain 'terminals' for a ring buffer memory.
+        assert "terminals" in self.record_space
+        #if self.auto_sequence_indices is True:
+        #    assert "sequence_indices" in self.record_space
 
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
         # Num episodes present.
@@ -77,7 +80,7 @@ class RingBuffer(Memory):
             update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
             # Episodes previously existing in the range we inserted to as indicated
-            # by count of terminals in the that slice.
+            # by count of terminals in that slice.
             insert_terminal_slice = self.read_variable(self.memory[self.terminal_key], update_indices)
 
             # Shift episode indices.

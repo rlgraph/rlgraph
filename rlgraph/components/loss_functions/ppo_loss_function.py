@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend
 from rlgraph.components.loss_functions import LossFunction
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import get_rank
 
 if get_backend() == "tf":
@@ -39,8 +39,11 @@ class PPOLossFunction(LossFunction):
         """
         Args:
             clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
-            value_function_clipping (float): Clipping value for the baseline object. If None, no clipping is applied.
-            **kwargs:
+
+            value_function_clipping (float): Clipping value for the ValueFunction component.
+                If None, no clipping is applied.
+
+            weight_entropy (Optional[float]): The weight with which to multiply the entropy and subtract from the loss.
         """
         self.clip_ratio = clip_ratio
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
@@ -60,7 +63,7 @@ class PPOLossFunction(LossFunction):
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
 
     @rlgraph_api
-    def loss(self, log_probs, prev_log_probs, baseline_values, prev_baseline_values, advantages, entropy):
+    def loss(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -68,33 +71,34 @@ class PPOLossFunction(LossFunction):
         Args: see `self._graph_fn_loss_per_item`.
 
         Returns:
-            Total loss, loss per item, total baseline loss, baseline loss per item.
+            Total loss, loss per item, total value-function loss, value-function loss per item.
         """
-        loss_per_item, baseline_loss_per_item = self.loss_per_item(
-            log_probs, prev_log_probs, baseline_values, prev_baseline_values, advantages, entropy
+        loss_per_item, vf_loss_per_item = self.loss_per_item(
+            log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy
         )
         total_loss = self.loss_average(loss_per_item)
-        total_baseline_loss = self.loss_average(baseline_loss_per_item)
+        total_vf_loss = self.loss_average(vf_loss_per_item)
 
-        return total_loss, loss_per_item, total_baseline_loss, baseline_loss_per_item
+        return total_loss, loss_per_item, total_vf_loss, vf_loss_per_item
 
     @rlgraph_api
-    def loss_per_item(self, log_probs, prev_log_probs, baseline_values, prev_baseline_values, advantages, entropy):
+    def loss_per_item(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy):
         # Get losses for each action.
         # Baseline loss for V(s) does not depend on actions, only on state.
-        baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, prev_baseline_values, advantages)
-        pg_loss_per_item = self._graph_fn_pg_loss_per_item(log_probs, prev_log_probs, advantages, entropy)
+        pg_loss_per_item = self.pg_loss_per_item(log_probs, prev_log_probs, advantages, entropy)
+        vf_loss_per_item = self.value_function_loss_per_item(state_values, prev_state_values, advantages)
 
-        # Average across action components.
+        # Average PG-loss across action components.
         pg_loss_per_item = self._graph_fn_average_over_container_keys(pg_loss_per_item)
 
-        return pg_loss_per_item, baseline_loss_per_item
+        return pg_loss_per_item, vf_loss_per_item
 
-    @graph_fn(flatten_ops=True, split_ops=True)
+    @rlgraph_api(flatten_ops=True, split_ops=True)
     def _graph_fn_pg_loss_per_item(self, log_probs, prev_log_probs, advantages, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
+            prev_log_probs (SingleDataOp) Log-likelihoods of actions under policy before this update step.
             advantages (SingleDataOp): The batch of post-processed generalized advantage estimations (GAEs).
             entropy (SingleDataOp): Policy entropy.
 
@@ -111,7 +115,8 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                advantages = tf.expand_dims(advantages, axis=1)
+                advantages = tf.expand_dims(advantages, axis=-1)
+                entropy = tf.expand_dims(entropy, axis=-1)
 
             clipped_advantages = tf.where(
                 condition=advantages > 0,
@@ -125,10 +130,10 @@ class PPOLossFunction(LossFunction):
             loss -= self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
-            if get_rank(loss) > 1:
+            if self.ranks_to_reduce > 0:
                 loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
 
-            return tf.squeeze(loss)
+            return tf.squeeze(loss, axis=-1)
 
         elif get_backend() == "pytorch":
             # Likelihood ratio and clipped objective.
@@ -136,7 +141,8 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                advantages = torch.unsqueeze(advantages, dim=1)
+                advantages = torch.unsqueeze(advantages, dim=-1)
+                entropy = torch.unsqueeze(entropy, dim=-1)
 
             clipped_advantages = torch.where(
                 advantages > 0,
@@ -150,50 +156,50 @@ class PPOLossFunction(LossFunction):
             loss -= self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
-            if get_rank(loss) > 1:
+            if self.ranks_to_reduce > 0:
                 loss = torch.mean(loss, tuple(range(1, self.ranks_to_reduce + 1)), keepdim=False)
 
             return torch.squeeze(loss, dim=-1)
 
     @rlgraph_api
-    def _graph_fn_baseline_loss_per_item(self, baseline_values, prev_baseline_values, advantages):
+    def _graph_fn_value_function_loss_per_item(self, state_values, prev_state_values, advantages):
         """
         Computes the loss for V(s).
 
         Args:
-            baseline_values (SingleDataOp): Baseline predictions V(s).
-            prev_baseline_values (SingleDataOp): Previous baseline predictions V(s).
-            advantages (SingleDataOp): Advantage values.
+            state_values (SingleDataOp): State value predictions V(s).
+            prev_state_values (SingleDataOp): Previous state value predictions V(s) (before the update).
+            advantages (SingleDataOp): GAE (advantage) values.
 
         Returns:
-            SingleDataOp: Baseline loss per item.
+            SingleDataOp: Value function loss per item.
         """
         if get_backend() == "tf":
-            baseline_values = tf.squeeze(input=baseline_values, axis=-1)
-            prev_baseline_values = tf.squeeze(input=prev_baseline_values, axis=-1)
-            v_targets = advantages + prev_baseline_values
+            state_values = tf.squeeze(input=state_values, axis=-1)
+            prev_state_values = tf.squeeze(input=prev_state_values, axis=-1)
+            v_targets = advantages + prev_state_values
             v_targets = tf.stop_gradient(input=v_targets)
-            baseline_loss = (baseline_values - v_targets) ** 2
-            if self.value_function_clipping is not None:
-                vf_clipped = prev_baseline_values + tf.clip_by_value(
-                    baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
+            vf_loss = (state_values - v_targets) ** 2
+            if self.value_function_clipping:
+                vf_clipped = prev_state_values + tf.clip_by_value(
+                    state_values - prev_state_values, -self.value_function_clipping, self.value_function_clipping
                 )
                 clipped_loss = (vf_clipped - v_targets) ** 2
-                return tf.squeeze(tf.maximum(baseline_loss, clipped_loss))
+                return tf.maximum(vf_loss, clipped_loss)
             else:
-                return tf.squeeze(baseline_loss)
+                return vf_loss
 
         elif get_backend() == "pytorch":
-            baseline_values = torch.squeeze(baseline_values, dim=-1)
-            prev_baseline_values = torch.squeeze(input=prev_baseline_values, dim=-1)
-            v_targets = advantages + prev_baseline_values
+            state_values = torch.squeeze(state_values, dim=-1)
+            prev_state_values = torch.squeeze(input=prev_state_values, dim=-1)
+            v_targets = advantages + prev_state_values
             v_targets = v_targets.detach()
-            baseline_loss = (baseline_values - v_targets) ** 2
-            if self.value_function_clipping is not None:
-                vf_clipped = prev_baseline_values + torch.clamp(
-                    baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
+            vf_loss = (state_values - v_targets) ** 2
+            if self.value_function_clipping:
+                vf_clipped = prev_state_values + torch.clamp(
+                    state_values - prev_state_values, -self.value_function_clipping, self.value_function_clipping
                 )
                 clipped_loss = (vf_clipped - v_targets) ** 2
-                return torch.squeeze(torch.max(baseline_loss, clipped_loss), dim=-1)
+                return torch.max(vf_loss, clipped_loss)
             else:
-                return torch.squeeze(baseline_loss, dim=-1)
+                return vf_loss
