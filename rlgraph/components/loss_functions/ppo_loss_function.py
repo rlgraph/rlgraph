@@ -115,7 +115,8 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                advantages = tf.expand_dims(advantages, axis=1)
+                advantages = tf.expand_dims(advantages, axis=-1)
+                entropy = tf.expand_dims(entropy, axis=-1)
 
             clipped_advantages = tf.where(
                 condition=advantages > 0,
@@ -129,10 +130,10 @@ class PPOLossFunction(LossFunction):
             loss -= self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
-            if get_rank(loss) > 1:
+            if self.ranks_to_reduce > 0:
                 loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
 
-            return tf.squeeze(loss)
+            return tf.squeeze(loss, axis=-1)
 
         elif get_backend() == "pytorch":
             # Likelihood ratio and clipped objective.
@@ -140,7 +141,8 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                advantages = torch.unsqueeze(advantages, dim=1)
+                advantages = torch.unsqueeze(advantages, dim=-1)
+                entropy = torch.unsqueeze(entropy, dim=-1)
 
             clipped_advantages = torch.where(
                 advantages > 0,
@@ -154,7 +156,7 @@ class PPOLossFunction(LossFunction):
             loss -= self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
-            if get_rank(loss) > 1:
+            if self.ranks_to_reduce > 0:
                 loss = torch.mean(loss, tuple(range(1, self.ranks_to_reduce + 1)), keepdim=False)
 
             return torch.squeeze(loss, dim=-1)
@@ -183,9 +185,9 @@ class PPOLossFunction(LossFunction):
                     state_values - prev_state_values, -self.value_function_clipping, self.value_function_clipping
                 )
                 clipped_loss = (vf_clipped - v_targets) ** 2
-                return tf.squeeze(tf.maximum(baseline_loss, clipped_loss))
+                return tf.maximum(vf_loss, clipped_loss)
             else:
-                return tf.squeeze(baseline_loss)
+                return vf_loss
 
         elif get_backend() == "pytorch":
             state_values = torch.squeeze(state_values, dim=-1)
@@ -198,6 +200,6 @@ class PPOLossFunction(LossFunction):
                     state_values - prev_state_values, -self.value_function_clipping, self.value_function_clipping
                 )
                 clipped_loss = (vf_clipped - v_targets) ** 2
-                return torch.squeeze(torch.max(baseline_loss, clipped_loss), dim=-1)
+                return torch.max(vf_loss, clipped_loss)
             else:
-                return torch.squeeze(baseline_loss, dim=-1)
+                return vf_loss
