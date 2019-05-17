@@ -171,7 +171,9 @@ def flatten_op(
     # Are we in the non-recursive (first) call?
     if op_tuple_list is None:
         # Flatten a SingleDataOp -> return FlattenedDataOp with only-key="".
-        if not isinstance(op, (ContainerDataOp, dict, tuple)):
+        # OR: flatten_alongside something, and that something is not flattened (its only key is "").
+        if not isinstance(op, (ContainerDataOp, dict, tuple)) or \
+                (flatten_alongside is not None and len(flatten_alongside) == 1 and "" in flatten_alongside):
             return FlattenedDataOp([("", op)])
         op_tuple_list = []
         ret = True
