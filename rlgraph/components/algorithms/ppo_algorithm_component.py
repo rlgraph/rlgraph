@@ -95,7 +95,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
 
     # Learn from memory.
     @rlgraph_api
-    def update_from_memory(self, apply_postprocessing=True):
+    def update_from_memory(self, apply_postprocessing=True, time_step=1):
         if self.sample_episodes:
             records = self.memory.get_episodes(self.batch_size)
         else:
@@ -104,7 +104,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
         # Route to post process and update method.
         return self.update_from_external_batch(
             records["states"], records["actions"], records["rewards"], records["terminals"],
-            records["sequence_indices"], apply_postprocessing
+            records["sequence_indices"], apply_postprocessing=apply_postprocessing, time_step=time_step
         )
 
     # Retrieve some records from memory.
@@ -116,7 +116,8 @@ class PPOAlgorithmComponent(AlgorithmComponent):
     # multiple parents are not allowed currently.
     @rlgraph_api
     def _graph_fn_update_from_external_batch(
-            self, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing=True
+            self, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing=True,
+            time_step=1
     ):
         """
         Calls iterative optimization by repeatedly sub-sampling.
@@ -213,7 +214,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 loss, loss_per_item, vf_loss, vf_loss_per_item = \
                     self.loss_function.loss(
                         sample_log_probs, sample_prev_log_probs,
-                        sample_state_values, sample_prev_state_values, sample_advantages, entropy
+                        sample_state_values, sample_prev_state_values, sample_advantages, entropy, time_step=time_step
                     )
 
                 if hasattr(self, "is_multi_gpu_tower") and self.is_multi_gpu_tower is True:
@@ -304,7 +305,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 entropy = self.policy.get_entropy(sample_states)["entropy"]
                 loss, loss_per_item, vf_loss, vf_loss_per_item = self.loss_function.loss(
                     sample_log_probs, sample_prev_log_probs,
-                    sample_state_values,  sample_prev_state_values, sample_advantages, entropy
+                    sample_state_values,  sample_prev_state_values, sample_advantages, entropy, time_step=time_step
                 )
 
                 # Do not need step op.
@@ -313,3 +314,22 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                     self.value_function_optimizer.step(self.value_function.variables(), vf_loss, vf_loss_per_item)
             return loss, loss_per_item, vf_loss, vf_loss_per_item
 
+    # TEST: Returns unstandardized(!) advantages for debugging purposes.
+    @rlgraph_api
+    def _graph_fn_get_gae(self, num_records=1):
+        records = self.get_records(num_records)
+        prev_state_values = self.value_function.value_output(records["states"])
+
+        if get_backend() == "tf":
+            # State values before update (stop-gradient as these are used in target term).
+            prev_state_values = tf.stop_gradient(prev_state_values)
+
+            # Advantages are based on previous state values.
+            advantages = self.gae_function.calc_gae_values(
+                prev_state_values, records["rewards"], records["terminals"], records["sequence_indices"]
+            )
+            # Advantages are based on previous state values.
+            td_errors = self.gae_function.calc_td_errors(
+                prev_state_values, records["rewards"], records["terminals"], records["sequence_indices"]
+            )
+        return prev_state_values, advantages, td_errors, records["rewards"], records["terminals"], records["sequence_indices"]
