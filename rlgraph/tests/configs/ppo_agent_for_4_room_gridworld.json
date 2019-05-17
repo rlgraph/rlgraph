@@ -1,0 +1,75 @@
+{
+  "type": "ppo",
+
+  "sample_episodes": false,
+  "standardize_advantages": true,
+
+  "clip_ratio": 0.2,
+  "discount": 0.99,
+  "gae_lambda": 0.7,
+
+  "observe_spec": {
+    "buffer_size": 1000
+  },
+
+  "update_spec": {
+    "do_updates": true,
+    "update_mode": "time_steps",
+    "update_interval": 16,
+    "batch_size": 128,
+    "num_iterations": 10,
+    "sample_size": 32
+  },
+
+  "memory_spec":
+  {
+    "type": "ring-buffer",
+    "capacity": 1000
+  },
+
+  "preprocessing_spec":
+  [
+    {
+      "type": "reshape",
+      "flatten": true,
+      "flatten_categories": 121
+    }
+  ],
+
+  "network_spec":
+  [
+    {
+      "type": "dense",
+      "units": 128,
+      "activation": "linear",
+      "scope": "hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 128,
+      "activation": "linear",
+      "scope": "hidden2"
+    }
+  ],
+
+  "value_function_spec":
+  [
+    {
+      "type": "dense",
+      "units": 64,
+      "activation": "linear",
+      "scope": "vf-hidden1"
+    },
+    {
+      "type": "dense",
+      "units": 64,
+      "activation": "linear",
+      "scope": "vf-hidden2"
+    }
+  ],
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.0001
+  }
+}

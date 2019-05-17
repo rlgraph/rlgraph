@@ -18,13 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-import numpy as np
-from six.moves import xrange as range_
 
+import numpy as np
 from rlgraph.components.memories.ring_buffer import RingBuffer
 from rlgraph.spaces import Dict, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import non_terminal_records, terminal_records, recursive_assert_almost_equal
+from six.moves import xrange as range_
 
 
 class TestRingBufferMemory(unittest.TestCase):
@@ -236,7 +236,7 @@ class TestRingBufferMemory(unittest.TestCase):
 
         # First, test if the basic computation works.
         batch = test.test(("get_records", 5), expected_outputs=None)
-        self.assertEqual(len(batch['terminals']), 5)
+        recursive_assert_almost_equal(batch, observation)
 
         # Next, insert capacity more elements:
         observation = non_terminal_records(self.record_space, self.capacity)
@@ -244,8 +244,12 @@ class TestRingBufferMemory(unittest.TestCase):
 
         # If we now fetch capacity elements, we expect to see exactly the last 10.
         batch = test.test(("get_records", self.capacity), expected_outputs=None)
+        recursive_assert_almost_equal(batch, observation)
 
-        # Assert every inserted element is contained, even if not in same order:
-        retrieved_action = batch['actions']['action1']
-        for action_value in observation['actions']['action1']:
-            self.assertTrue(action_value in retrieved_action)
+        # If we fetch n elements, we expect to see exactly the last n.
+        for last_n in range(1, 6):
+            batch = test.test(("get_records", last_n), expected_outputs=None)
+            recursive_assert_almost_equal(batch["actions"]["action1"], observation["actions"]["action1"][-last_n:])
+            recursive_assert_almost_equal(batch["states"]["state2"], observation["states"]["state2"][-last_n:])
+            recursive_assert_almost_equal(batch["terminals"], observation["terminals"][-last_n:])
+

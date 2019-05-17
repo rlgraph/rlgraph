@@ -20,9 +20,9 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils import util, DataOpDict
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
 from rlgraph.utils.util import get_batch_size
-from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -72,7 +72,7 @@ class RingBuffer(Memory):
             update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
             # Episodes previously existing in the range we inserted to as indicated
-            # by count of terminals in the that slice.
+            # by count of terminals in that slice.
             insert_terminal_slice = self.read_variable(self.memory[self.terminal_key], update_indices)
 
             # Shift episode indices.

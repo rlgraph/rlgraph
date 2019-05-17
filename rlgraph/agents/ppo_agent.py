@@ -334,7 +334,7 @@ class PPOAgent(Agent):
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
                     sample_advantages = tf.gather(params=advantages, indices=indices)
-                    sample_advantages.set_shape((self.sample_size,))
+                    sample_advantages.set_shape((agent.sample_size,))
 
                     sample_state_values = value_function.value_output(sample_states)
                     sample_prev_state_values = tf.gather(params=prev_state_values, indices=indices)
@@ -433,7 +433,7 @@ class PPOAgent(Agent):
 
             elif get_backend() == "pytorch":
                 batch_size = preprocessed_states.shape[0]
-                sample_size = min(batch_size, self.sample_size)
+                sample_size = min(batch_size, agent.sample_size)
 
                 if isinstance(prev_log_probs, dict):
                     for name in actions.keys():

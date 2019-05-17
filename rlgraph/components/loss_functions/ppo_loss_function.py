@@ -95,6 +95,7 @@ class PPOLossFunction(LossFunction):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
+            prev_log_probs (SingleDataOp) Log-likelihoods of actions under policy before this update step.
             advantages (SingleDataOp): The batch of post-processed generalized advantage estimations (GAEs).
             entropy (SingleDataOp): Policy entropy.
 
