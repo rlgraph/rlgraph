@@ -23,6 +23,7 @@ from rlgraph.components import Exploration, PreprocessorStack, Synchronizable, P
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.input_parsing import parse_value_function_spec
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -124,6 +125,13 @@ class AlgorithmComponent(Component):
         self.add_components(self.preprocessor, self.policy, self.value_function, self.vars_merger, self.vars_splitter,
                             self.exploration, self.optimizer, self.value_function_optimizer)
 
+        # Add reset-preprocessor API, if necessary.
+        if self.preprocessing_required:
+            @rlgraph_api(component=self)
+            def reset_preprocessor(self):
+                reset_op = self.preprocessor.reset()
+                return reset_op
+
         # Get state value default API.
         if self.value_function is not None:
             # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
@@ -158,11 +166,66 @@ class AlgorithmComponent(Component):
                     return policy_sync_op
 
     @rlgraph_api
+    def get_preprocessed_states(self, states):
+        """
+        Args:
+            states (DataOpRec): The states to preprocess via the Component's PreprocessorStack (if any).
+
+        Returns:
+            DataOpRec: The preprocessed states (or the original states if there is no PreprocessorStack).
+        """
+        if self.preprocessing_required is True:
+            return self.preprocessor.preprocess(states)
+        return states
+
+    @rlgraph_api
+    def get_actions(self, states, deterministic=False):
+        """
+        Args:
+            states (DataOpRec): The states from which to derive actions (via mapping through the policy's NNs).
+            deterministic (DataOpRec(bool)): Whether to draw the action deterministically (deterministic sampling
+                from the Policy's distribution(s)).
+
+        Returns:
+            DataOpRec(dict):
+                `actions`: The drawn action.
+                `preprocessed_states`: The preprocessed states.
+                `[other data]`: Depending on the AlgorithmComponent.
+        """
+        preprocessed_states = self.get_preprocessed_states(states)
+        return self.get_actions_from_preprocessed_states(preprocessed_states, deterministic)
+
+    @rlgraph_api
+    def get_actions_from_preprocessed_states(self, preprocessed_states, deterministic=False):
+        """
+        Args:
+            preprocessed_states (DataOpRec): The already preprocessed states from which to derive actions
+                (via mapping through the policy's NNs).
+            deterministic (DataOpRec(bool)): Whether to draw the action deterministically (deterministic sampling
+                from the Policy's distribution(s)).
+
+        Returns:
+            DataOpRec(dict):
+                `actions`: The drawn action.
+                `preprocessed_states`: The preprocessed states.
+                `[other data]`: Depending on the AlgorithmComponent.
+        """
+        out = self.policy.get_action(preprocessed_states, deterministic=deterministic)
+        return dict(actions=out["action"], preprocessed_states=preprocessed_states)
+
+    @rlgraph_api
     def update_from_memory(self, **kwargs):
+        """
+        Updates this Component's Policy/ValueFunction or other optimizable sub-components via pulling samples from
+        the memory.
+        """
         raise NotImplementedError
 
     @rlgraph_api
-    def update_from_external_batch(self, batch, **kwargs):
+    def update_from_external_batch(self, **kwargs):
+        """
+        Updates this Component's Policy/ValueFunction or other optimizable sub-components via some (external) data.
+        """
         raise NotImplementedError
 
     # Add API methods for syncing.
@@ -172,12 +235,6 @@ class AlgorithmComponent(Component):
         if get_backend() == "tf":
             return tf.group(*ops)
         return ops[0]
-
-    # To pre-process external data if needed.
-    @rlgraph_api
-    def preprocess_states(self, states):
-        #preprocessor = self.get_sub_component_by_name(self.agent.preprocessor.scope)
-        return self.preprocessor.preprocess(states)
 
     @graph_fn
     def _graph_fn_training_step(self, other_step_op=None):
@@ -203,3 +260,12 @@ class AlgorithmComponent(Component):
         elif get_backend == "pytorch":
             self.agent.graph_executor.global_training_timestep += 1
             return None
+
+    def preprocess_states(self, nn_inputs):
+        raise RLGraphObsoletedError("API-method", "preprocess_states", "get_preprocessed_states")
+
+    def get_preprocessed_state_and_action(self, nn_inputs):
+        raise RLGraphObsoletedError("API-method", "get_preprocessed_state_and_action", "get_actions")
+
+    def action_from_preprocessed_state(self, nn_inputs):
+        raise RLGraphObsoletedError("API-method", "action_from_preprocessed_state", "get_actions_from_preprocessed_states")
