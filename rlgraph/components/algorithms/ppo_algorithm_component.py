@@ -150,7 +150,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 advantages = (advantages - mean) / std
 
             def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
-                start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
+                start = tf.random_uniform(shape=(), minval=0, maxval=batch_size, dtype=tf.int32)
                 indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
                 sample_states = tf.gather(params=preprocessed_states, indices=indices)
                 if isinstance(actions, ContainerDataOp):
