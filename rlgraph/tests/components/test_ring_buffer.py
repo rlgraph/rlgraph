@@ -18,13 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-import numpy as np
-from six.moves import xrange as range_
 
+import numpy as np
 from rlgraph.components.memories.ring_buffer import RingBuffer
 from rlgraph.spaces import Dict, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import non_terminal_records, terminal_records, recursive_assert_almost_equal
+from six.moves import xrange as range_
 
 
 class TestRingBufferMemory(unittest.TestCase):
@@ -39,6 +39,7 @@ class TestRingBufferMemory(unittest.TestCase):
         actions=dict(action1=float),
         rewards=float,
         terminals=BoolBox(),
+        sequence_indices=BoolBox(),
         add_batch_rank=True
     )
     # Generic memory variables.

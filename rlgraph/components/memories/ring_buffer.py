@@ -20,9 +20,9 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils import util, DataOpDict
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
 from rlgraph.utils.util import get_batch_size
-from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -51,8 +51,13 @@ class RingBuffer(Memory):
     def create_variables(self, input_spaces, action_space=None):
         super(RingBuffer, self).create_variables(input_spaces, action_space)
 
-        # Record space must contain 'terminals' for a ring buffer memory.
-        assert 'terminals' in self.record_space
+        # Record space must contain 'terminals' and 'sequence_indices' for a ring buffer memory.
+        # - Terminals are used to know when an episode has ended.
+        assert "terminals" in self.record_space, "ERROR: `record_space` must contain 'terminals' key!"
+        # - Sequence-indices are used to set to True if a continuous stretch of fetched records ends,
+        #   but the episode is not terminated yet. This is important for GAE calculations in PG algorithms.
+        assert "sequence_indices" in self.record_space, "ERROR: `record_space` must contain 'sequence_indices' key!"
+
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
         # Num episodes present.
         self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
