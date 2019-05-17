@@ -53,6 +53,10 @@ class Distribution(Component):
         self.seed = kwargs.pop("seed", None)
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
+        # TEST
+        self.variable_complete = True
+        # END: TEST
+
         # For define-by-run to avoid creating new objects when calling `get_distribution`.
         self.dist_object = None
 
