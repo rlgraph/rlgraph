@@ -20,11 +20,11 @@ from __future__ import print_function
 from functools import partial
 
 from rlgraph import get_backend
-from rlgraph.utils import util
-from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.spaces.int_box import IntBox
 from rlgraph.components import Component
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.spaces.int_box import IntBox
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils import util
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.pytorch_util import pytorch_tile
 
 if get_backend() == "tf":
@@ -156,6 +156,7 @@ class DecayComponent(Component):
                             torch.FloatTensor([time_step - self.start_timestep])
                         )
 
+    @graph_fn
     def _graph_fn_decay(self, time_steps_in_decay_window):
         """
         The function that returns the DataOp to actually compute the decay during the decay time period.
@@ -184,6 +185,7 @@ class ConstantDecay(DecayComponent):
         super(ConstantDecay, self).__init__(scope=scope, **kwargs)
         self.constant_value = constant_value
 
+    @graph_fn
     def _graph_fn_decay(self, time_steps_in_decay_window):
         return self.constant_value
 
@@ -203,14 +205,12 @@ class PolynomialDecay(DecayComponent):
         """
         Args:
             power (float): The polynomial power to use (e.g. 1.0 for linear).
-
-        Keyword Args:
-            see DecayComponent
         """
         super(PolynomialDecay, self).__init__(scope=scope, **kwargs)
 
         self.power = power
 
+    @graph_fn
     def _graph_fn_decay(self, time_steps_in_decay_window):
         if get_backend() == "tf":
             return tf.train.polynomial_decay(
@@ -227,7 +227,7 @@ class PolynomialDecay(DecayComponent):
 
 
 # Create an alias for LinearDecay
-LinearDecay = partial(PolynomialDecay, power=1.0)
+LinearDecay = partial(PolynomialDecay, power=1.0, scope="linear-decay")
 
 
 class ExponentialDecay(DecayComponent):
@@ -259,6 +259,7 @@ class ExponentialDecay(DecayComponent):
 
         self.half_life_timesteps = half_life if half_life is not None else self.num_timesteps / num_half_lives
 
+    @graph_fn
     def _graph_fn_decay(self, time_steps_in_decay_window):
         if get_backend() == "tf":
             return tf.train.exponential_decay(

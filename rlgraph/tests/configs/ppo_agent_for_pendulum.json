@@ -2,18 +2,17 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": true,
-  "clip_ratio": 0.1,
+  "clip_ratio": 0.2,
   "discount": 0.995,
-  "gae_lambda": 0.6,
-  "weight_entropy": 0.001,
-  "value_function_clipping": 10.0,
+  "gae_lambda": 1.0,
+  "weight_entropy": 0.01,
 
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 2048
+    "capacity": 1000
   },
-   "preprocessing_spec": [
+  "preprocessing_spec": [
     {
       "type": "moving_standardize",
       "scope": "moving-standardize"
@@ -28,13 +27,13 @@
     {
       "type": "dense",
       "units": 256,
-      "activation": "relu",
+      "activation": "tanh",
       "scope": "hidden1"
     },
         {
       "type": "dense",
       "units": 256,
-      "activation": "relu",
+      "activation": "tanh",
       "scope": "hidden2"
     }
   ],
@@ -43,32 +42,32 @@
     {
       "type": "dense",
       "units": 256,
-      "activation": "relu",
+      "activation": "tanh",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
       "units": 256,
-      "activation": "relu",
+      "activation": "tanh",
       "scope": "vf-hidden2"
     }
   ],
 
   "update_spec": {
-    "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 200,
-    "batch_size": 512,
+    "update_mode": "time_steps",
+    "update_interval": 16,
+    "batch_size": 200,
     "num_iterations": 10,
-    "sample_size": 128
+    "sample_size": 50
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0003
+    "learning_rate": 0.0001
   },
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0003
+    "learning_rate": 0.0001
   }
 }

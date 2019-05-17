@@ -1,8 +1,8 @@
 {
   "type": "ppo",
   "sample_episodes": false,
-  "standardize_advantages": false,
-  "clip_ratio": 0.1,
+  "standardize_advantages": true,
+  "clip_ratio": 0.2,
   "discount": 0.99,
   "gae_lambda": 1.0,
   "weight_entropy": 0.001,
@@ -56,8 +56,8 @@
   ],
 
   "update_spec": {
-    "update_mode": "time_steps",
     "do_updates": true,
+    "update_mode": "time_steps",
     "update_interval": 16,
     "batch_size": 200,
     "num_iterations": 10,
