@@ -46,7 +46,8 @@ extras_require = {
     'gym': ['gym', 'atari-py'],  # To use openAI Gym Environments (e.g. Atari).
     'mlagents_env': ['mlagents'],  # To use MLAgents Environments (Unity3D).
     'horovod': 'horovod',
-    'ray': ['ray', 'lz4', 'pyarrow']
+    'ray': ['ray', 'lz4', 'pyarrow'],
+    'pygame': ["pygame"]
 }
 
 setup(
