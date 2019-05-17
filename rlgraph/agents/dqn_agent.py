@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, ContainerMerger, ContainerSplitter
 from rlgraph.spaces import FloatBox, BoolBox
@@ -215,13 +214,6 @@ class DQNAgent(Agent):
         super(DQNAgent, self).define_graph_api()
 
         agent = self
-
-        # Reset operation (resets preprocessor).
-        if self.preprocessing_required:
-            @rlgraph_api(component=self.root_component)
-            def reset_preprocessor(root):
-                reset_op = agent.preprocessor.reset()
-                return reset_op
 
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
