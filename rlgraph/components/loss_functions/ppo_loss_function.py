@@ -83,15 +83,15 @@ class PPOLossFunction(LossFunction):
         # Get losses for each action.
         # Baseline loss for V(s) does not depend on actions, only on state.
         baseline_loss_per_item = self._graph_fn_baseline_loss_per_item(baseline_values, prev_baseline_values, advantages)
-        loss_per_item = self._graph_fn_loss_per_item(log_probs, prev_log_probs, advantages, entropy)
+        pg_loss_per_item = self._graph_fn_pg_loss_per_item(log_probs, prev_log_probs, advantages, entropy)
 
         # Average across action components.
-        loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
+        pg_loss_per_item = self._graph_fn_average_over_container_keys(pg_loss_per_item)
 
-        return loss_per_item, baseline_loss_per_item
+        return pg_loss_per_item, baseline_loss_per_item
 
     @graph_fn(flatten_ops=True, split_ops=True)
-    def _graph_fn_loss_per_item(self, log_probs, prev_log_probs, advantages, entropy):
+    def _graph_fn_pg_loss_per_item(self, log_probs, prev_log_probs, advantages, entropy):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
@@ -170,31 +170,30 @@ class PPOLossFunction(LossFunction):
         """
         if get_backend() == "tf":
             baseline_values = tf.squeeze(input=baseline_values, axis=-1)
-            v_targets = advantages + baseline_values
+            prev_baseline_values = tf.squeeze(input=prev_baseline_values, axis=-1)
+            v_targets = advantages + prev_baseline_values
             v_targets = tf.stop_gradient(input=v_targets)
-            baseline_loss = (v_targets - baseline_values) ** 2
+            baseline_loss = (baseline_values - v_targets) ** 2
             if self.value_function_clipping is not None:
-                prev_baseline_values = tf.squeeze(input=prev_baseline_values, axis=-1)
                 vf_clipped = prev_baseline_values + tf.clip_by_value(
                     baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
                 )
-                clipped_loss = (v_targets - vf_clipped) ** 2
+                clipped_loss = (vf_clipped - v_targets) ** 2
                 return tf.squeeze(tf.maximum(baseline_loss, clipped_loss))
             else:
                 return tf.squeeze(baseline_loss)
 
         elif get_backend() == "pytorch":
             baseline_values = torch.squeeze(baseline_values, dim=-1)
-
-            v_targets = advantages + baseline_values
+            prev_baseline_values = torch.squeeze(input=prev_baseline_values, dim=-1)
+            v_targets = advantages + prev_baseline_values
             v_targets = v_targets.detach()
-            baseline_loss = (v_targets - baseline_values) ** 2
+            baseline_loss = (baseline_values - v_targets) ** 2
             if self.value_function_clipping is not None:
-                prev_baseline_values = torch.squeeze(input=prev_baseline_values, dim=-1)
                 vf_clipped = prev_baseline_values + torch.clamp(
                     baseline_values - prev_baseline_values, -self.value_function_clipping, self.value_function_clipping
                 )
-                clipped_loss = (v_targets - vf_clipped) ** 2
+                clipped_loss = (vf_clipped - v_targets) ** 2
                 return torch.squeeze(torch.max(baseline_loss, clipped_loss), dim=-1)
             else:
                 return torch.squeeze(baseline_loss, dim=-1)
