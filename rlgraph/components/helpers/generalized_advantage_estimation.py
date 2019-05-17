@@ -57,6 +57,7 @@ class GeneralizedAdvantageEstimation(Component):
             terminals (DataOp): Terminals in sample trajectory.
             sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
                 from multiple environments.
+
         Returns:
             1-Step TD Errors for the sequence.
         """
@@ -89,6 +90,6 @@ class GeneralizedAdvantageEstimation(Component):
 
         gae_discount = self.gae_lambda * self.discount
         # Apply gae discount to each sub-sequence.
-        # Note: sequences are indicateed by sequence indices, which may not be terminal.
+        # Note: sequences are indicated by sequence indices, which may not be terminal.
         gae_values = self.sequence_helper.reverse_apply_decays_to_sequence(deltas, sequence_indices, gae_discount)
         return gae_values

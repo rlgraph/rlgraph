@@ -276,7 +276,7 @@ class PPOAgent(Agent):
         # multiple parents are not allowed currently.
         @rlgraph_api(component=self.root_component)
         def _graph_fn_update_from_external_batch(
-                root, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing
+                root, preprocessed_states, actions, rewards, terminals, sequence_indices, apply_postprocessing=True
         ):
             """
             Calls iterative optimization by repeatedly sub-sampling.
@@ -293,28 +293,32 @@ class PPOAgent(Agent):
             value_function_optimizer = root.get_sub_component_by_name(agent.value_function_optimizer.scope)
             vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
             gae_function = root.get_sub_component_by_name(agent.gae_function.scope)
+
             prev_log_probs = policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
+            prev_state_values = value_function.value_output(preprocessed_states)
 
             if get_backend() == "tf":
-                # Log probs before update.
-                prev_log_probs = tf.stop_gradient(prev_log_probs)
                 batch_size = tf.shape(preprocessed_states)[0]
-                prior_baseline_values = tf.stop_gradient(value_function.value_output(preprocessed_states))
 
-                # Advantages are based on prior baseline values.
+                # Log probs before update (stop-gradient as these are used in target term).
+                prev_log_probs = tf.stop_gradient(prev_log_probs)
+                # State values before update (stop-gradient as these are used in target term).
+                prev_state_values = tf.stop_gradient(prev_state_values)
+
+                # Advantages are based on previous state values.
                 advantages = tf.cond(
-                        pred=apply_postprocessing,
-                        true_fn=lambda: gae_function.calc_gae_values(
-                            prior_baseline_values, rewards, terminals, sequence_indices),
-                        false_fn=lambda: rewards
-                    )
-
+                    pred=apply_postprocessing,
+                    true_fn=lambda: gae_function.calc_gae_values(
+                        prev_state_values, rewards, terminals, sequence_indices
+                    ),
+                    false_fn=lambda: rewards
+                )
                 if self.standardize_advantages:
                     mean, std = tf.nn.moments(x=advantages, axes=[0])
                     advantages = (advantages - mean) / std
 
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
-                    start = tf.random_uniform(shape=(), minval=0, maxval=batch_size - 1, dtype=tf.int32)
+                    start = tf.random_uniform(shape=(), minval=0, maxval=batch_size, dtype=tf.int32)
                     indices = tf.range(start=start, limit=start + agent.sample_size) % batch_size
                     sample_states = tf.gather(params=preprocessed_states, indices=indices)
                     if isinstance(actions, ContainerDataOp):
@@ -325,15 +329,15 @@ class PPOAgent(Agent):
                     else:
                         sample_actions = tf.gather(params=actions, indices=indices)
 
-                    sample_prior_log_probs = tf.gather(params=prev_log_probs, indices=indices)
+                    sample_prev_log_probs = tf.gather(params=prev_log_probs, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
                     sample_sequence_indices = tf.gather(params=sequence_indices, indices=indices)
                     sample_advantages = tf.gather(params=advantages, indices=indices)
-                    sample_advantages.set_shape((self.sample_size, ))
+                    sample_advantages.set_shape((self.sample_size,))
 
-                    sample_baseline_values = value_function.value_output(sample_states)
-                    sample_prior_baseline_values = tf.gather(params=prior_baseline_values, indices=indices)
+                    sample_state_values = value_function.value_output(sample_states)
+                    sample_prev_state_values = tf.gather(params=prev_state_values, indices=indices)
 
                     # If we are a multi-GPU root:
                     # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -370,21 +374,14 @@ class PPOAgent(Agent):
                                 out["loss"] = root._graph_fn_training_step(out["loss"])
                             return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
 
-                    policy_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-                    baseline_values = value_function.value_output(tf.stop_gradient(sample_states))
-                    sample_rewards = tf.cond(
-                        pred=apply_postprocessing,
-                        true_fn=lambda: gae_function.calc_gae_values(
-                            baseline_values, sample_rewards, sample_terminals, sample_sequence_indices),
-                        false_fn=lambda: sample_rewards
-                    )
-                    sample_rewards.set_shape((agent.sample_size, ))
+                    sample_log_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
+
                     entropy = policy.get_entropy(sample_states)["entropy"]
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
-                            policy_probs, sample_prior_log_probs,
-                            sample_baseline_values, sample_prior_baseline_values, sample_advantages, entropy
+                            sample_log_probs, sample_prev_log_probs,
+                            sample_state_values, sample_prev_state_values, sample_advantages, entropy
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
@@ -435,17 +432,17 @@ class PPOAgent(Agent):
                     return loss, loss_per_item, vf_loss, vf_loss_per_item
 
             elif get_backend() == "pytorch":
+                batch_size = preprocessed_states.shape[0]
+                sample_size = min(batch_size, self.sample_size)
+
                 if isinstance(prev_log_probs, dict):
                     for name in actions.keys():
                         prev_log_probs[name] = prev_log_probs[name].detach()
                 else:
                     prev_log_probs = prev_log_probs.detach()
-                batch_size = preprocessed_states.shape[0]
-                sample_size = min(batch_size, agent.sample_size)
-                prior_baseline_values = value_function.value_output(preprocessed_states).detach()
+                prev_state_values = value_function.value_output(preprocessed_states).detach()
                 if apply_postprocessing:
-                    advantages = gae_function.calc_gae_values(
-                        prior_baseline_values, rewards, terminals, sequence_indices)
+                    advantages = gae_function.calc_gae_values(prev_state_values, rewards, terminals, sequence_indices)
                 else:
                     advantages = rewards
                 if self.standardize_advantages:
@@ -458,24 +455,24 @@ class PPOAgent(Agent):
 
                     if isinstance(actions, dict):
                         sample_actions = DataOpDict()
-                        sample_prior_log_probs = DataOpDict()
+                        sample_prev_log_probs = DataOpDict()
                         for name, action in define_by_run_flatten(actions, scope_separator_at_start=False).items():
                             sample_actions[name] = torch.index_select(action, 0, indices)
-                            sample_prior_log_probs[name] = torch.index_select(prev_log_probs[name], 0, indices)
+                            sample_prev_log_probs[name] = torch.index_select(prev_log_probs[name], 0, indices)
                     else:
                         sample_actions = torch.index_select(actions, 0, indices)
-                        sample_prior_log_probs = torch.index_select(prev_log_probs, 0, indices)
+                        sample_prev_log_probs = torch.index_select(prev_log_probs, 0, indices)
 
                     sample_advantages = torch.index_select(advantages, 0, indices)
-                    sample_prior_baseline_values = torch.index_select(prior_baseline_values, 0, indices)
+                    sample_prev_state_values = torch.index_select(prev_state_values, 0, indices)
 
-                    policy_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-                    sample_baseline_values = value_function.value_output(sample_states)
+                    sample_log_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
+                    sample_state_values = value_function.value_output(sample_states)
 
                     entropy = policy.get_entropy(sample_states)["entropy"]
                     loss, loss_per_item, vf_loss, vf_loss_per_item = loss_function.loss(
-                        policy_probs, sample_prior_log_probs,
-                        sample_baseline_values,  sample_prior_baseline_values, sample_advantages, entropy
+                        sample_log_probs, sample_prev_log_probs,
+                        sample_state_values, sample_prev_state_values, sample_advantages, entropy
                     )
 
                     # Do not need step op.
