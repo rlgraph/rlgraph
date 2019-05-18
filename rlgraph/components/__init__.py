@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+# Component child-classes.
 from rlgraph.components.common import *
 # Core.
 from rlgraph.components.component import Component
-# Component child-classes.
 from rlgraph.components.distributions import *
 from rlgraph.components.explorations import Exploration, EpsilonExploration
 from rlgraph.components.layers import *
