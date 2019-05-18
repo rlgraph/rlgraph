@@ -20,10 +20,9 @@ from __future__ import print_function
 import os.path
 
 from rlgraph import get_backend
-from rlgraph.components import Synchronizable, ValueFunction
+from rlgraph.components.common.synchronizable import Synchronizable
+from rlgraph.components.neural_networks.value_function import ValueFunction
 from rlgraph.utils.rlgraph_errors import RLGraphError
-from rlgraph.components.optimizers.optimizer import Optimizer
-from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.utils.util import default_dict
 
 
