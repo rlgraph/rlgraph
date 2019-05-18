@@ -109,7 +109,7 @@ class PPOAgent(Agent):
                 components before building.
 
             name (str): Some name for this Agent object.
-            clip_ratio (float): Clipping parameter for likelihood ratio.
+            clip_ratio (float): Clipping parameter for importance sampling (IS) likelihood ratio.
             gae_lambda (float): Lambda for generalized advantage estimation.
 
             clip_rewards (float): Reward clipping value. If not 0, rewards will be clipped within a +/- `clip_rewards`

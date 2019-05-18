@@ -17,15 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from copy import deepcopy
-from functools import partial
 import importlib
 import json
+import logging
 import os
 import re
-import yaml
-import logging
+from copy import deepcopy
+from functools import partial
 
+import yaml
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import default_dict, force_list
 
@@ -104,6 +104,8 @@ class Specifiable(object):
             ctor_kwargs.update(kwargs)  # give kwargs priority
         else:
             specifiable_type = spec
+            if specifiable_type is None and "type" in kwargs:
+                specifiable_type = kwargs.pop("type")
             ctor_kwargs = kwargs
         # Special `_args` field in kwargs for *args-utilizing constructors.
         ctor_args = force_list(ctor_kwargs.pop("_args", []))
