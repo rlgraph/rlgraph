@@ -26,6 +26,9 @@ from rlgraph.tests import ComponentTest
 
 
 class TestParameters(unittest.TestCase):
+    """
+    Tests time-step dependent Parameter Component classes.
+    """
 
     input_space_pct = dict(time_percentage=FloatBox(add_batch_rank=True))
 
