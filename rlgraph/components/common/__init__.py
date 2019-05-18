@@ -25,13 +25,24 @@ from rlgraph.components.common.decay_components import DecayComponent, LinearDec
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.components.common.noise_components import NoiseComponent, ConstantNoise, GaussianNoise, \
     OrnsteinUhlenbeckNoise
+from rlgraph.components.common.parameter import Parameter, ConstantParameter, \
+    LinearParameter, PolynomialParameter, ExponentialParameter
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.sampler import Sampler
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.synchronizable import Synchronizable
 
+Parameter.__lookup_classes__ = dict(
+    parameter=Parameter,
+    constantparameter=ConstantParameter,
+    linearparameter=LinearParameter,
+    polynomialparameter=PolynomialParameter,
+    exponentialparameter=ExponentialParameter
+)
+
 DecayComponent.__lookup_classes__ = dict(
+    decay=DecayComponent,
     lineardecay=LinearDecay,
     constantdecay=ConstantDecay,
     exponentialdecay=ExponentialDecay,
@@ -40,6 +51,7 @@ DecayComponent.__lookup_classes__ = dict(
 DecayComponent.__default_constructor__ = LinearDecay
 
 NoiseComponent.__lookup_classes__ = dict(
+    noise=NoiseComponent,
     constantnoise=ConstantNoise,
     gaussiannoise=GaussianNoise,
     ornsteinuhlenbeck=OrnsteinUhlenbeckNoise,
@@ -50,7 +62,7 @@ NoiseComponent.__default_constructor__ = GaussianNoise
 
 __all__ = ["BatchApply", "ContainerMerger",
            "Synchronizable", "RepeaterStack", "Slice",
-           "DecayComponent", "ConstantDecay", "LinearDecay", "PolynomialDecay", "ExponentialDecay",
-           "NoiseComponent", "ConstantNoise", "GaussianNoise", "OrnsteinUhlenbeckNoise",
-           "Sampler", "BatchSplitter", "MultiGpuSynchronizer"]
-
+           "Sampler", "BatchSplitter", "MultiGpuSynchronizer"] + \
+          list(set(map(lambda x: x.__name__, list(Parameter.__lookup_classes__.values()) +
+                       list(DecayComponent.__lookup_classes__.values()) +
+                       list(NoiseComponent.__lookup_classes__.values()))))

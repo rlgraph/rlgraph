@@ -17,8 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from functools import partial
-
 from rlgraph import get_backend
 from rlgraph.components import Component
 from rlgraph.spaces.int_box import IntBox
@@ -226,8 +224,9 @@ class PolynomialDecay(DecayComponent):
                 * torch.pow((1.0 - time_steps_in_decay_window / decay_steps), self.power) + self.to_
 
 
-# Create an alias for LinearDecay
-LinearDecay = partial(PolynomialDecay, power=1.0, scope="linear-decay")
+class LinearDecay(PolynomialDecay):
+    def __init__(self, scope="linear-decay", **kwargs):
+        super(LinearDecay, self).__init__(power=1.0, scope=scope, **kwargs)
 
 
 class ExponentialDecay(DecayComponent):
