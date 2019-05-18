@@ -4,13 +4,19 @@
   "standardize_advantages": true,
   "clip_ratio": 0.2,
   "discount": 0.995,
-  "gae_lambda": 0.8,
-  "weight_entropy": 0.001,
+  "gae_lambda": 1.0,
+  "weight_entropy": {
+    "type": "polynomial-parameter",
+    "from": 0.25,
+    "to": 0.001,
+    "power": 2
+  },
+  "value_function_clipping": 10.0,
 
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 600
+    "capacity": 1000
   },
   "preprocessing_spec": [
   ],

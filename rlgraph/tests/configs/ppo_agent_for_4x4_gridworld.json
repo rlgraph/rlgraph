@@ -2,11 +2,18 @@
   "type": "ppo",
 
   "sample_episodes": false,
-  "standardize_advantages": true,
+  "standardize_advantages": false,
 
   "clip_ratio": 0.2,
-  "discount": 0.99,
-  "gae_lambda": 0.5,
+  "discount": 0.995,
+  "gae_lambda": 1.0,
+
+  "weight_entropy": {
+    "type": "exponential-parameter",
+    "from": 0.5,
+    "to": 0.001,
+    "decay_rate": 10
+  },
 
   "memory_spec":
   {

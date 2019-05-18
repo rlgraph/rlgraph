@@ -44,7 +44,7 @@ class MetaGraphBuilder(Specifiable):
 
         Args:
             root_component (Component): Root component of the meta graph to build.
-            input_spaces (Optional[Space]): Input spaces for api methods.
+            input_spaces (Optional[Space]): Input spaces for all (exposed) API methods of the root-component.
         """
 
         # Time the meta-graph build:
@@ -64,6 +64,8 @@ class MetaGraphBuilder(Specifiable):
                             input_param_name, root_component.name, root_component.api_method_inputs
                         )
                     )
+        else:
+            input_spaces = {}
 
         # Call all API methods of the core once and thereby, create empty in-op columns that serve as placeholders
         # and bi-directional links between ops (for the build time).
@@ -85,7 +87,7 @@ class MetaGraphBuilder(Specifiable):
                         use_named = True
                 # Already defined (per default arg value (e.g. bool)).
                 elif isinstance(root_component.api_method_inputs[param_name], Space):
-                    if input_spaces is not None and param_name in input_spaces:
+                    if param_name in input_spaces:
                         in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
                     else:
                         use_named = True
@@ -108,7 +110,7 @@ class MetaGraphBuilder(Specifiable):
                         use_named = True
                     else:
                         # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
-                        assert input_spaces is not None and param_name in input_spaces, \
+                        assert param_name in input_spaces, \
                             "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
                         # Space is provided in input_spaces -> assign to api_method_inputs right here.
                         root_component.api_method_inputs[param_name] = input_spaces[param_name]

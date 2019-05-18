@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.components.common import *
 # Core.
 from rlgraph.components.component import Component
 # Component child-classes.
@@ -28,14 +29,13 @@ from rlgraph.components.memories import *
 from rlgraph.components.neural_networks import *
 from rlgraph.components.optimizers import *
 from rlgraph.components.policies import *
-from rlgraph.components.common import *
-
 from rlgraph.utils.util import default_dict
 
 # Create the lookup dict for Component.
 Component.__lookup_classes__ = dict(
     containermerger=ContainerMerger,
     containersplitter=ContainerSplitter,
+    parameter=Parameter
 )
 
 # Add all specific sub-classes to this one.

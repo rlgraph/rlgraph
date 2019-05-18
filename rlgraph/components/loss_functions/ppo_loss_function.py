@@ -49,6 +49,7 @@ class PPOLossFunction(LossFunction):
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
         self.value_function_clipping = value_function_clipping
         self.ranks_to_reduce = None
+        self.expand_entropy = None  # Whether to expand the entropy input by one rank.
 
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
@@ -61,9 +62,10 @@ class PPOLossFunction(LossFunction):
         #self.flat_action_space = action_space.flatten()
         #sanity_check_space(self.action_space, must_have_batch_rank=True)
         self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
+        self.expand_entropy = len(input_spaces["entropy"].get_shape(with_batch_rank=True)) == 1
 
     @rlgraph_api
-    def loss(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy):
+    def loss(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy, time_step=1):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -82,11 +84,12 @@ class PPOLossFunction(LossFunction):
         return total_loss, loss_per_item, total_vf_loss, vf_loss_per_item
 
     @rlgraph_api
-    def loss_per_item(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy):
+    def loss_per_item(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages,
+                      entropy, time_step=1):
         # Get losses for each action.
         # Baseline loss for V(s) does not depend on actions, only on state.
-        pg_loss_per_item = self.pg_loss_per_item(log_probs, prev_log_probs, advantages, entropy)
-        vf_loss_per_item = self.value_function_loss_per_item(state_values, prev_state_values, advantages)
+        pg_loss_per_item = self.pg_loss_per_item(log_probs, prev_log_probs, advantages, entropy, time_step)
+        vf_loss_per_item = self.value_function_loss_per_item(state_values, prev_state_values, advantages, time_step)
 
         # Average PG-loss across action components.
         pg_loss_per_item = self._graph_fn_average_over_container_keys(pg_loss_per_item)
@@ -94,7 +97,7 @@ class PPOLossFunction(LossFunction):
         return pg_loss_per_item, vf_loss_per_item
 
     @rlgraph_api(flatten_ops=True, split_ops=True)
-    def _graph_fn_pg_loss_per_item(self, log_probs, prev_log_probs, advantages, entropy):
+    def _graph_fn_pg_loss_per_item(self, log_probs, prev_log_probs, advantages, entropy, time_percentage):
         """
         Args:
             log_probs (SingleDataOp): Log-likelihoods of actions under policy.
@@ -115,8 +118,13 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                advantages = tf.expand_dims(advantages, axis=-1)
-                entropy = tf.expand_dims(entropy, axis=-1)
+                #advantages = tf.expand_dims(advantages, axis=-1)
+                ratio = tf.squeeze(ratio, axis=-1)
+                entropy = tf.squeeze(ratio, axis=-1)
+
+            ## Make sure entropy is always shape=(?,1) to match all other inputs.
+            #if self.expand_entropy is True:
+            #    entropy = tf.expand_dims(entropy, axis=-1)
 
             clipped_advantages = tf.where(
                 condition=advantages > 0,
@@ -130,10 +138,10 @@ class PPOLossFunction(LossFunction):
             loss -= self.weight_entropy * entropy
 
             # Reduce over the composite actions, if any.
-            if self.ranks_to_reduce > 0:
-                loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
+            #if self.ranks_to_reduce > 0:
+            #    loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
 
-            return tf.squeeze(loss, axis=-1)
+            return loss
 
         elif get_backend() == "pytorch":
             # Likelihood ratio and clipped objective.
@@ -159,7 +167,7 @@ class PPOLossFunction(LossFunction):
             if self.ranks_to_reduce > 0:
                 loss = torch.mean(loss, tuple(range(1, self.ranks_to_reduce + 1)), keepdim=False)
 
-            return torch.squeeze(loss, dim=-1)
+            return loss
 
     @rlgraph_api
     def _graph_fn_value_function_loss_per_item(self, state_values, prev_state_values, advantages):
