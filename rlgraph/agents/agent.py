@@ -22,7 +22,6 @@ from collections import defaultdict
 from functools import partial
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
     ContainerMerger, ContainerSplitter
@@ -283,7 +282,7 @@ class Agent(Specifiable):
                     executed before the increase takes place.
 
             Returns:
-                DataOp: no_op.
+                DataOp: no_op() or identity(other_step_op) in tf, None in pytorch.
             """
             if get_backend() == "tf":
                 add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
