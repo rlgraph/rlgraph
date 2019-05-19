@@ -67,7 +67,6 @@ class SingleThreadedWorker(Worker):
 
         # Accumulated return over the running episode.
         self.episode_returns = [0 for _ in range_(self.num_environments)]
-
         # The number of steps taken in the running episode.
         self.episode_timesteps = [0 for _ in range_(self.num_environments)]
         # Whether the running episode has terminated.
@@ -161,6 +160,17 @@ class SingleThreadedWorker(Worker):
         """
         assert num_timesteps is not None or num_episodes is not None,\
             "ERROR: One of `num_timesteps` or `num_episodes` must be provided!"
+
+        # Determine `max_timesteps` for this execution run.
+        if self.max_timesteps is not None:
+            max_timesteps = self.max_timesteps
+        elif num_timesteps is not None:
+            max_timesteps = num_timesteps
+        elif max_timesteps_per_episode is not None and max_timesteps_per_episode > 0:
+            max_timesteps = num_episodes * max_timesteps_per_episode
+        else:
+            max_timesteps = 1e6
+
         # Are we updating or just acting/observing?
         update_spec = default_dict(update_spec, self.agent.update_spec)
         self.set_update_schedule(update_spec)
@@ -318,7 +328,7 @@ class SingleThreadedWorker(Worker):
                     self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],
                     episode_terminals[i]
                 )
-            self.update_if_necessary()
+            self.update_if_necessary(max_timesteps=max_timesteps)
             timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 

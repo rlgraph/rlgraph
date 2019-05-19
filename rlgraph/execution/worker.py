@@ -31,19 +31,30 @@ class Worker(Specifiable):
     Generic worker to locally interact with simulator environments.
     """
     def __init__(self, agent, env_spec=None, num_environments=1, frameskip=1, render=False,
-                 worker_executes_exploration=True, exploration_epsilon=0.1, episode_finish_callback=None):
+                 worker_executes_exploration=True, exploration_epsilon=0.1, episode_finish_callback=None,
+                 max_timesteps=None):
         """
         Args:
             agent (Agent): Agent to execute environment on.
+
             env_spec Optional[Union[callable, dict]]): Either an environment spec or a callable returning a new
                 environment.
+
             num_environments (int): How many single Environments should be run in parallel in a SequentialVectorEnv.
+
             frameskip (int): How often actions are repeated after retrieving them from the agent.
                 This setting can be overwritten in the single calls to the different `execute_..` methods.
+
             render (bool): Whether to render the environment after each action.
                 Default: False.
+
             worker_executes_exploration (bool): If worker executes exploration by sampling.
             exploration_epsilon (Optional[float]): Epsilon to use if worker executes exploration.
+
+            max_timesteps (Optional[int]): A max number on the time steps this Worker expects to perform.
+                This is not a forced limit, but serves to calculate the `time_percentage` value passed into
+                the Agent for time-dependent (decay) parameter calculations.
+                If None, Worker will try to infer this value automatically.
         """
         super(Worker, self).__init__()
         self.num_environments = num_environments
@@ -74,6 +85,8 @@ class Worker(Specifiable):
         self.update_steps = None
         self.sync_interval = None
         self.episodes_since_update = 0
+
+        self.max_timesteps = max_timesteps
 
         # Default val or None?
         self.update_mode = "time_steps"
@@ -177,7 +190,7 @@ class Worker(Specifiable):
         """
         pass
 
-    def update_if_necessary(self):
+    def update_if_necessary(self, max_timesteps):
         """
         Calls update on the agent according to the update schedule set for this worker.
 
@@ -194,18 +207,18 @@ class Worker(Specifiable):
                      int(self.agent.timesteps / self.num_environments) >= self.agent.observe_spec["buffer_size"]):
                 # Updating according to one update mode:
                 if self.update_mode == "time_steps" and self.agent.timesteps % self.update_interval == 0:
-                    return self.execute_update()
+                    return self.execute_update(max_timesteps)
                 elif self.update_mode == "episodes" and self.episodes_since_update == self.update_interval:
                     # Do not do modulo here - this would be called every step in one episode otherwise.
-                    loss = self.execute_update()
+                    loss = self.execute_update(max_timesteps)
                     self.episodes_since_update = 0
                     return loss
         return None
 
-    def execute_update(self):
+    def execute_update(self, max_timesteps):
         loss = 0
         for _ in range_(self.update_steps):
-            ret = self.agent.update()
+            ret = self.agent.update(time_percentage=min(self.agent.timesteps / max_timesteps, 1.0))
             if isinstance(ret, tuple):
                 loss += ret[0]
             else:

@@ -22,6 +22,7 @@ from collections import defaultdict
 from functools import partial
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
     ContainerMerger, ContainerSplitter
@@ -496,7 +497,7 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def update(self, batch=None, **kwargs):
+    def update(self, batch=None, time_percentage=None, **kwargs):
         """
         Performs an update on the computation graph either via externally experience or
         by sampling from an internal memory.
@@ -504,6 +505,10 @@ class Agent(Specifiable):
         Args:
             batch (Optional[dict]): Optional external data batch to use for update. If None, the
                 agent should be configured to sample internally.
+
+            time_percentage (Optional[float]): A percentage value (between 0.0 and 1.0) of the time already passed until
+                some max timesteps have been reached. This can be used by the algorithm to decay certain parameters
+                (e.g. learning rate) over time.
 
         Returns:
             Union(list, tuple, float): The loss value calculated in this update.
