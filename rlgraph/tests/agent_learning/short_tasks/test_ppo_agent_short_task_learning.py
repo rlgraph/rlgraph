@@ -22,6 +22,7 @@ import os
 import unittest
 
 import numpy as np
+
 from rlgraph.agents import PPOAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
@@ -63,6 +64,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         print(results)
 
         # Check value function outputs for states 0 and 1.
+        # NOTE that this test only works if standardize-advantages=False.
         values = agent.graph_executor.execute(
             ("get_state_values", np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]]))
         )[:, 0]
@@ -126,7 +128,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        time_steps = 6000
+        time_steps = 3000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
@@ -139,18 +141,16 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         print(results)
 
-        # Check value function outputs for states 0 and 1.
-        #values = agent.graph_executor.execute(
-        #    ("get_state_values", np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]]))
-        #)[:, 0]
-        #recursive_assert_almost_equal(values[0], 0.0, decimals=1)  # state 0 should have a value of 0.0
-        #recursive_assert_almost_equal(values[1], 1.0, decimals=1)  # state 1 should have a value of +1.0
+        # Check value function outputs for states on a good trajectory.
+        # NOTE that this test only works if standardize-advantages=False.
+        values = agent.graph_executor.execute(("get_state_values", one_hot(np.array([1, 2, 6, 7, 11]), depth=16)))[:, 0]
+        recursive_assert_almost_equal(values, np.array([0.6, 0.7, 0.8, 0.9, 1.0]), decimals=1)
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertLessEqual(results["episodes_executed"], time_steps / 2)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 4)
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], -0.3)
+        self.assertGreater(results["mean_episode_reward"], -6.0)
 
     def test_ppo_on_4_room_grid_world(self):
         """
