@@ -157,7 +157,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     slot = key if flex is None else flex
                     if slot >= len(api_method_rec.input_names):
                         raise RLGraphAPICallParamError(
-                            "Too many input args given in call to API-method '{}'!".format(api_method_rec.name)
+                            "Too many input args given in call to AI-method '{}'! Expected={}, you passed in "
+                            "more than {}.".format(api_method_rec.name, len(api_method_rec.input_names), slot)
                         )
                     param_name = api_method_rec.input_names[slot]
 
