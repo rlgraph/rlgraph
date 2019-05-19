@@ -2,10 +2,10 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": true,
-  "clip_ratio": 0.2,
+  "clip_ratio": ["linear", 0.2, 0.01],
   "discount": 0.995,
   "gae_lambda": 1.0,
-  "weight_entropy": 0.01,
+  "weight_entropy": ["linear", 0.01, 0.0001],
 
   "memory_spec":
   {
@@ -63,11 +63,11 @@
   },
 
   "optimizer_spec": {
-    "type": "adam",
-    "learning_rate": 0.0001
+    "type": "adadelta",
+    "learning_rate": ["polynomial", 0.01, 0.00001]
   },
   "value_function_optimizer_spec": {
-    "type": "adam",
-    "learning_rate": 0.0001
+    "type": "adadelta",
+    "learning_rate": ["polynomial", 0.01, 0.00001]
   }
 }

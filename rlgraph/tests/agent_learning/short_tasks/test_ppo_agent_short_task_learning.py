@@ -22,7 +22,6 @@ import os
 import unittest
 
 import numpy as np
-
 from rlgraph.agents import PPOAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
@@ -205,7 +204,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        time_steps = 3000
+        time_steps = 5000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
@@ -243,7 +242,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
             print("episode return {}; steps={}".format(episode_return, timesteps))
         )
-        results = worker.execute_episodes(5000, use_exploration=True)
+        results = worker.execute_timesteps(num_timesteps=int(5e6), use_exploration=True)
 
         print(results)
 
