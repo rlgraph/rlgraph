@@ -20,13 +20,12 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
-from six.moves import xrange as range_
-
-from rlgraph.components import Component
+from rlgraph.components.component import Component
 from rlgraph.components.layers.preprocessing import ReShape
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
 from rlgraph.utils.decorators import rlgraph_api
+from six.moves import xrange as range_
 
 
 class TestComponentCopy(unittest.TestCase):

@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph import get_backend
-from rlgraph.components import Component
+from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.numpy import softmax
 

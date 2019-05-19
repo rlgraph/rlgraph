@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
 
-from rlgraph.components import Component, Synchronizable
+import numpy as np
+from rlgraph.components.common.synchronizable import Synchronizable
+from rlgraph.components.component import Component
 from rlgraph.spaces import FloatBox
 from rlgraph.tests import ComponentTest
 from rlgraph.utils.decorators import rlgraph_api

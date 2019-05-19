@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import Component
+from rlgraph.components.component import Component
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import util
