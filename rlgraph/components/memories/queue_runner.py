@@ -43,7 +43,7 @@ class QueueRunner(Component):
                  *data_producing_components, **kwargs):
         """
         Args:
-            queue (Queue-like): The Queue (FIFOQueue), whose underlying `queue` object to use to enqueue item into.
+            queue (Queue-like): The Queue (FIFOQueue), whose underlying `queue` object to use to enqueue items into.
             api_method_name (str): The name of the API method to call on all `sub_components` to get ops from
                 which we will create enqueue ops for the queue.
             return_slot (int): The slot of the returned values to use as to-be-inserted record into the queue.

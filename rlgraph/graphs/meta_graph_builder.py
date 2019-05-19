@@ -95,16 +95,14 @@ class MetaGraphBuilder(Specifiable):
                     if root_component.api_method_inputs[param_name] == "*flex":
                         assert use_named is False
                         if param_name in input_spaces:
-                            in_ops_records.extend([
-                                DataOpRecord(position=i + j) for j in range(len(force_list(input_spaces[param_name])))
-                            ])
+                            for j in range(len(force_list(input_spaces[param_name]))):
+                                in_ops_records.append(DataOpRecord(position=i + j))
                     # A keyword param.
                     elif root_component.api_method_inputs[param_name] == "**flex":
                         if param_name in input_spaces:
                             assert use_named is False
-                            in_ops_records.extend([
-                                DataOpRecord(kwarg=key) for key in sorted(input_spaces[param_name].keys())
-                            ])
+                            for key in sorted(input_spaces[param_name].keys()):
+                                in_ops_records.append(DataOpRecord(kwarg=key))
                         use_named = True
                     else:
                         # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).

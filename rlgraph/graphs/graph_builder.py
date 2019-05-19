@@ -105,11 +105,8 @@ class GraphBuilder(Specifiable):
         self.op_records_to_process = set()
         self.op_recs_depending_on_variables = set()
 
-        # Dict of unprocessed (and complete) op-record columns by key=op-column ID.
-        # Columns that have been forwarded will be erased again from this collection.
-        # NOT NEEDED SO FAR.
-        # self.unprocessed_in_op_columns = OrderedDict()
-        # self.unprocessed_complete_in_op_columns = OrderedDict()
+        # A register for all created placeholders by name.
+        self.placeholders = {}
 
     def build_graph_with_options(self, meta_graph, input_spaces, available_devices,
                                  device_strategy="default", default_device=None,
@@ -243,33 +240,40 @@ class GraphBuilder(Specifiable):
             Set[DataOpRecord]: A set of DataOpRecords with which we should start the building
                 process.
         """
+        if input_spaces is None:
+            input_spaces = {}
+
         for api_method_name, (in_op_records, _) in sorted(self.api.items()):
             api_method_rec = self.root_component.api_methods[api_method_name]
             spaces = []
             for param_name in api_method_rec.input_names:
                 if self.root_component.api_method_inputs[param_name] == "flex":
-                    if input_spaces is not None and param_name in input_spaces:
-                        spaces.append(input_spaces[param_name])
-                        self.root_component.api_method_inputs[param_name] = input_spaces[param_name]
+                    if param_name in input_spaces:
+                        spaces.append((param_name, input_spaces[param_name]))
+                        self.root_component.api_method_inputs[param_name] = Space.from_spec(input_spaces[param_name])
                 elif isinstance(self.root_component.api_method_inputs[param_name], Space):
-                    if input_spaces is not None and param_name in input_spaces:
-                        spaces.append(self.root_component.api_method_inputs[param_name])
+                    if param_name in input_spaces:
+                        spaces.append((param_name, self.root_component.api_method_inputs[param_name]))
                 else:
                     if self.root_component.api_method_inputs[param_name] == "*flex":
                         if param_name in input_spaces:
-                            spaces.extend(force_list(input_spaces[param_name]))
+                            for i, s in enumerate(force_list(input_spaces[param_name])):
+                                spaces.append((param_name+"-"+str(i), s))
+                                self.root_component.api_method_inputs[param_name+"["+str(i)+"]"] = Space.from_spec(s)
                     elif self.root_component.api_method_inputs[param_name] == "**flex":
                         if param_name in input_spaces:
-                            spaces.extend([
-                                input_spaces[param_name][k] for k in sorted(input_spaces[param_name].keys())
-                            ])
+                            for k in sorted(input_spaces[param_name].keys()):
+                                spaces.append((param_name+"-"+k, input_spaces[param_name][k]))
+                                self.root_component.api_method_inputs[param_name+"["+k+"]"] = \
+                                    Space.from_spec(input_spaces[param_name][k])
                     else:
                         assert param_name in input_spaces
-                        spaces.append(input_spaces[param_name])
+                        spaces.append((param_name, input_spaces[param_name]))
+                        self.root_component.api_method_inputs[param_name] = Space.from_spec(input_spaces[param_name])
             assert len(spaces) == len(in_op_records)
 
             # Create the placeholders and store them in the given DataOpRecords.
-            for i, space in enumerate(spaces):
+            for i, (name, space) in enumerate(spaces):
                 # Space is dependent on the variables of some sub-component (wait with the construction of the
                 # placeholder until the component is variable-complete).
                 if isinstance(space, str) and re.match(r'^variables:', space):
@@ -282,9 +286,9 @@ class GraphBuilder(Specifiable):
                     space = Space.from_spec(space)
 
                 in_op_records[i].space = space
+
                 in_op_records[i].op = self.get_placeholder(
-                    name="api-" + api_method_name + "/param-" + str(i),
-                    space=space,
+                    name=name, space=space,
                     component=next(iter(in_op_records[0].next)).column.component
                 )
                 self.op_records_to_process.add(in_op_records[i])
@@ -295,15 +299,20 @@ class GraphBuilder(Specifiable):
 
         Args:
             name (str): The name of the placeholder to create.
-            space (Space): The Space object to generate the placeholder for.
+            space (spec(Space)): The Space object to generate the placeholder for.
+
             component (Component): The Component into which the placeholder will go (needed  for automatic device
                 inference).
 
         Returns:
             DataOp: The generated placeholder(s) as a DataOp (e.g. DataOpTuple, SingleDataOp, etc..).
         """
+        if name in self.placeholders:
+            return self.placeholders[name]
+
         device = self.get_device(component)  #, variables=True)
         placeholder = None
+        space = Space.from_spec(space)
         if get_backend() == "tf":
             with tf.device(device):
                 placeholder = space.get_variable(name=name, is_input_feed=True)
@@ -311,6 +320,7 @@ class GraphBuilder(Specifiable):
                 # Batch rank 1 because PyTorch does not allow None shapes.
                 placeholder = space.get_variable(name=name, add_batch_rank=1,
                                                  is_input_feed=True, is_python=True)
+        self.placeholders[name] = placeholder
         return placeholder
 
     def build_component_when_input_complete(self, component, check_sub_components=True):
@@ -1275,8 +1285,12 @@ class GraphBuilder(Specifiable):
                                 component.get_variables(custom_scope_separator="-").items()
                             )})
                             op_rec.space = var_space
+                            placeholder_name = next(iter(op_rec.next)).column.api_method_rec.input_names[op_rec.position]
+                            assert len(op_rec.next) == 1, \
+                                "ERROR: root_component API op-rec ('{}') expected to have only one `next` op-rec!". \
+                                format(placeholder_name)
                             op_rec.op = self.get_placeholder(
-                                "api-var-input", space=var_space, component=self.root_component
+                                placeholder_name, space=var_space, component=self.root_component
                             )
                             self.op_records_to_process.add(op_rec)
                         else:
