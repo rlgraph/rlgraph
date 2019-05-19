@@ -56,6 +56,12 @@ class Parameter(Component):
         self.max_time_steps = max_time_steps
         self.resolution = resolution
 
+    def check_input_completeness(self):
+        # If max_time_steps is not given, we will rely on time_percentage input, therefore, it must be given.
+        if self.max_time_steps is None and self.api_method_inputs["time_percentage"] is "flex":
+            return False
+        return super(Parameter, self).check_input_completeness()
+
     def check_input_spaces(self, input_spaces, action_space=None):
         time_pct_space = input_spaces["time_percentage"]
 
@@ -70,6 +76,24 @@ class Parameter(Component):
     def get(self, time_percentage=None):
         raise NotImplementedError
 
+    def placeholder(self):
+        """
+        Creates a connection to a tf placeholder (completely outside the RLgraph meta-graph).
+        Passes that placeholder through one run of our `get` API method and then returns the output op.
+        That way, this parameter can be used inside a tf.optimizer object as the learning rate tensor.
+
+        Returns:
+            The tf op to calculate the learning rate from the `time_percentage` placeholder.
+        """
+        assert get_backend() == "tf"  # We must use tf for this to work.
+        assert self.graph_builder is not None  # We must be in the build phase.
+        # Get the placeholder (always the same!) for the `time_percentage` input.
+        placeholder = self.graph_builder.get_placeholder("time_percentage", float, self)
+        # Do the actual computation to get the current value for the parameter.
+        op = self.api_methods["get"].func(self, placeholder)
+        # Return the tf op.
+        return op
+
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
         map_ = {
@@ -80,13 +104,15 @@ class Parameter(Component):
             "exp": "exponential-parameter",
             "exponential": "exponential-parameter"
         }
+        # Single float means constant parameter.
         if isinstance(spec, float):
             spec = dict(value=spec, type="constant-parameter")
+        # List/tuple means simple (type)?/from/to setup.
         elif isinstance(spec, (tuple, list)):
             if len(spec) == 2:
                 spec = dict(from_=spec[0], to_=spec[1], type="linear-parameter")
             elif len(spec) == 3:
-                spec = dict(from_=spec[0], to_=spec[1], type=map_.get(spec[2], spec[2]))
+                spec = dict(from_=spec[1], to_=spec[2], type=map_.get(spec[0], spec[0]))
             elif len(spec) == 4:
                 type_ = map_.get(spec[0], spec[0])
                 spec = dict(from_=spec[1], to_=spec[2], type=type_)
