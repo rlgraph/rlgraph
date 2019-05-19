@@ -125,13 +125,8 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                #advantages = tf.expand_dims(advantages, axis=-1)
                 ratio = tf.squeeze(ratio, axis=-1)
-                entropy = tf.squeeze(ratio, axis=-1)
-
-            ## Make sure entropy is always shape=(?,1) to match all other inputs.
-            #if self.expand_entropy is True:
-            #    entropy = tf.expand_dims(entropy, axis=-1)
+                entropy = tf.squeeze(entropy, axis=-1)
 
             clipped_advantages = tf.where(
                 condition=advantages > 0,
@@ -156,8 +151,8 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                advantages = torch.unsqueeze(advantages, dim=-1)
-                entropy = torch.unsqueeze(entropy, dim=-1)
+                ratio = torch.squeeze(ratio, dim=-1)
+                entropy = torch.squeeze(entropy, dim=-1)
 
             clipped_advantages = torch.where(
                 advantages > 0,
