@@ -147,7 +147,11 @@ class PolynomialParameter(Parameter):
     Returns the result of:
     to_ + (from_ - to_) * (1 - `time_percentage`) ** power
     """
-    def __init__(self, power=1.0, scope="polynomial-parameter", **kwargs):
+    def __init__(self, power=2.0, scope="polynomial-parameter", **kwargs):
+        """
+        Args:
+            power (float): The power with which to decay polynomially (see formula above).
+        """
         super(PolynomialParameter, self).__init__(scope=scope, **kwargs)
 
         self.power = power
@@ -188,8 +192,16 @@ class ExponentialParameter(Parameter):
     Returns the result of:
     to_ + (from_ - to_) * decay_rate ** `time_percentage`
     """
-    def __init__(self, decay_rate=1.0, scope="exponential-parameter", **kwargs):
+    def __init__(self, decay_rate=0.1, scope="exponential-parameter", **kwargs):
+        """
+        Args:
+            decay_rate (float): The percentage of the original value after the 100% time has been reached (see
+                formula above).
+                >0.0: The smaller the decay-rate, the stronger the decay.
+                1.0: No decay at all.
+        """
         super(ExponentialParameter, self).__init__(scope=scope, **kwargs)
+
         self.decay_rate = decay_rate
 
     @rlgraph_api
