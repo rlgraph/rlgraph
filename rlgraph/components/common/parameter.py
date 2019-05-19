@@ -138,6 +138,9 @@ class ConstantParameter(Parameter):
             else:
                 return self.from_
 
+    def placeholder(self):
+        return self.from_
+
 
 class PolynomialParameter(Parameter):
     """
