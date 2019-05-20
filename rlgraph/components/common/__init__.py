@@ -20,6 +20,7 @@ from __future__ import print_function
 from rlgraph.components.common.batch_apply import BatchApply
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.common.container_merger import ContainerMerger
+# TODO: Obsoleted classes.
 from rlgraph.components.common.decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay, \
     ConstantDecay
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
@@ -41,6 +42,7 @@ Parameter.__lookup_classes__ = dict(
     exponentialparameter=ExponentialParameter
 )
 
+# TODO: Obsoleted classes.
 DecayComponent.__lookup_classes__ = dict(
     decay=DecayComponent,
     lineardecay=LinearDecay,

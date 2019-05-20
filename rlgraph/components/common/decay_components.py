@@ -24,6 +24,7 @@ from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.pytorch_util import pytorch_tile
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -52,6 +53,7 @@ class DecayComponent(Component):
             from (float): See `from_`. For additional support to specify without the underscore.
             to (float): See `to_`. For additional support to specify without the underscore.
         """
+        raise RLGraphObsoletedError("DecayComponent", "DecayComponent", "Parameter")
         kwargs_from = kwargs.pop("from", None)
         kwargs_to = kwargs.pop("to", None)
 
