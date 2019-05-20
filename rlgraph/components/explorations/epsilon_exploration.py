@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.common.parameter import Parameter
+from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.components.component import Component
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -60,7 +60,7 @@ class EpsilonExploration(Component):
         self.flat_sample_space = None
 
         # Our (epsilon) Decay-Component.
-        self.decay = Parameter.from_spec(decay_spec)
+        self.decay = TimeDependentParameter.from_spec(decay_spec)
 
         # Add the decay component and make time_step our (only) input.
         self.add_components(self.decay)

@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.common.parameter import Parameter
+from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import get_rank
@@ -39,19 +39,19 @@ class PPOLossFunction(LossFunction):
                  scope="ppo-loss-function", **kwargs):
         """
         Args:
-            clip_ratio (Spec[Parameter]): How much to clip the likelihood ratio between old and new policy when
+            clip_ratio (Spec[TimeDependentParameter]): How much to clip the likelihood ratio between old and new policy when
                 updating.
 
             value_function_clipping (float): Clipping value for the ValueFunction component.
                 If None, no clipping is applied.
 
-            weight_entropy (Optional[Spec[Parameter]]): The weight with which to multiply the entropy and subtract
+            weight_entropy (Optional[Spec[TimeDependentParameter]]): The weight with which to multiply the entropy and subtract
                 from the loss.
         """
         super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
 
-        self.clip_ratio = Parameter.from_spec(clip_ratio, scope="clip-ratio")
-        self.weight_entropy = Parameter.from_spec(
+        self.clip_ratio = TimeDependentParameter.from_spec(clip_ratio, scope="clip-ratio")
+        self.weight_entropy = TimeDependentParameter.from_spec(
             weight_entropy if weight_entropy is not None else 0.00025, scope="weight-entropy"
         )
         self.value_function_clipping = value_function_clipping

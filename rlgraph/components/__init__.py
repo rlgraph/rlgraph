@@ -35,7 +35,7 @@ from rlgraph.utils.util import default_dict
 Component.__lookup_classes__ = dict(
     containermerger=ContainerMerger,
     containersplitter=ContainerSplitter,
-    parameter=Parameter
+    timedependentparameter=TimeDependentParameter
 )
 
 # Add all specific sub-classes to this one.

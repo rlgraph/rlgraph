@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.common.parameter import Parameter
+from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -34,7 +34,7 @@ class Optimizer(Component):
         """
         super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
 
-        self.learning_rate = Parameter.from_spec(learning_rate)
+        self.learning_rate = TimeDependentParameter.from_spec(learning_rate)
 
         self.add_components(self.learning_rate)
 

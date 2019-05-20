@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.common.parameter import Parameter
+from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
@@ -57,9 +57,9 @@ class ActorCriticLossFunction(LossFunction):
         """
         super(ActorCriticLossFunction, self).__init__(scope=kwargs.pop("scope", "actor-critic-loss-func"), **kwargs)
 
-        self.weight_pg = Parameter.from_spec(weight_pg if weight_pg is not None else 1.0)
-        self.weight_baseline = Parameter.from_spec(weight_baseline if weight_baseline is not None else 0.5)
-        self.weight_entropy = Parameter.from_spec(weight_entropy if weight_entropy is not None else 0.00025)
+        self.weight_pg = TimeDependentParameter.from_spec(weight_pg if weight_pg is not None else 1.0)
+        self.weight_baseline = TimeDependentParameter.from_spec(weight_baseline if weight_baseline is not None else 0.5)
+        self.weight_entropy = TimeDependentParameter.from_spec(weight_entropy if weight_entropy is not None else 0.00025)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         assert action_space is not None
