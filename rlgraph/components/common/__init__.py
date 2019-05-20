@@ -37,17 +37,17 @@ TimeDependentParameter.__lookup_classes__ = dict(
     parameter=TimeDependentParameter,
     constant=Constant,
     constantparameter=Constant,
+    constantdecay=Constant,
     lineardecay=LinearDecay,
     polynomialdecay=PolynomialDecay,
     exponentialdecay=ExponentialDecay
 )
+TimeDependentParameter.__default_constructor__ = Constant
 
 # TODO: Obsoleted classes.
 DecayComponent.__lookup_classes__ = dict(
-    decay=DecayComponent,
-    constantdecay=ConstantDecay
+    decay=DecayComponent
 )
-DecayComponent.__default_constructor__ = ConstantDecay
 
 NoiseComponent.__lookup_classes__ = dict(
     noise=NoiseComponent,

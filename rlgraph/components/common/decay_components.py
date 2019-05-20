@@ -182,6 +182,8 @@ class ConstantDecay(DecayComponent):
         Args:
             constant_value (float): Constant value for exploration.
         """
+        raise RLGraphObsoletedError("DecayComponent", "ConstantDecay", "Constant")
+
         super(ConstantDecay, self).__init__(scope=scope, **kwargs)
         self.constant_value = constant_value
 
