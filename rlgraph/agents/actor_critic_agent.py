@@ -134,7 +134,8 @@ class ActorCriticAgent(Agent):
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
-            sequence_indices=BoolBox(add_batch_rank=True)
+            sequence_indices=BoolBox(add_batch_rank=True),
+            time_percentage=float
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
@@ -205,7 +206,7 @@ class ActorCriticAgent(Agent):
 
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root):
+        def update_from_memory(root, time_percentage=None):
             if sample_episodes:
                 records = agent.memory.get_episodes(agent.update_spec["batch_size"])
             else:
@@ -213,24 +214,25 @@ class ActorCriticAgent(Agent):
             preprocessed_s, actions, rewards, terminals = agent.splitter.call(records)
             sequence_indices = terminals
             return root.post_process_and_update(
-                preprocessed_s, actions, rewards, terminals, sequence_indices
+                preprocessed_s, actions, rewards, terminals, sequence_indices, time_percentage
             )
 
         # First post-process, then update (so we can separately update already post-processed data).
         @rlgraph_api(component=self.root_component)
-        def post_process_and_update(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
+        def post_process_and_update(root, preprocessed_states, actions, rewards, terminals, sequence_indices,
+                                    time_percentage):
             rewards = root.post_process(preprocessed_states, rewards, terminals, sequence_indices)
-            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals)
+            return root.update_from_external_batch(preprocessed_states, actions, rewards, terminals, time_percentage)
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
-        def update_from_external_batch(root, preprocessed_states, actions, rewards, terminals):
+        def update_from_external_batch(root, preprocessed_states, actions, rewards, terminals, time_percentage):
 
             baseline_values = agent.value_function.value_output(preprocessed_states)
             log_probs = agent.policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
             entropy = agent.policy.get_entropy(preprocessed_states)["entropy"]
             loss, loss_per_item, vf_loss, vf_loss_per_item = agent.loss_function.loss(
-                log_probs, baseline_values, rewards, entropy
+                log_probs, baseline_values, rewards, entropy, time_percentage
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
