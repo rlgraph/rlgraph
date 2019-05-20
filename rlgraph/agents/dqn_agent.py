@@ -166,7 +166,8 @@ class DQNAgent(Agent):
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=weight_space,
-            apply_postprocessing=bool
+            apply_postprocessing=bool,
+            time_percentage=float
         ))
         if self.value_function is not None:
             self.input_spaces["value_function_weights"] = "variables:{}".format(self.value_function.scope),
@@ -287,7 +288,8 @@ class DQNAgent(Agent):
                 all_vars = agent.vars_merger.merge(main_policy_vars)
                 out = root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                     all_vars, preprocessed_states, actions, rewards, terminals,
-                    preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing
+                    preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing,
+                    time_percentage=time_percentage
                 )
                 avg_grads_and_vars = agent.vars_splitter.call(out["avg_grads_and_vars_by_component"])
                 step_op = agent.optimizer.apply_gradients(avg_grads_and_vars)
@@ -315,7 +317,7 @@ class DQNAgent(Agent):
                 q_values_sp = policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, time_percentage
+                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -336,7 +338,7 @@ class DQNAgent(Agent):
 
         @rlgraph_api(component=self.root_component)
         def get_td_loss(root, preprocessed_states, actions, rewards,
-                        terminals, preprocessed_next_states, importance_weights, time_percentage=None):
+                        terminals, preprocessed_next_states, importance_weights):
 
             policy = root.get_sub_component_by_name(agent.policy.scope)
             target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
@@ -351,7 +353,7 @@ class DQNAgent(Agent):
                 q_values_sp = policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, time_percentage
+                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
             )
             return loss, loss_per_item
 
