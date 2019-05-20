@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.common.time_dependent_parameters import Constant
 from rlgraph.components.optimizers.optimizer import Optimizer
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import DataOpTuple
@@ -52,24 +53,30 @@ class LocalOptimizer(Optimizer):
         self.optimizer_obj = None
 
     @rlgraph_api(must_be_complete=False)
-    def _graph_fn_step(self, variables, loss, loss_per_item, *inputs):
+    def _graph_fn_step(self, variables, loss, loss_per_item, time_percentage, *inputs):
         # TODO n.b. PyTorch does not call api functions because other optimization semantics.
         if get_backend() == "tf":
             grads_and_vars = self._graph_fn_calculate_gradients(variables, loss)
             step_op = self._graph_fn_apply_gradients(grads_and_vars)
-            return step_op, loss, loss_per_item
+            return step_op
         elif get_backend() == "pytorch":
             # Instantiate optimizer with variables.
             if self.optimizer_obj is None:
                 # self.optimizer is a lambda creating the respective optimizer
-                # with params prefilled.
+                # with params pre-filled.
                 parameters = variables.values()
                 self.optimizer_obj = self.optimizer(parameters)
             # Reset gradients.
             self.optimizer_obj.zero_grad()
             if not torch.isnan(loss):
                 loss.backward()
-            return self.optimizer_obj.step(), loss, loss_per_item
+            # Adjust learning rate via time-dependent parameter if not a constant.
+            if not isinstance(self.learning_rate, Constant):
+                lr = self.learning_rate.get(time_percentage)
+                for param_group in self.optimizer_obj.param_groups:
+                    param_group["lr"] = lr
+            # Do the optimizer step.
+            return self.optimizer_obj.step()
 
     @rlgraph_api(must_be_complete=False)
     def _graph_fn_calculate_gradients(self, variables, loss):
@@ -117,7 +124,11 @@ class GradientDescentOptimizer(LocalOptimizer):
 
     def create_variables(self, input_spaces, action_space=None):
         if get_backend() == "tf":
-            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate.placeholder())
+            self.optimizer = tf.train.GradientDescentOptimizer(
+                learning_rate=self.learning_rate.placeholder()
+            )
+        elif get_backend() == "pytorch":
+            raise NotImplementedError
 
 
 class AdamOptimizer(LocalOptimizer):
@@ -144,7 +155,7 @@ class AdamOptimizer(LocalOptimizer):
             # Cannot instantiate yet without weights.
             self.optimizer = lambda parameters: torch.optim.Adam(
                 parameters,
-                lr=self.learning_rate,  # for pytorch ??
+                lr=self.learning_rate.from_,
                 betas=(self.beta1, self.beta2)
             )
 
@@ -172,6 +183,8 @@ class NadamOptimizer(LocalOptimizer):
                 beta_2=self.beta2,
                 schedule_decay=self.schedule_decay
             )
+        elif get_backend() == "pytorch":
+            raise NotImplementedError
 
 
 class AdagradOptimizer(LocalOptimizer):
@@ -200,7 +213,7 @@ class AdagradOptimizer(LocalOptimizer):
             # Cannot instantiate yet without weights.
             self.optimizer = lambda parameters: torch.optim.Adagrad(
                 parameters,
-                lr=self.learning_rate,
+                lr=self.learning_rate.from_,
                 initial_accumulator_value=self.initial_accumulator_value
             )
 
@@ -220,12 +233,15 @@ class AdadeltaOptimizer(LocalOptimizer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
-            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate.placeholder(), rho=self.rho)
+            self.optimizer = tf.train.AdadeltaOptimizer(
+                learning_rate=self.learning_rate.placeholder(),
+                rho=self.rho
+            )
         elif get_backend() == "pytorch":
             # Cannot instantiate yet without weights.
             self.optimizer = lambda parameters: torch.optim.Adadelta(
                 parameters,
-                lr=self.learning_rate,
+                lr=self.learning_rate.from_,
                 rho=self.rho
             )
 
@@ -256,7 +272,7 @@ class SGDOptimizer(LocalOptimizer):
             # Cannot instantiate yet without weights.
             self.optimizer = lambda parameters: torch.optim.SGD(
                 parameters,
-                lr=self.learning_rate,
+                lr=self.learning_rate.from_,
                 momentum=self.momentum,
                 weight_decay=self.decay,
                 nesterov=self.nesterov
@@ -290,7 +306,7 @@ class RMSPropOptimizer(LocalOptimizer):
             # Cannot instantiate yet without weights.
             self.optimizer = lambda parameters: torch.optim.RMSprop(
                 parameters,
-                lr=self.learning_rate,
+                lr=self.learning_rate.from_,
                 momentum=self.momentum,
                 weight_decay=self.decay,
             )

@@ -316,7 +316,7 @@ class DQNAgent(Agent):
                 grads_and_vars_by_component = vars_merger.merge(grads_and_vars)
                 return grads_and_vars_by_component, loss, loss_per_item, q_values_s
             else:
-                step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+                step_op = optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
                 # Increase the global training step counter.
                 step_op = root._graph_fn_training_step(step_op)
                 return step_op, loss, loss_per_item, q_values_s

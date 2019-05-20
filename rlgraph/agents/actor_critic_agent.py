@@ -239,10 +239,8 @@ class ActorCriticAgent(Agent):
             policy_vars = agent.policy.variables()
             vf_vars = agent.value_function.variables()
 
-            step_op, loss, loss_per_item = agent.optimizer.step(policy_vars, loss, loss_per_item)
-            vf_step_op, vf_loss, vf_loss_per_item = agent.value_function_optimizer.step(
-                vf_vars, vf_loss, vf_loss_per_item
-            )
+            step_op = agent.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
+            vf_step_op = agent.value_function_optimizer.step(vf_vars, vf_loss, vf_loss_per_item, time_percentage)
 
             return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 

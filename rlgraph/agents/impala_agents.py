@@ -425,7 +425,7 @@ class IMPALAAgent(Agent):
             return fifo_queue.get_size()
 
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root):
+        def update_from_memory(root, time_percentage=None):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
             # This is done by the network itself for all network inputs:
@@ -485,8 +485,7 @@ class IMPALAAgent(Agent):
             policy_vars = policy.variables()
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
-
+            step_op = optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
             # Increase the global training step counter.
             step_op = root._graph_fn_training_step(step_op)
 
@@ -696,7 +695,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             return agent.fifo_queue.get_size()
 
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root):
+        def update_from_memory(root, time_percentage=None):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
             # This is done by the network itself for all network inputs:
@@ -765,7 +764,7 @@ class SingleIMPALAAgent(IMPALAAgent):
                 policy_vars = agent.policy.variables()
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = agent.optimizer.step(policy_vars, loss, loss_per_item)
+            step_op = agent.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
             # Increase the global training step counter.
             step_op = root._graph_fn_training_step(step_op)
 

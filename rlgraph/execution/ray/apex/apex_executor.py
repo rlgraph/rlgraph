@@ -18,13 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import random
-
-from rlgraph.environments import Environment
-from six.moves import queue
 from threading import Thread
+
+from six.moves import queue
 
 from rlgraph import get_distributed_backend
 from rlgraph.agents import Agent
+from rlgraph.environments import Environment
 from rlgraph.execution.ray import RayValueWorker
 from rlgraph.execution.ray.apex.ray_memory_actor import RayMemoryActor
 from rlgraph.execution.ray.ray_executor import RayExecutor
@@ -283,13 +283,13 @@ class UpdateWorker(Thread):
         while True:
             self.step()
 
-    def step(self):
+    def step(self):  # TODO: time-percentage calculation missing here
         # Fetch input for update:
         # Replay memory used.
         memory_actor, sample_batch = self.input_queue.get()
 
         if sample_batch is not None:
-            losses = self.agent.update(batch=sample_batch)
+            losses = self.agent.update(batch=sample_batch)  # TODO: pass in time-percentage
             # Just pass back indices for updating.
             self.output_queue.put((memory_actor, sample_batch["indices"], losses[1]))
             self.update_done = True

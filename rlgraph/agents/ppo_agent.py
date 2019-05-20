@@ -392,14 +392,12 @@ class PPOAgent(Agent):
                         grads_and_vars_by_component = vars_merger.merge(policy_grads_and_vars, vf_grads_and_vars)
                         return grads_and_vars_by_component, loss, loss_per_item, vf_loss, vf_loss_per_item
                     else:
-                        step_op, loss, loss_per_item = optimizer.step(
-                            policy.variables(), loss, loss_per_item
-                        )
+                        step_op = optimizer.step(policy.variables(), loss, loss_per_item, time_percentage)
                         loss.set_shape(())
                         loss_per_item.set_shape((agent.sample_size,))
 
-                        vf_step_op, vf_loss, vf_loss_per_item = value_function_optimizer.step(
-                            value_function.variables(), vf_loss, vf_loss_per_item
+                        vf_step_op = value_function_optimizer.step(
+                            value_function.variables(), vf_loss, vf_loss_per_item, time_percentage
                         )
                         vf_loss.set_shape(())
                         vf_loss_per_item.set_shape((agent.sample_size,))
@@ -476,12 +474,11 @@ class PPOAgent(Agent):
                     )
 
                     # Do not need step op.
-                    _, loss, loss_per_item = optimizer.step(policy.variables(), loss, loss_per_item)
-                    _, vf_loss, vf_loss_per_item = \
-                        value_function_optimizer.step(value_function.variables(), vf_loss, vf_loss_per_item)
+                    optimizer.step(policy.variables(), loss, loss_per_item, time_percentage)
+                    value_function_optimizer.step(value_function.variables(), vf_loss, vf_loss_per_item, time_percentage)
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None, time_percentage=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return

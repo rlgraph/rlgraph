@@ -167,14 +167,11 @@ class SACAgentComponent(Component):
         policy_vars = self._policy.variables()
         q_vars = [q_func.variables() for q_func in self._q_functions]
         merged_q_vars = self._q_vars_merger.merge(*q_vars)
-        critic_step_op, critic_loss, critic_loss_per_item = \
-            self.vf_optimizer.step(merged_q_vars, critic_loss, critic_loss_per_item)
-
-        actor_step_op, actor_loss, actor_loss_per_item = \
-            self._optimizer.step(policy_vars, actor_loss, actor_loss_per_item)
+        critic_step_op = self.vf_optimizer.step(merged_q_vars, critic_loss, critic_loss_per_item, time_percentage)
+        actor_step_op = self._optimizer.step(policy_vars, actor_loss, actor_loss_per_item, time_percentage)
 
         if self.target_entropy is not None:
-            alpha_step_op = self._graph_fn_update_alpha(alpha_loss, alpha_loss_per_item)
+            alpha_step_op = self._graph_fn_update_alpha(alpha_loss, alpha_loss_per_item, time_percentage)
         else:
             alpha_step_op = self._graph_fn_no_op()
         # TODO: optimizer for alpha
@@ -204,9 +201,10 @@ class SACAgentComponent(Component):
         return env_actions
 
     @graph_fn(requires_variable_completeness=True)
-    def _graph_fn_update_alpha(self, alpha_loss, alpha_loss_per_item):
-        alpha_step_op, _, _ = self.alpha_optimizer.step(
-            DataOpTuple([self.log_alpha]), alpha_loss, alpha_loss_per_item)
+    def _graph_fn_update_alpha(self, alpha_loss, alpha_loss_per_item, time_percentage=None):
+        alpha_step_op = self.alpha_optimizer.step(
+            DataOpTuple([self.log_alpha]), alpha_loss, alpha_loss_per_item, time_percentage
+        )
         return alpha_step_op
 
     @rlgraph_api  # `returns` are determined in ctor
