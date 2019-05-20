@@ -143,11 +143,11 @@ class SACAgentComponent(Component):
         return self._memory.insert_records(records)
 
     @rlgraph_api
-    def update_from_memory(self, batch_size=64):
+    def update_from_memory(self, batch_size=64, time_percentage=None):
         records, sample_indices, importance_weights = self._memory.get_records(batch_size)
         result = self.update_from_external_batch(
             records["states"], records["actions"], records["rewards"], records["terminals"],
-            records["next_states"], importance_weights
+            records["next_states"], importance_weights, time_percentage
         )
 
         if isinstance(self._memory, PrioritizedReplay):
@@ -158,7 +158,7 @@ class SACAgentComponent(Component):
 
     @rlgraph_api
     def update_from_external_batch(
-        self, preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights
+        self, preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights, time_percentage
     ):
         actions = self._graph_fn_one_hot(env_actions)
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
