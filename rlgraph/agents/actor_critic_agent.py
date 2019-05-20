@@ -243,7 +243,8 @@ class ActorCriticAgent(Agent):
 
             return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return

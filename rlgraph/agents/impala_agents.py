@@ -493,13 +493,15 @@ class IMPALAAgent(Agent):
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item, records
 
-    def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
+    # TODO: Unify with other Agents.
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         pass
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
-    def update(self, batch=None):
+    def update(self, batch=None, time_percentage=None):
         if batch is None:
             # Include stage_op or not?
             if self.has_gpu:

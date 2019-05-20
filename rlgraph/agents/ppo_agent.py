@@ -477,7 +477,8 @@ class PPOAgent(Agent):
                     value_function_optimizer.step(value_function.variables(), vf_loss, vf_loss_per_item, time_percentage)
                 return loss, loss_per_item, vf_loss, vf_loss_per_item
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None, time_percentage=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return

@@ -341,7 +341,8 @@ class Agent(Specifiable):
             # Return identity.
             return states
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         """
         Returns action(s) for the passed state(s). If `states` is a single state, returns a single action, otherwise,
         returns a batch of actions, where batch-size = number of states passed in.

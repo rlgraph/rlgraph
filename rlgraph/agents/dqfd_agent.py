@@ -406,8 +406,8 @@ class DQFDAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None, update_from_demos=False, expert_margins=None, apply_demo_loss_to_batch=False,
-               time_percentage=None):
+    def update(self, batch=None, time_percentage=None, update_from_demos=False, expert_margins=None,
+               apply_demo_loss_to_batch=False):
         """
         Updates from external batch or replay memory.
         Args:
@@ -416,7 +416,7 @@ class DQFDAgent(Agent):
                 demo memory. Default false (only updating from main replay memory).
             expert_margins (SingleDataOp): The expert margin enforces a distance in Q-values between expert action and
                 all other actions.
-           apply_demo_loss_to_batch (bool): If true and an external batch is given, demo loss is applied to this
+            apply_demo_loss_to_batch (bool): If true and an external batch is given, demo loss is applied to this
                 batch. Can be combined with external per-sample expert margins. The purpose of this is to update
                 from external demonstration data where each sample has a different margin. If false and an
                 external batch is given, the agent updates this with the normal Double/Dueling-q loss. Default
@@ -438,7 +438,6 @@ class DQFDAgent(Agent):
 
         # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
         return_ops = [0, 1, 2]
-        q_table = None
 
         # Update from replay memory.  Potentially also update from demo memory with default margins.
         if batch is None:
@@ -453,7 +452,7 @@ class DQFDAgent(Agent):
                 )
             else:
                 ret = self.graph_executor.execute(
-                    ("update_from_memory",  [False, self.default_margins], return_ops),
+                    ("update_from_memory",  [False, self.default_margins, time_percentage], return_ops),
                     sync_call
                 )
 
@@ -478,7 +477,7 @@ class DQFDAgent(Agent):
             if update_from_demos:
                 ret = self.graph_executor.execute(
                     ("update_from_external_batch", batch_input, return_ops),
-                    ("update_from_demos", [self.demo_batch_size, True, self.demo_margins], return_ops),
+                    ("update_from_demos", [self.demo_batch_size, True, self.demo_margins, time_percentage], return_ops),
                     sync_call
                 )
             else:
@@ -504,7 +503,7 @@ class DQFDAgent(Agent):
         if self.preprocessing_required and len(self.preprocessor.variable_registry) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
-    def update_from_demos(self, num_updates=1, batch_size=None, time_percentage=None):
+    def update_from_demos(self, batch_size=None, time_percentage=None, num_updates=1):
         """
         Executes a number of updates by sampling from the expert memory.
 

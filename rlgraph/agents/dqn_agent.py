@@ -347,7 +347,8 @@ class DQNAgent(Agent):
                 preprocessed_states)["adapter_outputs"]
             return q_values
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None, time_percentage=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
@@ -395,7 +396,7 @@ class DQNAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None, time_percentage=None):
+    def update(self, batch=None, time_percentage=None, **kwargs):
         # TODO: Move update_spec to Worker. Agent should not hold these execution details.
         if time_percentage is None:
             time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)

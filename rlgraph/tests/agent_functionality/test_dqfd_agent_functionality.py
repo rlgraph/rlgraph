@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+
 import numpy as np
 
 from rlgraph.agents import DQFDAgent
@@ -141,7 +142,7 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
             )
 
         # Update.
-        agent.update_from_demos(num_updates=1000, batch_size=8)
+        agent.update_from_demos(batch_size=8, num_updates=1000)
 
         # Test if fixed states and actions map.
         action = agent.get_action(states=state_1, apply_preprocessing=False, use_exploration=False)
@@ -197,7 +198,7 @@ class TestDQFDAgentFunctionality(unittest.TestCase):
         )
 
         # Fit demos.
-        agent.update_from_demos(num_updates=5000, batch_size=20)
+        agent.update_from_demos(batch_size=20, num_updates=5000)
 
         # Evaluate demos:
         agent_actions = agent.get_action(demo_states, apply_preprocessing=False, use_exploration=False)
