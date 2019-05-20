@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components import Component
+from rlgraph.components.component import Component
 from rlgraph.spaces import ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 

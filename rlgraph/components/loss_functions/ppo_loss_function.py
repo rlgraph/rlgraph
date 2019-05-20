@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.common.parameter import Parameter
 from rlgraph.components.loss_functions import LossFunction
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import get_rank
@@ -38,20 +39,26 @@ class PPOLossFunction(LossFunction):
                  scope="ppo-loss-function", **kwargs):
         """
         Args:
-            clip_ratio (float): How much to clip the likelihood ratio between old and new policy when updating.
+            clip_ratio (Spec[Parameter]): How much to clip the likelihood ratio between old and new policy when
+                updating.
 
             value_function_clipping (float): Clipping value for the ValueFunction component.
                 If None, no clipping is applied.
 
-            weight_entropy (Optional[float]): The weight with which to multiply the entropy and subtract from the loss.
+            weight_entropy (Optional[Spec[Parameter]]): The weight with which to multiply the entropy and subtract
+                from the loss.
         """
-        self.clip_ratio = clip_ratio
-        self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
+        super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
+
+        self.clip_ratio = Parameter.from_spec(clip_ratio, scope="clip-ratio")
+        self.weight_entropy = Parameter.from_spec(
+            weight_entropy if weight_entropy is not None else 0.00025, scope="weight-entropy"
+        )
         self.value_function_clipping = value_function_clipping
         self.ranks_to_reduce = None
         self.expand_entropy = None  # Whether to expand the entropy input by one rank.
 
-        super(PPOLossFunction, self).__init__(scope=scope, **kwargs)
+        self.add_components(self.clip_ratio, self.weight_entropy)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         """
@@ -65,7 +72,7 @@ class PPOLossFunction(LossFunction):
         self.expand_entropy = len(input_spaces["entropy"].get_shape(with_batch_rank=True)) == 1
 
     @rlgraph_api
-    def loss(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy, time_step=1):
+    def loss(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy, time_percentage):
         """
         API-method that calculates the total loss (average over per-batch-item loss) from the original input to
         per-item-loss.
@@ -76,7 +83,7 @@ class PPOLossFunction(LossFunction):
             Total loss, loss per item, total value-function loss, value-function loss per item.
         """
         loss_per_item, vf_loss_per_item = self.loss_per_item(
-            log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy
+            log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy, time_percentage
         )
         total_loss = self.loss_average(loss_per_item)
         total_vf_loss = self.loss_average(vf_loss_per_item)
@@ -85,11 +92,11 @@ class PPOLossFunction(LossFunction):
 
     @rlgraph_api
     def loss_per_item(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages,
-                      entropy, time_step=1):
+                      entropy, time_percentage):
         # Get losses for each action.
         # Baseline loss for V(s) does not depend on actions, only on state.
-        pg_loss_per_item = self.pg_loss_per_item(log_probs, prev_log_probs, advantages, entropy, time_step)
-        vf_loss_per_item = self.value_function_loss_per_item(state_values, prev_state_values, advantages, time_step)
+        pg_loss_per_item = self.pg_loss_per_item(log_probs, prev_log_probs, advantages, entropy, time_percentage)
+        vf_loss_per_item = self.value_function_loss_per_item(state_values, prev_state_values, advantages)
 
         # Average PG-loss across action components.
         pg_loss_per_item = self._graph_fn_average_over_container_keys(pg_loss_per_item)
@@ -118,24 +125,19 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                #advantages = tf.expand_dims(advantages, axis=-1)
                 ratio = tf.squeeze(ratio, axis=-1)
-                entropy = tf.squeeze(ratio, axis=-1)
-
-            ## Make sure entropy is always shape=(?,1) to match all other inputs.
-            #if self.expand_entropy is True:
-            #    entropy = tf.expand_dims(entropy, axis=-1)
+                entropy = tf.squeeze(entropy, axis=-1)
 
             clipped_advantages = tf.where(
                 condition=advantages > 0,
-                x=(1 + self.clip_ratio) * advantages,
-                y=(1 - self.clip_ratio) * advantages
+                x=(1 + self.clip_ratio.get(time_percentage)) * advantages,
+                y=(1 - self.clip_ratio.get(time_percentage)) * advantages
             )
             #clipped_advantages = tf.clip_by_value(ratio, 1.0 - self.clip_ratio, 1.0 + self.clip_ratio) * advantages
             loss = -tf.minimum(x=ratio * advantages, y=clipped_advantages)
 
             # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
-            loss -= self.weight_entropy * entropy
+            loss -= self.weight_entropy.get(time_percentage) * entropy
 
             # Reduce over the composite actions, if any.
             #if self.ranks_to_reduce > 0:
@@ -149,19 +151,19 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                advantages = torch.unsqueeze(advantages, dim=-1)
-                entropy = torch.unsqueeze(entropy, dim=-1)
+                ratio = torch.squeeze(ratio, dim=-1)
+                entropy = torch.squeeze(entropy, dim=-1)
 
             clipped_advantages = torch.where(
                 advantages > 0,
-                (1 + self.clip_ratio) * advantages,
-                (1 - self.clip_ratio) * advantages
+                (1 + self.clip_ratio.get(time_percentage)) * advantages,
+                (1 - self.clip_ratio.get(time_percentage)) * advantages
             )
             #clipped_advantages = torch.clamp(ratio, 1.0 - self.clip_ratio, 1.0 + self.clip_ratio) * advantages
             loss = -torch.min(ratio * advantages, clipped_advantages)
 
             # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
-            loss -= self.weight_entropy * entropy
+            loss -= self.weight_entropy.get(time_percentage) * entropy
 
             # Reduce over the composite actions, if any.
             if self.ranks_to_reduce > 0:

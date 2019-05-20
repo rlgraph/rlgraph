@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
+from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components.algorithms.ppo_algorithm_component import PPOAlgorithmComponent
 from rlgraph.spaces import BoolBox, FloatBox
@@ -165,7 +167,8 @@ class PPOAgent(Agent):
             terminals=BoolBox(add_batch_rank=True),
             sequence_indices=BoolBox(add_batch_rank=True),
             apply_postprocessing=bool,
-            num_records=int
+            num_records=int,
+            time_percentage=float
         ))
 
         self.build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
@@ -229,10 +232,9 @@ class PPOAgent(Agent):
             ("insert_records", [preprocessed_states, actions, rewards, terminals, sequence_indices])
         )
 
-    def update(self, batch=None, sequence_indices=None, apply_postprocessing=True):
+    def update(self, batch=None, time_percentage=None, sequence_indices=None, apply_postprocessing=True):
         """
         Args:
-            batch (dict): Update batch.
             sequence_indices (Optional[np.ndarray, list]): Sequence indices are used in multi-env batches where
                 partial episode fragments may be concatenated within the trajectory. For a single env, these are equal
                 to terminals. If None are given, terminals will be used as sequence indices. A sequence index is True
@@ -248,11 +250,14 @@ class PPOAgent(Agent):
                 been applied. The purpose of internal versus external post-processing is to be able to off-load
                 post-processing in large scale distributed scenarios.
         """
+        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
+        if time_percentage is None:
+            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
 
         # [0] = the loss; [1] = loss-per-item, [2] = vf-loss, [3] = vf-loss- per item
         return_ops = [0, 1, 2, 3]
         if batch is None:
-            ret = self.graph_executor.execute(("update_from_memory", [True], return_ops))
+            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops))
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -264,20 +269,16 @@ class PPOAgent(Agent):
 
             pps_dtype = self.root_component.preprocessed_state_space.dtype
             batch["states"] = np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np'))
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           sequence_indices, apply_postprocessing]
 
-            # Execute post-processing or already post-processed by workers?
-            if apply_postprocessing:
-                ret = self.graph_executor.execute(("post_process_and_update", batch_input, return_ops))
-                # Remove unnecessary return dicts (e.g. sync-op).
-                if isinstance(ret, dict):
-                    ret = ret["post_process_and_update"]
-            else:
-                ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
-                # Remove unnecessary return dicts (e.g. sync-op).
-                if isinstance(ret, dict):
-                    ret = ret["update_from_external_batch"]
+            ret = self.graph_executor.execute(
+                ("update_from_external_batch", [
+                    batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices,
+                    apply_postprocessing, time_percentage
+                ], return_ops)
+            )
+            # Remove unnecessary return dicts (e.g. sync-op).
+            if isinstance(ret, dict):
+                ret = ret["update_from_external_batch"]
 
         # [0/2] policy loss + vf loss, [1/3] losses per item
         return ret[0] + ret[2], ret[1] + ret[3]

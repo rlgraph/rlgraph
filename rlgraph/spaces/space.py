@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import re
 from collections import OrderedDict
 
 from rlgraph.utils.specifiable import Specifiable
@@ -379,3 +380,13 @@ class Space(Specifiable):
             bool: Whether sample is a valid member of this space.
         """
         raise NotImplementedError
+
+    @classmethod
+    def from_spec(cls, spec=None, **kwargs):
+        """
+        Handles special case that we are trying to construct a Space from a not-yet ready "variables:.." specification.
+        In this case, returns None, in all other cases, constructs the Space from_spec as usual.
+        """
+        if isinstance(spec, str) and re.search(r'^variables:', spec):
+            return None
+        return super(Space, cls).from_spec(spec, **kwargs)

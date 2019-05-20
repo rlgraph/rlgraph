@@ -36,7 +36,7 @@ class SequentialVectorEnv(VectorEnv):
                 reset in the background. Need to be calibrated depending on reset cost.
             async_reset (Optional[bool]): If true, resets envs asynchronously in another thread.
         """
-        self.environments = list()
+        self.environments = []
 
         for _ in range_(num_environments):
             if isinstance(env_spec, dict):
@@ -49,7 +49,8 @@ class SequentialVectorEnv(VectorEnv):
             self.environments.append(env)
 
         super(SequentialVectorEnv, self).__init__(
-            num_environments=num_environments, state_space=self.environments[0].state_space, action_space=self.environments[0].action_space
+            num_environments=num_environments,
+            state_space=self.environments[0].state_space, action_space=self.environments[0].action_space
         )
 
         self.async_reset = async_reset

@@ -22,9 +22,10 @@ import random
 import time
 
 import numpy as np
+from six.moves import xrange as range_
+
 import rlgraph.spaces as spaces
 from rlgraph.environments import Environment
-from six.moves import xrange as range_
 
 
 class GridWorld(Environment):
@@ -136,8 +137,8 @@ class GridWorld(Environment):
                 action space.
 
             reward_function (str): One of
-                sparse: hole=-1, fire=-1, goal=50, all other steps=-1
-                rich: hole=-100, fire=-10, goal=50
+                sparse: hole=-5, fire=-3, goal=1, all other steps=-0.1
+                rich: hole=-100, fire=-10, goal=50, all other steps=-0.1
 
             state_representation (str):
                 - "discrete": An int representing the field on the grid, 0 meaning the upper left field, 1 the one
@@ -320,7 +321,7 @@ class GridWorld(Environment):
             self.reward = -3 if self.reward_function == "sparse" else -10
         elif next_state_type in [" ", "S"]:
             self.is_terminal = False
-            self.reward = -1
+            self.reward = -0.1
         elif next_state_type == "G":
             self.is_terminal = True
             self.reward = 1 if self.reward_function == "sparse" else 50

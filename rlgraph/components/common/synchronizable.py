@@ -18,11 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import DataOpDict
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import get_shape
-from rlgraph.components import Component
 
 if get_backend() == "tf":
     import tensorflow as tf

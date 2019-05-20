@@ -17,7 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components import Component
+from rlgraph.components.common.parameter import Parameter
+from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 
 
@@ -33,7 +34,9 @@ class Optimizer(Component):
         """
         super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
 
-        self.learning_rate = learning_rate
+        self.learning_rate = Parameter.from_spec(learning_rate)
+
+        self.add_components(self.learning_rate)
 
     # Make all API-methods `must_be_complete`=False as optimizers don't implement `create_variables`.
     @rlgraph_api(must_be_complete=False)

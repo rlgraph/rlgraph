@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import time
 from copy import deepcopy
-
 import numpy as np
+import time
+
 from rlgraph.components import PreprocessorStack
 from rlgraph.execution.worker import Worker
 from rlgraph.spaces.containers import Dict, Tuple
@@ -65,7 +65,6 @@ class SingleThreadedWorker(Worker):
 
         # Accumulated return over the running episode.
         self.episode_returns = [0 for _ in range_(self.num_environments)]
-
         # The number of steps taken in the running episode.
         self.episode_timesteps = [0 for _ in range_(self.num_environments)]
         # Whether the running episode has terminated.
@@ -161,6 +160,17 @@ class SingleThreadedWorker(Worker):
         """
         assert num_timesteps is not None or num_episodes is not None,\
             "ERROR: One of `num_timesteps` or `num_episodes` must be provided!"
+
+        # Determine `max_timesteps` for this execution run.
+        if self.max_timesteps is not None:
+            max_timesteps = self.max_timesteps
+        elif num_timesteps is not None:
+            max_timesteps = num_timesteps
+        elif max_timesteps_per_episode is not None and max_timesteps_per_episode > 0:
+            max_timesteps = num_episodes * max_timesteps_per_episode
+        else:
+            max_timesteps = 1e6
+
         # Are we updating or just acting/observing?
         #update_spec = default_dict(update_spec, self.agent.update_spec)
         #self.set_update_schedule(update_spec)
@@ -323,7 +333,7 @@ class SingleThreadedWorker(Worker):
                     self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],
                     episode_terminals[i], **other_data
                 )
-            loss = self.agent.update_if_necessary()
+            loss = self.agent.update_if_necessary(max_timesteps=max_timesteps)
             if loss is not None:
                 self.log_finished_update(loss=loss)
             timesteps_executed += self.num_environments

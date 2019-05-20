@@ -19,10 +19,10 @@ from __future__ import print_function
 
 import os
 import time
-import numpy as np
 
+import numpy as np
 from rlgraph import get_backend
-from rlgraph.components import Component
+from rlgraph.components.component import Component
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run_unflatten

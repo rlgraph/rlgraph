@@ -115,8 +115,9 @@ class GradientDescentOptimizer(LocalOptimizer):
             **kwargs
         )
 
+    def create_variables(self, input_spaces, action_space=None):
         if get_backend() == "tf":
-            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
+            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate.placeholder())
 
 
 class AdamOptimizer(LocalOptimizer):
@@ -132,9 +133,10 @@ class AdamOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "adam-optimizer"), **kwargs
         )
 
+    def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
             self.optimizer = tf.train.AdamOptimizer(
-                learning_rate=self.learning_rate,
+                learning_rate=self.learning_rate.placeholder(),
                 beta1=self.beta1,
                 beta2=self.beta2
             )
@@ -142,7 +144,7 @@ class AdamOptimizer(LocalOptimizer):
             # Cannot instantiate yet without weights.
             self.optimizer = lambda parameters: torch.optim.Adam(
                 parameters,
-                lr=self.learning_rate,
+                lr=self.learning_rate,  # for pytorch ??
                 betas=(self.beta1, self.beta2)
             )
 
@@ -162,9 +164,10 @@ class NadamOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "nadam-optimizer"), **kwargs
         )
 
+    def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
             self.optimizer = tf.keras.optimizers.Nadam(
-                lr=self.learning_rate,
+                lr=self.learning_rate.placeholder(),
                 beta_1=self.beta1,
                 beta_2=self.beta2,
                 schedule_decay=self.schedule_decay
@@ -182,14 +185,15 @@ class AdagradOptimizer(LocalOptimizer):
         self.initial_accumulator_value = kwargs.pop("initial_accumulator_value", 0.1)
 
         super(AdagradOptimizer, self).__init__(
-            learning_rate=learning_rate,
+            learning_rate=learning_rate.placeholder(),
             scope=kwargs.pop("scope", "adagrad-optimizer"),
             **kwargs
         )
 
+    def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
             self.optimizer = tf.train.AdagradOptimizer(
-                learning_rate=self.learning_rate,
+                learning_rate=self.learning_rate.placeholder(),
                 initial_accumulator_value=self.initial_accumulator_value
             )
         elif get_backend() == "pytorch":
@@ -214,8 +218,9 @@ class AdadeltaOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "adadelta-optimizer"), **kwargs
         )
 
+    def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
-            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate, rho=self.rho)
+            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.learning_rate.placeholder(), rho=self.rho)
         elif get_backend() == "pytorch":
             # Cannot instantiate yet without weights.
             self.optimizer = lambda parameters: torch.optim.Adadelta(
@@ -239,9 +244,10 @@ class SGDOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "sgd-optimizer"), **kwargs
         )
 
+    def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
             self.optimizer = tf.keras.optimizers.SGD(
-                lr=self.learning_rate,
+                lr=self.learning_rate.placeholder(),
                 momentum=self.momentum,
                 decay=self.decay,
                 nesterov=self.nesterov
@@ -272,6 +278,7 @@ class RMSPropOptimizer(LocalOptimizer):
             learning_rate=learning_rate, scope=kwargs.pop("scope", "rms-prop-optimizer"), **kwargs
         )
 
+    def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
             self.optimizer = tf.train.RMSPropOptimizer(
                 learning_rate=self.learning_rate,
