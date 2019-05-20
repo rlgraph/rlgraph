@@ -174,8 +174,7 @@ class PPOAgent(Agent):
             rewards=reward_space,
             terminals=terminal_space,
             sequence_indices=BoolBox(add_batch_rank=True),
-            apply_postprocessing=bool,
-            time_percentage=float
+            apply_postprocessing=bool
         ))
 
         self.memory = Memory.from_spec(memory_spec)

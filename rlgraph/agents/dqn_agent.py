@@ -151,8 +151,7 @@ class DQNAgent(Agent):
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=weight_space,
-            apply_postprocessing=bool,
-            time_percentage=float
+            apply_postprocessing=bool
         ))
         if self.value_function is not None:
             self.input_spaces["value_function_weights"] = "variables:{}".format(self.value_function.scope),

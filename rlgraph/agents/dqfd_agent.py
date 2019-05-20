@@ -161,8 +161,7 @@ class DQFDAgent(Agent):
             expert_margins=FloatBox(add_batch_rank=True),
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
-            importance_weights=weight_space,
-            time_percentage=float
+            importance_weights=weight_space
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.

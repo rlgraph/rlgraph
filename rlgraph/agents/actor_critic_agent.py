@@ -134,8 +134,7 @@ class ActorCriticAgent(Agent):
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
             terminals=terminal_space,
-            sequence_indices=BoolBox(add_batch_rank=True),
-            time_percentage=float
+            sequence_indices=BoolBox(add_batch_rank=True)
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
