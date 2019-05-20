@@ -79,7 +79,7 @@ class Parameter(Component):
     def placeholder(self):
         """
         Creates a connection to a tf placeholder (completely outside the RLgraph meta-graph).
-        Passes that placeholder through one run of our `get` API method and then returns the output op.
+        Passes that placeholder through one run of our `_graph_fn_get` function and then returns the output op.
         That way, this parameter can be used inside a tf.optimizer object as the learning rate tensor.
 
         Returns:

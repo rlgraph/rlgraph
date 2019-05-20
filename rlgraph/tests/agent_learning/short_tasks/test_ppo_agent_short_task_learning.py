@@ -22,6 +22,7 @@ import os
 import unittest
 
 import numpy as np
+
 from rlgraph.agents import PPOAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
@@ -206,7 +207,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         time_steps = 5000
         worker = SingleThreadedWorker(
-            env_spec=lambda: env,
+            env_spec=env,
             agent=agent,
             worker_executes_preprocessing=False,
             render=False,  #self.is_windows
@@ -227,7 +228,35 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         """
         Creates a PPO Agent and runs it via a Runner on the Pendulum env.
         """
-        env = OpenAIGymEnv("Pendulum-v0")
+        env_spec = dict(type="openaigym", gym_env="Pendulum-v0")
+        dummy_env = OpenAIGymEnv.from_spec(env_spec)
+        agent_spec = config_from_path("configs/ppo_agent_for_pendulum.json")
+        preprocessing_spec = agent_spec.pop("preprocessing_spec", None)
+        agent = PPOAgent.from_spec(
+            agent_spec,
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space
+        )
+
+        worker = SingleThreadedWorker(
+            env_spec=env_spec,
+            num_environments=10,
+            agent=agent,
+            preprocessing_spec=preprocessing_spec,
+            worker_executes_preprocessing=True,
+            render=False, #self.is_windows,
+            episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
+            print("episode return {}; steps={}".format(episode_return, timesteps))
+        )
+        results = worker.execute_timesteps(num_timesteps=int(5e6), use_exploration=True)
+
+        print(results)
+
+    def test_ppo_on_lunar_lander(self):
+        """
+        Creates a PPO Agent and runs it via a Runner on the Pendulum env.
+        """
+        env = OpenAIGymEnv("LunarLander-v2")
         agent = PPOAgent.from_spec(
             config_from_path("configs/ppo_agent_for_pendulum.json"),
             state_space=env.state_space,
@@ -245,5 +274,3 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         results = worker.execute_timesteps(num_timesteps=int(5e6), use_exploration=True)
 
         print(results)
-
-

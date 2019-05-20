@@ -53,8 +53,8 @@
 
 
   "update_spec": {
-    "update_mode": "time_steps",
     "do_updates": true,
+    "update_mode": "time_steps",
     "update_interval": 1,
     "sync_interval": 1,
     "sync_tau": 5e-3,
