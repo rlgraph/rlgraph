@@ -107,7 +107,7 @@ class TimeDependentParameter(Component):
         }
         # Single float means constant parameter.
         if isinstance(spec, float):
-            spec = dict(value=spec, type="constant")
+            spec = dict(constant_value=spec, type="constant")
         # List/tuple means simple (type)?/from/to setup.
         elif isinstance(spec, (tuple, list)):
             if len(spec) == 2:
