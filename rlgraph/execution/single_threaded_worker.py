@@ -212,6 +212,8 @@ class SingleThreadedWorker(Worker):
             if self.render:
                 self.vector_env.render()
 
+            time_percentage = min(self.agent.timesteps / max_timesteps, 1.0)
+
             if self.worker_executes_preprocessing:
                 for i, env_id in enumerate(self.env_ids):
                     state = self.agent.state_space.force_batch(env_states[i])
@@ -224,13 +226,13 @@ class SingleThreadedWorker(Worker):
                 # TODO extra returns when worker is not applying preprocessing.
                 actions = self.agent.get_action(
                     states=self.preprocessed_states_buffer, use_exploration=use_exploration,
-                    apply_preprocessing=self.apply_preprocessing
+                    apply_preprocessing=self.apply_preprocessing, time_percentage=time_percentage
                 )
                 preprocessed_states = np.array(self.preprocessed_states_buffer)
             else:
                 actions, preprocessed_states = self.agent.get_action(
                     states=np.array(env_states), use_exploration=use_exploration,
-                    apply_preprocessing=True, extra_returns="preprocessed_states"
+                    apply_preprocessing=True, extra_returns="preprocessed_states", time_percentage=time_percentage
                 )
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
@@ -328,7 +330,7 @@ class SingleThreadedWorker(Worker):
                     self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],
                     episode_terminals[i]
                 )
-            self.update_if_necessary(max_timesteps=max_timesteps)
+            self.update_if_necessary(time_percentage=time_percentage)
             timesteps_executed += self.num_environments
             num_timesteps_reached = (0 < num_timesteps <= timesteps_executed)
 

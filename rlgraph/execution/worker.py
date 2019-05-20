@@ -190,7 +190,7 @@ class Worker(Specifiable):
         """
         pass
 
-    def update_if_necessary(self, max_timesteps):
+    def update_if_necessary(self, time_percentage):
         """
         Calls update on the agent according to the update schedule set for this worker.
 
@@ -207,18 +207,18 @@ class Worker(Specifiable):
                      int(self.agent.timesteps / self.num_environments) >= self.agent.observe_spec["buffer_size"]):
                 # Updating according to one update mode:
                 if self.update_mode == "time_steps" and self.agent.timesteps % self.update_interval == 0:
-                    return self.execute_update(max_timesteps)
+                    return self.execute_update(time_percentage)
                 elif self.update_mode == "episodes" and self.episodes_since_update == self.update_interval:
                     # Do not do modulo here - this would be called every step in one episode otherwise.
-                    loss = self.execute_update(max_timesteps)
+                    loss = self.execute_update(time_percentage)
                     self.episodes_since_update = 0
                     return loss
         return None
 
-    def execute_update(self, max_timesteps):
+    def execute_update(self, time_percentage):
         loss = 0
         for _ in range_(self.update_steps):
-            ret = self.agent.update(time_percentage=min(self.agent.timesteps / max_timesteps, 1.0))
+            ret = self.agent.update(time_percentage=time_percentage)
             if isinstance(ret, tuple):
                 loss += ret[0]
             else:

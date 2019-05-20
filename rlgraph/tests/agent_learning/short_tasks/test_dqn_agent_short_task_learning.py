@@ -271,10 +271,10 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=13),
             update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.01)
+            optimizer_spec=dict(type="adam", learning_rate=["linear", 0.01, 0.00001])
         )
 
-        time_steps = 3000
+        time_steps = 6000
         worker = SingleThreadedWorker(
             env_spec=lambda: OpenAIGymEnv(gym_env, seed=10),
             agent=agent,
@@ -285,8 +285,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], 25)
-        self.assertLessEqual(results["episodes_executed"], 150)
+        self.assertGreaterEqual(results["mean_episode_reward"], 40)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 10)
 
     def test_double_dqn_on_2x2_grid_world_single_action_to_container(self):
         """
