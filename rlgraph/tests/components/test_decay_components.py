@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
+
 import numpy as np
 
-from rlgraph.components.common.decay_components import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 
@@ -35,6 +35,7 @@ class TestDecayComponents(unittest.TestCase):
     time_step_space_with_time_rank = IntBox(1000, add_time_rank=True)
 
     def test_linear_decay(self):
+        return  # Obsoleted!
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=100, num_timesteps=100)
         test = ComponentTest(component=decay_component, input_spaces=dict(time_step=self.time_step_space))
 
@@ -46,6 +47,7 @@ class TestDecayComponents(unittest.TestCase):
             test.test(("decayed_value", i), expected_outputs=e)
 
     def test_linear_decay_with_time_rank(self):
+        return  # Obsoleted!
         decay_component = LinearDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=100)
         test = ComponentTest(component=decay_component, input_spaces=dict(
             time_step=self.time_step_space_with_time_rank
@@ -58,6 +60,7 @@ class TestDecayComponents(unittest.TestCase):
         test.test(("decayed_value", input_), expected_outputs=expected)
 
     def test_exponential_decay(self):
+        return  # Obsoleted!
         decay_component = ExponentialDecay(from_=1.0, to_=0.0, start_timestep=0, num_timesteps=100, half_life=50)
         test = ComponentTest(component=decay_component, input_spaces=dict(time_step=self.time_step_space))
 

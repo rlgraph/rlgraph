@@ -53,7 +53,7 @@ class DecayComponent(Component):
             from (float): See `from_`. For additional support to specify without the underscore.
             to (float): See `to_`. For additional support to specify without the underscore.
         """
-        raise RLGraphObsoletedError("DecayComponent", "DecayComponent", "Parameter")
+        raise RLGraphObsoletedError("DecayComponent", "DecayComponent", "TimeDependentParameter")
         kwargs_from = kwargs.pop("from", None)
         kwargs_to = kwargs.pop("to", None)
 
@@ -190,85 +190,85 @@ class ConstantDecay(DecayComponent):
         return self.constant_value
 
 
-class PolynomialDecay(DecayComponent):
-    """
-    Component that takes a time input and outputs a linearly decaying value (using init-, and final values).
-    The formula is:
-    out = (t/T) * (from - to) + to
-    where
-    - t=time step (counting from the decay start-time, which is not necessarily 0)
-    - T=the number of timesteps over which to decay.
-    - from=start value
-    - to=end value
-    """
-    def __init__(self, power=1.0, scope="polynomial-decay", **kwargs):
-        """
-        Args:
-            power (float): The polynomial power to use (e.g. 1.0 for linear).
-        """
-        super(PolynomialDecay, self).__init__(scope=scope, **kwargs)
+#class PolynomialDecay(DecayComponent):
+#    """
+#    Component that takes a time input and outputs a linearly decaying value (using init-, and final values).
+#    The formula is:
+#    out = (t/T) * (from - to) + to
+#    where
+#    - t=time step (counting from the decay start-time, which is not necessarily 0)
+#    - T=the number of timesteps over which to decay.
+#    - from=start value
+#    - to=end value
+#    """
+#    def __init__(self, power=1.0, scope="polynomial-decay", **kwargs):
+#        """
+#        Args:
+#            power (float): The polynomial power to use (e.g. 1.0 for linear).
+#        """
+#        super(PolynomialDecay, self).__init__(scope=scope, **kwargs)
 
-        self.power = power
+#        self.power = power
 
-    @graph_fn
-    def _graph_fn_decay(self, time_steps_in_decay_window):
-        if get_backend() == "tf":
-            return tf.train.polynomial_decay(
-                learning_rate=self.from_,
-                global_step=time_steps_in_decay_window,
-                decay_steps=self.num_timesteps,
-                end_learning_rate=self.to_,
-                power=self.power
-            )
-        elif get_backend() == "pytorch":
-            decay_steps = self.num_timesteps * torch.ceil(time_steps_in_decay_window / self.num_timesteps)
-            return (self.from_ - self.to_) \
-                * torch.pow((1.0 - time_steps_in_decay_window / decay_steps), self.power) + self.to_
-
-
-class LinearDecay(PolynomialDecay):
-    def __init__(self, scope="linear-decay", **kwargs):
-        super(LinearDecay, self).__init__(power=1.0, scope=scope, **kwargs)
+#    @graph_fn
+#    def _graph_fn_decay(self, time_steps_in_decay_window):
+#        if get_backend() == "tf":
+#            return tf.train.polynomial_decay(
+#                learning_rate=self.from_,
+#                global_step=time_steps_in_decay_window,
+#                decay_steps=self.num_timesteps,
+#                end_learning_rate=self.to_,
+#                power=self.power
+#            )
+#        elif get_backend() == "pytorch":
+#            decay_steps = self.num_timesteps * torch.ceil(time_steps_in_decay_window / self.num_timesteps)
+#            return (self.from_ - self.to_) \
+#                * torch.pow((1.0 - time_steps_in_decay_window / decay_steps), self.power) + self.to_
 
 
-class ExponentialDecay(DecayComponent):
-    """
-    Component that takes a time input and outputs an exponentially decaying value (using a half-life parameter and
-    init-, and final values).
-    The formula is:
-    out = 2exp(-t/h) * (from - to) + to
-    where
-    - t=time step (counting from the decay start-time, which is not necessarily 0)
-    - h=the number of timesteps over which the decay is 50%.
-    - from=start value
-    - to=end value
-    """
-    def __init__(self, half_life=None, num_half_lives=10, scope="exponential-decay", **kwargs):
-        """
-        Args:
-            half_life (Optional[int]): The half life period in number of timesteps. Use `num_half_lives` for a relative
-                measure against `num_timesteps`.
-            num_half_lives (Optional[int]): The number of sub-periods into which `num_timesteps` will be divided, each
-                division being the length of time in which we decay 50%. This is an alternative to `half_life`.
+#class LinearDecay(PolynomialDecay):
+#    def __init__(self, scope="linear-decay", **kwargs):
+#        super(LinearDecay, self).__init__(power=1.0, scope=scope, **kwargs)
 
-        Keyword Args:
-            see DecayComponent
-        """
-        assert isinstance(half_life, int) or isinstance(num_half_lives, int)
 
-        super(ExponentialDecay, self).__init__(scope=scope, **kwargs)
+#class ExponentialDecay(DecayComponent):
+#    """
+#    Component that takes a time input and outputs an exponentially decaying value (using a half-life parameter and
+#    init-, and final values).
+#    The formula is:
+#    out = 2exp(-t/h) * (from - to) + to
+#    where
+#    - t=time step (counting from the decay start-time, which is not necessarily 0)
+#    - h=the number of timesteps over which the decay is 50%.
+#    - from=start value
+#    - to=end value
+#    """
+#    def __init__(self, half_life=None, num_half_lives=10, scope="exponential-decay", **kwargs):
+#        """
+#        Args:
+#            half_life (Optional[int]): The half life period in number of timesteps. Use `num_half_lives` for a relative
+#                measure against `num_timesteps`.
+#            num_half_lives (Optional[int]): The number of sub-periods into which `num_timesteps` will be divided, each
+#                division being the length of time in which we decay 50%. This is an alternative to `half_life`.
 
-        self.half_life_timesteps = half_life if half_life is not None else self.num_timesteps / num_half_lives
+#        Keyword Args:
+#            see DecayComponent
+#        """
+#        assert isinstance(half_life, int) or isinstance(num_half_lives, int)
 
-    @graph_fn
-    def _graph_fn_decay(self, time_steps_in_decay_window):
-        if get_backend() == "tf":
-            return tf.train.exponential_decay(
-                learning_rate=self.from_,
-                global_step=time_steps_in_decay_window,
-                decay_steps=self.half_life_timesteps,
-                decay_rate=0.5
-            )
-        elif get_backend() == "pytorch":
-            power = time_steps_in_decay_window / self.half_life_timesteps
-            return self.from_ * torch.pow(0.5, power)
+#        super(ExponentialDecay, self).__init__(scope=scope, **kwargs)
+
+#        self.half_life_timesteps = half_life if half_life is not None else self.num_timesteps / num_half_lives
+
+#    @graph_fn
+#    def _graph_fn_decay(self, time_steps_in_decay_window):
+#        if get_backend() == "tf":
+#            return tf.train.exponential_decay(
+#                learning_rate=self.from_,
+#                global_step=time_steps_in_decay_window,
+#                decay_steps=self.half_life_timesteps,
+#                decay_rate=0.5
+#            )
+#        elif get_backend() == "pytorch":
+#            power = time_steps_in_decay_window / self.half_life_timesteps
+#            return self.from_ * torch.pow(0.5, power)

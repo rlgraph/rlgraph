@@ -21,36 +21,33 @@ from rlgraph.components.common.batch_apply import BatchApply
 from rlgraph.components.common.batch_splitter import BatchSplitter
 from rlgraph.components.common.container_merger import ContainerMerger
 # TODO: Obsoleted classes.
-from rlgraph.components.common.decay_components import DecayComponent, LinearDecay, PolynomialDecay, ExponentialDecay, \
-    ConstantDecay
+from rlgraph.components.common.decay_components import DecayComponent, ConstantDecay
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.components.common.noise_components import NoiseComponent, ConstantNoise, GaussianNoise, \
     OrnsteinUhlenbeckNoise
-from rlgraph.components.common.parameter import Parameter, ConstantParameter, \
-    LinearParameter, PolynomialParameter, ExponentialParameter
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.common.sampler import Sampler
 from rlgraph.components.common.slice import Slice
 from rlgraph.components.common.staging_area import StagingArea
 from rlgraph.components.common.synchronizable import Synchronizable
+from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter, Constant, \
+    LinearDecay, PolynomialDecay, ExponentialDecay
 
-Parameter.__lookup_classes__ = dict(
-    parameter=Parameter,
-    constantparameter=ConstantParameter,
-    linearparameter=LinearParameter,
-    polynomialparameter=PolynomialParameter,
-    exponentialparameter=ExponentialParameter
+TimeDependentParameter.__lookup_classes__ = dict(
+    parameter=TimeDependentParameter,
+    constant=Constant,
+    constantparameter=Constant,
+    lineardecay=LinearDecay,
+    polynomialdecay=PolynomialDecay,
+    exponentialdecay=ExponentialDecay
 )
 
 # TODO: Obsoleted classes.
 DecayComponent.__lookup_classes__ = dict(
     decay=DecayComponent,
-    lineardecay=LinearDecay,
-    constantdecay=ConstantDecay,
-    exponentialdecay=ExponentialDecay,
-    polynomialdecay=PolynomialDecay
+    constantdecay=ConstantDecay
 )
-DecayComponent.__default_constructor__ = LinearDecay
+DecayComponent.__default_constructor__ = ConstantDecay
 
 NoiseComponent.__lookup_classes__ = dict(
     noise=NoiseComponent,
@@ -65,6 +62,6 @@ NoiseComponent.__default_constructor__ = GaussianNoise
 __all__ = ["BatchApply", "ContainerMerger",
            "Synchronizable", "RepeaterStack", "Slice",
            "Sampler", "BatchSplitter", "MultiGpuSynchronizer"] + \
-          list(set(map(lambda x: x.__name__, list(Parameter.__lookup_classes__.values()) +
+          list(set(map(lambda x: x.__name__, list(TimeDependentParameter.__lookup_classes__.values()) +
                        list(DecayComponent.__lookup_classes__.values()) +
                        list(NoiseComponent.__lookup_classes__.values()))))
