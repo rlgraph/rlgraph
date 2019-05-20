@@ -257,14 +257,14 @@ class DQNAgent(Agent):
 
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root, apply_postprocessing):
+        def update_from_memory(root, apply_postprocessing, time_percentage=None):
             # Non prioritized memory will just return weight 1.0 for all samples.
             records, sample_indices, importance_weights = agent.memory.get_records(agent.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
 
             step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights,
-                apply_postprocessing
+                apply_postprocessing, time_percentage
             )
 
             # TODO this is really annoying. Will be solved once we have dict returns.
@@ -278,7 +278,7 @@ class DQNAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
                 root, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                importance_weights, apply_postprocessing
+                importance_weights, apply_postprocessing, time_percentage=None
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -315,7 +315,7 @@ class DQNAgent(Agent):
                 q_values_sp = policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
+                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, time_percentage
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -336,7 +336,7 @@ class DQNAgent(Agent):
 
         @rlgraph_api(component=self.root_component)
         def get_td_loss(root, preprocessed_states, actions, rewards,
-                        terminals, preprocessed_next_states, importance_weights):
+                        terminals, preprocessed_next_states, importance_weights, time_percentage=None):
 
             policy = root.get_sub_component_by_name(agent.policy.scope)
             target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
@@ -351,7 +351,7 @@ class DQNAgent(Agent):
                 q_values_sp = policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
 
             loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
+                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights, time_percentage
             )
             return loss, loss_per_item
 
@@ -399,7 +399,11 @@ class DQNAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None):
+    def update(self, batch=None, time_percentage=None):
+        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
+        if time_percentage is None:
+            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
+
         # Should we sync the target net?
         self.steps_since_target_net_sync += self.update_spec["update_interval"]
         if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
@@ -418,7 +422,7 @@ class DQNAgent(Agent):
                 return_ops += [3, 4]  # 3=batch, 4=q-values
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
-            ret = self.graph_executor.execute(("update_from_memory", [True], return_ops))
+            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops))
 
             # Store the last Q-table?
             if self.store_last_q_table is True:
@@ -433,7 +437,7 @@ class DQNAgent(Agent):
 
             # TODO apply postprocessing always true atm.
             batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"], True]
+                           batch["next_states"], batch["importance_weights"], True, time_percentage]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
 
             # Store the last Q-table?
