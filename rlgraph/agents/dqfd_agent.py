@@ -175,7 +175,8 @@ class DQFDAgent(Agent):
             expert_margins=FloatBox(add_batch_rank=True),
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
-            importance_weights=weight_space
+            importance_weights=weight_space,
+            time_percentage=float
         ))
 
         # The merger to merge inputs into one record Dict going into the memory.
@@ -269,7 +270,7 @@ class DQFDAgent(Agent):
 
         # Learn from online memory AND demo memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root, apply_demo_loss, expert_margins):
+        def update_from_memory(root, apply_demo_loss, expert_margins, time_percentage=None):
             # Sample from online memory.
             records, sample_indices, importance_weights = agent.memory.get_records(self.batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
@@ -277,7 +278,7 @@ class DQFDAgent(Agent):
             # Do not apply demo loss to online experience.
             online_step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss,
-                expert_margins
+                expert_margins, time_percentage
             )
 
             if isinstance(agent.memory, PrioritizedReplay):
@@ -289,13 +290,13 @@ class DQFDAgent(Agent):
 
         # Learn from demo-data.
         @rlgraph_api(component=self.root_component)
-        def update_from_demos(root, demo_batch_size, apply_demo_loss, expert_margins):
+        def update_from_demos(root, demo_batch_size, apply_demo_loss, expert_margins, time_percentage=None):
             # Sample from demo memory.
             records, sample_indices, importance_weights = agent.demo_memory.get_records(demo_batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
             step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss,
-                expert_margins
+                expert_margins, time_percentage
             )
             return step_op, loss, loss_per_item, records, q_values_s
 
@@ -303,7 +304,7 @@ class DQFDAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
                 root, preprocessed_states, actions, rewards, terminals, preprocessed_next_states, importance_weights,
-                apply_demo_loss, expert_margins
+                apply_demo_loss, expert_margins, time_percentage=None
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -313,7 +314,7 @@ class DQFDAgent(Agent):
                 grads_and_vars, loss, loss_per_item, q_values_s = \
                     root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                         dict(policy=main_policy_vars), preprocessed_states, actions, rewards, terminals,
-                        preprocessed_next_states, importance_weights, apply_demo_loss, expert_margins
+                        preprocessed_next_states, importance_weights, apply_demo_loss, expert_margins, time_percentage
                     )
                 step_op = agent.optimizer.apply_gradients(grads_and_vars)
                 # Increase the global training step counter.
@@ -339,7 +340,7 @@ class DQFDAgent(Agent):
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins, q_values_sp,
-                importance_weights, apply_demo_loss
+                importance_weights, apply_demo_loss, time_percentage
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -355,7 +356,8 @@ class DQFDAgent(Agent):
 
         @rlgraph_api(component=self.root_component)
         def get_td_loss(root, preprocessed_states, actions, rewards,
-                        terminals, preprocessed_next_states, importance_weights, apply_demo_loss, expert_margins):
+                        terminals, preprocessed_next_states, importance_weights, apply_demo_loss, expert_margins,
+                        time_percentage=None):
 
             policy = root.get_sub_component_by_name(agent.policy.scope)
             target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
@@ -371,7 +373,7 @@ class DQFDAgent(Agent):
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins,
-                q_values_sp, importance_weights, apply_demo_loss
+                q_values_sp, importance_weights, apply_demo_loss, time_percentage
             )
             return loss, loss_per_item
 
@@ -419,7 +421,8 @@ class DQFDAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None, update_from_demos=False, expert_margins=None, apply_demo_loss_to_batch=False):
+    def update(self, batch=None, update_from_demos=False, expert_margins=None, apply_demo_loss_to_batch=False,
+               time_percentage=None):
         """
         Updates from external batch or replay memory.
         Args:
@@ -436,6 +439,9 @@ class DQFDAgent(Agent):
         Returns:
             tuple: Loss and loss per item.
         """
+        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
+        if time_percentage is None:
+            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
 
         # Should we sync the target net?
         self.steps_since_target_net_sync += self.update_spec["update_interval"]
@@ -461,13 +467,16 @@ class DQFDAgent(Agent):
             # Otherwise only update from online memory.
             if update_from_demos:
                 # Use default margins whe sampling from memory.
-                ret = self.graph_executor.execute(("update_from_memory", [False, self.default_margins], return_ops),
-                                                  ("update_from_demos", [self.demo_batch_size, True,
-                                                                         self.demo_margins], return_ops),
-                                                  sync_call)
+                ret = self.graph_executor.execute(
+                    ("update_from_memory", [False, self.default_margins, time_percentage], return_ops),
+                    ("update_from_demos", [self.demo_batch_size, True, self.demo_margins, time_percentage], return_ops),
+                    sync_call
+                )
             else:
-                ret = self.graph_executor.execute(("update_from_memory",  [False, self.default_margins], return_ops),
-                                                  sync_call)
+                ret = self.graph_executor.execute(
+                    ("update_from_memory",  [False, self.default_margins], return_ops),
+                    sync_call
+                )
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -493,17 +502,23 @@ class DQFDAgent(Agent):
 
             # Apply demo loss to external flag depending on batch.
             # Expert margins only have effect if True.
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"], apply_demo_loss_to_batch, expert_margins]
+            batch_input = [
+                batch["states"], batch["actions"], batch["rewards"], batch["terminals"], batch["next_states"],
+                batch["importance_weights"], apply_demo_loss_to_batch, expert_margins, time_percentage
+            ]
 
             if update_from_demos:
-                ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops),
-                                                  ("update_from_demos", [self.demo_batch_size, True,
-                                                                         self.demo_margins], return_ops),
-                                                  sync_call)
+                ret = self.graph_executor.execute(
+                    ("update_from_external_batch", batch_input, return_ops),
+                    ("update_from_demos", [self.demo_batch_size, True, self.demo_margins], return_ops),
+                    sync_call
+                )
             else:
                 # Only update from external batch (which may use demo loss depending on flag.
-                ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops), sync_call)
+                ret = self.graph_executor.execute(
+                    ("update_from_external_batch", batch_input, return_ops),
+                    sync_call
+                )
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -534,7 +549,7 @@ class DQFDAgent(Agent):
         if self.preprocessing_required and len(self.preprocessor.variable_registry) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
-    def update_from_demos(self, num_updates=1, batch_size=None):
+    def update_from_demos(self, num_updates=1, batch_size=None, time_percentage=None):
         """
         Executes a number of updates by sampling from the expert memory.
 
@@ -543,13 +558,17 @@ class DQFDAgent(Agent):
             batch_size (Optional[int]): Sampling batch size to use. If None, uses the demo
                 batch size computed via the sampling ratio.
         """
+        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
+        if time_percentage is None:
+            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
+
         if batch_size is None:
             batch_size = self.demo_batch_size
             margins = self.demo_margins
         else:
             margins = np.asarray([self.expert_margin] * batch_size)
         for _ in range(num_updates):
-            self.graph_executor.execute(("update_from_demos", [batch_size, True, margins]))
+            self.graph_executor.execute(("update_from_demos", [batch_size, True, margins, time_percentage]))
 
     def observe_demos(self, preprocessed_states, actions, rewards, next_states, terminals):
         """
@@ -558,5 +577,6 @@ class DQFDAgent(Agent):
         self.graph_executor.execute(("insert_demos", [preprocessed_states, actions, rewards, next_states, terminals]))
 
     def __repr__(self):
-        return "DQFDAgent(doubleQ={} duelingQ={}, expert margin={})".format(self.double_q, self.dueling_q,
-                                                                            self.expert_margin)
+        return "DQFDAgent(doubleQ={} duelingQ={}, expert margin={})".format(
+            self.double_q, self.dueling_q, self.expert_margin
+        )
