@@ -138,6 +138,8 @@ class Constant(TimeDependentParameter):
                 return tf.fill(tf.shape(time_percentage), self.from_)
             else:
                 return self.from_
+        elif get_backend() == "pytorch":
+            return torch.new_full(size=time_percentage.size(), fill_value=self.from_)
 
     def placeholder(self):
         return self.from_
@@ -177,6 +179,8 @@ class PolynomialDecay(TimeDependentParameter):
                     end_learning_rate=self.to_,
                     power=self.power
                 )
+            elif get_backend() == "pytorch":
+                return self.to_ + (self.from_ - self.to_) * (1.0 - time_percentage) ** self.power
 
 
 class LinearDecay(PolynomialDecay):
@@ -235,3 +239,5 @@ class ExponentialDecay(TimeDependentParameter):
                     decay_steps=self.resolution,
                     decay_rate=self.decay_rate
                 ) + self.to_
+            if get_backend() == "tf":
+                return self.to_ + (self.from_ - self.to_) * self.decay_rate ** time_percentage
