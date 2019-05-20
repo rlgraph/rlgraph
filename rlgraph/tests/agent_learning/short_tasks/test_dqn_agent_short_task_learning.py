@@ -189,10 +189,10 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=self.grid_world_4x4_flattened_state_space,
             action_space=dummy_env.action_space,
             update_spec=dict(update_interval=4, batch_size=32, sync_interval=32),
-            optimizer_spec=dict(type="adam", learning_rate=["linear", 0.02, 0.001])
+            optimizer_spec=dict(type="adam", learning_rate=["linear", 0.01, 0.0001])
         )
 
-        time_steps = 6000
+        time_steps = 9000
         worker = SingleThreadedWorker(
             env_spec=lambda: GridWorld("4x4"),
             agent=agent,
@@ -203,40 +203,23 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], -2)
+        self.assertGreaterEqual(results["mean_episode_reward"], -7.0)
         self.assertGreaterEqual(results["max_episode_reward"], 0.0)
         self.assertLessEqual(results["episodes_executed"], time_steps / 5)
 
         # Check all learnt Q-values.
-        q_values = agent.graph_executor.execute(("get_q_values", one_hot(np.array([0, 1, 2, 4, 6, 7, 8, 9, 10, 11, 12]),
-                                                                         depth=16)))[:]
-        recursive_assert_almost_equal(q_values[0], (0.3, 0.4, 0.4, 0.3), decimals=1)
-        recursive_assert_almost_equal(q_values[1], (0.3, -5, 0.5, 0.4), decimals=1)
-
-        # Check q-table for correct values.
-        expected_q_values_per_state = {
-            (1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-5, -4, -4, -4),  # 0
-            (0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-5, -5, -3, -4),  # 1
-            (0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-4, -2, -5, -3),  # 2
-            # 3=terminal
-            (0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-4, -3, -5, -5),  # 4
-            # 5=terminal
-            (0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0): (-5, -1, -1, -3),  # 6
-            (0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0): (-2, 0, -1, -5),  # 7
-            (0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0): (-3, -4, -2, -4),  # 8
-            (0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0): (-3, -5, -1, -5),  # 9
-            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0): (-2, -5, 0, -2),  # 10
-            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0): (-1, 1, 0, -1),  # 11
-            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0): (-4, -4, -5, -3),  # 12
-            # 13=terminal
-            # 14=terminal
-            # 15=terminal
-        }
-        for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
-            state, q_values = tuple(state), tuple(q_values)
-            assert state in expected_q_values_per_state, \
-                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
-            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
+        q_values = agent.graph_executor.execute(
+            ("get_q_values", one_hot(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), depth=16))
+        )
+        # Walking towards goal is always goo.
+        self.assertTrue(q_values[0][0] < q_values[0][1])
+        self.assertTrue(q_values[6][3] < q_values[6][1])
+        # Falling into holes.
+        self.assertTrue(q_values[1][1] < -4.0)  # Going right in state 1 is very bad
+        self.assertTrue(q_values[4][2] < -4.0)  # Going down in state 4 is very bad
+        self.assertTrue(q_values[12][2] < -4.0)  # Going down in state 12 is very bad
+        # Reaching goal.
+        self.assertTrue(q_values[11][1] > 0.0)
 
     def test_dqn_on_cart_pole(self):
         """
