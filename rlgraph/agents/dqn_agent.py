@@ -20,7 +20,7 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, ContainerMerger, ContainerSplitter
+from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, ContainerSplitter
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
@@ -144,7 +144,6 @@ class DQNAgent(Agent):
             actions=self.action_space.with_batch_rank(),
             # Weights will have a Space derived from the vars of policy.
             policy_weights="variables:{}".format(self.policy.scope),
-            time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
@@ -158,8 +157,6 @@ class DQNAgent(Agent):
         if self.value_function is not None:
             self.input_spaces["value_function_weights"] = "variables:{}".format(self.value_function.scope),
 
-        # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = ContainerMerger("states", "actions", "rewards", "next_states", "terminals")
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.
@@ -183,7 +180,7 @@ class DQNAgent(Agent):
         )
 
         self.root_component.add_components(
-            self.preprocessor, self.merger, self.memory, self.splitter, self.policy, self.target_policy,
+            self.preprocessor, self.memory, self.splitter, self.policy, self.target_policy,
             self.value_function, self.value_function_optimizer,  # <- should both be None for DQN
             self.exploration, self.loss_function, self.optimizer, self.vars_merger, self.vars_splitter
         )
@@ -212,21 +209,23 @@ class DQNAgent(Agent):
 
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(root, preprocessed_states, time_step=0, use_exploration=True):
+        def action_from_preprocessed_state(root, preprocessed_states, time_percentage=None, use_exploration=True):
             sample_deterministic = agent.policy.get_deterministic_action(preprocessed_states)
-            actions = agent.exploration.get_action(sample_deterministic["action"], time_step, use_exploration)
+            actions = agent.exploration.get_action(sample_deterministic["action"], time_percentage, use_exploration)
             return actions, preprocessed_states
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(root, states, time_step=0, use_exploration=True):
+        def get_preprocessed_state_and_action(root, states, time_percentage=None, use_exploration=True):
             preprocessed_states = agent.preprocessor.preprocess(states)
-            return root.action_from_preprocessed_state(preprocessed_states, time_step, use_exploration)
+            return root.action_from_preprocessed_state(preprocessed_states, time_percentage, use_exploration)
 
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
         def insert_records(root, preprocessed_states, actions, rewards, next_states, terminals):
-            records = agent.merger.merge(preprocessed_states, actions, rewards, next_states, terminals)
+            records = dict(
+                states=preprocessed_states, actions=actions, rewards=rewards, next_states=next_states, terminals=terminals
+            )
             return agent.memory.insert_records(records)
 
         # Syncing target-net.
@@ -349,7 +348,7 @@ class DQNAgent(Agent):
                 preprocessed_states)["adapter_outputs"]
             return q_values
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None, time_percentage=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
@@ -364,6 +363,10 @@ class DQNAgent(Agent):
                 - action
                 - the preprocessed states
         """
+        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
+        if time_percentage is None:
+            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
+
         extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
@@ -382,9 +385,9 @@ class DQNAgent(Agent):
         return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, time_percentage, use_exploration],
             return_ops
-        ))  #, flip_batch_with_dict_keys=isinstance(self.action_space, ContainerSpace))
+        ))
         if remove_batch_rank:
             return strip_list(ret)
         else:

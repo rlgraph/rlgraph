@@ -154,7 +154,7 @@ class Agent(Specifiable):
         # operations.
         self.loss_function = None
 
-        self.exploration = Exploration.from_spec(exploration_spec)
+        self.exploration = Exploration.from_spec(exploration_spec)  # TODO: Move this to DQN/DQFN. PG's don't use it.
         self.execution_spec = parse_execution_spec(execution_spec)
 
         # Python-side experience buffer for better performance (may be disabled).
