@@ -234,8 +234,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=15),
             update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
-            optimizer_spec=dict(type="adam", learning_rate=0.05),
-            store_last_q_table=True
+            optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
         time_steps = 3000
@@ -272,8 +271,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=13),
             update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.01),
-            store_last_q_table=True
+            optimizer_spec=dict(type="adam", learning_rate=0.01)
         )
 
         time_steps = 3000
@@ -307,8 +305,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             double_q=True,
             dueling_q=True,
             state_space=FloatBox(shape=(4,)),
-            action_space=action_space,
-            store_last_q_table=True
+            action_space=action_space
         )
 
         time_steps = 10000

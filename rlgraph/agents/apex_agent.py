@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph.agents import DQNAgent
 from rlgraph.utils import util
 
@@ -56,9 +57,7 @@ class ApexAgent(DQNAgent):
         huber_loss=True,
         n_step=1,
         shared_container_action_target=True,
-        memory_spec=None,
-        store_last_memory_batch=False,
-        store_last_q_table=False,
+        memory_spec=None
     ):
         """
         Args:
@@ -88,12 +87,6 @@ class ApexAgent(DQNAgent):
             huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
             n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
-            store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
-                `self.last_memory_batch` for debugging purposes.
-                Default: False.
-            store_last_q_table (bool): Whether to store the Q(s,a) values for the last received batch
-                (memory or external) in `self.last_q_table` for debugging purposes.
-                Default: False.
         """
         assert memory_spec["type"] == "prioritized_replay" or memory_spec["type"] == "mem_prioritized_replay"
         super(ApexAgent, self).__init__(
@@ -118,9 +111,7 @@ class ApexAgent(DQNAgent):
             huber_loss=huber_loss,
             n_step=n_step,
             shared_container_action_target=shared_container_action_target,
-            memory_spec=memory_spec,
-            store_last_memory_batch=store_last_memory_batch,
-            store_last_q_table=store_last_q_table,
+            memory_spec=memory_spec
         )
         self.num_updates = 0
 
@@ -142,13 +133,6 @@ class ApexAgent(DQNAgent):
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
 
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=ret[3]["states"],
-                    q_values=ret[4]
-                )
-                self.last_q_table = q_table
-
             return ret[1]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
@@ -163,13 +147,6 @@ class ApexAgent(DQNAgent):
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
                 ret = ret["update_from_external_batch"]
-
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=batch["states"],
-                    q_values=ret[3]
-                )
-                self.last_q_table = q_table
 
             # Return [1]=total loss, [2]=loss-per-item (skip [0]=update noop).
             return ret[1], ret[2]

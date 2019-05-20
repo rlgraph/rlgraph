@@ -62,8 +62,6 @@ class DQFDAgent(Agent):
         memory_spec=None,
         demo_memory_spec=None,
         demo_sample_ratio=0.2,
-        store_last_memory_batch=False,
-        store_last_q_table=False
     ):
 
         """
@@ -98,12 +96,6 @@ class DQFDAgent(Agent):
             n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use.
             demo_memory_spec (Optional[dict,Memory]): The spec for the Demo-Memory to use.
-            store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
-                `self.last_memory_batch` for debugging purposes.
-                Default: False.
-            store_last_q_table (bool): Whether to store the Q(s,a) values for the last received batch
-                (memory or external) in `self.last_q_table` for debugging purposes.
-                Default: False.
         """
         # Fix action-adapter before passing it to the super constructor.
         # Use a DuelingPolicy (instead of a basic Policy) if option is set.
@@ -149,12 +141,6 @@ class DQFDAgent(Agent):
         self.demo_batch_size = int(demo_sample_ratio * self.update_spec["batch_size"] / (1.0 - demo_sample_ratio))
         self.demo_margins =  np.asarray([self.expert_margin] * self.demo_batch_size)
         self.shared_container_action_target = shared_container_action_target
-
-        # Debugging tools.
-        self.store_last_memory_batch = store_last_memory_batch
-        self.last_memory_batch = None
-        self.store_last_q_table = store_last_q_table
-        self.last_q_table = None
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
@@ -457,12 +443,6 @@ class DQFDAgent(Agent):
 
         # Update from replay memory.  Potentially also update from demo memory with default margins.
         if batch is None:
-            # Add some additional return-ops to pull (left out normally for performance reasons).
-            if self.store_last_q_table is True:
-                return_ops += [3, 4]  # 3=batch, 4=q-values
-            elif self.store_last_memory_batch is True:
-                return_ops += [3]  # 3=batch
-
             # Combine: Update from memory (apply_demo_loss=False), update_from_demo (apply=True).
             # Otherwise only update from online memory.
             if update_from_demos:
@@ -481,20 +461,9 @@ class DQFDAgent(Agent):
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
                 ret = ret["update_from_memory"]
-
-            # Store the last Q-table?
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=ret[3]["states"],
-                    q_values=ret[4]
-                )
         else:
             # Update from external batch, optionally applying demo loss. Also optionally
             # sample demos from separate demo memory.
-
-            # Add some additional return-ops to pull (left out normally for performance reasons).
-            if self.store_last_q_table is True:
-                return_ops += [3]  # 3=q-values
 
             if expert_margins is None:
                 # Default margins with correct len.
@@ -523,19 +492,6 @@ class DQFDAgent(Agent):
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
                 ret = ret["update_from_external_batch"]
-
-            # Store the last Q-table?
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=batch["states"],
-                    q_values=ret[3]
-                )
-
-        # Store the latest pulled memory batch?
-        if self.store_last_memory_batch is True and batch is None:
-            self.last_memory_batch = ret[2]
-        if self.store_last_q_table is True:
-            self.last_q_table = q_table
 
         # [1]=the loss (0=update noop)
         # [2]=loss per item for external update, records for update from memory

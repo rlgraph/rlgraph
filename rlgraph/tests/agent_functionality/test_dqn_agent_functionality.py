@@ -18,17 +18,18 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
-import numpy as np
 import unittest
 
-from rlgraph.agents import Agent
+import numpy as np
+
 import rlgraph.spaces as spaces
+from rlgraph.agents import Agent
 from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
-from rlgraph.environments import GridWorld, RandomEnv
+from rlgraph.environments import GridWorld
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.tests.agent_test import AgentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger, one_hot
-from rlgraph.tests.agent_test import AgentTest
 
 
 #TODO this stepping needs to be redone, variables should not be accessed this way.
@@ -50,8 +51,6 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             dueling_q=True,
             state_space=env.state_space,
             action_space=env.action_space,
-            store_last_memory_batch=True,
-            store_last_q_table=True,
             discount=0.95
         )
         worker = SingleThreadedWorker(env_spec=lambda: GridWorld(world="2x2", save_mode=True), agent=agent)
