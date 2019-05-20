@@ -58,8 +58,14 @@ class ActorCriticLossFunction(LossFunction):
         super(ActorCriticLossFunction, self).__init__(scope=kwargs.pop("scope", "actor-critic-loss-func"), **kwargs)
 
         self.weight_pg = TimeDependentParameter.from_spec(weight_pg if weight_pg is not None else 1.0)
-        self.weight_baseline = TimeDependentParameter.from_spec(weight_baseline if weight_baseline is not None else 0.5)
-        self.weight_entropy = TimeDependentParameter.from_spec(weight_entropy if weight_entropy is not None else 0.00025)
+        self.weight_baseline = TimeDependentParameter.from_spec(
+            weight_baseline if weight_baseline is not None else 0.5
+        )
+        self.weight_entropy = TimeDependentParameter.from_spec(
+            weight_entropy if weight_entropy is not None else 0.00025
+        )
+
+        self.add_components(self.weight_pg, self.weight_baseline, self.weight_entropy)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         assert action_space is not None
