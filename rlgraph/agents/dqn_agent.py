@@ -60,8 +60,6 @@ class DQNAgent(Agent):
         n_step=1,
         shared_container_action_target=True,
         memory_spec=None,
-        store_last_memory_batch=False,
-        store_last_q_table=False,
     ):
         """
         Args:
@@ -91,12 +89,6 @@ class DQNAgent(Agent):
             huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
             n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
-            store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
-                `self.last_memory_batch` for debugging purposes.
-                Default: False.
-            store_last_q_table (bool): Whether to store the Q(s,a) values for the last received batch
-                (memory or external) in `self.last_q_table` for debugging purposes.
-                Default: False.
         """
         # Fix action-adapter before passing it to the super constructor.
         # Use a DuelingPolicy (instead of a basic Policy) if option is set.
@@ -141,12 +133,6 @@ class DQNAgent(Agent):
         self.dueling_q = dueling_q
         self.huber_loss = huber_loss
         self.shared_container_action_target = shared_container_action_target
-
-        # Debugging tools.
-        self.store_last_memory_batch = store_last_memory_batch
-        self.last_memory_batch = None
-        self.store_last_q_table = store_last_q_table
-        self.last_q_table = None
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
@@ -357,6 +343,12 @@ class DQNAgent(Agent):
             )
             return loss, loss_per_item
 
+        @rlgraph_api(component=self.root_component)
+        def get_q_values(root, preprocessed_states):
+            q_values = root.get_sub_component_by_name(agent.policy.scope).get_adapter_outputs_and_parameters(
+                preprocessed_states)["adapter_outputs"]
+            return q_values
+
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
         """
         Args:
@@ -419,46 +411,17 @@ class DQNAgent(Agent):
         q_table = None
 
         if batch is None:
-            # Add some additional return-ops to pull (left out normally for performance reasons).
-            if self.store_last_q_table is True:
-                return_ops += [3, 4]  # 3=batch, 4=q-values
-            elif self.store_last_memory_batch is True:
-                return_ops += [3]  # 3=batch
             ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops))
-
-            # Store the last Q-table?
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=ret[3]["states"],
-                    q_values=ret[4]
-                )
         else:
-            # Add some additional return-ops to pull (left out normally for performance reasons).
-            if self.store_last_q_table is True:
-                return_ops += [3]  # 3=q-values
-
             # TODO apply postprocessing always true atm.
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+            input_ = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"], True, time_percentage]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
-
-            # Store the last Q-table?
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=batch["states"],
-                    q_values=ret[3]
-                )
+            ret = self.graph_executor.execute(("update_from_external_batch", input_, return_ops))
 
         # Do the target net synching after the update (for better clarity: after a sync, we would expect for both
         # networks to be the exact same).
         if sync_call:
             self.graph_executor.execute(sync_call)
-
-        # Store the latest pulled memory batch?
-        if self.store_last_memory_batch is True and batch is None:
-            self.last_memory_batch = ret[2]
-        if self.store_last_q_table is True:
-            self.last_q_table = q_table
 
         # 1=the loss
         # 2=loss per item for external update, records for update from memory
