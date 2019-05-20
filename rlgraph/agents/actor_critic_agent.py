@@ -57,6 +57,8 @@ class ActorCriticAgent(Agent):
         gae_lambda=1.0,
         clip_rewards=0.0,
         sample_episodes=False,
+        weight_pg=None,
+        weight_vf=None,
         weight_entropy=None,
         memory_spec=None
      ):
@@ -92,6 +94,8 @@ class ActorCriticAgent(Agent):
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
                 example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
+            weight_pg (float): The coefficient used for the policy gradient loss term (L[PG]).
+            weight_vf (float): The coefficient used for the state value function loss term (L[V]).
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
@@ -147,7 +151,9 @@ class ActorCriticAgent(Agent):
 
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount,
                                                            clip_rewards=clip_rewards)
-        self.loss_function = ActorCriticLossFunction(weight_entropy=weight_entropy)
+        self.loss_function = ActorCriticLossFunction(
+            weight_pg=weight_pg, weight_vf=weight_vf, weight_entropy=weight_entropy
+        )
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.merger, self.memory, self.splitter, self.policy,
