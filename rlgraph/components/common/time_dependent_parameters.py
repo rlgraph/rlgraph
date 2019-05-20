@@ -97,6 +97,14 @@ class TimeDependentParameter(Component):
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
+        """
+        Convenience method to allow for simplified list/tuple specs (apart from full dict specs):
+        For example:
+        [from, to] <- linear decay
+        ["linear", from, to]
+        ["polynomial", from, to, (power; default=2.0)?]
+        ["exponential", from, to, (decay_rate; default=0.1)?]
+        """
         map_ = {
             "lin": "linear-decay",
             "linear": "linear-decay",
