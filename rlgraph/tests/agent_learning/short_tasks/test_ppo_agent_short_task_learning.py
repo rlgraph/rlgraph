@@ -207,7 +207,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         time_steps = 5000
         worker = SingleThreadedWorker(
-            env_spec=env,
+            env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
             render=False,  #self.is_windows
@@ -228,7 +228,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         """
         Creates a PPO Agent and runs it via a Runner on the Pendulum env.
         """
-        env_spec = dict(type="openaigym", gym_env="Pendulum-v0")
+        env_spec = dict(type="openai-gym", gym_env="Pendulum-v0")
         dummy_env = OpenAIGymEnv.from_spec(env_spec)
         agent_spec = config_from_path("configs/ppo_agent_for_pendulum.json")
         preprocessing_spec = agent_spec.pop("preprocessing_spec", None)
