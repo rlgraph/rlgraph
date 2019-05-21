@@ -100,7 +100,7 @@ class TestActorComponents(unittest.TestCase):
         # state space and internal state space
         state_space = FloatBox(shape=(2,), add_batch_rank=True, add_time_rank=True, time_major=False)
         internal_states_space = Tuple(FloatBox(shape=(3,)), FloatBox(shape=(3,)), add_batch_rank=True)
-        time_step_space = IntBox()
+        time_percentages_space = FloatBox()
         # action_space.
         action_space = IntBox(2, add_batch_rank=True, add_time_rank=True)
 
@@ -109,7 +109,7 @@ class TestActorComponents(unittest.TestCase):
         )
         policy = Policy(network_spec=config_from_path("configs/test_lstm_nn.json"), action_space=action_space)
         exploration = Exploration(epsilon_spec=dict(decay_spec=dict(
-            type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
+            type="linear_decay", from_=1.0, to_=0.1)
         ))
         actor_component = ActorComponent(preprocessor, policy, exploration)
         test = ComponentTest(
@@ -117,7 +117,7 @@ class TestActorComponents(unittest.TestCase):
             input_spaces=dict(
                 states=state_space,
                 other_nn_inputs=Tuple(internal_states_space, add_batch_rank=True),
-                time_step=time_step_space
+                time_step=time_percentages_space
             ),
             action_space=action_space
         )
@@ -125,16 +125,16 @@ class TestActorComponents(unittest.TestCase):
         np.random.seed(10)
         states = state_space.sample(size=(1000, 2))
         initial_internal_states = internal_states_space.zeros(size=2)  # only batch
-        time_steps = time_step_space.sample(1000)
+        time_percentages = time_percentages_space.sample(1000)
 
         # Run n times a single time-step to simulate acting and env interaction with an LSTM.
         preprocessed_states = np.ndarray(shape=(1000, 2, 2), dtype=np.float)
         actions = np.ndarray(shape=(1000, 2, 1), dtype=np.int)
-        for i, time_step in enumerate(time_steps):
+        for i, time_percentage in enumerate(time_percentages):
             ret = test.test((
                 "get_preprocessed_state_and_action",
                 # expand time dim at 1st slot as we are time-major == False
-                [np.expand_dims(states[i], 1), tuple([initial_internal_states]), time_step]
+                [np.expand_dims(states[i], 1), tuple([initial_internal_states]), time_percentage]
             ))
             preprocessed_states[i] = ret["preprocessed_state"][:, 0, :]  # take out time-rank again ()
             actions[i] = ret["action"]
