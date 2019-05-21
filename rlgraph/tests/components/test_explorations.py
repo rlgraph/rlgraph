@@ -36,7 +36,7 @@ class TestExplorations(unittest.TestCase):
 
     def test_exploration_with_discrete_action_space(self):
         nn_output_space = FloatBox(shape=(13,), add_batch_rank=True)
-        time_step_space = IntBox(10000)
+        time_percentage_space = FloatBox(add_batch_rank=True)
         # 2x2 action-pick, each composite action with 5 categories.
         action_space = IntBox(5, shape=(2, 2), add_batch_rank=True)
 
@@ -49,9 +49,7 @@ class TestExplorations(unittest.TestCase):
                 decay_spec=dict(
                     type="linear_decay",
                     from_=1.0,
-                    to_=0.0,
-                    start_timestep=0,
-                    num_timesteps=10000
+                    to_=0.0
                 )
             )
         ))
@@ -59,26 +57,26 @@ class TestExplorations(unittest.TestCase):
         exploration_pipeline = Component(action_adapter, distribution, exploration, scope="exploration-pipeline")
 
         @rlgraph_api(component=exploration_pipeline)
-        def get_action(self_, nn_output, time_step):
+        def get_action(self_, nn_output, time_percentage):
             out = action_adapter.get_parameters(nn_output)
             sample = distribution.sample_deterministic(out["parameters"])
-            action = exploration.get_action(sample, time_step)
+            action = exploration.get_action(sample, time_percentage)
             return action
 
         test = ComponentTest(
             component=exploration_pipeline,
-            input_spaces=dict(nn_output=nn_output_space, time_step=int),
+            input_spaces=dict(nn_output=nn_output_space, time_percentage=float),
             action_space=action_space
         )
 
         # With exploration: Check, whether actions are equally distributed.
         nn_outputs = nn_output_space.sample(2)
-        time_steps = time_step_space.sample(30)
+        time_percentages = time_percentage_space.sample(30)
         # Collect action-batch-of-2 for each of our various random time steps.
         # Each action is an int box of shape=(2,2)
         actions = np.ndarray(shape=(30, 2, 2, 2), dtype=np.int)
-        for i, time_step in enumerate(time_steps):
-            actions[i] = test.test(("get_action", [nn_outputs, time_step]), expected_outputs=None)
+        for i, time_percentage in enumerate(time_percentages):
+            actions[i] = test.test(("get_action", [nn_outputs, time_percentage]), expected_outputs=None)
 
         # Assert some distribution of the actions.
         mean_action = actions.mean()
@@ -89,12 +87,12 @@ class TestExplorations(unittest.TestCase):
         # Without exploration (epsilon is force-set to 0.0): Check, whether actions are always the same
         # (given same nn_output all the time).
         nn_outputs = nn_output_space.sample(2)
-        time_steps = time_step_space.sample(30) + 10000
+        time_percentages = time_percentage_space.sample(30) + 0.95
         # Collect action-batch-of-2 for each of our various random time steps.
         # Each action is an int box of shape=(2,2)
         actions = np.ndarray(shape=(30, 2, 2, 2), dtype=np.int)
-        for i, time_step in enumerate(time_steps):
-            actions[i] = test.test(("get_action", [nn_outputs, time_step]), expected_outputs=None)
+        for i, time_percentage in enumerate(time_percentages):
+            actions[i] = test.test(("get_action", [nn_outputs, time_percentage]), expected_outputs=None)
 
         # Assert zero stddev of the single action components.
         stddev_action_a = actions[:, 0, 0, 0].std()  # batch item 0, action-component (0,0)
@@ -109,7 +107,7 @@ class TestExplorations(unittest.TestCase):
 
     def test_exploration_with_discrete_container_action_space(self):
         nn_output_space = FloatBox(shape=(12,), add_batch_rank=True)
-        time_step_space = IntBox(10000)
+        time_percentage_space = FloatBox(add_batch_rank=True)
         # Some container action space.
         action_space = Dict(dict(a=IntBox(3), b=IntBox(2), c=IntBox(4)), add_batch_rank=True)
 
@@ -126,9 +124,7 @@ class TestExplorations(unittest.TestCase):
                 decay_spec=dict(
                     type="linear_decay",
                     from_=1.0,
-                    to_=0.0,
-                    start_timestep=0,
-                    num_timesteps=10000
+                    to_=0.0
                 )
             )
         ))
@@ -139,7 +135,7 @@ class TestExplorations(unittest.TestCase):
         )
 
         @rlgraph_api(component=exploration_pipeline)
-        def get_action(self_, nn_output, time_step):
+        def get_action(self_, nn_output, time_percentage):
             out_a = action_adapter_a.get_parameters(nn_output)
             out_b = action_adapter_b.get_parameters(nn_output)
             out_c = action_adapter_c.get_parameters(nn_output)
@@ -147,7 +143,7 @@ class TestExplorations(unittest.TestCase):
             sample_b = distribution_b.sample_deterministic(out_b["parameters"])
             sample_c = distribution_c.sample_deterministic(out_c["parameters"])
             sample = self_._graph_fn_merge_actions(sample_a, sample_b, sample_c)
-            action = exploration.get_action(sample, time_step)
+            action = exploration.get_action(sample, time_percentage)
             return action
 
         @graph_fn(component=exploration_pipeline)
@@ -156,7 +152,7 @@ class TestExplorations(unittest.TestCase):
 
         test = ComponentTest(
             component=exploration_pipeline,
-            input_spaces=dict(nn_output=nn_output_space, time_step=int),
+            input_spaces=dict(nn_output=nn_output_space, time_percentage=float),
             action_space=action_space
         )
 
@@ -165,12 +161,12 @@ class TestExplorations(unittest.TestCase):
         batch_size = 2
         num_time_steps = 30
         nn_outputs = nn_output_space.sample(batch_size)
-        time_steps = np.maximum(time_step_space.sample(num_time_steps) - 8000, 0)
+        time_percentages = np.maximum(time_percentage_space.sample(num_time_steps) - 0.8, 0)
         # Collect action-batch-of-2 for each of our various random time steps.
         actions_a = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
         actions_b = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
         actions_c = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
-        for i, t in enumerate(time_steps):
+        for i, t in enumerate(time_percentages):
             a = test.test(("get_action", [nn_outputs, t]), expected_outputs=None)
             actions_a[i] = a["a"]
             actions_b[i] = a["b"]
@@ -193,12 +189,12 @@ class TestExplorations(unittest.TestCase):
         # Without exploration (epsilon is force-set to 0.0): Check, whether actions are always the same
         # (given same nn_output all the time).
         nn_outputs = nn_output_space.sample(batch_size)
-        time_steps = time_step_space.sample(num_time_steps) + 10000
+        time_percentages = time_percentage_space.sample(num_time_steps) + 1.0
         # Collect action-batch-of-2 for each of our various random time steps.
         actions_a = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
         actions_b = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
         actions_c = np.ndarray(shape=(num_time_steps, batch_size), dtype=np.int)
-        for i, t in enumerate(time_steps):
+        for i, t in enumerate(time_percentages):
             a = test.test(("get_action", [nn_outputs, t]), expected_outputs=None)
             actions_a[i] = a["a"]
             actions_b[i] = a["b"]
