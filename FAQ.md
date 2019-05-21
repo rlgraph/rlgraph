@@ -71,23 +71,23 @@ parameters (see formulas below):
 
 **For a linearly decaying value** *(`from` - `time_percentage` * (`from` - `to`)):*
 ```
-    "learning_rate": ["linear", 0.01, 0.001]
+    "learning_rate": ["linear", 0.01, 0.0001]  # from=0.01, to=0.0001
     Or even simpler:
-    "learning_rate": [0.01, 0.001]  # <- if no type is given, assume "linear"
+    "learning_rate": [0.01, 0.0001]  # <- if no type is given, assume "linear"
 ```
 
 **For a polynomially decaying value** *(`to` + (`from` - `to`) * (1 - `time_percentage`) ** `power`):*
 ```
-    "learning_rate": ["polynomial", 0.01, 0.001]
+    "learning_rate": ["polynomial", 0.01, 0.0001]  # from=0.01, to=0.0001, power=2.0 (default)
     Or in case power is not 2.0:
-    "learning_rate": ["polynomial", 0.01, 0.001, 3.0]   <- power=3.0
+    "learning_rate": ["polynomial", 0.01, 0.0001, 3.0]   <- power=3.0
 ```
 
 **For an exponentially decaying value** *(`to` + (`from` - `to`) * `decay_rate` ** `time_percentage`):*
 ```
-    "learning_rate": ["exponential", 0.01, 0.001]
+    "learning_rate": ["exponential", 0.01, 0.0001]  # from=0.01, to=0.0001, decay_rate=0.1 (default)
     Or in case decay_rate is not 0.1:
-    "learning_rate": ["exponential", 0.01, 0.001, 0.5]   <- decay_rate=0.5
+    "learning_rate": ["exponential", 0.01, 0.0001, 0.5]   <- decay_rate=0.5
 ```
 
 The Component behind this is the `TimeDependentParameter` class. If you are implementing
