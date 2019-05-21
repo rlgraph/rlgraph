@@ -10,15 +10,15 @@ Summarizes updates in recent releases.
   time-dependent parameters that may change over time. These replace
   the now obsoleted `DecayComponent`s.
 - Added `time_percentage` inputs to `Agent.update()` and `Agent.get_action()`
-  calls. This enables all Components that include `TimeDependentParameter`
-  sub-components to decay/change these values over time. Applies mostly to
+  calls. This enables all Components that own `TimeDependentParameter`
+  sub-components to decay/change these values over time. This applies mostly to
   optimizers, loss-functions and (epsilon)-exploration components.
-  See FAQs on how to configure decays for any parameter.
+  See FAQs on how to configure decays for arbitrary hyper-parameters.
 - Reduced number of `tf.placeholder`s to one per unique API input-arg name.
   Also, all placeholders have more descriptive names now (named after the API input-arg).
-- GridWorld: Bug fix in maps where start x/y-position is different from (0, 0).
-  Step reward was changed from -1.0 to -0.1 for better
-  granularity/faster learning.
+- GridWorld: Bug fix in grid-maps for which start x/y-positions are
+  different from (0, 0).
+  Step reward was changed from -1.0 to -0.1 for better granularity/faster learning.
 
 ## RLgraph 0.4.1 - 2019/04/28
 - Fixed bug in the SequencerHelper Component causing GAEs to be calculated incorrectly.
