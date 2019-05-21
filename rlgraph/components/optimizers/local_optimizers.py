@@ -39,6 +39,7 @@ class LocalOptimizer(Optimizer):
         super(LocalOptimizer, self).__init__(
             learning_rate=learning_rate, scope=kwargs.pop("scope", "local-optimizer"), **kwargs
         )
+
         self.clip_grad_norm = clip_grad_norm
         if self.clip_grad_norm is not None:
             assert isinstance(self.clip_grad_norm, float) or isinstance(self.clip_grad_norm, int),\

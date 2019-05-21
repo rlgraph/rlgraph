@@ -46,6 +46,7 @@ class TimeDependentParameter(Component):
             from: Instead of arg `from_`.
             to: Instead of arg `to`.
         """
+        # Kwargs alternative args (instead of the '_'-underscore versions).
         kwargs_from = kwargs.pop("from", None)
         kwargs_to = kwargs.pop("to", None)
 
@@ -56,6 +57,8 @@ class TimeDependentParameter(Component):
 
         self.max_time_steps = max_time_steps
         self.resolution = resolution
+
+        self.variable_complete = True
 
     def check_input_completeness(self):
         # If max_time_steps is not given, we will rely on time_percentage input, therefore, it must be given.
