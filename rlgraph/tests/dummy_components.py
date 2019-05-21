@@ -20,7 +20,6 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.components.component import Component
 from rlgraph.components.optimizers.local_optimizers import GradientDescentOptimizer
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -298,18 +297,19 @@ class SimpleDummyWithVar(Component):
 class DummyWithOptimizer(SimpleDummyWithVar):
     def __init__(self, variable_value=3.0, learning_rate=0.1, scope="dummy-with-optimizer", **kwargs):
         super(DummyWithOptimizer, self).__init__(variable_value=variable_value, scope=scope, **kwargs)
-        self.learning_rate = TimeDependentParameter.from_spec(learning_rate)
 
-        self.optimizer = GradientDescentOptimizer(learning_rate=self.learning_rate)
+        assert isinstance(learning_rate, float), "ERROR: Only float (constant) values allowed in `learning_rate`!"
+
+        self.optimizer = GradientDescentOptimizer(learning_rate=learning_rate)
         self.add_components(self.optimizer)
 
     @rlgraph_api
-    def calc_grads(self):
+    def calc_grads(self, time_percentage):
         loss = self._graph_fn_simple_square_loss()
-        return self.optimizer.calculate_gradients(self.variables(), loss)
+        return self.optimizer.calculate_gradients(self.variables(), loss, time_percentage)
 
     @rlgraph_api
-    def step(self, time_percentage=None):
+    def step(self, time_percentage):
         loss = self._graph_fn_simple_square_loss()
         return self.optimizer.step(self.variables(), loss, loss, time_percentage)
 

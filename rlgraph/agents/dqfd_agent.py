@@ -331,7 +331,7 @@ class DQFDAgent(Agent):
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = policy.variables()
             if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
-                grads_and_vars = optimizer.calculate_gradients(policy_vars, loss)
+                grads_and_vars = optimizer.calculate_gradients(policy_vars, loss, time_percentage)
                 return grads_and_vars, loss, loss_per_item, q_values_s
             else:
                 step_op = optimizer.step(policy_vars, loss, loss_per_item, time_percentage)

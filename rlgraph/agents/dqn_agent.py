@@ -303,7 +303,7 @@ class DQNAgent(Agent):
             # TODO: - every agent (root_component) has an update_from_external_batch method
             # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
             if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
-                grads_and_vars = optimizer.calculate_gradients(policy_vars, loss)
+                grads_and_vars = optimizer.calculate_gradients(policy_vars, loss, time_percentage)
                 grads_and_vars_by_component = vars_merger.merge(grads_and_vars)
                 return grads_and_vars_by_component, loss, loss_per_item, q_values_s
             else:

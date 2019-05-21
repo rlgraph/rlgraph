@@ -17,39 +17,39 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
 
+import numpy as np
+
+from rlgraph.components.common.time_dependent_parameters import LinearDecay
 from rlgraph.components.explorations.exploration import EpsilonExploration
-from rlgraph.components.common.decay_components import LinearDecay
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.tests.test_util import recursive_assert_almost_equal
 
 
 class TestEpslionExploration(unittest.TestCase):
 
     def test_epsilon_exploration_at_single_time_steps(self):
-        time_step_space = IntBox(10000)
+        time_percentage_space = FloatBox(add_batch_rank=True)
         sample_space = FloatBox(add_batch_rank=True)
 
         np.random.seed(10)
 
         # The Component(s) to test.
-        decay_component = LinearDecay(from_=1.0, to_=0.15, start_timestep=0, num_timesteps=10000)
+        decay_component = LinearDecay(from_=1.0, to_=0.15)
         epsilon_component = EpsilonExploration(decay_spec=decay_component)
         test = ComponentTest(component=epsilon_component, input_spaces=dict(
-            sample=sample_space, time_step=time_step_space
+            sample=sample_space, time_percentage=float
         ))
 
         # Take n uniform samples over the time space and then check,
         # whether we have a decent distribution of do_explore values.
-        time_steps = time_step_space.sample(size=100)
+        time_percentages = time_percentage_space.sample(100)
         out = np.ndarray(shape=(100, 10), dtype=np.bool_)
-        for i, time_step in enumerate(time_steps):
+        for i, time_percentage in enumerate(time_percentages):
             # Each time step, get epsilon decisions for a batch of samples.
             sample = sample_space.sample(10)
-            out[i, :] = test.test(("do_explore", [sample, time_step]))
+            out[i, :] = test.test(("do_explore", [sample, time_percentage]))
 
         # As we are going from epsilon 1.0 to 0.1, assert that we are slightly smaller than 0.5.
         mean = out.mean()
@@ -57,12 +57,12 @@ class TestEpslionExploration(unittest.TestCase):
         self.assertGreater(mean, 0.5)
 
         # Take n samples at the end (+10000) of the exploration (almost no exploration).
-        time_steps = time_step_space.sample(size=100) + 10000
+        time_percentages = time_percentage_space.sample(100) + 0.95
         out = np.ndarray(shape=(100, 10), dtype=np.bool_)
-        for i, time_step in enumerate(time_steps):
+        for i, time_percentage in enumerate(time_percentages):
             # Each time step, get epsilon decisions for a batch of samples.
             sample = sample_space.sample(10)
-            out[i, :] = test.test(("do_explore", [sample, time_step]))
+            out[i, :] = test.test(("do_explore", [sample, time_percentage]))
 
         # As we are going from epsilon 1.0 to 0.0, assert that we are slightly smaller than 0.5.
         mean = out.mean()

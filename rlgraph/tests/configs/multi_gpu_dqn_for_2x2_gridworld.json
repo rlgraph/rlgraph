@@ -2,7 +2,6 @@
   "type": "dqn",
 
   "dueling_q": false,
-  "store_last_q_table": true,
 
   "memory_spec":
   {
@@ -38,9 +37,7 @@
       "decay_spec": {
         "type": "linear_decay",
         "from": 1.0,
-        "to": 0.2,
-        "start_timestep": 0,
-        "num_timesteps": 1000
+        "to": 0.2
       }
     }
   },
