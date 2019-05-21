@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from rlgraph import get_backend, get_distributed_backend
 from rlgraph.components.optimizers.optimizer import Optimizer
-
+from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf" and get_distributed_backend() == "horovod":
     import horovod.tensorflow as hvd
@@ -54,13 +54,13 @@ class HorovodOptimizer(Optimizer):
         wrapped_local_optimizer = Optimizer.from_spec(local_optimizer)
         self.local_optimizer = hvd.DistributedOptimizer(wrapped_local_optimizer)
 
-        @api
-        def step(self, variables, loss, *inputs):
-            grads_and_vars = self._graph_fn_calculate_gradients(variables, loss, *inputs)
+        @rlgraph_api
+        def step(self, variables, loss, time_percentage, *inputs):
+            grads_and_vars = self._graph_fn_calculate_gradients(variables, loss, time_percentage, *inputs)
             return self._graph_fn_apply_gradients(grads_and_vars)
 
-    def _graph_fn_calculate_gradients(self, variables, loss, *inputs):
-        return self.local_optimizer._graph_fn_calculate_gradients(variables, loss, *inputs)
+    def _graph_fn_calculate_gradients(self, variables, loss, time_percentage, *inputs):
+        return self.local_optimizer._graph_fn_calculate_gradients(variables, loss, time_percentage, *inputs)
 
     def _graph_fn_apply_gradients(self, grads_and_vars):
         return self.local_optimizer._graph_fn_apply_gradients(grads_and_vars)

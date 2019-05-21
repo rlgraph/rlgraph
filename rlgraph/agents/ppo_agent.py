@@ -384,9 +384,9 @@ class PPOAgent(Agent):
                         )
 
                     if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
-                        policy_grads_and_vars = optimizer.calculate_gradients(policy.variables(), loss)
+                        policy_grads_and_vars = optimizer.calculate_gradients(policy.variables(), loss, time_percentage)
                         vf_grads_and_vars = value_function_optimizer.calculate_gradients(
-                            value_function.variables(), vf_loss
+                            value_function.variables(), vf_loss, time_percentage
                         )
                         grads_and_vars_by_component = vars_merger.merge(policy_grads_and_vars, vf_grads_and_vars)
                         return grads_and_vars_by_component, loss, loss_per_item, vf_loss, vf_loss_per_item
