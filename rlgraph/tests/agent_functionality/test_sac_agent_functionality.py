@@ -1,15 +1,15 @@
-import unittest
 import logging
+import unittest
+
 import numpy as np
 
 from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification, SACAgent
-from rlgraph.environments import OpenAIGymEnv
-from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.components import Policy, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable, \
     SACValueNetwork
+from rlgraph.environments import OpenAIGymEnv
+from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
-
 from rlgraph.utils import root_logger
 
 
@@ -61,6 +61,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 importance_weights=FloatBox(add_batch_rank=True),
                 deterministic=bool,
                 weights="variables:{}".format(policy.scope),
+                time_percentage=float
                 # TODO: how to provide the space for multiple component variables?
                 #q_weights=Dict(
                 #    q_0="variables:{}".format(q_function.scope),
