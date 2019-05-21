@@ -150,7 +150,7 @@ class Constant(TimeDependentParameter):
             else:
                 return self.from_
         elif get_backend() == "pytorch":
-            return torch.new_full(size=time_percentage.size(), fill_value=self.from_)
+            return torch.full(time_percentage.size(), self.from_)
 
     def placeholder(self):
         return self.from_
