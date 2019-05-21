@@ -108,6 +108,8 @@ class DQFDAgent(Agent):
         # Fix action-adapter before passing it to the super constructor.
         # Use a DuelingPolicy (instead of a basic Policy) if option is set.
         if dueling_q is True:
+            if policy_spec is None:
+                policy_spec = {}
             policy_spec["type"] = "dueling-policy"
             # Give us some default state-value nodes.
             if "units_state_value_stream" not in policy_spec:
@@ -147,7 +149,7 @@ class DQFDAgent(Agent):
         self.default_margins = np.asarray([self.expert_margin] * self.batch_size)
 
         self.demo_batch_size = int(demo_sample_ratio * self.update_spec["batch_size"] / (1.0 - demo_sample_ratio))
-        self.demo_margins =  np.asarray([self.expert_margin] * self.demo_batch_size)
+        self.demo_margins = np.asarray([self.expert_margin] * self.demo_batch_size)
         self.shared_container_action_target = shared_container_action_target
 
         # Debugging tools.
@@ -195,12 +197,12 @@ class DQFDAgent(Agent):
         # Number of steps since the last target-net synching from the main policy.
         self.steps_since_target_net_sync = 0
 
-        use_importance_weights = isinstance(self.memory, PrioritizedReplay)
+        self.use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQFDLossFunction(
             supervised_weight=supervised_weight,
             discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
             shared_container_action_target=shared_container_action_target,
-            importance_weights=use_importance_weights, n_step=n_step
+            importance_weights=self.use_importance_weights, n_step=n_step
         )
 
         # Add all our sub-components to the core.
@@ -456,6 +458,8 @@ class DQFDAgent(Agent):
                 return_ops += [3, 4]  # 3=batch, 4=q-values
             elif self.store_last_memory_batch is True:
                 return_ops += [3]  # 3=batch
+            if self.use_importance_weights:
+                return_ops += [5]
 
             # Combine: Update from memory (apply_demo_loss=False), update_from_demo (apply=True).
             # Otherwise only update from online memory.
@@ -486,7 +490,8 @@ class DQFDAgent(Agent):
             # Add some additional return-ops to pull (left out normally for performance reasons).
             if self.store_last_q_table is True:
                 return_ops += [3]  # 3=q-values
-
+            if self.use_importance_weights:
+                return_ops += [5]
             if expert_margins is None:
                 # Default margins with correct len.
                 expert_margins = np.asarray([self.expert_margin] * len(batch["terminals"]))
@@ -521,6 +526,8 @@ class DQFDAgent(Agent):
             self.last_memory_batch = ret[2]
         if self.store_last_q_table is True:
             self.last_q_table = q_table
+
+        print(ret)
 
         # [1]=the loss (0=update noop)
         # [2]=loss per item for external update, records for update from memory
