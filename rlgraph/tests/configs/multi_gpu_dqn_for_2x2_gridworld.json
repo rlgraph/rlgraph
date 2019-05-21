@@ -2,7 +2,6 @@
   "type": "dqn",
 
   "dueling_q": false,
-  "store_last_q_table": true,
 
   "memory_spec":
   {
