@@ -46,7 +46,7 @@ class TestSequentialVectorEnv(unittest.TestCase):
 
         s, r, t, _ = env.step([1 for _ in range(num_envs)])  # right: [" H", " X"]
         all(self.assertTrue(s_ == 3) for s_ in s)
-        all(recursive_assert_almost_equal(r_, -0.1) for r_ in r)
+        all(recursive_assert_almost_equal(r_, 1.0) for r_ in r)
         all(self.assertTrue(t_) for t_ in t)
 
         [env.reset(index=i) for i in range(num_envs)]  # ["XH", " G"]  X=player's position
