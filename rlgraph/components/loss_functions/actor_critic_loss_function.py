@@ -125,24 +125,16 @@ class ActorCriticLossFunction(LossFunction):
             # # Let the gae-helper function calculate the pg-advantages.
             advantages = tf.stop_gradient(advantages)
 
-            # The policy gradient loss.
-            loss = advantages * -log_probs
-            loss = self.weight_pg.get(time_percentage) * loss
-
-            # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
-            loss -= self.weight_entropy.get(time_percentage) * entropy
-
-            return loss
         elif get_backend() == "pytorch":
             advantages = advantages.detach()
 
-            # The policy gradient loss.
-            loss = advantages * log_probs
-            loss = self.weight_pg.get(time_percentage) * loss
+        # The policy gradient loss.
+        loss = advantages * -log_probs
+        loss = self.weight_pg.get(time_percentage) * loss
 
-            # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
-            loss -= self.weight_entropy.get(time_percentage) * entropy
-            return loss
+        # Subtract the entropy bonus from the loss (the larger the entropy the smaller the loss).
+        loss -= self.weight_entropy.get(time_percentage) * entropy
+        return loss
 
     @rlgraph_api
     def _graph_fn_state_value_function_loss_per_item(self, state_values, advantages, time_percentage=None):
