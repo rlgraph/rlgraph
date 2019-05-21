@@ -17,18 +17,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import unittest
-from rlgraph.utils import root_logger
 from logging import DEBUG
+
+import numpy as np
 
 from rlgraph.agents import ApexAgent, DQNAgent, PPOAgent
 from rlgraph.environments import OpenAIGymEnv, RandomEnv, GridWorld
-#from rlgraph.execution.ray import ApexExecutor
+from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 from rlgraph.spaces import *
 from rlgraph.tests.test_util import config_from_path
-from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.utils import root_logger
+from rlgraph.utils.numpy import one_hot
 
 
 class TestGpuStrategies(unittest.TestCase):
@@ -105,7 +106,7 @@ class TestGpuStrategies(unittest.TestCase):
             action_space=dummy_env.action_space,
         )
 
-        time_steps = 1000
+        time_steps = 2000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
@@ -114,28 +115,16 @@ class TestGpuStrategies(unittest.TestCase):
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
-        # Marge q-tables of all four GPUs:
-        agent.last_q_table["q_values"] = agent.last_q_table["q_values"].reshape((48, 4))
-
-        print("STATES:\n{}".format(agent.last_q_table["states"]))
-        print("\n\nQ(s,a)-VALUES:\n{}".format(np.round_(agent.last_q_table["q_values"], decimals=2)))
-
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -4.5)
         self.assertGreaterEqual(results["max_episode_reward"], 0.0)
         self.assertLessEqual(results["episodes_executed"], time_steps / 2)
 
-        # Check q-table for correct values.
-        expected_q_values_per_state = {
-            (1.0, 0, 0, 0): (-1, -5, 0, -1),
-            (0, 1.0, 0, 0): (-1, 1, 0, 0)
-        }
-        for state, q_values in zip(agent.last_q_table["states"], agent.last_q_table["q_values"]):
-            state, q_values = tuple(state), tuple(q_values)
-            assert state in expected_q_values_per_state, \
-                "ERROR: state '{}' not expected in q-table as it's a terminal state!".format(state)
-            recursive_assert_almost_equal(q_values, expected_q_values_per_state[state], decimals=0)
+        # Check all learnt Q-values.
+        q_values = agent.graph_executor.execute(("get_q_values", one_hot(np.array([0, 1]), depth=4)))[:]
+        recursive_assert_almost_equal(q_values[0], (0.8, -5, 0.9, 0.8), decimals=1)
+        recursive_assert_almost_equal(q_values[1], (0.8, 1.0, 0.9, 0.9), decimals=1)
 
     def test_apex_multi_gpu_update(self):
         """
