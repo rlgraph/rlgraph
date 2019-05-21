@@ -77,9 +77,7 @@
       "decay_spec": {
         "type": "linear_decay",
         "from": 1.0,
-        "to": 0.05,
-        "start_timestep": 0,
-        "num_timesteps": 5000
+        "to": 0.05
       }
     }
   },

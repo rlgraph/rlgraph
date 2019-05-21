@@ -47,6 +47,82 @@ executor = ApexExecutor(
 )
 ```
 
+
+#### How can I train with decaying/changing parameters (like learning rates) over time?
+
+This is easily done in json or other Agent config types since version 0.4.2 and it is applicable to
+all hyper-parameters that are based on the `TimeDependentParameter` class, which should
+be all learning rates, loss-function hyper-parameters (where this makes sense), and
+exploration parameters (such as epsilon values in DQN exploration schemas).
+
+In your json config, you can specify these parameters in one of the
+following ways. Hereby, `from` is the start value, `to` is the final
+value, `time_percentage` is the provided percentage (between 0.0 and 1.0)
+of the time passed, and `power` and `decay_rate` are type-specific
+parameters (see formulas below):
+
+**For a constant/time-independent value:**
+```
+"optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.001
+}
+```
+
+**For a linearly decaying value** *(`from` - `time_percentage` * (`from` - `to`)):*
+```
+    "learning_rate": ["linear", 0.01, 0.0001]  # from=0.01, to=0.0001
+    Or even simpler:
+    "learning_rate": [0.01, 0.0001]  # <- if no type is given, assume "linear"
+```
+
+**For a polynomially decaying value** *(`to` + (`from` - `to`) * (1 - `time_percentage`) ** `power`):*
+```
+    "learning_rate": ["polynomial", 0.01, 0.0001]  # from=0.01, to=0.0001, power=2.0 (default)
+    Or in case power is not 2.0:
+    "learning_rate": ["polynomial", 0.01, 0.0001, 3.0]   <- power=3.0
+```
+
+**For an exponentially decaying value** *(`to` + (`from` - `to`) * `decay_rate` ** `time_percentage`):*
+```
+    "learning_rate": ["exponential", 0.01, 0.0001]  # from=0.01, to=0.0001, decay_rate=0.1 (default)
+    Or in case decay_rate is not 0.1:
+    "learning_rate": ["exponential", 0.01, 0.0001, 0.5]   <- decay_rate=0.5
+```
+
+The Component behind this is the `TimeDependentParameter` class. If you are implementing
+your own Components that use time-dependent hyper-parameters (a new loss function, etc),
+simply switch on time-decay support for the parameter as follows:
+```
+from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
+
+class MyComponent(Component):
+    def __init__(self, my_hyperparam=0.01):
+        super(MyComponent, self).__init__()
+        # Generate the sub-component and add it.
+        self.my_hyperparam = TimeDependentParameter.from_spec(my_hyperparam)
+        self.add_components(self.my_hyperparam)
+
+    @rlgraph_api
+    def get_decayed_value(self, time_percentage):  # <- this input is necessary for getting the value from any time-dependent parameter
+        decayed_value = self.my_hyperparam.get(time_percentage)
+        return decayed_value
+```
+
+The `time_percentage` value is passed by all Workers into
+`Agent.get_action()` as well as `Agent.update()` and should thus arrive properly
+inside all `update_from_external_batch/memory` and
+`get_actions/actions_and_preprocessed_states` API-methods, where it can be further passed
+into loss function and optimizer calls (and possibly other Components' APIs).
+
+The Workers calculate this `time_percentage` value by keeping track of the time steps done
+(each single acting is one time step) and dividing that number by some max timestep value,
+which is either given to the Worker upon construction or later when calling `execute_timesteps`.
+The Worker will try to infer a suitable max timestep value in any situation.
+NOTE here that the Agent should not have to worry about time-step counting
+(or time_percentage calculations). This is an execution detail that should be left outside an Agent.
+
+
 #### How can I use a more complex network structure?
 
 There are a couple of different ways to define your own NeuralNetworks.

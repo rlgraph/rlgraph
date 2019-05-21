@@ -38,7 +38,8 @@ class TestMLAgentsEnv(unittest.TestCase):
         # Simple test runs with fixed actions.
         env.reset()
         for _ in range(100):
-            s, r, t, _ = env.step([env.action_space.sample() for _ in range(env.num_agents)])
+            actions = [env.action_space.sample() for _ in range(env.num_environments)]
+            s, r, t, _ = env.step(actions)
             assert all(isinstance(r_, np.ndarray) for r_ in r)
             assert all(r_.dtype == np.float32 for r_ in r)
             assert all(isinstance(t_, bool) for t_ in t)

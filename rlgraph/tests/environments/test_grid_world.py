@@ -39,11 +39,11 @@ class TestGridWorld(unittest.TestCase):
         self.assertTrue(s == 0)
         s, r, t, _ = env.step(2)  # down: [" H", "XG"]
         self.assertTrue(s == 1)
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(1)  # right: [" H", " X"]
         self.assertTrue(s == 3)
-        self.assertTrue(r == 1.0)
+        recursive_assert_almost_equal(r, 1.0)
         self.assertTrue(t)
 
         env.reset()  # ["XH", " G"]  X=player's position
@@ -56,15 +56,15 @@ class TestGridWorld(unittest.TestCase):
         env.reset()  # ["XH", " G"]  X=player's position
         s, r, t, _ = env.step(3)  # left: ["XH", " G"]
         self.assertTrue(s == 0)
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(2)  # down: [" H", "XG"]
         self.assertTrue(s == 1)
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(0)  # up: ["XH", " G"]
         self.assertTrue(s == 0)
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
 
     def test_2x2_grid_world_using_flow_methods(self):
@@ -77,7 +77,7 @@ class TestGridWorld(unittest.TestCase):
         # X=player's position
         s, r, t = env.step_flow(2)  # down: [" H", "XG"]
         self.assertTrue(s == 1)
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t = env.step_flow(1)  # right: [" H", " X"]
         self.assertTrue(s == 0)
@@ -92,15 +92,15 @@ class TestGridWorld(unittest.TestCase):
         # Run against a wall.
         s, r, t = env.step_flow(3)  # left: ["XH", " G"]
         self.assertTrue(s == 0)
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t = env.step_flow(2)  # down: [" H", "XG"]
         self.assertTrue(s == 1)
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t = env.step_flow(0)  # up: ["XH", " G"]
         self.assertTrue(s == 0)
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
 
     def test_4x4_grid_world_with_container_actions(self):
@@ -116,11 +116,11 @@ class TestGridWorld(unittest.TestCase):
         recursive_assert_almost_equal(s, [0, 0, 0, 1])
         s, r, t, _ = env.step(dict(turn=2, forward=2))  # turn=2 (right), move=2 (forward), jump=0
         recursive_assert_almost_equal(s, [1, 0, 1, 0])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(dict(turn=2, forward=1))  # turn=2 (right), move=1 (stay), jump=0
         recursive_assert_almost_equal(s, [1, 0, 0, -1])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(dict(turn=1, forward=2))  # turn=1 (no turn), move=2 (forward), jump=0
         recursive_assert_almost_equal(s, [1, 1, 0, -1])
@@ -131,19 +131,19 @@ class TestGridWorld(unittest.TestCase):
         env.reset()  # [0, 0, 0] (x, y, orientation)
         s, r, t, _ = env.step(dict(turn=2, forward=1))
         recursive_assert_almost_equal(s, [0, 0, 1, 0])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(dict(turn=1, forward=1, jump=1))
         recursive_assert_almost_equal(s, [2, 0, 1, 0])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(dict(turn=2, forward=2))
         recursive_assert_almost_equal(s, [2, 1, 0, -1])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(dict(turn=1, forward=2, jump=1))
         recursive_assert_almost_equal(s, [2, 3, 0, -1])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(dict(turn=2, forward=0))
         recursive_assert_almost_equal(s, [3, 3, -1, 0])
@@ -154,21 +154,21 @@ class TestGridWorld(unittest.TestCase):
         env.reset()  # [0, 0, 0] (x, y, orientation)
         s, r, t, _ = env.step(dict(turn=1, forward=0))
         recursive_assert_almost_equal(s, [0, 1, 0, 1])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(dict(turn=0, forward=2))
         recursive_assert_almost_equal(s, [0, 1, -1, 0])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
 
         # Jump over a hole (no reset).
         s, r, t, _ = env.step(dict(turn=2, forward=1))  # turn around
         s, r, t, _ = env.step(dict(turn=2, forward=1))
         recursive_assert_almost_equal(s, [0, 1, 1, 0])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(dict(turn=1, forward=1, jump=1))
         recursive_assert_almost_equal(s, [2, 1, 1, 0])
-        self.assertTrue(r == -1.0)
+        recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
 

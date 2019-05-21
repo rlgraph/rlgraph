@@ -17,19 +17,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
 import time
 import unittest
 
-from rlgraph.environments.environment import Environment
+import numpy as np
+
+from rlgraph.components.common.environment_stepper import EnvironmentStepper
 from rlgraph.components.explorations.exploration import Exploration
 from rlgraph.components.neural_networks.actor_component import ActorComponent
-from rlgraph.components.common.environment_stepper import EnvironmentStepper
+from rlgraph.environments.environment import Environment
 from rlgraph.spaces import FloatBox, IntBox, Tuple
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
-from rlgraph.utils.ops import DataOpTuple
 from rlgraph.utils.numpy import dense_layer, softmax, lstm_layer
+from rlgraph.utils.ops import DataOpTuple
 
 
 class TestEnvironmentStepper(unittest.TestCase):
@@ -427,7 +428,7 @@ class TestEnvironmentStepper(unittest.TestCase):
             dict(network_spec="../configs/test_lstm_nn.json", action_space=action_space),
             # Exploration spec.
             Exploration(epsilon_spec=dict(decay_spec=dict(
-                type="linear_decay", from_=1.0, to_=0.1, start_timestep=0, num_timesteps=100)
+                type="linear_decay", from_=1.0, to_=0.1)
             ))
         )
         environment_stepper = EnvironmentStepper(

@@ -96,14 +96,14 @@ class MLAgentsEnv(VectorEnv):
         )
 
         # Caches the last observation we made (after stepping or resetting).
-        self.last_state = []
+        self.last_state = None
 
     def get_env(self):
         return self
 
     def reset(self, index=0):
         # Reset entire MLAgentsEnv iff global_done is True.
-        if self.mlagents_env.global_done is True:
+        if self.mlagents_env.global_done is True or self.last_state is None:
             self.reset_all()
         return self.last_state[index]
 

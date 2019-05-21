@@ -20,6 +20,7 @@ from __future__ import print_function
 import unittest
 
 from rlgraph.environments import SequentialVectorEnv
+from rlgraph.tests.test_util import recursive_assert_almost_equal
 
 
 class TestSequentialVectorEnv(unittest.TestCase):
@@ -40,12 +41,12 @@ class TestSequentialVectorEnv(unittest.TestCase):
 
         s, r, t, _ = env.step([2 for _ in range(num_envs)])  # down: [" H", "XG"]
         all(self.assertTrue(s_ == 1) for s_ in s)
-        all(self.assertTrue(r_ == -1.0) for r_ in r)
+        all(recursive_assert_almost_equal(r_, -0.1) for r_ in r)
         all(self.assertTrue(not t_) for t_ in t)
 
         s, r, t, _ = env.step([1 for _ in range(num_envs)])  # right: [" H", " X"]
         all(self.assertTrue(s_ == 3) for s_ in s)
-        all(self.assertTrue(r_ == 1.0) for r_ in r)
+        all(recursive_assert_almost_equal(r_, 1.0) for r_ in r)
         all(self.assertTrue(t_) for t_ in t)
 
         [env.reset(index=i) for i in range(num_envs)]  # ["XH", " G"]  X=player's position
@@ -58,14 +59,14 @@ class TestSequentialVectorEnv(unittest.TestCase):
         env.reset_all()  # ["XH", " G"]  X=player's position
         s, r, t, _ = env.step([3 for _ in range(num_envs)])  # left: ["XH", " G"]
         all(self.assertTrue(s_ == 0) for s_ in s)
-        all(self.assertTrue(r_ == -1.0) for r_ in r)
+        all(recursive_assert_almost_equal(r_, -0.1) for r_ in r)
         all(self.assertTrue(not t_) for t_ in t)
         s, r, t, _ = env.step([2 for _ in range(num_envs)])  # down: [" H", "XG"]
         all(self.assertTrue(s_ == 1) for s_ in s)
-        all(self.assertTrue(r_ == -1.0) for r_ in r)
+        all(recursive_assert_almost_equal(r_, -0.1) for r_ in r)
         all(self.assertTrue(not t_) for t_ in t)
         s, r, t, _ = env.step([0 for _ in range(num_envs)])  # up: ["XH", " G"]
         all(self.assertTrue(s_ == 0) for s_ in s)
-        all(self.assertTrue(r_ == -1.0) for r_ in r)
+        all(recursive_assert_almost_equal(r_, -0.1) for r_ in r)
         all(self.assertTrue(not t_) for t_ in t)
 
