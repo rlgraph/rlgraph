@@ -190,7 +190,8 @@ class SACAgent(Agent):
     def get_weights(self):
         return dict(policy_weights=self.graph_executor.execute(self.root_component.get_policy_weights))
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         # TODO: common pattern - move to Agent
         """
         Args:
@@ -209,10 +210,10 @@ class SACAgent(Agent):
         extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
-            call_method = self.root_component.get_actions
+            call_method = "get_actions"
             batched_states = self.state_space.force_batch(states)
         else:
-            call_method = self.root_component.get_actions_from_preprocessed_states
+            call_method = "get_actions_from_preprocessed_states"
             batched_states = states
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
@@ -248,7 +249,7 @@ class SACAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None):
+    def update(self, batch=None, time_percentage=None, **kwargs):
         if batch is None:
             size = self.graph_executor.execute(self.root_component.get_memory_size)
             # TODO: is this necessary?

@@ -41,11 +41,9 @@
   {
     "epsilon_spec": {
       "decay_spec": {
-        "type": "linear_decay",
+        "type": "linear-decay",
         "from": 1.0,
-        "to": 0.0,
-        "start_timestep": 0,
-        "num_timesteps": 100
+        "to": 0.0
       }
     }
   },

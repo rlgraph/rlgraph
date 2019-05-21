@@ -425,7 +425,7 @@ class IMPALAAgent(Agent):
             return fifo_queue.get_size()
 
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root):
+        def update_from_memory(root, time_percentage=None):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
             # This is done by the network itself for all network inputs:
@@ -485,8 +485,7 @@ class IMPALAAgent(Agent):
             policy_vars = policy.variables()
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
-
+            step_op = optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
             # Increase the global training step counter.
             step_op = root._graph_fn_training_step(step_op)
 
@@ -494,13 +493,15 @@ class IMPALAAgent(Agent):
             # TODO: Make it possible to return None from API-method without messing with the meta-graph.
             return step_op, (stage_op if stage_op else step_op), loss, loss_per_item, records
 
-    def get_action(self, states, internal_states=None, use_exploration=True, extra_returns=None):
+    # TODO: Unify with other Agents.
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         pass
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
-    def update(self, batch=None):
+    def update(self, batch=None, time_percentage=None):
         if batch is None:
             # Include stage_op or not?
             if self.has_gpu:
@@ -696,7 +697,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             return agent.fifo_queue.get_size()
 
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root):
+        def update_from_memory(root, time_percentage=None):
             # Pull n records from the queue.
             # Note that everything will come out as batch-major and must be transposed before the main-LSTM.
             # This is done by the network itself for all network inputs:
@@ -765,7 +766,7 @@ class SingleIMPALAAgent(IMPALAAgent):
                 policy_vars = agent.policy.variables()
 
             # Pass vars and loss values into optimizer.
-            step_op, loss, loss_per_item = agent.optimizer.step(policy_vars, loss, loss_per_item)
+            step_op = agent.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
             # Increase the global training step counter.
             step_op = root._graph_fn_training_step(step_op)
 

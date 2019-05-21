@@ -53,7 +53,7 @@ class IterativeOptimization(Component):
         self.add_components(optimizer)
 
     @graph_fn
-    def _graph_fn_iterative_opt(self,  preprocessed_states, actions, rewards, terminals):
+    def _graph_fn_iterative_opt(self,  preprocessed_states, actions, rewards, terminals, time_percentage=None):
         """
         Calls iterative optimization by repeatedly subsampling.
         Returns:
@@ -79,8 +79,8 @@ class IterativeOptimization(Component):
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = self.policy.variables()
             vf_vars = self.value_function.variables()
-            vf_step_op, vf_loss, vf_loss_per_item = self.vf_optimizer(vf_vars, vf_loss, vf_loss_per_item)
-            step_op, loss, loss_per_item = self.optimizer.step(policy_vars, loss, loss_per_item)
+            vf_step_op = self.vf_optimizer.step(vf_vars, vf_loss, vf_loss_per_item, time_percentage)
+            step_op = self.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
 
             def opt_body(index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item):
                 with tf.control_dependencies([step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item]):
@@ -102,8 +102,8 @@ class IterativeOptimization(Component):
                     policy_vars = self.policy.variables()
                     vf_vars = self.value_function.variables()
 
-                    vf_step_op, vf_loss, vf_loss_per_item = self.vf_optimizer(vf_vars, vf_loss, vf_loss_per_item)
-                    step_op, loss, loss_per_item = self.optimizer.step(policy_vars, loss, loss_per_item)
+                    vf_step_op = self.vf_optimizer.step(vf_vars, vf_loss, vf_loss_per_item, time_percentage)
+                    step_op = self.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
                     return index, step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
             def cond(index, step_op, loss, loss_per_item, vf_step_op, v_loss, v_loss_per_item):

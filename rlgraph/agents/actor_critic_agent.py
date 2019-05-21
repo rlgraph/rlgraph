@@ -56,6 +56,8 @@ class ActorCriticAgent(Agent):
         gae_lambda=1.0,
         clip_rewards=0.0,
         sample_episodes=False,
+        weight_pg=None,
+        weight_vf=None,
         weight_entropy=None,
         memory_spec=None
      ):
@@ -91,6 +93,8 @@ class ActorCriticAgent(Agent):
                 episodes to fetch from the memory. If false, batch_size will refer to the number of time-steps. This
                 is especially relevant for environments where episode lengths may vastly differ throughout training. For
                 example, in CartPole, a losing episode is typically 10 steps, and a winning episode 200 steps.
+            weight_pg (float): The coefficient used for the policy gradient loss term (L[PG]).
+            weight_vf (float): The coefficient used for the state value function loss term (L[V]).
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
             a ring-buffer.
@@ -142,7 +146,9 @@ class ActorCriticAgent(Agent):
             "ERROR: Actor-critic memory must be ring-buffer for episode-handling."
         self.gae_function = GeneralizedAdvantageEstimation(gae_lambda=gae_lambda, discount=self.discount,
                                                            clip_rewards=clip_rewards)
-        self.loss_function = ActorCriticLossFunction(weight_entropy=weight_entropy)
+        self.loss_function = ActorCriticLossFunction(
+            weight_pg=weight_pg, weight_vf=weight_vf, weight_entropy=weight_entropy
+        )
 
         # Add all our sub-components to the core.
         sub_components = [self.preprocessor, self.memory, self.policy,
@@ -200,44 +206,43 @@ class ActorCriticAgent(Agent):
 
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root):
+        def update_from_memory(root, time_percentage=None):
             if sample_episodes:
                 records = agent.memory.get_episodes(agent.update_spec["batch_size"])
             else:
                 records = agent.memory.get_records(agent.update_spec["batch_size"])
             return root.post_process_and_update(
                 records["states"], records["actions"], records["rewards"], records["terminals"],
-                records["sequence_indices"]
+                records["sequence_indices"], time_percentage
             )
 
         # First post-process, then update (so we can separately update already post-processed data).
         @rlgraph_api(component=self.root_component)
         def post_process_and_update(root, preprocessed_states, actions, rewards, terminals, sequence_indices):
             advantages = root.post_process(preprocessed_states, rewards, terminals, sequence_indices)
-            return root.update_from_external_batch(preprocessed_states, actions, advantages, terminals)
+            return root.update_from_external_batch(preprocessed_states, actions, advantages, terminals, time_percentage)
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
-        def update_from_external_batch(root, preprocessed_states, actions, advantages, terminals):
+        def update_from_external_batch(root, preprocessed_states, actions, advantages, terminals, time_percentage):
             baseline_values = agent.value_function.value_output(preprocessed_states)
             log_probs = agent.policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
             entropy = agent.policy.get_entropy(preprocessed_states)["entropy"]
             loss, loss_per_item, vf_loss, vf_loss_per_item = agent.loss_function.loss(
-                log_probs, baseline_values, advantages, entropy
+                log_probs, baseline_values, advantages, entropy, time_percentage
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
             policy_vars = agent.policy.variables()
             vf_vars = agent.value_function.variables()
 
-            step_op, loss, loss_per_item = agent.optimizer.step(policy_vars, loss, loss_per_item)
-            vf_step_op, vf_loss, vf_loss_per_item = agent.value_function_optimizer.step(
-                vf_vars, vf_loss, vf_loss_per_item
-            )
+            step_op = agent.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
+            vf_step_op = agent.value_function_optimizer.step(vf_vars, vf_loss, vf_loss_per_item, time_percentage)
 
             return step_op, loss, loss_per_item, vf_step_op, vf_loss, vf_loss_per_item
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return

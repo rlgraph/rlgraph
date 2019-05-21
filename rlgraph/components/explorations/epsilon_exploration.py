@@ -18,8 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
+from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.components.component import Component
-from rlgraph.components.common.decay_components import DecayComponent
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
@@ -46,7 +46,7 @@ class EpsilonExploration(Component):
     """
     def __init__(self, decay_spec=None, scope="epsilon-exploration", **kwargs):
         """
-        Keyword Args:
+        Args:
             decay_spec (Optional[dict,DecayComponent]): The spec-dict for the DecayComponent to use or a DecayComponent
                 object directly.
 
@@ -60,10 +60,10 @@ class EpsilonExploration(Component):
         self.flat_sample_space = None
 
         # Our (epsilon) Decay-Component.
-        self.decay_component = DecayComponent.from_spec(decay_spec)
+        self.decay = TimeDependentParameter.from_spec(decay_spec)
 
         # Add the decay component and make time_step our (only) input.
-        self.add_components(self.decay_component)
+        self.add_components(self.decay)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         # Require at least a batch-rank in the incoming samples.
@@ -73,19 +73,21 @@ class EpsilonExploration(Component):
             sanity_check_space(self.sample_space, must_have_batch_rank=True)
 
     @rlgraph_api
-    def do_explore(self, sample, time_step=0):
+    def do_explore(self, sample, time_percentage=None):
         """
         API-method taking a timestep and returning a bool type tensor on whether to explore or not (per batch item).
 
         Args:
             sample (SingleDataOp): A data sample from which we can extract the batch size.
-            time_step (SingleDataOp): The current global time step.
+
+            time_percentage (SingleDataOp): The current consumed time (0.0 to 1.0) with respect to the max timestep
+                value.
 
         Returns:
             SingleDataOp: Single decisions over a batch on whether to explore or not.
         """
-        decayed_value = self.decay_component.decayed_value(time_step)
-        return self._graph_fn_get_random_actions(decayed_value, sample)
+        #decayed_value = self.decay_component.decayed_value(time_step)
+        return self._graph_fn_get_random_actions(self.decay.get(time_percentage), sample)
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_get_random_actions(self, key, decayed_value, sample):

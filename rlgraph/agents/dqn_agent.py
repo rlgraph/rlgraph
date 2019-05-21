@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import numpy as np
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, ContainerMerger, ContainerSplitter
+from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, ContainerSplitter
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
@@ -59,8 +59,6 @@ class DQNAgent(Agent):
         n_step=1,
         shared_container_action_target=True,
         memory_spec=None,
-        store_last_memory_batch=False,
-        store_last_q_table=False,
     ):
         """
         Args:
@@ -90,12 +88,6 @@ class DQNAgent(Agent):
             huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
             n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
-            store_last_memory_batch (bool): Whether to store the last pulled batch from the memory in
-                `self.last_memory_batch` for debugging purposes.
-                Default: False.
-            store_last_q_table (bool): Whether to store the Q(s,a) values for the last received batch
-                (memory or external) in `self.last_q_table` for debugging purposes.
-                Default: False.
         """
         # Fix action-adapter before passing it to the super constructor.
         # Use a DuelingPolicy (instead of a basic Policy) if option is set.
@@ -141,12 +133,6 @@ class DQNAgent(Agent):
         self.huber_loss = huber_loss
         self.shared_container_action_target = shared_container_action_target
 
-        # Debugging tools.
-        self.store_last_memory_batch = store_last_memory_batch
-        self.last_memory_batch = None
-        self.store_last_q_table = store_last_q_table
-        self.last_q_table = None
-
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
         reward_space = FloatBox(add_batch_rank=True)
@@ -157,7 +143,6 @@ class DQNAgent(Agent):
             actions=self.action_space.with_batch_rank(),
             # Weights will have a Space derived from the vars of policy.
             policy_weights="variables:{}".format(self.policy.scope),
-            time_step=int,
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=reward_space,
@@ -170,8 +155,6 @@ class DQNAgent(Agent):
         if self.value_function is not None:
             self.input_spaces["value_function_weights"] = "variables:{}".format(self.value_function.scope),
 
-        # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = ContainerMerger("states", "actions", "rewards", "next_states", "terminals")
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
         # The splitter for splitting up the records coming from the memory.
@@ -195,7 +178,7 @@ class DQNAgent(Agent):
         )
 
         self.root_component.add_components(
-            self.preprocessor, self.merger, self.memory, self.splitter, self.policy, self.target_policy,
+            self.preprocessor, self.memory, self.splitter, self.policy, self.target_policy,
             self.value_function, self.value_function_optimizer,  # <- should both be None for DQN
             self.exploration, self.loss_function, self.optimizer, self.vars_merger, self.vars_splitter
         )
@@ -217,21 +200,23 @@ class DQNAgent(Agent):
 
         # Act from preprocessed states.
         @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(root, preprocessed_states, time_step=0, use_exploration=True):
+        def action_from_preprocessed_state(root, preprocessed_states, time_percentage=None, use_exploration=True):
             sample_deterministic = agent.policy.get_deterministic_action(preprocessed_states)
-            actions = agent.exploration.get_action(sample_deterministic["action"], time_step, use_exploration)
+            actions = agent.exploration.get_action(sample_deterministic["action"], time_percentage, use_exploration)
             return actions, preprocessed_states
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(root, states, time_step=0, use_exploration=True):
+        def get_preprocessed_state_and_action(root, states, time_percentage=None, use_exploration=True):
             preprocessed_states = agent.preprocessor.preprocess(states)
-            return root.action_from_preprocessed_state(preprocessed_states, time_step, use_exploration)
+            return root.action_from_preprocessed_state(preprocessed_states, time_percentage, use_exploration)
 
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
         def insert_records(root, preprocessed_states, actions, rewards, next_states, terminals):
-            records = agent.merger.merge(preprocessed_states, actions, rewards, next_states, terminals)
+            records = dict(
+                states=preprocessed_states, actions=actions, rewards=rewards, next_states=next_states, terminals=terminals
+            )
             return agent.memory.insert_records(records)
 
         # Syncing target-net.
@@ -249,14 +234,14 @@ class DQNAgent(Agent):
 
         # Learn from memory.
         @rlgraph_api(component=self.root_component)
-        def update_from_memory(root, apply_postprocessing):
+        def update_from_memory(root, apply_postprocessing, time_percentage=None):
             # Non prioritized memory will just return weight 1.0 for all samples.
             records, sample_indices, importance_weights = agent.memory.get_records(agent.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
 
             step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights,
-                apply_postprocessing
+                apply_postprocessing, time_percentage
             )
 
             # TODO this is really annoying. Will be solved once we have dict returns.
@@ -270,7 +255,7 @@ class DQNAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def update_from_external_batch(
                 root, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                importance_weights, apply_postprocessing
+                importance_weights, apply_postprocessing, time_percentage=None
         ):
             # If we are a multi-GPU root:
             # Simply feeds everything into the multi-GPU sync optimizer's method and return.
@@ -279,7 +264,8 @@ class DQNAgent(Agent):
                 all_vars = agent.vars_merger.merge(main_policy_vars)
                 out = root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                     all_vars, preprocessed_states, actions, rewards, terminals,
-                    preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing
+                    preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing,
+                    time_percentage=time_percentage
                 )
                 avg_grads_and_vars = agent.vars_splitter.call(out["avg_grads_and_vars_by_component"])
                 step_op = agent.optimizer.apply_gradients(avg_grads_and_vars)
@@ -321,7 +307,7 @@ class DQNAgent(Agent):
                 grads_and_vars_by_component = vars_merger.merge(grads_and_vars)
                 return grads_and_vars_by_component, loss, loss_per_item, q_values_s
             else:
-                step_op, loss, loss_per_item = optimizer.step(policy_vars, loss, loss_per_item)
+                step_op = optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
                 # Increase the global training step counter.
                 step_op = root._graph_fn_training_step(step_op)
                 return step_op, loss, loss_per_item, q_values_s
@@ -347,7 +333,14 @@ class DQNAgent(Agent):
             )
             return loss, loss_per_item
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+        @rlgraph_api(component=self.root_component)
+        def get_q_values(root, preprocessed_states):
+            q_values = root.get_sub_component_by_name(agent.policy.scope).get_adapter_outputs_and_parameters(
+                preprocessed_states)["adapter_outputs"]
+            return q_values
+
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
@@ -362,6 +355,10 @@ class DQNAgent(Agent):
                 - action
                 - the preprocessed states
         """
+        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
+        if time_percentage is None:
+            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
+
         extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
@@ -380,9 +377,9 @@ class DQNAgent(Agent):
         return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, time_percentage, use_exploration],
             return_ops
-        ))  #, flip_batch_with_dict_keys=isinstance(self.action_space, ContainerSpace))
+        ))
         if remove_batch_rank:
             return strip_list(ret)
         else:
@@ -391,7 +388,11 @@ class DQNAgent(Agent):
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
-    def update(self, batch=None):
+    def update(self, batch=None, time_percentage=None, **kwargs):
+        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
+        if time_percentage is None:
+            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
+
         # Should we sync the target net?
         self.steps_since_target_net_sync += self.update_spec["update_interval"]
         if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
@@ -405,46 +406,17 @@ class DQNAgent(Agent):
         q_table = None
 
         if batch is None:
-            # Add some additional return-ops to pull (left out normally for performance reasons).
-            if self.store_last_q_table is True:
-                return_ops += [3, 4]  # 3=batch, 4=q-values
-            elif self.store_last_memory_batch is True:
-                return_ops += [3]  # 3=batch
-            ret = self.graph_executor.execute(("update_from_memory", [True], return_ops))
-
-            # Store the last Q-table?
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=ret[3]["states"],
-                    q_values=ret[4]
-                )
+            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops))
         else:
-            # Add some additional return-ops to pull (left out normally for performance reasons).
-            if self.store_last_q_table is True:
-                return_ops += [3]  # 3=q-values
-
             # TODO apply postprocessing always true atm.
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"], True]
-            ret = self.graph_executor.execute(("update_from_external_batch", batch_input, return_ops))
-
-            # Store the last Q-table?
-            if self.store_last_q_table is True:
-                q_table = dict(
-                    states=batch["states"],
-                    q_values=ret[3]
-                )
+            input_ = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+                           batch["next_states"], batch["importance_weights"], True, time_percentage]
+            ret = self.graph_executor.execute(("update_from_external_batch", input_, return_ops))
 
         # Do the target net synching after the update (for better clarity: after a sync, we would expect for both
         # networks to be the exact same).
         if sync_call:
             self.graph_executor.execute(sync_call)
-
-        # Store the latest pulled memory batch?
-        if self.store_last_memory_batch is True and batch is None:
-            self.last_memory_batch = ret[2]
-        if self.store_last_q_table is True:
-            self.last_q_table = q_table
 
         # 1=the loss
         # 2=loss per item for external update, records for update from memory

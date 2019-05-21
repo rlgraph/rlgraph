@@ -18,14 +18,14 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.components.common.noise_components import NoiseComponent
 from rlgraph.components.component import Component
 from rlgraph.components.explorations.epsilon_exploration import EpsilonExploration
-from rlgraph.components.common.noise_components import NoiseComponent
 from rlgraph.spaces import IntBox, FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils.util import convert_dtype
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.util import convert_dtype
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -36,7 +36,7 @@ elif get_backend() == "pytorch":
 class Exploration(Component):
     """
     A Component that can be plugged on top of a Policy's output to produce action choices.
-    It includes noise and/or epsilon-based exploration options as well as an out-Socket to draw actions from
+    It includes noise and/or epsilon-based exploration options as well as an API to draw actions from
     the Policy's distribution - either by sampling or by deterministically choosing the max-likelihood value.
     """
     def __init__(self, epsilon_spec=None, noise_spec=None, scope="exploration", **kwargs):
@@ -67,11 +67,11 @@ class Exploration(Component):
 
             # Define our interface.
             @rlgraph_api(component=self)
-            def get_action(self, actions, time_step, use_exploration=True):
+            def get_action(self, actions, time_percentage=None, use_exploration=True):
                 """
                 Action depends on time-step (e.g. epsilon-decay).
                 """
-                epsilon_decisions = self.epsilon_exploration.do_explore(actions, time_step)
+                epsilon_decisions = self.epsilon_exploration.do_explore(actions, time_percentage)
                 return self._graph_fn_pick(use_exploration, epsilon_decisions, actions)
 
         # Add noise component.
@@ -80,7 +80,7 @@ class Exploration(Component):
             self.add_components(self.noise_component)
 
             @rlgraph_api(component=self)
-            def get_action(self, actions, time_step=0, use_exploration=True):
+            def get_action(self, actions, time_percentage=None, use_exploration=True):
                 """
                 Noise is added to the sampled action.
                 """
@@ -90,7 +90,7 @@ class Exploration(Component):
         # Don't explore at all. Simple pass-through.
         else:
             @rlgraph_api(component=self)
-            def get_action(self, actions, time_step=0, use_exploration=False):
+            def get_action(self, actions, time_percentage=None, use_exploration=False):
                 """
                 Action is returned as is.
                 """

@@ -744,7 +744,9 @@ class GraphBuilder(Specifiable):
         self.investigated_input_incomplete_components.add(component)
         # Find any input-param that has no Space defined.
         incomplete_input_args = list(name for name, space in component.api_method_inputs.items() if space is None)
-        assert len(incomplete_input_args) > 0, "ERROR: Expected at least one input-arg to be without Space-definition!"
+        assert len(incomplete_input_args) > 0,\
+            "ERROR: Expected at least one input-arg of '{}' to be without Space-definition!".\
+            format(component.global_scope)
         incomplete_arg = incomplete_input_args[0]
         ## Either we are blocked by ourselves (API-method calling another one of the same Component (internal deadlock)).
         #internal_deadlock = False

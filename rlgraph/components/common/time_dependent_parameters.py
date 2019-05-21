@@ -20,14 +20,15 @@ from __future__ import print_function
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
-    pass
+    import torch
 
 
-class Parameter(Component):
+class TimeDependentParameter(Component):
     """
     A time-dependent or constant parameter that can be used to implement learning rate or other decaying parameters.
     """
@@ -45,10 +46,11 @@ class Parameter(Component):
             from: Instead of arg `from_`.
             to: Instead of arg `to`.
         """
+        # Kwargs alternative args (instead of the '_'-underscore versions).
         kwargs_from = kwargs.pop("from", None)
         kwargs_to = kwargs.pop("to", None)
 
-        super(Parameter, self).__init__(scope=scope, **kwargs)
+        super(TimeDependentParameter, self).__init__(scope=scope, **kwargs)
 
         self.from_ = kwargs_from if kwargs_from is not None else from_ if from_ is not None else 1.0
         self.to_ = kwargs_to if kwargs_to is not None else to_ if to_ is not None else 0.0
@@ -56,11 +58,13 @@ class Parameter(Component):
         self.max_time_steps = max_time_steps
         self.resolution = resolution
 
+        self.variable_complete = True
+
     def check_input_completeness(self):
         # If max_time_steps is not given, we will rely on time_percentage input, therefore, it must be given.
         if self.max_time_steps is None and self.api_method_inputs["time_percentage"] is "flex":
             return False
-        return super(Parameter, self).check_input_completeness()
+        return super(TimeDependentParameter, self).check_input_completeness()
 
     def check_input_spaces(self, input_spaces, action_space=None):
         time_pct_space = input_spaces["time_percentage"]
@@ -96,39 +100,47 @@ class Parameter(Component):
 
     @classmethod
     def from_spec(cls, spec=None, **kwargs):
+        """
+        Convenience method to allow for simplified list/tuple specs (apart from full dict specs):
+        For example:
+        [from, to] <- linear decay
+        ["linear", from, to]
+        ["polynomial", from, to, (power; default=2.0)?]
+        ["exponential", from, to, (decay_rate; default=0.1)?]
+        """
         map_ = {
-            "lin": "linear-parameter",
-            "linear": "linear-parameter",
-            "polynomial": "polynomial-parameter",
-            "poly": "polynomial-parameter",
-            "exp": "exponential-parameter",
-            "exponential": "exponential-parameter"
+            "lin": "linear-decay",
+            "linear": "linear-decay",
+            "polynomial": "polynomial-decay",
+            "poly": "polynomial-decay",
+            "exp": "exponential-decay",
+            "exponential": "exponential-decay"
         }
         # Single float means constant parameter.
         if isinstance(spec, float):
-            spec = dict(value=spec, type="constant-parameter")
+            spec = dict(constant_value=spec, type="constant")
         # List/tuple means simple (type)?/from/to setup.
         elif isinstance(spec, (tuple, list)):
             if len(spec) == 2:
-                spec = dict(from_=spec[0], to_=spec[1], type="linear-parameter")
+                spec = dict(from_=spec[0], to_=spec[1], type="linear-decay")
             elif len(spec) == 3:
                 spec = dict(from_=spec[1], to_=spec[2], type=map_.get(spec[0], spec[0]))
             elif len(spec) == 4:
                 type_ = map_.get(spec[0], spec[0])
                 spec = dict(from_=spec[1], to_=spec[2], type=type_)
-                if type_ == "polynomial-parameter":
+                if type_ == "polynomial-decay":
                     spec["power"] = spec[3]
-                elif type_ == "exponential-parameter":
+                elif type_ == "exponential-decay":
                     spec["decay_rate"] = spec[3]
-        return super(Parameter, cls).from_spec(spec, **kwargs)
+        return super(TimeDependentParameter, cls).from_spec(spec, **kwargs)
 
 
-class ConstantParameter(Parameter):
+class Constant(TimeDependentParameter):
     """
     Always returns a constant value no matter what value `time_percentage` or GLOBAL_STEP have.
     """
-    def __init__(self, value, scope="constant-parameter", **kwargs):
-        super(ConstantParameter, self).__init__(from_=value, scope=scope, **kwargs)
+    def __init__(self, constant_value, scope="constant", **kwargs):
+        super(Constant, self).__init__(from_=constant_value, scope=scope, **kwargs)
 
     @rlgraph_api
     def _graph_fn_get(self, time_percentage=None):
@@ -137,22 +149,24 @@ class ConstantParameter(Parameter):
                 return tf.fill(tf.shape(time_percentage), self.from_)
             else:
                 return self.from_
+        elif get_backend() == "pytorch":
+            return torch.new_full(size=time_percentage.size(), fill_value=self.from_)
 
     def placeholder(self):
         return self.from_
 
 
-class PolynomialParameter(Parameter):
+class PolynomialDecay(TimeDependentParameter):
     """
     Returns the result of:
     to_ + (from_ - to_) * (1 - `time_percentage`) ** power
     """
-    def __init__(self, power=2.0, scope="polynomial-parameter", **kwargs):
+    def __init__(self, power=2.0, scope="polynomial-decay", **kwargs):
         """
         Args:
             power (float): The power with which to decay polynomially (see formula above).
         """
-        super(PolynomialParameter, self).__init__(scope=scope, **kwargs)
+        super(PolynomialDecay, self).__init__(scope=scope, **kwargs)
 
         self.power = power
 
@@ -167,40 +181,54 @@ class PolynomialParameter(Parameter):
                 power=self.power
             )
         else:
-            # Get the fake current time-step from the percentage value.
-            current_timestep = self.resolution * time_percentage
             if get_backend() == "tf":
+                # Get the fake current time-step from the percentage value.
+                current_timestep = self.resolution * time_percentage
                 return tf.train.polynomial_decay(
                     learning_rate=self.from_, global_step=current_timestep,
                     decay_steps=self.resolution,
                     end_learning_rate=self.to_,
                     power=self.power
                 )
+            elif get_backend() == "pytorch":
+                return self.to_ + (self.from_ - self.to_) * (1.0 - time_percentage) ** self.power
 
 
-class LinearParameter(PolynomialParameter):
+class LinearDecay(PolynomialDecay):
     """
     Same as polynomial with power=1.0. Returns the result of:
     from_ - `time_percentage` * (from_ - to_)
     """
-    def __init__(self, scope="linear-parameter", **kwargs):
-        super(LinearParameter, self).__init__(power=1.0, scope=scope, **kwargs)
+    def __init__(self, scope="linear-decay", **kwargs):
+        super(LinearDecay, self).__init__(power=1.0, scope=scope, **kwargs)
 
 
-class ExponentialParameter(Parameter):
+class ExponentialDecay(TimeDependentParameter):
     """
     Returns the result of:
     to_ + (from_ - to_) * decay_rate ** `time_percentage`
     """
-    def __init__(self, decay_rate=0.1, scope="exponential-parameter", **kwargs):
+    def __init__(self, decay_rate=0.1, scope="exponential-decay", **kwargs):
         """
         Args:
-            decay_rate (float): The percentage of the original value after the 100% time has been reached (see
+            decay_rate (float): The percentage of the original value after 100% of the time has been reached (see
                 formula above).
                 >0.0: The smaller the decay-rate, the stronger the decay.
                 1.0: No decay at all.
         """
-        super(ExponentialParameter, self).__init__(scope=scope, **kwargs)
+        # Obsoleted decay component args:
+        if "half_life" in kwargs:
+            raise RLGraphObsoletedError(
+                "ExponentialDecay", "half_life",
+                "decay_rate (according to to_ + (from_ - to_) * decay_rate ** `time_percentage`)"
+            )
+        elif "num_half_lives" in kwargs:
+            raise RLGraphObsoletedError(
+                "ExponentialDecay", "num_half_lives",
+                "decay_rate (according to to_ + (from_ - to_) * decay_rate ** `time_percentage`)"
+            )
+
+        super(ExponentialDecay, self).__init__(scope=scope, **kwargs)
 
         self.decay_rate = decay_rate
 
@@ -214,11 +242,13 @@ class ExponentialParameter(Parameter):
                 decay_rate=self.decay_rate
             ) + self.to_
         else:
-            # Get the fake current time-step from the percentage value.
-            current_timestep = self.resolution * time_percentage
             if get_backend() == "tf":
+                # Get the fake current time-step from the percentage value.
+                current_timestep = self.resolution * time_percentage
                 return tf.train.exponential_decay(
                     learning_rate=self.from_ - self.to_, global_step=current_timestep,
                     decay_steps=self.resolution,
                     decay_rate=self.decay_rate
                 ) + self.to_
+            if get_backend() == "tf":
+                return self.to_ + (self.from_ - self.to_) * self.decay_rate ** time_percentage

@@ -88,6 +88,7 @@ class Agent(Specifiable):
         # the Agent's policy Component.
         self.input_spaces = dict(
             states=self.state_space.with_batch_rank(),
+            time_percentage=float
         )
         self.internal_states_space = Space.from_spec(internal_states_space)
 
@@ -122,7 +123,7 @@ class Agent(Specifiable):
 
         # Global time step counter.
         self.timesteps = 0
-        self.episodes_since_update = 0
+        #self.episodes_since_update = 0
 
         # The agent's root-Component.
         self.root_component = None
@@ -279,7 +280,8 @@ class Agent(Specifiable):
             # Return identity.
             return states
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         """
         Returns action(s) for the passed state(s). If `states` is a single state, returns a single action, otherwise,
         returns a batch of actions, where batch-size = number of states passed in.
@@ -328,7 +330,7 @@ class Agent(Specifiable):
 
             batched (bool): Whether given data (states, actions, etc..) is already batched or not.
 
-            custom_data (Optional[Dict[str,ndarray]]): Custom data that should match the structure of our custom
+            other_data (Optional[Dict[str,ndarray]]): Custom data that should match the structure of our custom
                 buffers.
         """
         # Check for illegal internals.
