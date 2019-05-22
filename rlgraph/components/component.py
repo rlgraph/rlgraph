@@ -1128,6 +1128,16 @@ class Component(Specifiable):
         if trainable is None:
             trainable = self.trainable
 
+        # Remove the parent ref (will be set to None for the copy anyway).
+        parent_ref = self.parent_component
+        self.parent_component = None
+
+        # Make sure, containing Agents are not copied either.
+        agent_ref = None
+        if hasattr(self, "agent"):
+            agent_ref = self.agent
+            self.agent = None
+
         # Simply deepcopy self and change name and scope.
         new_component = copy.deepcopy(self)
         new_component.name = name
@@ -1147,8 +1157,11 @@ class Component(Specifiable):
             for sc in new_component.sub_components.values():
                 sc.propagate_sub_component_properties(dict(reuse_variable_scope=reuse_variable_scope_for_sub_components))
 
-        # Erase the parent pointer.
-        new_component.parent_component = None
+        # Put back critical refs.
+        if agent_ref is not None:
+            self.agent = new_component.agent = agent_ref
+        # Leave the copy's parent_component at None.
+        self.parent_component = parent_ref
 
         return new_component
 
