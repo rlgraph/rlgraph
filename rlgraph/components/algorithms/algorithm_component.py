@@ -33,13 +33,15 @@ class AlgorithmComponent(Component):
     """
     The root component of some Algorithm/Agent.
     """
-    def __init__(self, agent, discount=0.98, preprocessing_spec=None, policy_spec=None, network_spec = None,
-                 value_function_spec=None,
+    def __init__(self, agent, *, discount=0.98, batch_size=None, preprocessing_spec=None, policy_spec=None,
+                 network_spec = None, value_function_spec=None,
                  exploration_spec=None, optimizer_spec=None, value_function_optimizer_spec=None,
                  scope="algorithm-component", **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma).
+
+            batch_size (int): The batch size to use when pulling data from memory.
 
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
@@ -62,10 +64,15 @@ class AlgorithmComponent(Component):
 
         super(AlgorithmComponent, self).__init__(scope=scope, **kwargs)
 
+        # Our owning Agent object (may be None, e.g. for testing purposes).
         self.agent = agent
+
+        # Root component, set nesting level to 0.
         self.nesting_level = 0
 
+        # Some generic properties that all Agents have.
         self.discount = discount
+        self.batch_size = batch_size or 128
 
         # Construct the Preprocessor.
         self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)

@@ -150,15 +150,6 @@ class PPOAgent(Agent):
             name=name,
             auto_build=auto_build
         )
-        if policy_spec is not None:
-            policy_spec["deterministic"] = False
-        else:
-            policy_spec = dict(deterministic=False)
-
-        # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
-        # TODO: of return values when calling _graph_fn_calculate_update_from_external_batch.
-        # self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
-
         # Change our root-component to PPO.
         self.root_component = PPOAlgorithmComponent(
             agent=self, discount=discount, memory_spec=memory_spec, gae_lambda=gae_lambda, clip_rewards=clip_rewards,
@@ -194,7 +185,7 @@ class PPOAgent(Agent):
                 [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
                 # Important: Use sample-size, not batch-size as the sub-samples (from a batch) are the ones that get
                 # multi-gpu-split.
-                batch_size=batch_size,
+                batch_size=self.root_component.batch_size,
                 build_options=self.build_options
             )
             self.graph_built = True

@@ -20,8 +20,9 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, ContainerSplitter
+from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
+from rlgraph.components.policies.dueling_policy import DuelingPolicy
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
@@ -41,26 +42,29 @@ class DQNAgent(Agent):
         self,
         state_space,
         action_space,
+        *,  # Force all following args as named.
         discount=0.98,
+        double_q=True,
+        dueling_q=True,
+        n_step=1,
+        batch_size=None,
         preprocessing_spec=None,
-        network_spec=None,
+        memory_spec=None,
         internal_states_space=None,
         policy_spec=None,
+        network_spec=None,
         exploration_spec=None,
         execution_spec=None,
         optimizer_spec=None,
         observe_spec=None,
-        update_spec=None,
+        #update_spec=None,
         summary_spec=None,
         saver_spec=None,
+        huber_loss=False,
+        shared_container_action_target=True,
+
         auto_build=True,
         name="dqn-agent",
-        double_q=True,
-        dueling_q=True,
-        huber_loss=False,
-        n_step=1,
-        shared_container_action_target=True,
-        memory_spec=None,
     ):
         """
         Args:
@@ -78,7 +82,7 @@ class DQNAgent(Agent):
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
-            update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            #update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
             auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
@@ -91,27 +95,19 @@ class DQNAgent(Agent):
             n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
         """
-        # Fix action-adapter before passing it to the super constructor.
-        # Use a DuelingPolicy (instead of a basic Policy) if option is set.
-        if dueling_q is True:
-            policy_spec["type"] = "dueling-policy"
-            # Give us some default state-value nodes.
-            if "units_state_value_stream" not in policy_spec:
-                policy_spec["units_state_value_stream"] = 128
-
         super(DQNAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
-            discount=discount,
-            preprocessing_spec=preprocessing_spec,
-            network_spec=network_spec,
+            #discount=discount,
+            #preprocessing_spec=preprocessing_spec,
+            #network_spec=network_spec,
             internal_states_space=internal_states_space,
-            policy_spec=policy_spec,
-            exploration_spec=exploration_spec,
+            #policy_spec=policy_spec,
+            #exploration_spec=exploration_spec,
             execution_spec=execution_spec,
-            optimizer_spec=optimizer_spec,
+            #optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
-            update_spec=update_spec,
+            #update_spec=update_spec,
             summary_spec=summary_spec,
             saver_spec=saver_spec,
             auto_build=auto_build,
@@ -130,76 +126,36 @@ class DQNAgent(Agent):
                 "({})!".format(self.update_spec["sync_interval"], self.update_spec["update_interval"])
             )
 
-        self.double_q = double_q
-        self.dueling_q = dueling_q
-        self.huber_loss = huber_loss
-        self.shared_container_action_target = shared_container_action_target
+        # Change our root-component to PPO.
+        self.root_component = DQNAlgorithmComponent(
+            agent=self, discount=discount, memory_spec=memory_spec,
+            preprocessing_spec=preprocessing_spec, policy_spec=policy_spec, network_spec=network_spec,
+            exploration_spec=exploration_spec, optimizer_spec=optimizer_spec,
+            batch_size=batch_size, n_step=n_step, double_q=double_q, dueling_q=dueling_q, huber_loss=huber_loss,
+            shared_container_action_target=shared_container_action_target
+        )
 
         # Extend input Space definitions to this Agent's specific API-methods.
-        preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()
-        reward_space = FloatBox(add_batch_rank=True)
-        terminal_space = BoolBox(add_batch_rank=True)
-        weight_space = FloatBox(add_batch_rank=True)
-
+        preprocessed_state_space = self.root_component.preprocessed_state_space.with_batch_rank()
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             # Weights will have a Space derived from the vars of policy.
-            policy_weights="variables:{}".format(self.policy.scope),
+            policy_weights="variables:{}".format(self.root_component.policy.scope),
             use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
-            rewards=reward_space,
-            terminals=terminal_space,
+            rewards=FloatBox(add_batch_rank=True),
+            terminals=BoolBox(add_batch_rank=True),
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
-            importance_weights=weight_space,
+            importance_weights=FloatBox(add_batch_rank=True),
             apply_postprocessing=bool
         ))
-        if self.value_function is not None:
-            self.input_spaces["value_function_weights"] = "variables:{}".format(self.value_function.scope),
 
-        # The replay memory.
-        self.memory = Memory.from_spec(memory_spec)
-        # The splitter for splitting up the records coming from the memory.
-        self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals", "next_states")
-
-        # Make sure the python buffer is not larger than our memory capacity.
-        assert self.observe_spec["buffer_size"] <= self.memory.capacity,\
-            "ERROR: Buffer's size ({}) in `observe_spec` must be smaller or equal to the memory's capacity ({})!".\
-            format(self.observe_spec["buffer_size"], self.memory.capacity)
-
-        # Copy our Policy (target-net), make target-net synchronizable.
-        self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
-        # Number of steps since the last target-net synching from the main policy.
-        self.steps_since_target_net_sync = 0
-
-        use_importance_weights = isinstance(self.memory, PrioritizedReplay)
-        self.loss_function = DQNLossFunction(
-            discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
-            shared_container_action_target=shared_container_action_target,
-            importance_weights=use_importance_weights, n_step=n_step
-        )
-
-        self.root_component.add_components(
-            self.preprocessor, self.memory, self.splitter, self.policy, self.target_policy,
-            self.value_function, self.value_function_optimizer,  # <- should both be None for DQN
-            self.exploration, self.loss_function, self.optimizer, self.vars_merger, self.vars_splitter
-        )
-
-        # Define the Agent's (root-Component's) API.
-        #self.define_graph_api()
-
-        # markup = get_graph_markup(self.graph_builder.root_component)
-        # print(markup)
         if self.auto_build:
-            self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
-                              batch_size=self.update_spec["batch_size"])
+            self._build_graph(
+                [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
+                batch_size=self.root_component.batch_size)
             self.graph_built = True
-
-    #def define_graph_api(self, *args, **kwargs):
-    #    super(DQNAgent, self).define_graph_api()
-
-    #    agent = self
-
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):
@@ -247,7 +203,8 @@ class DQNAgent(Agent):
         else:
             return ret
 
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
+        next_states = kwargs.pop("next_states")
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
     def update(self, batch=None, time_percentage=None, **kwargs):
@@ -285,7 +242,7 @@ class DQNAgent(Agent):
         Resets our preprocessor, but only if it contains stateful PreprocessLayer Components (meaning
         the PreprocessorStack has at least one variable defined).
         """
-        if self.preprocessing_required and len(self.preprocessor.variable_registry) > 0:
+        if self.root_component.preprocessing_required and len(self.root_component.preprocessor.variable_registry) > 0:
             self.graph_executor.execute("reset_preprocessor")
 
     def post_process(self, batch):
@@ -301,15 +258,63 @@ class DQNAgent(Agent):
         return ret[0], ret[1]
 
     def __repr__(self):
-        return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)
+        return "DQNAgent(doubleQ={} duelingQ={})".format(self.root_component.double_q, self.root_component.dueling_q)
 
 
 class DQNAlgorithmComponent(AlgorithmComponent):
-    def __init__(self, scope="dqn-agent-component", **kwargs):
-
+    def __init__(
+            self, agent, *, memory_spec=None, double_q=False, dueling_q=False, n_step=1,
+            huber_loss=False, shared_container_action_target=True,
+            scope="dqn-agent-component", **kwargs
+    ):
         super(DQNAlgorithmComponent, self).__init__(
-            agent, policy_spec=policy_spec, value_function_spec=value_function_spec, scope=scope, **kwargs
+            agent, scope=scope, **kwargs
         )
+        """
+        Args:
+        """
+        # Fix action-adapter before passing it to the super constructor.
+        # Use a DuelingPolicy (instead of a basic Policy) if option is set.
+        policy_spec = kwargs.pop("policy_spec", None)
+        if dueling_q is True:
+            if policy_spec is None:
+                policy_spec = dict()
+            assert isinstance(policy_spec, (dict, DuelingPolicy)),\
+                "ERROR: If `dueling_q` is True, policy must be specified as DuelingPolicy!"
+            if isinstance(policy_spec, dict):
+                policy_spec["type"] = "dueling-policy"
+                # Give us some default state-value nodes.
+                if "units_state_value_stream" not in policy_spec:
+                    policy_spec["units_state_value_stream"] = 128
+
+        super(DQNAlgorithmComponent, self).__init__(policy_spec=policy_spec, scope=scope, **kwargs)
+
+        self.double_q = double_q
+        self.dueling_q = dueling_q
+        self.n_step = n_step
+
+        # The replay memory.
+        self.memory = Memory.from_spec(memory_spec)
+
+        # Make sure the python buffer is not larger than our memory capacity.
+        assert not self.agent or self.agent.buffer_size <= self.memory.capacity, \
+            "ERROR: Python buffer's size ({}) must be smaller or equal to the memory's capacity ({})!". \
+            format(self.agent.buffer_size, self.memory.capacity)
+
+        # Copy our Policy (target-net), make target-net synchronizable.
+        self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
+        # Number of steps since the last target-net synching from the main policy.
+        self.steps_since_target_net_sync = 0
+
+        use_importance_weights = isinstance(self.memory, PrioritizedReplay)
+        self.loss_function = DQNLossFunction(
+            discount=self.discount, double_q=self.double_q, huber_loss=huber_loss,
+            shared_container_action_target=shared_container_action_target,
+            importance_weights=use_importance_weights, n_step=n_step
+        )
+
+        # Add our self-created ones.
+        self.add_components(self.memory, self.loss_function, self.target_policy)
 
     def check_input_spaces(self, input_spaces, action_space=None):
         for s in ["states", "actions", "env_actions", "preprocessed_states", "rewards", "terminals"]:
@@ -354,7 +359,6 @@ class DQNAlgorithmComponent(AlgorithmComponent):
     def update_from_memory(self, apply_postprocessing, time_percentage=None):
         # Non prioritized memory will just return weight 1.0 for all samples.
         records, sample_indices, importance_weights = self.memory.get_records(self.batch_size)
-        #preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
 
         step_op, loss, loss_per_item, q_values_s = self.update_from_external_batch(
             records["states"], records["actions"], records["rewards"], records["terminals"], records["next_states"],
@@ -431,10 +435,6 @@ class DQNAlgorithmComponent(AlgorithmComponent):
     @rlgraph_api
     def get_td_loss(self, preprocessed_states, actions, rewards,
                     terminals, preprocessed_next_states, importance_weights):
-
-        #policy = root.get_sub_component_by_name(agent.policy.scope)
-        #target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
-        #loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
 
         # Get the different Q-values.
         q_values_s = self.policy.get_adapter_outputs_and_parameters(preprocessed_states)["adapter_outputs"]
