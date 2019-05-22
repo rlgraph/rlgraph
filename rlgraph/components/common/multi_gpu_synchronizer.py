@@ -124,13 +124,16 @@ class MultiGpuSynchronizer(Component):
 
     @rlgraph_api
     def calculate_update_from_external_batch(self, variables, *inputs, apply_postprocessing=True, time_percentage=None):
-        out = self._graph_fn_calculate_update_from_external_batch(
+        grads_and_vars_by_component, loss, loss_per_item, rest = self._graph_fn_calculate_update_from_external_batch(
             variables, *inputs, apply_postprocessing=apply_postprocessing, time_percentage=time_percentage
         )
-        ret = dict(avg_grads_and_vars_by_component=out[0], loss=out[1], loss_per_item=out[2])
-        for i in range(3, len(out)):
-            ret["additional_return_{}".format(i - 3)] = out[i]
-        return ret
+        #ret = dict(avg_grads_and_vars_by_component=out[0], loss=out[1], loss_per_item=out[2])
+        #for k, v in rest.items():
+        #    ret["additional_return_{}".format(i - 3)] = out[i]
+        return dict(
+            grads_and_vars_by_component=grads_and_vars_by_component, loss=loss, loss_per_item=loss_per_item,
+            rest=rest
+        )
 
     @graph_fn
     def _graph_fn_calculate_update_from_external_batch(self, variables_by_component, *inputs, apply_postprocessing,
@@ -167,37 +170,38 @@ class MultiGpuSynchronizer(Component):
         for gpu, shard_data in enumerate(loaded_input_batches):
             with tf.control_dependencies([per_device_assign_ops[gpu]]):
                 shard_data_stopped = tuple([tf.stop_gradient(datum.read_value()) for datum in shard_data])
-                return_values_to_be_averaged = self.towers[gpu].update_from_external_batch(
+                out = self.towers[gpu].update_from_external_batch(
                     *shard_data_stopped, apply_postprocessing=apply_postprocessing, time_percentage=time_percentage
                 )
 
-                grads_and_vars_by_component = return_values_to_be_averaged[0]
-                loss = return_values_to_be_averaged[1]
-                loss_per_item = return_values_to_be_averaged[2]
-                rest = return_values_to_be_averaged[3:]
+                grads_and_vars_by_component = out.pop("grads_and_vars_by_component")
+                loss = out.pop("loss")
+                loss_per_item = out.pop("loss_per_item")
+                #rest = return_values_to_be_averaged[3:]
                 if all_rest is None:
-                    all_rest = [list() for _ in rest]
+                    all_rest = {k: list() for k in out}
 
                 for component_key, value in grads_and_vars_by_component.items():
                     all_grads_and_vars_by_component[component_key].append(value)
                 all_loss.append(loss)
                 all_loss_per_item.append(loss_per_item)
-                for i, r in enumerate(rest):
-                    all_rest[i].append(r)
+                for k, v in out.items():
+                    all_rest[k].append(v)
 
-        ret = []
-        ret.append(self._average_grads_and_vars(variables_by_component, all_grads_and_vars_by_component))
-
+        all_grads_and_vars_by_component = \
+            self._average_grads_and_vars(variables_by_component, all_grads_and_vars_by_component)
         # Simple average over all GPUs.
-        ret.append(tf.reduce_mean(tf.stack(all_loss, axis=0)))
-        # concatenate the loss_per_item to regenerate original (un-split) batch
-        ret.append(tf.concat(all_loss_per_item, axis=0))
-        # For the remaining return items, do like for loss-per-item (regenerate values for original, unsplit batch).
-        for rest_list in all_rest:
-            ret.append(tf.stack(rest_list, axis=0))
+        all_loss = tf.reduce_mean(tf.stack(all_loss, axis=0))
+        # Concatenate the loss_per_item to regenerate original (un-split) batch.
+        all_loss_per_item = tf.concat(all_loss_per_item, axis=0)
 
-        # Return averaged gradients.
-        return tuple(ret)
+        # For the remaining return items, do like for loss-per-item (regenerate values for original, unsplit batch).
+        rest = DataOpDict()
+        for k, rest_list in all_rest.items():
+            rest[k] = tf.stack(rest_list, axis=0)
+
+        # Return everything.
+        return all_grads_and_vars_by_component, all_loss, all_loss_per_item, rest
 
     @graph_fn
     def _graph_fn_group(self, *tower_ops):
