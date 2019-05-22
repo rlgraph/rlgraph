@@ -68,7 +68,7 @@ class ApexExecutor(RayExecutor):
         # and pass them to the learner.
         self.prioritized_replay_tasks = RayTaskPool()
         self.replay_sampling_task_depth = self.executor_spec["replay_sampling_task_depth"]
-        self.replay_batch_size = self.agent_config["update_spec"]["batch_size"]
+        self.replay_batch_size = self.agent_config["memory_batch_size"]
         self.num_cpus_per_replay_actor = self.executor_spec.get("num_cpus_per_replay_actor",
                                                                 self.replay_sampling_task_depth)
 
@@ -130,7 +130,7 @@ class ApexExecutor(RayExecutor):
         self.logger.info("Sampling for learning starts at: {}".format( self.apex_replay_spec["min_sample_memory_size"]))
 
         # Set sample batch size:
-        self.apex_replay_spec["sample_batch_size"] = self.agent_config["update_spec"]["batch_size"]
+        self.apex_replay_spec["sample_batch_size"] = self.agent_config["memory_batch_size"]
         self.logger.info("Sampling batch size {}".format(self.apex_replay_spec["sample_batch_size"]))
 
         self.ray_local_replay_memories = create_colocated_ray_actors(
