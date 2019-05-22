@@ -42,7 +42,9 @@ class ActorCriticAgent(Agent):
             action_space,
             *,
             discount=0.98,
-            batch_size=None,
+            python_buffer_size=0,
+            custom_python_buffers=None,
+            memory_batch_size=None,
             preprocessing_spec=None,
             network_spec=None,
             internal_states_space=None,
@@ -106,18 +108,19 @@ class ActorCriticAgent(Agent):
         super(ActorCriticAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
+            python_buffer_size=python_buffer_size,
+            custom_python_buffers=custom_python_buffers,
             internal_states_space=internal_states_space,
             execution_spec=execution_spec,
             observe_spec=observe_spec,
             update_spec=update_spec,  # Obsoleted
             summary_spec=summary_spec,
             saver_spec=saver_spec,
-            name=name,
-            auto_build=auto_build
+            name=name
         )
 
         self.root_component = ActorCriticAlgorithmComponent(
-            self, batch_size=batch_size, discount=discount,
+            self, memory_batch_size=memory_batch_size, discount=discount,
             preprocessing_spec=preprocessing_spec, network_spec=network_spec, policy_spec=policy_spec,
             value_function_spec=value_function_spec, optimizer_spec=optimizer_spec,
             value_function_optimizer_spec=value_function_optimizer_spec,
@@ -312,9 +315,9 @@ class ActorCriticAlgorithmComponent(AlgorithmComponent):
     @rlgraph_api
     def update_from_memory(self, time_percentage=None):
         if self.sample_episodes:
-            records = self.memory.get_episodes(self.batch_size)
+            records = self.memory.get_episodes(self.memory_batch_size)
         else:
-            records = self.memory.get_records(self.batch_size)
+            records = self.memory.get_records(self.memory_batch_size)
         return self.post_process_and_update(
             records["states"], records["actions"], records["rewards"], records["terminals"],
             records["sequence_indices"], time_percentage

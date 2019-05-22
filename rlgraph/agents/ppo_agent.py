@@ -50,7 +50,11 @@ class PPOAgent(Agent):
         self,
         state_space,
         action_space,
+        *,
         discount=0.98,
+        python_buffer_size=0,
+        custom_python_buffers=None,
+        memory_batch_size=None,
         preprocessing_spec=None,
         network_spec=None,
         internal_states_space=None,
@@ -61,7 +65,7 @@ class PPOAgent(Agent):
         value_function_optimizer_spec=None,
         observe_spec=None,
         max_timesteps=None,
-        #update_spec=None,
+        update_spec=None,
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
@@ -72,7 +76,6 @@ class PPOAgent(Agent):
         standardize_advantages=False,
         sample_episodes=True,
         weight_entropy=None,
-        batch_size=None,
         sample_size=None,
         num_iterations=None,
         memory_spec=None,
@@ -140,26 +143,28 @@ class PPOAgent(Agent):
         super(PPOAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
+            python_buffer_size=python_buffer_size,
+            custom_python_buffers=custom_python_buffers,
             internal_states_space=internal_states_space,
             execution_spec=execution_spec,
             observe_spec=observe_spec,
             max_timesteps=max_timesteps,
-            #update_spec=update_spec,
+            update_spec=update_spec,  # Obsoleted.
             summary_spec=summary_spec,
             saver_spec=saver_spec,
-            name=name,
-            auto_build=auto_build
+            name=name
         )
         # Change our root-component to PPO.
         self.root_component = PPOAlgorithmComponent(
-            agent=self, discount=discount, memory_spec=memory_spec, gae_lambda=gae_lambda, clip_rewards=clip_rewards,
+            agent=self, discount=discount, memory_batch_size=memory_batch_size, memory_spec=memory_spec,
+            gae_lambda=gae_lambda, clip_rewards=clip_rewards,
             clip_ratio=clip_ratio, value_function_clipping=value_function_clipping, weight_entropy=weight_entropy,
             preprocessing_spec=preprocessing_spec, policy_spec=policy_spec, network_spec=network_spec,
             value_function_spec=value_function_spec,
             exploration_spec=None, optimizer_spec=optimizer_spec,
             value_function_optimizer_spec=value_function_optimizer_spec,
             sample_episodes=sample_episodes, standardize_advantages=standardize_advantages,
-            batch_size=batch_size, sample_size=sample_size,
+            sample_size=sample_size,
             num_iterations=num_iterations
         )
 
@@ -331,9 +336,9 @@ class PPOAlgorithmComponent(AlgorithmComponent):
         assert isinstance(self.memory, RingBuffer), "ERROR: PPO memory must be ring-buffer for episode-handling!"
 
         # Make sure the python buffer is not larger than our memory capacity.
-        assert self.agent.observe_spec["buffer_size"] <= self.memory.capacity, \
-            "ERROR: Buffer's size ({}) in `observe_spec` must be smaller or equal to the memory's capacity ({})!". \
-            format(self.agent.observe_spec["buffer_size"], self.memory.capacity)
+        assert self.agent.python_buffer_size <= self.memory.capacity, \
+            "ERROR: Buffer's size ({}) must be smaller or equal to the memory's capacity ({})!". \
+            format(self.agent.python_buffer_size, self.memory.capacity)
 
         self.gae_function = GeneralizedAdvantageEstimation(
             gae_lambda=gae_lambda, discount=self.discount, clip_rewards=clip_rewards
@@ -362,16 +367,16 @@ class PPOAlgorithmComponent(AlgorithmComponent):
 
     # Learn from memory.
     @rlgraph_api
-    def update_from_memory(self, apply_postprocessing=True, time_step=1):
+    def update_from_memory(self, apply_postprocessing=True, time_percentage=None):
         if self.sample_episodes:
-            records = self.memory.get_episodes(self.batch_size)
+            records = self.memory.get_episodes(self.memory_batch_size)
         else:
-            records = self.memory.get_records(self.batch_size)
+            records = self.memory.get_records(self.memory_batch_size)
 
         # Route to post process and update method.
         return self.update_from_external_batch(
             records["states"], records["actions"], records["rewards"], records["terminals"],
-            records["sequence_indices"], apply_postprocessing=apply_postprocessing, time_step=time_step
+            records["sequence_indices"], apply_postprocessing=apply_postprocessing, time_percentage=time_percentage
         )
 
     # Retrieve some records from memory.
@@ -492,12 +497,12 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                     # Return tuple not dict as we are in loop.
                     return grads_and_vars_by_component, loss, loss_per_item, vf_loss, vf_loss_per_item
                 else:
-                    step_op = self.optimizer.step(self.policy.variables(), loss, loss_per_item)
+                    step_op = self.optimizer.step(self.policy.variables(), loss, loss_per_item, time_percentage)
                     loss.set_shape(())
                     loss_per_item.set_shape((self.sample_size,))
 
                     vf_step_op = self.value_function_optimizer.step(
-                        self.value_function.variables(), vf_loss, vf_loss_per_item
+                        self.value_function.variables(), vf_loss, vf_loss_per_item, time_percentage
                     )
                     vf_loss.set_shape(())
                     vf_loss_per_item.set_shape((self.sample_size,))
@@ -535,7 +540,8 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 # Return index as step_op (represents the collection of all step_ops).
                 return dict(
                     step_op=index, loss=loss, loss_per_item=loss_per_item,
-                    vf_loss=vf_loss, vf_loss_per_item=vf_loss_per_item
+                    vf_loss=vf_loss, vf_loss_per_item=vf_loss_per_item,
+                    index=index
                 )
 
         elif get_backend() == "pytorch":

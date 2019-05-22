@@ -40,6 +40,9 @@ class DQFDAgent(Agent):
         self,
         state_space,
         action_space,
+        *,
+        python_buffer_size=0,
+        custom_python_buffers=None,
         discount=0.98,
         preprocessing_spec=None,
         network_spec=None,
@@ -82,7 +85,7 @@ class DQFDAgent(Agent):
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
-            observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
+            observe_spec (Optional[dict]): Obsoleted: Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
@@ -112,15 +115,11 @@ class DQFDAgent(Agent):
         super(DQFDAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
-            discount=discount,
-            preprocessing_spec=preprocessing_spec,
-            network_spec=network_spec,
+            python_buffer_size=python_buffer_size,
+            custom_python_buffers=custom_python_buffers,
             internal_states_space=internal_states_space,
-            policy_spec=policy_spec,
-            exploration_spec=exploration_spec,
             execution_spec=execution_spec,
-            optimizer_spec=optimizer_spec,
-            observe_spec=observe_spec,
+            observe_spec=observe_spec,  # Obsoleted.
             update_spec=update_spec,
             summary_spec=summary_spec,
             saver_spec=saver_spec,

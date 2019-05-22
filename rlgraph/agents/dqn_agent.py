@@ -46,10 +46,12 @@ class DQNAgent(Agent):
         action_space,
         *,  # Force all following args as named.
         discount=0.98,
+        python_buffer_size=0,
+        custom_python_buffers=None,
+        memory_batch_size=None,
         double_q=True,
         dueling_q=True,
         n_step=1,
-        batch_size=None,
         preprocessing_spec=None,
         memory_spec=None,
         internal_states_space=None,
@@ -59,7 +61,8 @@ class DQNAgent(Agent):
         execution_spec=None,
         optimizer_spec=None,
         observe_spec=None,
-        #update_spec=None,
+        update_spec=None,
+        sync_rules=None,
         summary_spec=None,
         saver_spec=None,
         huber_loss=False,
@@ -83,12 +86,12 @@ class DQNAgent(Agent):
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
-            #update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            update_spec (Optional[dict]): Obsoleted: Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
-            auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
-                graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
-                components before building.
+            #auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
+            #    graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
+            #    components before building.
             name (str): Some name for this Agent object.
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
@@ -99,16 +102,12 @@ class DQNAgent(Agent):
         super(DQNAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
-            #discount=discount,
-            #preprocessing_spec=preprocessing_spec,
-            #network_spec=network_spec,
+            python_buffer_size=python_buffer_size,
+            custom_python_buffers=custom_python_buffers,
             internal_states_space=internal_states_space,
-            #policy_spec=policy_spec,
-            #exploration_spec=exploration_spec,
             execution_spec=execution_spec,
-            #optimizer_spec=optimizer_spec,
-            observe_spec=observe_spec,
-            #update_spec=update_spec,
+            observe_spec=observe_spec,  # Obsoleted.
+            update_spec=update_spec,  # Obsoleted.
             summary_spec=summary_spec,
             saver_spec=saver_spec,
             #auto_build=auto_build,
@@ -132,8 +131,8 @@ class DQNAgent(Agent):
             agent=self, discount=discount, memory_spec=memory_spec,
             preprocessing_spec=preprocessing_spec, policy_spec=policy_spec, network_spec=network_spec,
             exploration_spec=exploration_spec, optimizer_spec=optimizer_spec,
-            batch_size=batch_size, n_step=n_step, double_q=double_q, dueling_q=dueling_q, huber_loss=huber_loss,
-            shared_container_action_target=shared_container_action_target
+            memory_batch_size=memory_batch_size, n_step=n_step, double_q=double_q, dueling_q=dueling_q,
+            huber_loss=huber_loss, shared_container_action_target=shared_container_action_target
         )
 
         # Extend input Space definitions to this Agent's specific API-methods.
@@ -294,11 +293,10 @@ class DQNAlgorithmComponent(AlgorithmComponent):
 
         # The replay memory.
         self.memory = Memory.from_spec(memory_spec)
-
         # Make sure the python buffer is not larger than our memory capacity.
-        assert not self.agent or self.agent.buffer_size <= self.memory.capacity, \
+        assert not self.agent or self.agent.python_buffer_size <= self.memory.capacity, \
             "ERROR: Python buffer's size ({}) must be smaller or equal to the memory's capacity ({})!". \
-            format(self.agent.buffer_size, self.memory.capacity)
+            format(self.agent.python_buffer_size, self.memory.capacity)
 
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
@@ -357,7 +355,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
     @rlgraph_api
     def update_from_memory(self, apply_postprocessing, time_percentage=None):
         # Non prioritized memory will just return weight 1.0 for all samples.
-        records, sample_indices, importance_weights = self.memory.get_records(self.batch_size)
+        records, sample_indices, importance_weights = self.memory.get_records(self.memory_batch_size)
 
         step_op, loss, loss_per_item, q_values_s = self.update_from_external_batch(
             records["states"], records["actions"], records["rewards"], records["terminals"], records["next_states"],

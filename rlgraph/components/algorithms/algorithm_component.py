@@ -33,15 +33,15 @@ class AlgorithmComponent(Component):
     """
     The root component of some Algorithm/Agent.
     """
-    def __init__(self, agent, *, discount=0.98, batch_size=None, preprocessing_spec=None, policy_spec=None,
-                 network_spec = None, value_function_spec=None,
+    def __init__(self, agent, *, discount=0.98, memory_batch_size=None, preprocessing_spec=None, policy_spec=None,
+                 network_spec=None, value_function_spec=None,
                  exploration_spec=None, optimizer_spec=None, value_function_optimizer_spec=None,
                  scope="algorithm-component", **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma).
 
-            batch_size (int): The batch size to use when pulling data from memory.
+            memory_batch_size (int): The batch size to use when pulling data from memory.
 
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
@@ -72,7 +72,9 @@ class AlgorithmComponent(Component):
 
         # Some generic properties that all Agents have.
         self.discount = discount
-        self.batch_size = batch_size or 128
+
+        assert isinstance(memory_batch_size, int)  # Make sure everything is defined.
+        self.memory_batch_size = memory_batch_size
 
         # Construct the Preprocessor.
         self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
@@ -235,12 +237,12 @@ class AlgorithmComponent(Component):
         """
         raise NotImplementedError
 
-    # Add API methods for syncing.
     # TODO: Replace this with future on-the-fly-API-components.
     @graph_fn
-    def _graph_fn_group(self, *ops):
+    def _graph_fn_group(root, *ops):
         if get_backend() == "tf":
             return tf.group(*ops)
+        # For pytorch (define-by-run), ops don't matter.
         return ops[0]
 
     @graph_fn

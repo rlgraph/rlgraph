@@ -38,6 +38,9 @@ class ApexAgent(DQNAgent):
         self,
         state_space,
         action_space,
+        *,
+        python_buffer_size=0,
+        custom_python_buffers=None,
         discount=0.98,
         preprocessing_spec=None,
         network_spec=None,
@@ -47,7 +50,7 @@ class ApexAgent(DQNAgent):
         execution_spec=None,
         optimizer_spec=None,
         observe_spec=None,
-        #update_spec=None,
+        update_spec=None,
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
@@ -74,8 +77,8 @@ class ApexAgent(DQNAgent):
             exploration_spec (Optional[dict]): The spec-dict to create the Exploration Component.
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
-            observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
-            #update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            observe_spec (Optional[dict]): Obsoleted: Spec-dict to specify `Agent.observe()` settings.
+            update_spec (Optional[dict]): Obsoleted: Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
             auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
@@ -92,6 +95,10 @@ class ApexAgent(DQNAgent):
         super(ApexAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
+
+            python_buffer_size=python_buffer_size,
+            custom_python_buffers=custom_python_buffers,
+
             discount=discount,
             preprocessing_spec=preprocessing_spec,
             network_spec=network_spec,
@@ -101,7 +108,7 @@ class ApexAgent(DQNAgent):
             execution_spec=execution_spec,
             optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
-            update_spec=update_spec,
+            update_spec=update_spec,  # Obsoleted.
             summary_spec=summary_spec,
             saver_spec=saver_spec,
             auto_build=auto_build,
