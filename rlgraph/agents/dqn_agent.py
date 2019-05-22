@@ -247,7 +247,7 @@ class DQNAgent(Agent):
             records, sample_indices, importance_weights = agent.memory.get_records(agent.update_spec["batch_size"])
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
 
-            step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
+            step_op, loss, loss_per_item = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights,
                 apply_postprocessing, time_percentage
             )
@@ -255,9 +255,9 @@ class DQNAgent(Agent):
             # TODO this is really annoying. Will be solved once we have dict returns.
             if isinstance(agent.memory, PrioritizedReplay):
                 update_pr_step_op = agent.memory.update_records(sample_indices, loss_per_item)
-                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
+                return step_op, loss, loss_per_item, update_pr_step_op
             else:
-                return step_op, loss, loss_per_item, records, q_values_s
+                return step_op, loss, loss_per_item
 
         # Learn from an external batch.
         @rlgraph_api(component=self.root_component)
@@ -282,8 +282,7 @@ class DQNAgent(Agent):
                 step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
                     step_op, all_vars
                 )
-                q_values_s = out["additional_return_0"]
-                return step_and_sync_op, out["loss"], out["loss_per_item"], q_values_s
+                return step_and_sync_op, out["loss"], out["loss_per_item"]
 
             # Get sub-components relative to the root (could be multi-GPU setup where root=some-tower).
             policy = root.get_sub_component_by_name(agent.policy.scope)
@@ -313,12 +312,12 @@ class DQNAgent(Agent):
             if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
                 grads_and_vars = optimizer.calculate_gradients(policy_vars, loss, time_percentage)
                 grads_and_vars_by_component = vars_merger.merge(grads_and_vars)
-                return grads_and_vars_by_component, loss, loss_per_item, q_values_s
+                return grads_and_vars_by_component, loss, loss_per_item
             else:
                 step_op = optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
                 # Increase the global training step counter.
                 step_op = root._graph_fn_training_step(step_op)
-                return step_op, loss, loss_per_item, q_values_s
+                return step_op, loss, loss_per_item
 
         @rlgraph_api(component=self.root_component)
         def get_td_loss(root, preprocessed_states, actions, rewards,
@@ -409,17 +408,13 @@ class DQNAgent(Agent):
         else:
             sync_call = None
 
-        # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
-        return_ops = [0, 1, 2]
-        q_table = None
-
         if batch is None:
-            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops))
+            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage]))
         else:
             # TODO apply postprocessing always true atm.
             input_ = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"], True, time_percentage]
-            ret = self.graph_executor.execute(("update_from_external_batch", input_, return_ops))
+            ret = self.graph_executor.execute(("update_from_external_batch", input_))
 
         # Do the target net synching after the update (for better clarity: after a sync, we would expect for both
         # networks to be the exact same).
