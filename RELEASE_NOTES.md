@@ -10,20 +10,29 @@ Summarizes updates in recent releases.
   time-dependent parameters that may change over time. These replace
   the now obsoleted `DecayComponent`s.
 
-  All json configs that use `exploration_spec` (Q-type Agents) must erase ..
+  All json configs that use `exploration_spec` (Q-type Agents) must erase
+  `start_timestep` and `num_timesteps` ..
   ```
-  "start_timestep": 0,
-  "num_timesteps": 1000,
+  "exploration_spec": {
+    "epsilon_spec": {
+      "decay_spec": {
+        ...
+        "start_timestep": 0,   # <- erase this line
+        "num_timesteps": 1000, # <- and this one
+  }}}
   ```
   .. from the `decay_spec` within this `exploration_spec`. From now on, the Worker
-  is responsible to pass into each `get_action()` and `update()` calls.
-  There are different ways to pass in the global max timestep value:
-  - Via the Worker's `max_timesteps` ctor arg.
-  - Via the Agent's `max_timesteps` ctor arg.
+  is responsible to pass into each `get_action()` and `update()` calls, a
+  `time_percentage` value (between 0.0 and 1.0) that will make
+  `start_timestep` and `num_timesteps` superfluous.
+  To infer `time_percentage` automatically, the Worker needs some kind of maximum
+  number of timestep value. There are different ways to pass in global max-timestep information:
+  - Via the Worker's `max_timesteps` c'tor arg.
+  - Via the Agent's `max_timesteps` c'tor arg.
   - Leave it to the Worker to figure out the max timesteps itself. A call to
   `Worker.execute_timesteps(timesteps=n)` will use n, a call to `Worker.execute_episodes(episodes=n,
   max_timesteps_per_episode=100)` will use 100 x n, etc.
-  If you are not using our Worker classes, make sure to pass in a `time_percentage`
+  - If you are not using our Worker classes, make sure to pass in manually a `time_percentage`
   between 0.0 (start learning) and 1.0 (finished learning) into calls to
   `Agent.get_action()` and `Agent.update()`.
 - Added `time_percentage` inputs to `Agent.update()` and `Agent.get_action()`
