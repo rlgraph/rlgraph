@@ -261,11 +261,7 @@ class PPOAgent(Agent):
         self.num_updates += 1
 
         if batch is None:
-            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops))
-
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_memory"]
+            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage]))
         else:
             # No sequence indices means terminals are used in place.
             if sequence_indices is None:
@@ -278,14 +274,13 @@ class PPOAgent(Agent):
                 ("update_from_external_batch", [
                     batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices,
                     apply_postprocessing, time_percentage
-                ], return_ops)
+                ])
             )
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_external_batch"]
 
-        # [0/2] policy loss + vf loss, [1/3] losses per item
-        return ret[0] + ret[2], ret[1] + ret[3]
+        # Do some assertions that all iterations were run.
+        assert ret["index"] == ret["step_op"] == self.root_component.num_iterations
+
+        return ret["loss"] + ret["vf_loss"], ret["loss_per_item"] + ret["vf_loss_per_item"]
 
     def reset(self):
         """
@@ -305,7 +300,8 @@ class PPOAgent(Agent):
 
 
 class PPOAlgorithmComponent(AlgorithmComponent):
-    def __init__(self, agent, memory_spec=None, gae_lambda=1.0, clip_rewards=0.0, clip_ratio=0.2,
+    def __init__(self, agent, *,
+                 memory_spec=None, gae_lambda=1.0, clip_rewards=0.0, clip_ratio=0.2,
                  value_function_clipping=None, weight_entropy=None, sample_episodes=True, standardize_advantages=False,
                  sample_size=32, num_iterations=10,
                  scope="ppo-agent-component", **kwargs):
@@ -328,7 +324,6 @@ class PPOAlgorithmComponent(AlgorithmComponent):
 
         self.sample_episodes = sample_episodes
         self.standardize_advantages = standardize_advantages
-        self.batch_size = batch_size
         self.sample_size = sample_size
         self.num_iterations = num_iterations
 
