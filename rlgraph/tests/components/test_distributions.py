@@ -20,11 +20,12 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
+from scipy.stats import norm, beta
+
 from rlgraph.components.distributions import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 from rlgraph.utils.numpy import softmax
-from scipy.stats import norm, beta
 
 
 class TestDistributions(unittest.TestCase):
@@ -174,7 +175,7 @@ class TestDistributions(unittest.TestCase):
         )
 
         # The Component to test.
-        multivariate_normal = MultivariateNormal(num_events=num_events, switched_off_apis={"kl_divergence"})
+        multivariate_normal = MultivariateNormal(switched_off_apis={"kl_divergence"})
         test = ComponentTest(component=multivariate_normal, input_spaces=input_spaces)
 
         input_ = [input_spaces["parameters"].sample(4), True]
