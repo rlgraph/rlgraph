@@ -26,21 +26,22 @@ class RandomAgent(Agent):
     """
     def __init__(self, state_space, action_space, name="random-agent", **kwargs):
         super(RandomAgent, self).__init__(
-            update_spec=dict(do_updates=False), state_space=state_space, action_space=action_space, name=name, **kwargs
+            state_space=state_space, action_space=action_space, name=name, **kwargs
         )
 
     def get_action(self, states, internals=None, use_exploration=False,  apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):
+        self.timesteps += 1
         a = self.action_space.sample(size=len(states[0]))
         if extra_returns is not None and "preprocessed_states" in extra_returns:
-            return a, states
+            return dict(actions=a, preprocessed_states=states)
         else:
-            return a
+            return dict(actions=a)
 
     def update(self, batch=None, time_percentage=None, **kwargs):
         self.num_updates += 1
 
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
         pass
 
     # Override these with pass so we can use them when testing distributed strategies.
