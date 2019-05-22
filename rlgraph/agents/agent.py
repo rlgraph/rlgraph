@@ -112,8 +112,12 @@ class Agent(Specifiable):
         )
         self.internal_states_space = Space.from_spec(internal_states_space)
 
+        # Global time step counter.
+        self.timesteps = 0
         self.max_timesteps = max_timesteps
-        self.observe_spec = parse_observe_spec(observe_spec)
+        # Global updates counter.
+        self.num_updates = 0
+
         self.execution_spec = parse_execution_spec(execution_spec)
 
         # Python-side buffering enabled?
@@ -142,10 +146,6 @@ class Agent(Specifiable):
                 flat_space = Space.from_spec(space).flatten()
                 self.custom_buffer_spaces[key] = None if len(flat_space) == 1 else flat_space
                 self.custom_buffers[key] = defaultdict(partial(factory_, len(flat_space)))
-
-        # Global time step counter.
-        self.timesteps = 0
-        #self.episodes_since_update = 0
 
         # The agent's root-Component.
         self.root_component = None
@@ -217,13 +217,6 @@ class Agent(Specifiable):
                 return root._graph_fn_group(policy_sync_op, vf_sync_op)
             else:
                 return policy_sync_op
-
-        # TODO: Replace this with future on-the-fly-API-components.
-        @graph_fn(component=self.root_component)
-        def _graph_fn_group(root, *ops):
-            if get_backend() == "tf":
-                return tf.group(*ops)
-            return ops[0]
 
         # To pre-process external data if needed.
         @rlgraph_api(component=self.root_component)
