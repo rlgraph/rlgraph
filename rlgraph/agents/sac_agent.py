@@ -174,18 +174,27 @@ class SACAgent(Agent):
             num_q_functions=2 if self.double_q is True else 1
         )
 
-        #extra_optimizers = []
-        #if self.alpha_optimizer is not None:
-        #    extra_optimizers.append(self.alpha_optimizer)
-        self.build_options = dict(optimizers=self.root_component.all_optimizers)
+        # Extend input Space definitions to this Agent's specific API-methods.
+        preprocessed_state_space = self.root_component.preprocessed_state_space.with_batch_rank()
+        float_action_space = self.action_space.with_batch_rank().map(
+            mapping=lambda flat_key, space: space.as_one_hot_float_space() if isinstance(space, IntBox) else space
+        )
+        self.input_spaces.update(dict(
+            env_actions=self.action_space.with_batch_rank(),
+            actions=float_action_space,
+            preprocessed_states=preprocessed_state_space,
+            rewards=FloatBox(add_batch_rank=True),
+            terminals=BoolBox(add_batch_rank=True),
+            next_states=preprocessed_state_space,
+            states=self.state_space.with_batch_rank(add_batch_rank=True),
+            importance_weights=FloatBox(add_batch_rank=True),
+            deterministic=bool,
+            weights="variables:{}".format(self.root_component.policy.scope)
+        ))
 
-        if self.auto_build:
-            self._build_graph(
-                [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
-                batch_size=self.batch_size,
-                build_options=self.build_options
-            )
-            self.graph_built = True
+        if auto_build is True:
+            build_options = dict(optimizers=self.root_component.all_optimizers)
+            self.build(build_options=build_options)
 
     def set_weights(self, policy_weights, value_function_weights=None):
         # TODO: Overrides parent but should this be policy of value function?

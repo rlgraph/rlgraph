@@ -178,17 +178,8 @@ class PPOAgent(Agent):
             time_percentage=float
         ))
 
-        self.build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
-
-        if self.auto_build:
-            self._build_graph(
-                [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
-                # Important: Use sample-size, not batch-size as the sub-samples (from a batch) are the ones that get
-                # multi-gpu-split.
-                batch_size=self.root_component.batch_size,
-                build_options=self.build_options
-            )
-            self.graph_built = True
+        if auto_build is True:
+            self.build(dict(vf_optimizer=self.root_component.value_function_optimizer))
 
     # TODO: Move into Agent base class (it's always the same duplicate code).
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,

@@ -28,8 +28,9 @@ from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec
+from rlgraph.utils.input_parsing import parse_execution_spec
 from rlgraph.utils.ops import flatten_op
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 
 if get_backend() == "tf":
@@ -70,7 +71,7 @@ class Agent(Specifiable):
         """
         super(Agent, self).__init__()
         self.name = name
-        self.auto_build = auto_build
+        #self.auto_build = auto_build
         self.graph_built = False
         self.logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ class Agent(Specifiable):
         self.flat_action_space = self.action_space.flatten() if isinstance(self.action_space, ContainerSpace) else None
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
-        self.build_options = {}
+        #self.build_options = {}
 
         # Define the input-Spaces:
         # Tag the input-Space to `self.set_weights` as equal to whatever the variables-Space will be for
@@ -239,11 +240,13 @@ class Agent(Specifiable):
                 self.graph_executor.global_training_timestep += 1
                 return None
 
-    def _build_graph(self, root_components, input_spaces, **kwargs):
-        """
-        Builds the internal graph from the RLGraph meta-graph via the graph executor..
-        """
-        return self.graph_executor.build(root_components, input_spaces, **kwargs)
+    #def _build_graph(self, root_components, input_spaces, **kwargs):
+    #    """
+    #    Builds the internal graph from the RLGraph meta-graph via the graph executor..
+    #    """
+    #    build_stats = self.graph_executor.build(root_components, input_spaces, **kwargs)
+    #    self.graph_built = True
+    #    return build_stats
 
     def build(self, build_options=None):
         """
@@ -253,17 +256,25 @@ class Agent(Specifiable):
         Args:
             build_options (Optional[dict]): Optional build options, see build doc.
         """
-        if build_options is not None:
-            self.build_options.update(build_options)
+        #if build_options is not None:
+        #    self.build_options.update(build_options)
         assert not self.graph_built, \
-            "ERROR: Attempting to build agent which has already been built. Ensure auto_build parameter is set to " \
-            "False (was {}), and method has not been called twice".format(self.auto_build)
+            "ERROR: Attempting to build agent which has already been built. Ensure `auto_build` c'tor arg is set to " \
+            "False and the `Agent.build` method has not been called twice."
+
+        build_stats = self.graph_executor.build(
+            [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
+            build_options=build_options, batch_size=self.root_component.memory_batch_size
+        )
+
+        self.graph_built = True
+        return build_stats
 
         # TODO let agent have a list of root-components
-        return self._build_graph(
-            [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
-            build_options=self.build_options, batch_size=self.update_spec["batch_size"]
-        )
+        #return self._build_graph(
+        #    [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
+        #    build_options=self.build_options, batch_size=self.root_component.memory_batch_size
+        #)
 
     def preprocess_states(self, states):
         """

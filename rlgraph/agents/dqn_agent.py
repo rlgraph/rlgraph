@@ -23,8 +23,10 @@ from rlgraph.agents import Agent
 from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
 from rlgraph.components.policies.dueling_policy import DuelingPolicy
+from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox
-from rlgraph.utils import RLGraphError
+from rlgraph.spaces.space_utils import sanity_check_space
+# from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import strip_list
 
@@ -62,7 +64,6 @@ class DQNAgent(Agent):
         saver_spec=None,
         huber_loss=False,
         shared_container_action_target=True,
-
         auto_build=True,
         name="dqn-agent",
     ):
@@ -110,7 +111,7 @@ class DQNAgent(Agent):
             #update_spec=update_spec,
             summary_spec=summary_spec,
             saver_spec=saver_spec,
-            auto_build=auto_build,
+            #auto_build=auto_build,
             name=name
         )
 
@@ -151,11 +152,9 @@ class DQNAgent(Agent):
             apply_postprocessing=bool
         ))
 
-        if self.auto_build:
-            self._build_graph(
-                [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
-                batch_size=self.root_component.batch_size)
-            self.graph_built = True
+        # Build this Agent's graph.
+        if auto_build is True:
+            self.build()
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):

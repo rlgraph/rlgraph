@@ -20,9 +20,11 @@ from __future__ import print_function
 import numpy as np
 
 from rlgraph.agents import Agent
-from rlgraph.components import Memory, PrioritizedReplay, ContainerMerger, ContainerSplitter, DQFDLossFunction
+from rlgraph.components import Memory, PrioritizedReplay, DQFDLossFunction
+from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
+from rlgraph.components.policies.dueling_policy import DuelingPolicy
+from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox
-from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import strip_list
 
@@ -62,6 +64,7 @@ class DQFDAgent(Agent):
         memory_spec=None,
         demo_memory_spec=None,
         demo_sample_ratio=0.2,
+        auto_build=True
     ):
 
         """
@@ -166,22 +169,8 @@ class DQFDAgent(Agent):
             importance_weights=weight_space
         ))
 
-        # The merger to merge inputs into one record Dict going into the memory.
-        self.merger = ContainerMerger("states", "actions", "rewards", "next_states", "terminals")
-
-        # The replay memory.
-        self.memory = Memory.from_spec(memory_spec)
-        # Cannot have same default name.
-        demo_memory_spec["scope"] = "demo-memory"
-        self.demo_memory = Memory.from_spec(demo_memory_spec)
-
-        # The splitter for splitting up the records from the memories.
-        self.splitter = ContainerSplitter("states", "actions", "rewards", "terminals", "next_states")
-
-        # Copy our Policy (target-net), make target-net synchronizable.
-        self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
-        # Number of steps since the last target-net synching from the main policy.
-        self.steps_since_target_net_sync = 0
+        if auto_build is True:
+            self.build()
 
         self.use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQFDLossFunction(

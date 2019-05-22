@@ -140,13 +140,9 @@ class ActorCriticAgent(Agent):
             sequence_indices=BoolBox(add_batch_rank=True)
         ))
 
-        self.build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
-        if self.auto_build:
-            self._build_graph([self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
-                              batch_size=self.root_component.batch_size,
-                              build_options=self.build_options)
-
-            self.graph_built = True
+        if auto_build is True:
+            build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
+            self.build(build_options=build_options)
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):
