@@ -174,11 +174,10 @@ class DQNAgent(Agent):
                 - action
                 - the preprocessed states
         """
-        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
         if time_percentage is None:
-            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
+            time_percentage = self.timesteps / (self.max_timesteps or 1e6)
 
-        extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
+        extra_returns = [extra_returns] if isinstance(extra_returns, str) else (extra_returns or [])
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
             call_method = "get_preprocessed_state_and_action"
@@ -192,13 +191,13 @@ class DQNAgent(Agent):
         batch_size = len(batched_states)
         self.timesteps += batch_size
 
-        # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
             [batched_states, time_percentage, use_exploration],
-            return_ops
+            # Control, which return value to "pull" (depending on `extra_returns`).
+            ["actions"] + list(extra_returns)
         ))
+
         if remove_batch_rank:
             return strip_list(ret)
         else:
@@ -209,7 +208,6 @@ class DQNAgent(Agent):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, next_states, terminals]))
 
     def update(self, batch=None, time_percentage=None, **kwargs):
-        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
         if time_percentage is None:
             time_percentage = self.timesteps / (self.max_timesteps or 1e6)
 
@@ -227,8 +225,10 @@ class DQNAgent(Agent):
             ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage]))
         else:
             # TODO apply postprocessing always true atm.
-            input_ = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-                           batch["next_states"], batch["importance_weights"], True, time_percentage]
+            input_ = [
+                batch["states"], batch["actions"], batch["rewards"], batch["terminals"], batch["next_states"],
+                batch["importance_weights"], True, time_percentage
+            ]
             ret = self.graph_executor.execute(("update_from_external_batch", input_))
 
         # Do the target net synching after the update (for better clarity: after a sync, we would expect for both
@@ -236,9 +236,7 @@ class DQNAgent(Agent):
         if sync_call:
             self.graph_executor.execute(sync_call)
 
-        # 1=the loss
-        # 2=loss per item for external update, records for update from memory
-        return ret[1], ret[2]
+        return ret["loss"], ret["loss_per_item"]
 
     def reset(self):
         """
@@ -257,8 +255,7 @@ class DQNAgent(Agent):
         if isinstance(ret, dict):
             ret = ret["get_td_loss"]
 
-        # Return [0]=total loss, [1]=loss-per-item
-        return ret[0], ret[1]
+        return ret["loss"], ret["loss_per_item"]
 
     def __repr__(self):
         return "DQNAgent(doubleQ={} duelingQ={})".format(self.root_component.double_q, self.root_component.dueling_q)
@@ -270,9 +267,6 @@ class DQNAlgorithmComponent(AlgorithmComponent):
             huber_loss=False, shared_container_action_target=True,
             scope="dqn-agent-component", **kwargs
     ):
-        super(DQNAlgorithmComponent, self).__init__(
-            agent, scope=scope, **kwargs
-        )
         """
         Args:
         """
@@ -290,7 +284,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
                 if "units_state_value_stream" not in policy_spec:
                     policy_spec["units_state_value_stream"] = 128
 
-        super(DQNAlgorithmComponent, self).__init__(policy_spec=policy_spec, scope=scope, **kwargs)
+        super(DQNAlgorithmComponent, self).__init__(agent, policy_spec=policy_spec, scope=scope, **kwargs)
 
         self.double_q = double_q
         self.dueling_q = dueling_q
@@ -319,7 +313,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
         self.add_components(self.memory, self.loss_function, self.target_policy)
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        for s in ["states", "actions", "env_actions", "preprocessed_states", "rewards", "terminals"]:
+        for s in ["states", "actions", "preprocessed_states", "rewards", "terminals"]:
             sanity_check_space(input_spaces[s], must_have_batch_rank=True)
 
     # Act from preprocessed states.
@@ -327,7 +321,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
     def action_from_preprocessed_state(self, preprocessed_states, time_percentage=None, use_exploration=True):
         sample_deterministic = self.policy.get_deterministic_action(preprocessed_states)
         actions = self.exploration.get_action(sample_deterministic["action"], time_percentage, use_exploration)
-        return actions, preprocessed_states
+        return dict(actions=actions, preprocessed_states=preprocessed_states)
 
     # State (from environment) to action with preprocessing.
     @rlgraph_api
@@ -362,16 +356,16 @@ class DQNAlgorithmComponent(AlgorithmComponent):
         # Non prioritized memory will just return weight 1.0 for all samples.
         records, sample_indices, importance_weights = self.memory.get_records(self.memory_batch_size)
 
-        step_op, loss, loss_per_item, q_values_s = self.update_from_external_batch(
+        out = self.update_from_external_batch(
             records["states"], records["actions"], records["rewards"], records["terminals"], records["next_states"],
             importance_weights, apply_postprocessing, time_percentage
         )
 
         # TODO this is really annoying. Will be solved once we have dict returns.
         if isinstance(self.memory, PrioritizedReplay):
-            update_pr_step_op = self.memory.update_records(sample_indices, loss_per_item)
-            step_op = self._graph_fn_group(update_pr_step_op, step_op)
-        return dict(step_op=step_op, loss=loss, loss_per_item=loss_per_item)
+            update_pr_step_op = self.memory.update_records(sample_indices, out["loss_per_item"])
+            out["step_op"] = self._graph_fn_group(update_pr_step_op, out["step_op"])
+        return dict(step_op=out["step_op"], loss=out["loss"], loss_per_item=out["loss_per_item"])
 
     # Learn from an external batch.
     @rlgraph_api
@@ -427,12 +421,12 @@ class DQNAlgorithmComponent(AlgorithmComponent):
         if hasattr(self, "is_multi_gpu_tower") and self.is_multi_gpu_tower is True:
             grads_and_vars = self.optimizer.calculate_gradients(policy_vars, loss, time_percentage)
             grads_and_vars_by_component = self.vars_merger.merge(grads_and_vars)
-            return dict(grads_and_vars_by_component=grads_and_vars_by_component, loss=loss, loss_per_item=loss_per_item, q_values_s=q_values_s)
+            return dict(grads_and_vars_by_component=grads_and_vars_by_component, loss=loss, loss_per_item=loss_per_item)
         else:
             step_op = self.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
             # Increase the global training step counter.
             step_op = self._graph_fn_training_step(step_op)
-            return dict(step_op=step_op, loss=loss, loss_per_item=loss_per_item, q_values_s=q_values_s)
+            return dict(step_op=step_op, loss=loss, loss_per_item=loss_per_item)
 
     @rlgraph_api
     def get_td_loss(self, preprocessed_states, actions, rewards,
@@ -449,7 +443,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
         loss, loss_per_item = self.loss_function.loss(
             q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
         )
-        return loss, loss_per_item
+        return dict(loss=loss, loss_per_item=loss_per_item)
 
     @rlgraph_api
     def get_q_values(self, preprocessed_states):
