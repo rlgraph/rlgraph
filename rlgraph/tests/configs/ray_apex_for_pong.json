@@ -2,6 +2,9 @@
   "type": "apex",
   "discount": 0.99,
   "n_step": 3,
+
+  "python_buffer_size": 1000,
+
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 1000
@@ -156,9 +159,6 @@
         "min_sample_memory_size": 50000
       }
     }
-  },
-  "observe_spec": {
-    "buffer_size": 1000
   },
   "update_spec": {
     "do_updates": true,

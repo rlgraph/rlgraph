@@ -8,6 +8,8 @@
   "weight_entropy": 0.00001,
   "value_function_clipping": 10.0,
 
+  "python_buffer_size": 200,
+
   "memory_spec":
   {
     "type": "ring_buffer",
@@ -19,9 +21,6 @@
       "scope": "moving-standardize"
     }
   ],
-  "observe_spec": {
-    "buffer_size": 200
-  },
 
   "network_spec":
   [

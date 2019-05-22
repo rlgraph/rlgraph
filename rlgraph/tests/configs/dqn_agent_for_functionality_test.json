@@ -2,6 +2,8 @@
   "type": "dqn",
   "discount": 0.95,
 
+  "python_buffer_size": 2,
+
   "memory_spec":
   {
     "type": "replay",
@@ -57,10 +59,6 @@
     "update_interval": 4,
     "batch_size": 2,
     "sync_interval": 8
-  },
-
-  "observe_spec": {
-    "buffer_size": 2
   },
 
   "execution_spec": {

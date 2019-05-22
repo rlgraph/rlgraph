@@ -8,6 +8,8 @@
   "discount": 0.99,
   "gae_lambda": 0.5,
 
+  "python_buffer_size": 16,
+
   "memory_spec":
   {
     "type": "ring-buffer",
@@ -17,10 +19,6 @@
   "preprocessing_spec":
   [
   ],
-
-  "observe_spec": {
-    "buffer_size": 16
-  },
 
   "network_spec":
   [

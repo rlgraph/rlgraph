@@ -1,5 +1,8 @@
 {
   "type": "dqfd",
+
+  "python_buffer_size": 0,
+
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 10000
@@ -8,9 +11,6 @@
   {
     "type": "replay",
     "capacity": 10000
-  },
-  "observe_spec": {
-    "buffer_enabled": false
   },
   "optimizer_spec": {
     "type": "adam",

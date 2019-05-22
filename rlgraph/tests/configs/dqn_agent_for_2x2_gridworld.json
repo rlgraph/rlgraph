@@ -1,6 +1,7 @@
 {
   "type": "dqn",
 
+  "python_buffer_size": 64,
   "memory_spec":
   {
     "type": "replay",
@@ -35,16 +36,5 @@
         "to": 0.2
       }
     }
-  },
-
-  "observe_spec":
-  {
-    "buffer_size": 64
-  },
-
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 16
   }
 }

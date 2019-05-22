@@ -5,6 +5,8 @@
   "gae_lambda": 1.0,
   "weight_entropy": 0.01,
 
+  "python_buffer_size": 200,
+
   "memory_spec":
   {
     "type": "ring_buffer",
@@ -13,10 +15,6 @@
 
   "preprocessing_spec":
   [],
-
-  "observe_spec": {
-    "buffer_size": 200
-  },
 
   "network_spec":
   [

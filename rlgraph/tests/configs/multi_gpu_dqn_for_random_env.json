@@ -2,6 +2,9 @@
   "type": "dqn",
   "dueling_q": false,
   "discount": 0.99,
+
+  "python_buffer_size": 50,
+
   "memory_spec": {
     "type": "replay_buffer",
     "capacity": 50
@@ -46,9 +49,6 @@
 		"CPU": 1
 	  }
     }
-  },
-  "observe_spec": {
-    "buffer_size": 50
   },
   "update_spec": {
     "do_updates": true,

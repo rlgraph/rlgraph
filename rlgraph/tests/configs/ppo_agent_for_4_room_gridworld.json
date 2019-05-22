@@ -8,10 +8,6 @@
   "discount": 0.99,
   "gae_lambda": 0.7,
 
-  "observe_spec": {
-    "buffer_size": 1000
-  },
-
   "update_spec": {
     "do_updates": true,
     "update_mode": "time_steps",
@@ -20,6 +16,8 @@
     "num_iterations": 10,
     "sample_size": 32
   },
+
+  "python_buffer_size": 1000,
 
   "memory_spec":
   {

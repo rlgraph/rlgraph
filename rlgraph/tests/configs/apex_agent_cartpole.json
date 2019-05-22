@@ -2,6 +2,7 @@
   "type": "apex",
   "discount": 0.99,
   "n_step": 1,
+
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 128

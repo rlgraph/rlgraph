@@ -7,6 +7,8 @@
   "gae_lambda": 0.1,
   "weight_entropy": 0.01,
 
+  "python_buffer_size": 200,
+
   "memory_spec":
   {
     "type": "ring_buffer",
@@ -18,9 +20,6 @@
       "scope": "moving-standardize"
     }
   ],
-  "observe_spec": {
-    "buffer_size": 200
-  },
 
   "network_spec":
   [

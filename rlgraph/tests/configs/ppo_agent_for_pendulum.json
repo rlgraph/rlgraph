@@ -7,14 +7,12 @@
   "gae_lambda": 0.1,
   "weight_entropy": ["linear", 0.01, 0.0001],
 
+  "python_buffer_size": 200,
+
   "memory_spec":
   {
     "type": "ring_buffer",
     "capacity": 2048
-  },
-
-  "observe_spec": {
-    "buffer_size": 200
   },
 
   "network_spec":

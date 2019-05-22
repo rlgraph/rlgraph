@@ -2,6 +2,9 @@
   "type": "dqn",
   "discount": 0.99,
   "n_step": 3,
+
+  "python_buffer_size": 3000,
+
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 10000
@@ -98,9 +101,6 @@
 			"CPU": 1
 		}
     }
-  },
-  "observe_spec": {
-    "buffer_size": 3000
   },
   "update_spec": {
     "do_updates": true,

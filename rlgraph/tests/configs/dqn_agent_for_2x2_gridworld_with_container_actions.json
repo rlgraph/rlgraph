@@ -1,10 +1,13 @@
 {
   "type": "dqn",
 
+  "python_buffer_size": 32,
+
   "memory_spec": {
     "type": "prioritized-replay",
     "capacity": 64
   },
+
   "preprocessing_spec": [
     {
       "type": "convert-type",
@@ -62,11 +65,6 @@
         "to": 0.05
       }
     }
-  },
-
-  "observe_spec":
-  {
-    "buffer_size": 32
   },
 
   "update_spec": {

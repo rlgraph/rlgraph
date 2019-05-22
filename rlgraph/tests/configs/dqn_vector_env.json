@@ -2,6 +2,7 @@
   "type": "dqn",
 
   "discount": 0.99,
+  "python_buffer_size": 3000,
 
   "memory_spec":
   {
@@ -88,11 +89,6 @@
         "to": 0.1
       }
     }
-  },
-
-  "observe_spec":
-  {
-    "buffer_size": 3000
   },
 
   "update_spec": {

@@ -5,6 +5,16 @@
     "type": "prioritized-replay",
     "capacity": 256
   },
+
+  "python_buffer_size": 8,
+
+  "update_spec": {
+    "do_updates": true,
+    "update_interval": 4,
+    "batch_size": 32,
+    "sync_interval": 32
+  },
+
   "preprocessing_spec": [
     {
       "type": "convert-type",
@@ -46,18 +56,6 @@
     "epsilon_spec": {
       "decay_spec": ["linear", 1.0, 0.05]
     }
-  },
-
-  "observe_spec":
-  {
-    "buffer_size": 8
-  },
-
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 32,
-    "sync_interval": 32
   },
 
   "optimizer_spec":
