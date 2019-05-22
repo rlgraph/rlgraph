@@ -18,10 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph.execution.environment_sample import EnvironmentSample
-from rlgraph.execution.worker import Worker
+from rlgraph.execution.rules.update_rules import UpdateRules
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.execution.worker import Worker
 
-__all__ = ["Worker", "SingleThreadedWorker", "EnvironmentSample"]
+__all__ = ["Worker", "SingleThreadedWorker", "EnvironmentSample", "UpdateRules"]
 
 Worker.__lookup_classes__ = dict(
    single=SingleThreadedWorker,

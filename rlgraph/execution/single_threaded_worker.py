@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import time
 from copy import deepcopy
+
 import numpy as np
 from six.moves import xrange as range_
-import time
 
 from rlgraph.components import PreprocessorStack
 from rlgraph.execution.worker import Worker
@@ -101,24 +102,24 @@ class SingleThreadedWorker(Worker):
         else:
             return None
 
-    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
+    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_rules=None, use_exploration=True,
                           frameskip=None, reset=True):
         return self._execute(
             num_timesteps=num_timesteps,
             max_timesteps_per_episode=max_timesteps_per_episode,
             use_exploration=use_exploration,
-            update_spec=update_spec,
+            update_rules=update_rules,
             frameskip=frameskip,
             reset=reset
         )
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None, use_exploration=True,
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_rules=None, use_exploration=True,
                          frameskip=None, reset=True):
         return self._execute(
             num_episodes=num_episodes,
             max_timesteps_per_episode=max_timesteps_per_episode,
             use_exploration=use_exploration,
-            update_spec=update_spec,
+            update_rules=update_rules,
             frameskip=frameskip,
             reset=reset
         )
@@ -129,7 +130,7 @@ class SingleThreadedWorker(Worker):
         num_episodes=None,
         max_timesteps_per_episode=None,
         use_exploration=True,
-        update_spec=None,
+        update_rules=None,
         frameskip=None,
         reset=True
     ):
@@ -145,9 +146,7 @@ class SingleThreadedWorker(Worker):
                 when picking actions. Default: True.
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
-            update_spec (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
-                Matches the structure of an Agent's update_spec dict and will be "defaulted" by that dict.
-                See `input_parsing/parse_update_spec.py` for more details.
+            update_rules (Optional[dict]): The UpdateRules object to use. Overrides `self.update_rules` if provided.
             frameskip (Optional[int]): How often actions are repeated after retrieving them from the agent.
                 Rewards are accumulated over the number of skips. Use None for the Worker's default value.
             reset (bool): Whether to reset the environment and all the Worker's internal counters.
@@ -170,9 +169,8 @@ class SingleThreadedWorker(Worker):
             max_timesteps = 1e6
 
         # Are we updating or just acting/observing?
-        if update_spec is None:
-            update_spec = self.update_spec
-        #self.set_update_schedule(update_spec)
+        if update_rules is None:
+            update_rules = self.update_rules
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
@@ -283,10 +281,6 @@ class SingleThreadedWorker(Worker):
                 if np.any(episode_terminals):
                     break
 
-            # Only render once per action.
-            #if self.render:
-            #    self.vector_env.environments[0].render()
-
             for i, env_id in enumerate(self.env_ids):
                 self.episode_returns[i] += env_rewards[i]
                 self.episode_timesteps[i] += 1
@@ -335,7 +329,7 @@ class SingleThreadedWorker(Worker):
                     self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],
                     episode_terminals[i], **other_data
                 )
-            loss = self.update_if_necessary(time_percentage=time_percentage)
+            loss = self.update_if_necessary(update_rules=update_rules, time_percentage=time_percentage)
             if loss is not None:
                 self.log_finished_update(loss=loss)
             timesteps_executed += self.num_environments

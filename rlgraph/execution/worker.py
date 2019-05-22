@@ -23,7 +23,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph.environments import VectorEnv, SequentialVectorEnv
-from rlgraph.utils.input_parsing import parse_update_spec
+from rlgraph.execution.rules.update_rules import UpdateRules
 from rlgraph.utils.specifiable import Specifiable
 
 
@@ -31,7 +31,7 @@ class Worker(Specifiable):
     """
     Generic worker to locally interact with simulator environments.
     """
-    def __init__(self, agent, env_spec=None, update_spec=None, num_environments=1, frameskip=1, render=False,
+    def __init__(self, agent, env_spec=None, update_rules=None, num_environments=1, frameskip=1, render=False,
                  worker_executes_exploration=True, exploration_epsilon=0.1, episode_finish_callback=None,
                  update_finish_callback=None, max_timesteps=None):
         """
@@ -41,12 +41,8 @@ class Worker(Specifiable):
             env_spec Optional[Union[callable, dict]]): Either an environment spec or a callable returning a new
                 environment.
 
-            # TODO: Create a class `UpdateSpec` and move update_spec completely out of Agent.
-            # TODO: Agent should only hold agent-specific things like `synch_spec`, etc..
-            update_spec (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
-                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
-                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
-                how many steps to perform before beginning to update.
+            update_rules (Optional[dict,UpdateRules]): Specification dict (or UpdateRules object directly) to construct
+                the UpdateRules object that this Worker will use to schedule `Agent.update()` calls.
 
             num_environments (int): How many single Environments should be run in parallel in a SequentialVectorEnv.
 
@@ -70,6 +66,8 @@ class Worker(Specifiable):
         self.num_environments = num_environments
         self.logger = logging.getLogger(__name__)
 
+        self.update_rules = UpdateRules.from_spec(update_rules)
+
         # VectorEnv was passed in directly -> Use that one.
         if isinstance(env_spec, VectorEnv):
             self.vector_env = env_spec
@@ -88,13 +86,6 @@ class Worker(Specifiable):
         self.frameskip = frameskip
         self.render = render
 
-        # Update schedule if worker is performing updates.
-        self.update_spec = parse_update_spec(update_spec)
-        #self.updating = None
-        #self.steps_before_update = None
-        #self.update_interval = None
-        #self.update_steps = None
-        #self.sync_interval = None
         self.episodes_since_update = 0
 
         self.max_timesteps = max_timesteps
@@ -108,7 +99,7 @@ class Worker(Specifiable):
         self.episode_finish_callback = episode_finish_callback
         self.update_finish_callback = update_finish_callback
 
-    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_spec=None,
+    def execute_timesteps(self, num_timesteps, max_timesteps_per_episode=0, update_rules=None,
                           use_exploration=True,
                           frameskip=1, reset=True):
         """
@@ -119,10 +110,7 @@ class Worker(Specifiable):
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
 
-            update_spec (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
-                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
-                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
-                how many steps to perform before beginning to update.
+            update_rules (Optional[dict]): The UpdateRules object to use. Overrides `self.update_rules` if provided.
 
             use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
                 when picking actions.
@@ -158,7 +146,7 @@ class Worker(Specifiable):
         """
         pass
 
-    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_spec=None,
+    def execute_episodes(self, num_episodes, max_timesteps_per_episode=0, update_rules=None,
                          use_exploration=True, frameskip=None, reset=True):
         """
         Executes environment for a fixed number of episodes.
@@ -169,10 +157,7 @@ class Worker(Specifiable):
             max_timesteps_per_episode (Optional[int]): Can be used to limit the number of timesteps per episode.
                 Use None or 0 for no limit. Default: None.
 
-            update_spec (Optional[dict]): Update parameters. If None, the worker only peforms rollouts.
-                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
-                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
-                how many steps to perform before beginning to update.
+            update_rules (Optional[dict]): The UpdateRules object to use. Overrides `self.update_rules` if provided.
 
             use_exploration (Optional[bool]): Indicates whether to utilize exploration (epsilon or noise based)
                 when picking actions.
@@ -210,66 +195,46 @@ class Worker(Specifiable):
         """
         pass
 
-    def update_if_necessary(self, time_percentage):
+    def update_if_necessary(self, update_rules, time_percentage):
         """
         Calls update on the agent according to the update schedule set for this worker.
 
         Args:
+            update_rules (UpdateRules): The UpdateRules object to use.
+
             time_percentage (int): The percentage (0.0 to 1.0) of the already passed timesteps with respect to
                 some max timestep value.
 
         Returns:
-            float: The summed up loss (over all self.update_steps).
+            float: The summed up loss (over all `update_rules.update_repeats` steps).
         """
-        if self.update_spec["do_updates"]:
+        if update_rules.do_update:
             # Are we allowed to update?
-            if self.agent.timesteps > self.update_spec["steps_before_update"] and \
-                    (self.agent.observe_spec["buffer_enabled"] is False or  # No update before some data in buffer
-                     int(self.agent.timesteps / self.num_environments) >= self.agent.observe_spec["buffer_size"]):
+            if self.agent.timesteps > update_rules.first_update_after_n_units and \
+                    (self.agent.python_buffer_size == 0 or  # No update before some data in buffer
+                     int(self.agent.timesteps / self.num_environments) >= self.agent.python_buffer_size):
+                do_update = False
                 # Updating according to one update mode:
-                if self.update_spec["update_mode"] == "time_steps" and \
-                        self.agent.timesteps % self.update_spec["update_interval"] == 0:
-                    return self.execute_update(time_percentage)
-                elif self.update_spec["update_mode"] == "episodes" and \
-                        self.episodes_since_update == self.update_spec["update_interval"]:
-                    # Do not do modulo here - this would be called every step in one episode otherwise.
-                    loss = self.execute_update(time_percentage)
+                if update_rules.unit == "time_steps" and \
+                        self.agent.timesteps % update_rules.update_every_n_units == 0:
+                    do_update = True
+                elif update_rules.unit == "episodes" and \
+                        self.episodes_since_update == update_rules.update_every_n_units:
                     self.episodes_since_update = 0
+                    do_update = True
+
+                if do_update is True:
+                    loss = 0
+                    for _ in range_(update_rules.update_repeats):
+                        ret = self.agent.update(time_percentage=time_percentage)
+                        if isinstance(ret, dict):
+                            loss += ret["loss"]
+                        elif isinstance(ret, tuple):
+                            loss += ret[0]
+                        else:
+                            loss += ret
                     return loss
         return None
-
-    def execute_update(self, time_percentage):
-        loss = 0
-        for _ in range_(self.update_spec["update_steps"]):
-            ret = self.agent.update(time_percentage=time_percentage)
-            if isinstance(ret, tuple):
-                loss += ret[0]
-            else:
-                loss += ret
-        return loss
-
-    #def set_update_schedule(self, update_schedule=None):
-    #    """
-    #    Sets this worker's update schedule. By default, a worker is not updating but only acting
-    #    and observing samples.
-
-    #    Args:
-    #        update_schedule (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
-    #            Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
-    #            to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
-    #            how many steps to perform before beginning to update.
-    #    """
-    #    if update_schedule is not None:
-    #        self.updating = update_schedule["do_updates"]
-    #        self.steps_before_update = update_schedule["steps_before_update"]
-    #        self.update_interval = update_schedule["update_interval"]
-    #        self.update_steps = update_schedule["update_steps"]
-    #        self.sync_interval = update_schedule["sync_interval"]
-
-    #        # Interpret update interval as n time-steps or n episodes.
-    #        self.update_mode = update_schedule.get("update_mode", "time_steps")
-    #    else:
-    #        self.updating = False
 
     def get_action(self, states, use_exploration, apply_preprocessing, extra_returns):
         if self.worker_executes_exploration:
