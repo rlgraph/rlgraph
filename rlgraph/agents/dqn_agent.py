@@ -18,8 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction, ContainerSplitter
+from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
@@ -184,7 +186,7 @@ class DQNAgent(Agent):
         )
 
         # Define the Agent's (root-Component's) API.
-        self.define_graph_api()
+        #self.define_graph_api()
 
         # markup = get_graph_markup(self.graph_builder.root_component)
         # print(markup)
@@ -193,151 +195,11 @@ class DQNAgent(Agent):
                               batch_size=self.update_spec["batch_size"])
             self.graph_built = True
 
-    def define_graph_api(self, *args, **kwargs):
-        super(DQNAgent, self).define_graph_api()
+    #def define_graph_api(self, *args, **kwargs):
+    #    super(DQNAgent, self).define_graph_api()
 
-        agent = self
+    #    agent = self
 
-        # Act from preprocessed states.
-        @rlgraph_api(component=self.root_component)
-        def action_from_preprocessed_state(root, preprocessed_states, time_percentage=None, use_exploration=True):
-            sample_deterministic = agent.policy.get_deterministic_action(preprocessed_states)
-            actions = agent.exploration.get_action(sample_deterministic["action"], time_percentage, use_exploration)
-            return actions, preprocessed_states
-
-        # State (from environment) to action with preprocessing.
-        @rlgraph_api(component=self.root_component)
-        def get_preprocessed_state_and_action(root, states, time_percentage=None, use_exploration=True):
-            preprocessed_states = agent.preprocessor.preprocess(states)
-            return root.action_from_preprocessed_state(preprocessed_states, time_percentage, use_exploration)
-
-        # Insert into memory.
-        @rlgraph_api(component=self.root_component)
-        def insert_records(root, preprocessed_states, actions, rewards, next_states, terminals):
-            records = dict(
-                states=preprocessed_states, actions=actions, rewards=rewards, next_states=next_states, terminals=terminals
-            )
-            return agent.memory.insert_records(records)
-
-        # Syncing target-net.
-        @rlgraph_api(component=self.root_component)
-        def sync_target_qnet(root):
-            # If we are a multi-GPU root:
-            # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-synchronizer" in root.sub_components:
-                multi_gpu_syncer = root.sub_components["multi-gpu-synchronizer"]
-                return multi_gpu_syncer.sync_target_qnets()
-            # We could be the main root or a multi-GPU tower.
-            else:
-                policy_vars = root.get_sub_component_by_name(agent.policy.scope).variables()
-                return root.get_sub_component_by_name(agent.target_policy.scope).sync(policy_vars)
-
-        # Learn from memory.
-        @rlgraph_api(component=self.root_component)
-        def update_from_memory(root, apply_postprocessing, time_percentage=None):
-            # Non prioritized memory will just return weight 1.0 for all samples.
-            records, sample_indices, importance_weights = agent.memory.get_records(agent.update_spec["batch_size"])
-            preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
-
-            step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
-                preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights,
-                apply_postprocessing, time_percentage
-            )
-
-            # TODO this is really annoying. Will be solved once we have dict returns.
-            if isinstance(agent.memory, PrioritizedReplay):
-                update_pr_step_op = agent.memory.update_records(sample_indices, loss_per_item)
-                return step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
-            else:
-                return step_op, loss, loss_per_item, records, q_values_s
-
-        # Learn from an external batch.
-        @rlgraph_api(component=self.root_component)
-        def update_from_external_batch(
-                root, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
-                importance_weights, apply_postprocessing, time_percentage=None
-        ):
-            # If we are a multi-GPU root:
-            # Simply feeds everything into the multi-GPU sync optimizer's method and return.
-            if "multi-gpu-synchronizer" in root.sub_components:
-                main_policy_vars = agent.policy.variables()
-                all_vars = agent.vars_merger.merge(main_policy_vars)
-                out = root.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
-                    all_vars, preprocessed_states, actions, rewards, terminals,
-                    preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing,
-                    time_percentage=time_percentage
-                )
-                avg_grads_and_vars = agent.vars_splitter.call(out["avg_grads_and_vars_by_component"])
-                step_op = agent.optimizer.apply_gradients(avg_grads_and_vars)
-                # Increase the global training step counter.
-                step_op = root._graph_fn_training_step(step_op)
-                step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
-                    step_op, all_vars
-                )
-                q_values_s = out["additional_return_0"]
-                return step_and_sync_op, out["loss"], out["loss_per_item"], q_values_s
-
-            # Get sub-components relative to the root (could be multi-GPU setup where root=some-tower).
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
-            loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
-            optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
-            vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
-
-            # Get the different Q-values.
-            q_values_s = policy.get_adapter_outputs_and_parameters(preprocessed_states)["adapter_outputs"]
-            qt_values_sp = target_policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
-
-            q_values_sp = None
-            if self.double_q:
-                q_values_sp = policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
-
-            loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
-            )
-
-            # Args are passed in again because some device strategies may want to split them to different devices.
-            policy_vars = policy.variables()
-
-            # TODO: for a fully automated multi-GPU strategy, we would have to make sure that:
-            # TODO: - every agent (root_component) has an update_from_external_batch method
-            # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
-            if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
-                grads_and_vars = optimizer.calculate_gradients(policy_vars, loss, time_percentage)
-                grads_and_vars_by_component = vars_merger.merge(grads_and_vars)
-                return grads_and_vars_by_component, loss, loss_per_item, q_values_s
-            else:
-                step_op = optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
-                # Increase the global training step counter.
-                step_op = root._graph_fn_training_step(step_op)
-                return step_op, loss, loss_per_item, q_values_s
-
-        @rlgraph_api(component=self.root_component)
-        def get_td_loss(root, preprocessed_states, actions, rewards,
-                        terminals, preprocessed_next_states, importance_weights):
-
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
-            loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
-
-            # Get the different Q-values.
-            q_values_s = policy.get_adapter_outputs_and_parameters(preprocessed_states)["adapter_outputs"]
-            qt_values_sp = target_policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
-
-            q_values_sp = None
-            if self.double_q:
-                q_values_sp = policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
-
-            loss, loss_per_item = loss_function.loss(
-                q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
-            )
-            return loss, loss_per_item
-
-        @rlgraph_api(component=self.root_component)
-        def get_q_values(root, preprocessed_states):
-            q_values = root.get_sub_component_by_name(agent.policy.scope).get_adapter_outputs_and_parameters(
-                preprocessed_states)["adapter_outputs"]
-            return q_values
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):
@@ -444,3 +306,155 @@ class DQNAgent(Agent):
 
     def __repr__(self):
         return "DQNAgent(doubleQ={} duelingQ={})".format(self.double_q, self.dueling_q)
+
+
+class DQNAlgorithmComponent(AlgorithmComponent):
+    def __init__(self, scope="dqn-agent-component", **kwargs):
+
+        super(DQNAlgorithmComponent, self).__init__(
+            agent, policy_spec=policy_spec, value_function_spec=value_function_spec, scope=scope, **kwargs
+        )
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        for s in ["states", "actions", "env_actions", "preprocessed_states", "rewards", "terminals"]:
+            sanity_check_space(input_spaces[s], must_have_batch_rank=True)
+
+    # Act from preprocessed states.
+    @rlgraph_api
+    def action_from_preprocessed_state(self, preprocessed_states, time_percentage=None, use_exploration=True):
+        sample_deterministic = self.policy.get_deterministic_action(preprocessed_states)
+        actions = self.exploration.get_action(sample_deterministic["action"], time_percentage, use_exploration)
+        return actions, preprocessed_states
+
+    # State (from environment) to action with preprocessing.
+    @rlgraph_api
+    def get_preprocessed_state_and_action(self, states, time_percentage=None, use_exploration=True):
+        preprocessed_states = self.preprocessor.preprocess(states)
+        return self.action_from_preprocessed_state(preprocessed_states, time_percentage, use_exploration)
+
+    # Insert into memory.
+    @rlgraph_api
+    def insert_records(self, preprocessed_states, actions, rewards, next_states, terminals):
+        records = dict(
+            states=preprocessed_states, actions=actions, rewards=rewards, next_states=next_states, terminals=terminals
+        )
+        return self.memory.insert_records(records)
+
+    # Syncing target-net.
+    @rlgraph_api
+    def sync_target_qnet(self):
+        # If we are a multi-GPU root:
+        # Simply feeds everything into the multi-GPU sync optimizer's method and return.
+        if "multi-gpu-synchronizer" in self.sub_components:
+            multi_gpu_syncer = self.sub_components["multi-gpu-synchronizer"]
+            return multi_gpu_syncer.sync_target_qnets()
+        # We could be the main root or a multi-GPU tower.
+        else:
+            policy_vars = self.policy.variables()
+            return self.target_policy.sync(policy_vars)
+
+    # Learn from memory.
+    @rlgraph_api
+    def update_from_memory(self, apply_postprocessing, time_percentage=None):
+        # Non prioritized memory will just return weight 1.0 for all samples.
+        records, sample_indices, importance_weights = self.memory.get_records(self.batch_size)
+        #preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
+
+        step_op, loss, loss_per_item, q_values_s = self.update_from_external_batch(
+            records["states"], records["actions"], records["rewards"], records["terminals"], records["next_states"],
+            importance_weights, apply_postprocessing, time_percentage
+        )
+
+        # TODO this is really annoying. Will be solved once we have dict returns.
+        if isinstance(self.memory, PrioritizedReplay):
+            update_pr_step_op = self.memory.update_records(sample_indices, loss_per_item)
+            step_op = self._graph_fn_group(update_pr_step_op, step_op)
+        return dict(step_op=step_op, loss=loss, loss_per_item=loss_per_item)
+
+    # Learn from an external batch.
+    @rlgraph_api
+    def update_from_external_batch(
+            self, preprocessed_states, actions, rewards, terminals, preprocessed_next_states,
+            importance_weights, apply_postprocessing, time_percentage=None
+    ):
+        # If we are a multi-GPU root:
+        # Simply feeds everything into the multi-GPU sync optimizer's method and return.
+        if "multi-gpu-synchronizer" in self.sub_components:
+            main_policy_vars = self.policy.variables()
+            all_vars = self.vars_merger.merge(main_policy_vars)
+            out = self.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
+                all_vars, preprocessed_states, actions, rewards, terminals,
+                preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing,
+                time_percentage=time_percentage
+            )
+            avg_grads_and_vars = self.vars_splitter.call(out["grads_and_vars_by_component"])
+            step_op = self.optimizer.apply_gradients(avg_grads_and_vars)
+            # Increase the global training step counter.
+            step_op = self._graph_fn_training_step(step_op)
+            step_and_sync_op = self.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
+                step_op, all_vars
+            )
+            #q_values_s = out["additional_return_0"]
+            return dict(step_op=step_and_sync_op, loss=out["loss"], loss_per_item=out["loss_per_item"]) #, q_values_s
+
+        # Get sub-components relative to the root (could be multi-GPU setup where root=some-tower).
+        #policy = root.get_sub_component_by_name(agent.policy.scope)
+        #target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
+        #loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
+        #optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
+        #vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
+
+        # Get the different Q-values.
+        q_values_s = self.policy.get_adapter_outputs_and_parameters(preprocessed_states)["adapter_outputs"]
+        qt_values_sp = self.target_policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
+
+        q_values_sp = None
+        if self.double_q:
+            q_values_sp = self.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
+
+        loss, loss_per_item = self.loss_function.loss(
+            q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
+        )
+
+        # Args are passed in again because some device strategies may want to split them to different devices.
+        policy_vars = self.policy.variables()
+
+        # TODO: for a fully automated multi-GPU strategy, we would have to make sure that:
+        # TODO: - every agent (root_component) has an update_from_external_batch method
+        # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
+        if hasattr(self, "is_multi_gpu_tower") and self.is_multi_gpu_tower is True:
+            grads_and_vars = self.optimizer.calculate_gradients(policy_vars, loss, time_percentage)
+            grads_and_vars_by_component = self.vars_merger.merge(grads_and_vars)
+            return dict(grads_and_vars_by_component=grads_and_vars_by_component, loss=loss, loss_per_item=loss_per_item, q_values_s=q_values_s)
+        else:
+            step_op = self.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
+            # Increase the global training step counter.
+            step_op = self._graph_fn_training_step(step_op)
+            return dict(step_op=step_op, loss=loss, loss_per_item=loss_per_item, q_values_s=q_values_s)
+
+    @rlgraph_api
+    def get_td_loss(self, preprocessed_states, actions, rewards,
+                    terminals, preprocessed_next_states, importance_weights):
+
+        #policy = root.get_sub_component_by_name(agent.policy.scope)
+        #target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
+        #loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
+
+        # Get the different Q-values.
+        q_values_s = self.policy.get_adapter_outputs_and_parameters(preprocessed_states)["adapter_outputs"]
+        qt_values_sp = self.target_policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
+
+        q_values_sp = None
+        if self.double_q:
+            q_values_sp = self.policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
+
+        loss, loss_per_item = self.loss_function.loss(
+            q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights
+        )
+        return loss, loss_per_item
+
+    @rlgraph_api
+    def get_q_values(self, preprocessed_states):
+        q_values = self.policy.get_adapter_outputs_and_parameters(
+            preprocessed_states)["adapter_outputs"]
+        return q_values
