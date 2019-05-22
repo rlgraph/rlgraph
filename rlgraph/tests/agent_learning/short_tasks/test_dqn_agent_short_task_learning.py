@@ -56,7 +56,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=12),
-            update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
+            memory_batch_size=24,
+            sync_every_n_updates=8,
             optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
@@ -65,7 +66,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             env_spec=lambda: GridWorld("2x2"),
             agent=agent,
             preprocessing_spec=preprocessing_spec,
-            worker_executes_preprocessing=True
+            worker_executes_preprocessing=True,
+            update_rules=dict(update_every_n_units=4)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -94,7 +96,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=10),
-            update_spec=dict(update_interval=4, batch_size=24, sync_interval=32),
+            batch_size=24,
+            sync_every_n_updates=8,
             optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
@@ -103,7 +106,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             env_spec=lambda: GridWorld.from_spec(env_spec),
             agent=agent,
             preprocessing_spec=preprocessing_spec,
-            worker_executes_preprocessing=True
+            worker_executes_preprocessing=True,
+            update_rules=dict(update_every_n_units=4)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -188,7 +192,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             dueling_q=False,
             state_space=self.grid_world_4x4_flattened_state_space,
             action_space=dummy_env.action_space,
-            update_spec=dict(update_interval=4, batch_size=32, sync_interval=32),
+            batch_size=32,
+            sync_every_n_updates=8,
             optimizer_spec=dict(type="adam", learning_rate=["linear", 0.01, 0.0001])
         )
 
@@ -197,7 +202,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             env_spec=lambda: GridWorld("4x4"),
             agent=agent,
             preprocessing_spec=preprocessing_spec,
-            worker_executes_preprocessing=True
+            worker_executes_preprocessing=True,
+            update_rules=dict(update_every_n_units=4)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -233,7 +239,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=15),
-            update_spec=dict(update_interval=4, batch_size=24, sync_interval=64),
+            batch_size=24,
+            sync_every_n_updates=16,
             optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
@@ -242,7 +249,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             env_spec=lambda: OpenAIGymEnv("CartPole-v0", seed=15),
             agent=agent,
             render=self.is_windows,
-            worker_executes_preprocessing=False
+            worker_executes_preprocessing=False,
+            update_rules=dict(update_every_n_units=4)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -270,7 +278,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=13),
-            update_spec=dict(update_interval=4, batch_size=64, sync_interval=16),
+            batch_size=64,
+            sync_every_n_updates=4,
             optimizer_spec=dict(type="adam", learning_rate=["linear", 0.01, 0.00001])
         )
 
@@ -279,7 +288,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             env_spec=lambda: OpenAIGymEnv(gym_env, seed=10),
             agent=agent,
             render=self.is_windows,
-            worker_executes_preprocessing=False
+            worker_executes_preprocessing=False,
+            update_rules=dict(update_every_n_units=4)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
