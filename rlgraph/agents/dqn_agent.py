@@ -263,17 +263,13 @@ class DQNAgent(Agent):
         else:
             sync_call = None
 
-        # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
-        return_ops = [0, 1, 2]
-        q_table = None
-
         if batch is None:
-            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops))
+            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage]))
         else:
             # TODO apply postprocessing always true atm.
             input_ = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
                            batch["next_states"], batch["importance_weights"], True, time_percentage]
-            ret = self.graph_executor.execute(("update_from_external_batch", input_, return_ops))
+            ret = self.graph_executor.execute(("update_from_external_batch", input_))
 
         # Do the target net synching after the update (for better clarity: after a sync, we would expect for both
         # networks to be the exact same).

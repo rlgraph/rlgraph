@@ -100,6 +100,8 @@ class DQFDAgent(Agent):
         # Fix action-adapter before passing it to the super constructor.
         # Use a DuelingPolicy (instead of a basic Policy) if option is set.
         if dueling_q is True:
+            if policy_spec is None:
+                policy_spec = {}
             policy_spec["type"] = "dueling-policy"
             # Give us some default state-value nodes.
             if "units_state_value_stream" not in policy_spec:
@@ -139,7 +141,7 @@ class DQFDAgent(Agent):
         self.default_margins = np.asarray([self.expert_margin] * self.batch_size)
 
         self.demo_batch_size = int(demo_sample_ratio * self.update_spec["batch_size"] / (1.0 - demo_sample_ratio))
-        self.demo_margins =  np.asarray([self.expert_margin] * self.demo_batch_size)
+        self.demo_margins = np.asarray([self.expert_margin] * self.demo_batch_size)
         self.shared_container_action_target = shared_container_action_target
 
         # Extend input Space definitions to this Agent's specific API-methods.
@@ -181,12 +183,12 @@ class DQFDAgent(Agent):
         # Number of steps since the last target-net synching from the main policy.
         self.steps_since_target_net_sync = 0
 
-        use_importance_weights = isinstance(self.memory, PrioritizedReplay)
+        self.use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQFDLossFunction(
             supervised_weight=supervised_weight,
             discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
             shared_container_action_target=shared_container_action_target,
-            importance_weights=use_importance_weights, n_step=n_step
+            importance_weights=self.use_importance_weights, n_step=n_step
         )
 
         # Add all our sub-components to the core.
@@ -261,17 +263,16 @@ class DQFDAgent(Agent):
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
 
             # Do not apply demo loss to online experience.
-            online_step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
+            online_step_op, loss, loss_per_item = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss,
                 expert_margins, time_percentage
             )
 
             if isinstance(agent.memory, PrioritizedReplay):
                 update_pr_step_op = agent.memory.update_records(sample_indices, loss_per_item)
-
-                return online_step_op, loss, loss_per_item, records, q_values_s, update_pr_step_op
+                return online_step_op, loss, loss_per_item, update_pr_step_op
             else:
-                return online_step_op, loss, loss_per_item, records, q_values_s
+                return online_step_op, loss, loss_per_item
 
         # Learn from demo-data.
         @rlgraph_api(component=self.root_component)
@@ -283,7 +284,7 @@ class DQFDAgent(Agent):
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss,
                 expert_margins, time_percentage
             )
-            return step_op, loss, loss_per_item, records, q_values_s
+            return step_op, loss, loss_per_item
 
         # Learn from an external batch - note the flag to apply demo loss.
         @rlgraph_api(component=self.root_component)
@@ -307,7 +308,7 @@ class DQFDAgent(Agent):
                 step_and_sync_op = root.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
                     step_op, main_policy_vars
                 )
-                return step_and_sync_op, loss, loss_per_item, q_values_s
+                return step_and_sync_op, loss, loss_per_item
 
             # Get sub-components relative to the root (could be multi-GPU setup where root=some-tower).
             policy = root.get_sub_component_by_name(agent.policy.scope)
@@ -332,12 +333,12 @@ class DQFDAgent(Agent):
             policy_vars = policy.variables()
             if hasattr(root, "is_multi_gpu_tower") and root.is_multi_gpu_tower is True:
                 grads_and_vars = optimizer.calculate_gradients(policy_vars, loss, time_percentage)
-                return grads_and_vars, loss, loss_per_item, q_values_s
+                return grads_and_vars, loss, loss_per_item
             else:
                 step_op = optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
                 # Increase the global training step counter.
                 step_op = root._graph_fn_training_step(step_op)
-                return step_op, loss, loss_per_item, q_values_s
+                return step_op, loss, loss_per_item
 
         @rlgraph_api(component=self.root_component)
         def get_td_loss(root, preprocessed_states, actions, rewards,
@@ -436,9 +437,6 @@ class DQFDAgent(Agent):
         else:
             sync_call = None
 
-        # [0]=no-op step; [1]=the loss; [2]=loss-per-item, [3]=memory-batch (if pulled); [4]=q-values
-        return_ops = [0, 1, 2]
-
         # Update from replay memory.  Potentially also update from demo memory with default margins.
         if batch is None:
             # Combine: Update from memory (apply_demo_loss=False), update_from_demo (apply=True).
@@ -446,13 +444,13 @@ class DQFDAgent(Agent):
             if update_from_demos:
                 # Use default margins whe sampling from memory.
                 ret = self.graph_executor.execute(
-                    ("update_from_memory", [False, self.default_margins, time_percentage], return_ops),
-                    ("update_from_demos", [self.demo_batch_size, True, self.demo_margins, time_percentage], return_ops),
+                    ("update_from_memory", [False, self.default_margins, time_percentage]),
+                    ("update_from_demos", [self.demo_batch_size, True, self.demo_margins, time_percentage]),
                     sync_call
                 )
             else:
                 ret = self.graph_executor.execute(
-                    ("update_from_memory",  [False, self.default_margins, time_percentage], return_ops),
+                    ("update_from_memory",  [False, self.default_margins, time_percentage]),
                     sync_call
                 )
 
@@ -462,7 +460,6 @@ class DQFDAgent(Agent):
         else:
             # Update from external batch, optionally applying demo loss. Also optionally
             # sample demos from separate demo memory.
-
             if expert_margins is None:
                 # Default margins with correct len.
                 expert_margins = np.asarray([self.expert_margin] * len(batch["terminals"]))
@@ -476,14 +473,14 @@ class DQFDAgent(Agent):
 
             if update_from_demos:
                 ret = self.graph_executor.execute(
-                    ("update_from_external_batch", batch_input, return_ops),
-                    ("update_from_demos", [self.demo_batch_size, True, self.demo_margins, time_percentage], return_ops),
+                    ("update_from_external_batch", batch_input),
+                    ("update_from_demos", [self.demo_batch_size, True, self.demo_margins, time_percentage]),
                     sync_call
                 )
             else:
                 # Only update from external batch (which may use demo loss depending on flag.
                 ret = self.graph_executor.execute(
-                    ("update_from_external_batch", batch_input, return_ops),
+                    ("update_from_external_batch", batch_input),
                     sync_call
                 )
 
