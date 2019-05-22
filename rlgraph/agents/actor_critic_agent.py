@@ -334,7 +334,7 @@ class ActorCriticAlgorithmComponent(AlgorithmComponent):
 
     # Learn from an external batch.
     @rlgraph_api
-    def update_from_external_batch(self, preprocessed_states, actions, advantages, terminals, time_percentage):
+    def update_from_external_batch(self, preprocessed_states, actions, advantages, terminals, time_percentage=None):
         baseline_values = self.value_function.value_output(preprocessed_states)
         log_probs = self.policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
         entropy = self.policy.get_entropy(preprocessed_states)["entropy"]
