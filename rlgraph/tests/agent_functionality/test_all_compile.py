@@ -100,7 +100,7 @@ class TestAllCompile(unittest.TestCase):
             config_from_path("configs/impala_agent_for_2x2_gridworld.json"),
             state_space=env.state_space,
             action_space=env.action_space,
-            update_spec=dict(batch_size=16),
+            memory_batch_size=16,
             optimizer_spec=dict(type="adam", learning_rate=0.05),
             # Make session-creation hang in docker.
             execution_spec=dict(disable_monitoring=True)
