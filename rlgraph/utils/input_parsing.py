@@ -227,6 +227,10 @@ def parse_observe_spec(observe_spec):
     Returns:
         dict: The sanitized observe_spec dict.
     """
+    raise RLGraphError(
+        "`parse_observe_spec` has been obsoleted! Use the `python_buffer_size` arg directly into the Agent's c'tor "
+        "instead. Set this arg to 0 for no buffering and to some value > 0 for the size of the python buffer."
+    )
     if observe_spec and "buffer_enabled" not in observe_spec:
         # Set to true if a buffer size is given and > 0, but flag is not given.
         if "buffer_size" in observe_spec and observe_spec["buffer_size"] > 0:
@@ -268,6 +272,15 @@ def parse_update_spec(update_spec):
     Returns:
         dict: The sanitized update_spec dict.
     """
+    raise RLGraphError(
+        "`parse_update_spec` has been obsoleted! Use the `UpdateRules` class instead. "
+        "The following translations need to be done:\n"
+        "do_updates -> do_updates\n"
+        "update_mode -> unit (`time_steps` or `episodes`)\n"
+        "update_interval -> update_every_n_units\n"
+        "update_steps -> update_repeats\n"
+        "steps_before_update -> first_update_after_n_units\n"
+    )
     # If no spec given.
     default_spec = dict(
         # Whether to perform calls to `Agent.update()` at all.
