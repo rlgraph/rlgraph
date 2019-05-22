@@ -17,9 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 from collections import defaultdict
 from functools import partial
-import logging
+
 import numpy as np
 
 from rlgraph import get_backend
@@ -27,7 +28,7 @@ from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec, parse_update_spec
+from rlgraph.utils.input_parsing import parse_execution_spec, parse_observe_spec
 from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.specifiable import Specifiable
 
@@ -42,7 +43,7 @@ class Agent(Specifiable):
 
     def __init__(self, state_space, action_space,
                  internal_states_space=None, custom_buffers=None, execution_spec=None,
-                 observe_spec=None, update_spec=None, summary_spec=None, saver_spec=None, auto_build=True,
+                 observe_spec=None, max_timesteps=None, summary_spec=None, saver_spec=None, auto_build=True,
                  name="agent"):
         """
         Args:
@@ -57,7 +58,7 @@ class Agent(Specifiable):
 
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
-            update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            max_timesteps (Optional[int]): An optional max timesteps hint for Workers.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
 
@@ -92,6 +93,7 @@ class Agent(Specifiable):
         )
         self.internal_states_space = Space.from_spec(internal_states_space)
 
+        self.max_timesteps = max_timesteps
         self.observe_spec = parse_observe_spec(observe_spec)
         self.execution_spec = parse_execution_spec(execution_spec)
         # Save spec in case agent needs to create more optimizers e.g. for baseline.
@@ -129,7 +131,7 @@ class Agent(Specifiable):
         self.root_component = None
 
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
-        self.update_spec = parse_update_spec(update_spec)
+        #self.update_spec = parse_update_spec(update_spec)
 
         # Create our GraphBuilder and -Executor.
         self.graph_builder = GraphBuilder(action_space=self.action_space, summary_spec=summary_spec)
@@ -487,31 +489,31 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def update_if_necessary(self, num_environments=1):
-        """
-        Calls update on the agent according to the update schedule set for this worker.
+    #def update_if_necessary(self, num_environments=1):
+    #    """
+    #    Calls update on the agent according to the update schedule set for this worker.
 
-        Args:
-            num_environments (int): Timesteps executed thus far.
+    #    Args:
+    #        num_environments (int): Timesteps executed thus far.
 
-        Returns:
-            float: The summed up loss (over all self.update_steps).
-        """
-        if self.update_spec.get("do_updates"):
-            # Are we allowed to update?
-            if self.timesteps > self.update_spec.get("steps_before_update", 0) and \
-                    (self.observe_spec["buffer_enabled"] is False or  # No update before some data in buffer
-                     int(self.timesteps / num_environments) >= self.observe_spec["buffer_size"]):
-                # Updating according to one update mode:
-                if self.update_spec.get("update_mode", "time_steps") == "time_steps" and \
-                        self.timesteps % self.update_spec["update_interval"] == 0:
-                    return self.update()
-                # Do not do modulo here - this would be called every step in one episode otherwise.
-                elif self.update_spec.get("update_mode") == "episodes" and \
-                        self.episodes_since_update == self.update_spec["update_interval"]:
-                    self.episodes_since_update = 0
-                    return self.update()
-        return None
+    #    Returns:
+    #        float: The summed up loss (over all self.update_steps).
+    #    """
+    #    if self.update_spec.get("do_updates"):
+    #        # Are we allowed to update?
+    #        if self.timesteps > self.update_spec.get("steps_before_update", 0) and \
+    #                (self.observe_spec["buffer_enabled"] is False or  # No update before some data in buffer
+    #                 int(self.timesteps / num_environments) >= self.observe_spec["buffer_size"]):
+    #            # Updating according to one update mode:
+    #            if self.update_spec.get("update_mode", "time_steps") == "time_steps" and \
+    #                    self.timesteps % self.update_spec["update_interval"] == 0:
+    #                return self.update()
+    #            # Do not do modulo here - this would be called every step in one episode otherwise.
+    #            elif self.update_spec.get("update_mode") == "episodes" and \
+    #                    self.episodes_since_update == self.update_spec["update_interval"]:
+    #                self.episodes_since_update = 0
+    #                return self.update()
+    #    return None
 
     def update(self, batch=None, time_percentage=None, **kwargs):
         """

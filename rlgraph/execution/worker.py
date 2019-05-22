@@ -18,12 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+
 import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph.environments import VectorEnv, SequentialVectorEnv
+from rlgraph.utils.input_parsing import parse_update_spec
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.utils.
 
 
 class Worker(Specifiable):
@@ -93,7 +94,7 @@ class Worker(Specifiable):
         #self.steps_before_update = None
         #self.update_interval = None
         #self.update_steps = None
-        self.sync_interval = None
+        #self.sync_interval = None
         self.episodes_since_update = 0
 
         self.max_timesteps = max_timesteps
@@ -220,15 +221,17 @@ class Worker(Specifiable):
         Returns:
             float: The summed up loss (over all self.update_steps).
         """
-        if self.updating:
+        if self.update_spec["do_updates"]:
             # Are we allowed to update?
-            if self.agent.timesteps > self.steps_before_update and \
+            if self.agent.timesteps > self.update_spec["steps_before_update"] and \
                     (self.agent.observe_spec["buffer_enabled"] is False or  # No update before some data in buffer
                      int(self.agent.timesteps / self.num_environments) >= self.agent.observe_spec["buffer_size"]):
                 # Updating according to one update mode:
-                if self.update_mode == "time_steps" and self.agent.timesteps % self.update_interval == 0:
+                if self.update_spec["update_mode"] == "time_steps" and \
+                        self.agent.timesteps % self.update_spec["update_interval"] == 0:
                     return self.execute_update(time_percentage)
-                elif self.update_mode == "episodes" and self.episodes_since_update == self.update_interval:
+                elif self.update_spec["update_mode"] == "episodes" and \
+                        self.episodes_since_update == self.update_spec["update_interval"]:
                     # Do not do modulo here - this would be called every step in one episode otherwise.
                     loss = self.execute_update(time_percentage)
                     self.episodes_since_update = 0
@@ -237,7 +240,7 @@ class Worker(Specifiable):
 
     def execute_update(self, time_percentage):
         loss = 0
-        for _ in range_(self.update_steps):
+        for _ in range_(self.update_spec["update_steps"]):
             ret = self.agent.update(time_percentage=time_percentage)
             if isinstance(ret, tuple):
                 loss += ret[0]
@@ -245,28 +248,28 @@ class Worker(Specifiable):
                 loss += ret
         return loss
 
-    def set_update_schedule(self, update_schedule=None):
-        """
-        Sets this worker's update schedule. By default, a worker is not updating but only acting
-        and observing samples.
+    #def set_update_schedule(self, update_schedule=None):
+    #    """
+    #    Sets this worker's update schedule. By default, a worker is not updating but only acting
+    #    and observing samples.
 
-        Args:
-            update_schedule (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
-                Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
-                to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
-                how many steps to perform before beginning to update.
-        """
-        if update_schedule is not None:
-            self.updating = update_schedule["do_updates"]
-            self.steps_before_update = update_schedule["steps_before_update"]
-            self.update_interval = update_schedule["update_interval"]
-            self.update_steps = update_schedule["update_steps"]
-            self.sync_interval = update_schedule["sync_interval"]
+    #    Args:
+    #        update_schedule (Optional[dict]): Update parameters. If None, the worker only performs rollouts.
+    #            Expects keys 'update_interval' to indicate how frequent update is called, 'num_updates'
+    #            to indicate how many updates to perform every update interval, and 'steps_before_update' to indicate
+    #            how many steps to perform before beginning to update.
+    #    """
+    #    if update_schedule is not None:
+    #        self.updating = update_schedule["do_updates"]
+    #        self.steps_before_update = update_schedule["steps_before_update"]
+    #        self.update_interval = update_schedule["update_interval"]
+    #        self.update_steps = update_schedule["update_steps"]
+    #        self.sync_interval = update_schedule["sync_interval"]
 
-            # Interpret update interval as n time-steps or n episodes.
-            self.update_mode = update_schedule.get("update_mode", "time_steps")
-        else:
-            self.updating = False
+    #        # Interpret update interval as n time-steps or n episodes.
+    #        self.update_mode = update_schedule.get("update_mode", "time_steps")
+    #    else:
+    #        self.updating = False
 
     def get_action(self, states, use_exploration, apply_preprocessing, extra_returns):
         if self.worker_executes_exploration:

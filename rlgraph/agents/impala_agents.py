@@ -57,7 +57,7 @@ class IMPALAAgent(Agent):
 
     def __init__(self, discount=0.99, fifo_queue_spec=None, architecture="large", environment_spec=None,
                  feed_previous_action_through_nn=True, feed_previous_reward_through_nn=True,
-                 weight_pg=None, weight_baseline=None, weight_entropy=None, worker_sample_size=100,
+                 weight_pg=None, weight_vf=None, weight_entropy=None, worker_sample_size=100,
                  **kwargs):
         """
         Args:
@@ -73,7 +73,7 @@ class IMPALAAgent(Agent):
                 ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
                 It will be added under the key "previous_reward". Default: True.
             weight_pg (float): See IMPALALossFunction Component.
-            weight_baseline (float): See IMPALALossFunction Component.
+            weight_vf (float): See IMPALALossFunction Component.
             weight_entropy (float): See IMPALALossFunction Component.
             worker_sample_size (int): How many steps the actor will perform in the environment each sample-run.
 
@@ -109,16 +109,16 @@ class IMPALAAgent(Agent):
         # Run everything in a single process.
         if self.type == "single":
             environment_spec = environment_spec or self.default_environment_spec
-            update_spec = kwargs.pop("update_spec", None)
+            #update_spec = kwargs.pop("update_spec", None)
         # Actors won't need to learn (no optimizer needed in graph).
         elif self.type == "actor":
             optimizer_spec = None
-            update_spec = kwargs.pop("update_spec", dict(do_updates=False))
+            #update_spec = kwargs.pop("update_spec", dict(do_updates=False))
             environment_spec = environment_spec or self.default_environment_spec
         # Learners won't need to explore (act) or observe (insert into Queue).
         else:
             observe_spec = None
-            update_spec = kwargs.pop("update_spec", None)
+            #update_spec = kwargs.pop("update_spec", None)
             environment_spec = None
 
         # Add previous-action/reward preprocessors to env-specific preprocessor spec.
@@ -172,7 +172,7 @@ class IMPALAAgent(Agent):
             exploration_spec=self.exploration_spec,
             optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
-            update_spec=update_spec,
+            #update_spec=update_spec,
             execution_spec=execution_spec,
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs
@@ -286,7 +286,7 @@ class IMPALAAgent(Agent):
 
             # Create an IMPALALossFunction with some parameters.
             self.loss_function = IMPALALossFunction(
-                discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
+                discount=self.discount, weight_pg=weight_pg, weight_vf=weight_vf,
                 weight_entropy=weight_entropy,
                 slice_actions=self.feed_previous_action_through_nn,
                 slice_rewards=self.feed_previous_reward_through_nn,
@@ -432,7 +432,7 @@ class IMPALAAgent(Agent):
             # - preprocessed_s
             # - preprocessed_last_s_prime
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
-            records = fifo_queue.get_records(self.update_spec["batch_size"])
+            records = fifo_queue.get_records(self.batch_size)
 
             split_record = fifo_output_splitter.call(records)
             actions = None
@@ -704,7 +704,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             # - preprocessed_s
             # - preprocessed_last_s_prime
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
-            records = agent.fifo_queue.get_records(self.update_spec["batch_size"])
+            records = agent.fifo_queue.get_records(self.batch_size)
 
             out = agent.fifo_output_splitter.split_into_dict(records)
             terminals = out["terminals"]

@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph.agents import Agent
 from rlgraph.components.algorithms.sac_algorithm_component import SACAlgorithmComponent
 from rlgraph.spaces import FloatBox, BoolBox, IntBox, ContainerSpace
@@ -40,7 +41,7 @@ class SACAgent(Agent):
         optimizer_spec=None,
         value_function_optimizer_spec=None,
         observe_spec=None,
-        update_spec=None,
+        #update_spec=None,
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
@@ -75,7 +76,7 @@ class SACAgent(Agent):
             value_function_optimizer_spec (dict): Optimizer config for value function optimizer. If None, the optimizer
                 spec for the policy is used (same learning rate and optimizer type).
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
-            update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            #update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
             auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
@@ -96,7 +97,7 @@ class SACAgent(Agent):
             internal_states_space=internal_states_space,
             execution_spec=execution_spec,
             observe_spec=observe_spec,
-            update_spec=update_spec,
+            #update_spec=update_spec,
             summary_spec=summary_spec,
             saver_spec=saver_spec,
             auto_build=auto_build,
@@ -108,6 +109,7 @@ class SACAgent(Agent):
         self.initial_alpha = initial_alpha
 
         # Assert that the synch interval is a multiple of the update_interval.
+        # TODO: pass all these in directly as normal SAC properties.
         if "sync_interval" in self.update_spec:
             if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
                     self.update_spec["sync_interval"] // self.update_spec["update_interval"]:
@@ -128,8 +130,8 @@ class SACAgent(Agent):
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
 
-        self.iterations = self.update_spec["num_iterations"]
-        self.batch_size = self.update_spec["batch_size"]
+        #self.num_iterations = self.update_spec["num_iterations"]
+        #self.batch_size = self.update_spec["batch_size"]
 
         float_action_space = self.action_space.with_batch_rank().map(
             mapping=lambda flat_key, space: space.as_one_hot_float_space() if isinstance(space, IntBox) else space
@@ -162,6 +164,8 @@ class SACAgent(Agent):
             discount=discount,
             initial_alpha=self.initial_alpha,
             target_entropy=target_entropy,
+            num_iterations=num_iterations,
+            batch_size=batch_size,
             gumbel_softmax_temperature=gumbel_softmax_temperature,
             optimizer_spec=optimizer_spec,
             value_function_optimizer_spec=value_function_optimizer_spec,
@@ -178,7 +182,7 @@ class SACAgent(Agent):
         if self.auto_build:
             self._build_graph(
                 [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
-                batch_size=self.update_spec["batch_size"],
+                batch_size=self.batch_size,
                 build_options=self.build_options
             )
             self.graph_built = True

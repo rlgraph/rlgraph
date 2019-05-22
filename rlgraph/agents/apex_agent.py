@@ -47,7 +47,7 @@ class ApexAgent(DQNAgent):
         execution_spec=None,
         optimizer_spec=None,
         observe_spec=None,
-        update_spec=None,
+        #update_spec=None,
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
@@ -75,7 +75,7 @@ class ApexAgent(DQNAgent):
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
             optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
-            update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            #update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
             auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
