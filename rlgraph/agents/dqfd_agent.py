@@ -100,6 +100,8 @@ class DQFDAgent(Agent):
         # Fix action-adapter before passing it to the super constructor.
         # Use a DuelingPolicy (instead of a basic Policy) if option is set.
         if dueling_q is True:
+            if policy_spec is None:
+                policy_spec = {}
             policy_spec["type"] = "dueling-policy"
             # Give us some default state-value nodes.
             if "units_state_value_stream" not in policy_spec:
@@ -139,7 +141,7 @@ class DQFDAgent(Agent):
         self.default_margins = np.asarray([self.expert_margin] * self.batch_size)
 
         self.demo_batch_size = int(demo_sample_ratio * self.update_spec["batch_size"] / (1.0 - demo_sample_ratio))
-        self.demo_margins =  np.asarray([self.expert_margin] * self.demo_batch_size)
+        self.demo_margins = np.asarray([self.expert_margin] * self.demo_batch_size)
         self.shared_container_action_target = shared_container_action_target
 
         # Extend input Space definitions to this Agent's specific API-methods.
@@ -181,12 +183,12 @@ class DQFDAgent(Agent):
         # Number of steps since the last target-net synching from the main policy.
         self.steps_since_target_net_sync = 0
 
-        use_importance_weights = isinstance(self.memory, PrioritizedReplay)
+        self.use_importance_weights = isinstance(self.memory, PrioritizedReplay)
         self.loss_function = DQFDLossFunction(
             supervised_weight=supervised_weight,
             discount=self.discount, double_q=self.double_q, huber_loss=self.huber_loss,
             shared_container_action_target=shared_container_action_target,
-            importance_weights=use_importance_weights, n_step=n_step
+            importance_weights=self.use_importance_weights, n_step=n_step
         )
 
         # Add all our sub-components to the core.
@@ -441,6 +443,9 @@ class DQFDAgent(Agent):
 
         # Update from replay memory.  Potentially also update from demo memory with default margins.
         if batch is None:
+            if self.use_importance_weights:
+                return_ops += [5]
+
             # Combine: Update from memory (apply_demo_loss=False), update_from_demo (apply=True).
             # Otherwise only update from online memory.
             if update_from_demos:
@@ -463,6 +468,9 @@ class DQFDAgent(Agent):
             # Update from external batch, optionally applying demo loss. Also optionally
             # sample demos from separate demo memory.
 
+            # Add some additional return-ops to pull (left out normally for performance reasons).
+            if self.use_importance_weights:
+                return_ops += [5]
             if expert_margins is None:
                 # Default margins with correct len.
                 expert_margins = np.asarray([self.expert_margin] * len(batch["terminals"]))
