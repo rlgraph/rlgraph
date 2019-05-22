@@ -19,8 +19,7 @@ from __future__ import print_function
 
 import copy
 
-import tensorflow as tf
-
+from rlgraph import get_backend
 from rlgraph.agents.agent import Agent
 from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.components.common.environment_stepper import EnvironmentStepper
@@ -38,6 +37,9 @@ from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import default_dict
+
+if get_backend() == "tf":
+    import tensorflow as tf
 
 
 class IMPALAAgent(Agent):

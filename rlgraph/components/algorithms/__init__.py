@@ -17,13 +17,3 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
-from rlgraph.components.algorithms.ppo_algorithm_component import PPOAlgorithmComponent
-
-AlgorithmComponent.__lookup_classes__ = dict(
-    algorithmcomponent=AlgorithmComponent,
-    ppoalgorithmcomponent=PPOAlgorithmComponent
-)
-
-__all__ = [] + \
-          list(set(map(lambda x: x.__name__, AlgorithmComponent.__lookup_classes__.values())))
