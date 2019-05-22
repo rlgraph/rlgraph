@@ -504,6 +504,8 @@ class IMPALAAgent(Agent):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None, time_percentage=None):
+        self.num_updates += 1
+
         if batch is None:
             # Include stage_op or not?
             if self.has_gpu:

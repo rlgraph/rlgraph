@@ -217,6 +217,8 @@ class ActorCriticAgent(Agent):
         if time_percentage is None:
             time_percentage = self.timesteps / (self.max_timesteps or 1e6)
 
+        self.num_updates += 1
+
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", [None, time_percentage]))
 

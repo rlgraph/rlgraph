@@ -38,7 +38,7 @@ class RandomAgent(Agent):
             return a
 
     def update(self, batch=None, time_percentage=None, **kwargs):
-        pass
+        self.num_updates += 1
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         pass

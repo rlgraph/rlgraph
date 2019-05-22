@@ -415,7 +415,9 @@ class DQFDAgent(Agent):
         """
         # TODO: Move update_spec to Worker. Agent should not hold these execution details.
         if time_percentage is None:
-            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
+            time_percentage = self.timesteps / (self.max_timesteps or 1e6)
+
+        self.num_updates += 1
 
         # Should we sync the target net?
         self.steps_since_target_net_sync += self.update_spec["update_interval"]

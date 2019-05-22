@@ -258,8 +258,8 @@ class PPOAgent(Agent):
         if time_percentage is None:
             time_percentage = self.timesteps / (self.max_timesteps or 1e6)
 
-        # [0] = the loss; [1] = loss-per-item, [2] = vf-loss, [3] = vf-loss- per item
-        return_ops = [0, 1, 2, 3]
+        self.num_updates += 1
+
         if batch is None:
             ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops))
 

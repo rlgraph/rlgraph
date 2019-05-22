@@ -123,6 +123,8 @@ class ApexAgent(DQNAgent):
         self.num_updates = 0
 
     def update(self, batch=None, time_percentage=None, **kwargs):
+        self.num_updates += 1
+
         # In apex, syncing is based on num steps trained, not steps sampled.
         sync_call = None
         # Apex uses train time steps for syncing.
