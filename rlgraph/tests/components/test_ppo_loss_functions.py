@@ -21,6 +21,7 @@ import unittest
 from math import log
 
 import numpy as np
+
 from rlgraph.components.loss_functions import PPOLossFunction
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -35,7 +36,8 @@ class TestPPOLossFunctions(unittest.TestCase):
         state_values=FloatBox(shape=(1,), add_batch_rank=True),
         prev_state_values=FloatBox(shape=(1,), add_batch_rank=True),
         advantages=FloatBox(add_batch_rank=True),
-        entropy=FloatBox(add_batch_rank=True)
+        entropy=FloatBox(add_batch_rank=True),
+        time_percentage=float
     )
 
     def test_ppo_loss_function_on_int_action_space(self):
