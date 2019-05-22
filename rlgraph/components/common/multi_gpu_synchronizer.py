@@ -43,7 +43,7 @@ class MultiGpuSynchronizer(Component):
                 (each GPU will receive a shard of this batch).
         """
         super(MultiGpuSynchronizer, self).__init__(graph_fn_num_outputs=dict(
-            _graph_fn_calculate_update_from_external_batch=4  # TODO: <- This is currently hardcoded for DQN-type agents
+            _graph_fn_calculate_update_from_external_batch=3  # TODO: <- This is currently hardcoded for DQN-type agents
         ), scope=scope, **kwargs)
 
         self.batch_size = batch_size

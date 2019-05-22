@@ -1,7 +1,7 @@
 ## Release notes
 Summarizes updates in recent releases.
 
-## RLgraph 0.4.2 - 2019/05/21
+## RLgraph 0.5.0 - 2019/05/22
 - Fixed bug in PPOLossFunction in value-function target term. Here, the
   previous value-estimates need to be used (before the next update round)
   instead of the current estimates (from the ongoing (PPO-iterative)
@@ -9,6 +9,32 @@ Summarizes updates in recent releases.
 - Added new `TimeDependentParameter` classes for learning rate and other
   time-dependent parameters that may change over time. These replace
   the now obsoleted `DecayComponent`s.
+
+  All json configs that use `exploration_spec` (Q-type Agents) must erase
+  `start_timestep` and `num_timesteps` ..
+  ```
+  "exploration_spec": {
+    "epsilon_spec": {
+      "decay_spec": {
+        ...
+        "start_timestep": 0,   # <- erase this line
+        "num_timesteps": 1000, # <- and this one
+  }}}
+  ```
+  .. from the `decay_spec` within this `exploration_spec`. From now on, the Worker
+  is responsible to pass into each `get_action()` and `update()` calls, a
+  `time_percentage` value (between 0.0 and 1.0) that will make
+  `start_timestep` and `num_timesteps` superfluous.
+  To infer `time_percentage` automatically, the Worker needs some kind of maximum
+  number of timestep value. There are different ways to pass in global max-timestep information:
+  - Via the Worker's `max_timesteps` c'tor arg.
+  - Via the Agent's `max_timesteps` c'tor arg.
+  - Leave it to the Worker to figure out the max timesteps itself. A call to
+  `Worker.execute_timesteps(timesteps=n)` will use n, a call to `Worker.execute_episodes(episodes=n,
+  max_timesteps_per_episode=100)` will use 100 x n, etc.
+  - If you are not using our Worker classes, make sure to pass in manually a `time_percentage`
+  between 0.0 (start learning) and 1.0 (finished learning) into calls to
+  `Agent.get_action()` and `Agent.update()`.
 - Added `time_percentage` inputs to `Agent.update()` and `Agent.get_action()`
   calls. This enables all Components that own `TimeDependentParameter`
   sub-components to decay/change these values over time. This applies mostly to
@@ -16,6 +42,9 @@ Summarizes updates in recent releases.
   See FAQs on how to configure decays for arbitrary hyper-parameters.
 - Reduced number of `tf.placeholder`s to one per unique API input-arg name.
   Also, all placeholders have more descriptive names now (named after the API input-arg).
+- The `Optimizer` Component's step API method will no longer return `loss` and `loss_per_item`
+  as 2nd and 3rd return value. Instead only the `step_op` is returned.
+  Make sure that all `Optimizer.step()` calls expect only one single return value (`step_op`).
 - GridWorld: Bug fix in grid-maps for which start x/y-positions are
   different from (0, 0).
   Step reward was changed from -1.0 to -0.1 for better granularity/faster learning.
