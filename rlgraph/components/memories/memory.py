@@ -53,7 +53,7 @@ class Memory(Component):
         # Store our record-space for convenience.
         self.record_space = input_spaces["records"]
         self.flat_record_space = self.record_space.flatten()
-        self.some_key = FLATTEN_SCOPE_PREFIX + next(iter(input_spaces["records"]))
+        self.some_key = next(iter(self.flat_record_space))
 
         # Create the main memory as a flattened OrderedDict from any arbitrarily nested Space.
         self.memory = self.get_variable(
