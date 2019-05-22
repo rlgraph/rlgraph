@@ -26,6 +26,7 @@ from rlgraph.components.policies.dueling_policy import DuelingPolicy
 from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import strip_list
 
 
@@ -53,9 +54,9 @@ class DQFDAgent(Agent):
         optimizer_spec=None,
         observe_spec=None,
         update_spec=None,
+        sync_rules=None,
         summary_spec=None,
         saver_spec=None,
-        auto_build=True,
         name="dqfd-agent",
         expert_margin=0.5,
         supervised_weight=1.0,
@@ -69,11 +70,8 @@ class DQFDAgent(Agent):
         demo_sample_ratio=0.2,
         auto_build=True
     ):
-
         """
         Args:
-            state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
-            action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
             discount (float): The discount factor (gamma).
@@ -123,16 +121,33 @@ class DQFDAgent(Agent):
             update_spec=update_spec,
             summary_spec=summary_spec,
             saver_spec=saver_spec,
-            auto_build=auto_build,
             name=name
         )
-        # Assert that the synch interval is a multiple of the update_interval.
-        if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
-                self.update_spec["sync_interval"] // self.update_spec["update_interval"]:
-            raise RLGraphError(
-                "ERROR: sync_interval ({}) must be multiple of update_interval "
-                "({})!".format(self.update_spec["sync_interval"], self.update_spec["update_interval"])
-            )
+
+        if n_step > 1:
+            if self.python_buffer_size == 0:
+                raise RLGraphError(
+                    "Cannot setup observations with n-step (n={}), while buffering is switched "
+                    "off".format(n_step)
+                )
+            elif self.python_buffer_size < 3 * n_step:
+                raise RLGraphError(
+                    "Buffer must be at least 3x as large as n-step (3 x n={}, buffer-size={})!".
+                    format(n_step, self.python_buffer_size)
+                )
+
+        # Keep track of when to sync the target network (every n updates).
+        self.sync_rules = SyncRules.from_spec(sync_rules)
+        self.steps_since_target_net_sync = 0
+
+        self.root_component = DQFDAlgorithmComponent(
+            self, discount=discount, memory_spec=memory_spec,
+            preprocessing_spec=preprocessing_spec, policy_spec=policy_spec, network_spec=network_spec,
+            optimizer_spec=optimizer_spec, exploration_spec=exploration_spec,
+            double_q=double_q, dueling_q=dueling_q, n_step=n_step,
+            huber_loss=huber_loss, shared_container_action_target=shared_container_action_target,
+            supervised_weight=supervised_weight, demo_memory_spec=demo_memory_spec
+        )
 
         self.double_q = double_q
         self.dueling_q = dueling_q
@@ -144,7 +159,6 @@ class DQFDAgent(Agent):
 
         self.demo_batch_size = int(demo_sample_ratio * self.update_spec["batch_size"] / (1.0 - demo_sample_ratio))
         self.demo_margins = np.asarray([self.expert_margin] * self.demo_batch_size)
-        self.shared_container_action_target = shared_container_action_target
 
         # Extend input Space definitions to this Agent's specific API-methods.
         preprocessed_state_space = self.preprocessed_state_space.with_batch_rank()

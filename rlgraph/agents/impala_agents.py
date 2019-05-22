@@ -103,7 +103,7 @@ class IMPALAAgent(Agent):
         # Depending on the job-type, remove the pieces from the Agent-spec/graph we won't need.
         self.exploration_spec = kwargs.pop("exploration_spec", None)
         optimizer_spec = kwargs.pop("optimizer_spec", None)
-        observe_spec = kwargs.pop("observe_spec", None)
+        #observe_spec = kwargs.pop("observe_spec", None)
 
         self.feed_previous_action_through_nn = feed_previous_action_through_nn
         self.feed_previous_reward_through_nn = feed_previous_reward_through_nn
@@ -174,7 +174,7 @@ class IMPALAAgent(Agent):
             exploration_spec=self.exploration_spec,
             optimizer_spec=optimizer_spec,
             observe_spec=observe_spec,
-            #update_spec=update_spec,
+            update_spec=update_spec,
             execution_spec=execution_spec,
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs

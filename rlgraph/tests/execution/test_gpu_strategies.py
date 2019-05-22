@@ -64,7 +64,7 @@ class TestGpuStrategies(unittest.TestCase):
         print("Compiled DQN agent on multi-GPU system")
 
         # Do an update from external batch.
-        batch_size = agent_config["update_spec"]["batch_size"]
+        batch_size = agent_config["memory_batch_size"]
         external_batch = dict(
             states=environment.state_space.sample(size=batch_size),
             actions=environment.action_space.sample(size=batch_size),

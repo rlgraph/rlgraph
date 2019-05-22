@@ -40,9 +40,6 @@ class TestPytorchBackend(unittest.TestCase):
         env = OpenAIGymEnv("CartPole-v0")
         agent_config = config_from_path("configs/backend_performance_dqn_cartpole.json")
 
-        # Test cpu settings for batching here.
-        agent_config["update_spec"] = None
-
         agent = DQNAgent.from_spec(
             # Uses 2015 DQN parameters as closely as possible.
             agent_config,
@@ -56,7 +53,9 @@ class TestPytorchBackend(unittest.TestCase):
             agent=agent,
             frameskip=1,
             num_environments=1,
-            worker_executes_preprocessing=False
+            worker_executes_preprocessing=False,
+            # Test cpu settings for batching here.
+            update_rules=dict(do_updates=False)
         )
 
         result = worker.execute_timesteps(1000)

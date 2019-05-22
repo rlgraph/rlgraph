@@ -22,7 +22,7 @@ import os.path
 from rlgraph import get_backend
 from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.neural_networks.value_function import ValueFunction
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 from rlgraph.utils.util import default_dict
 
 
@@ -227,10 +227,8 @@ def parse_observe_spec(observe_spec):
     Returns:
         dict: The sanitized observe_spec dict.
     """
-    raise RLGraphError(
-        "`parse_observe_spec` has been obsoleted! Use the `python_buffer_size` arg directly into the Agent's c'tor "
-        "instead. Set this arg to 0 for no buffering and to some value > 0 for the size of the python buffer."
-    )
+    raise RLGraphObsoletedError("observe_spec", "observe_spec", "python_buffer_size")
+
     if observe_spec and "buffer_enabled" not in observe_spec:
         # Set to true if a buffer size is given and > 0, but flag is not given.
         if "buffer_size" in observe_spec and observe_spec["buffer_size"] > 0:
@@ -272,14 +270,16 @@ def parse_update_spec(update_spec):
     Returns:
         dict: The sanitized update_spec dict.
     """
-    raise RLGraphError(
-        "`parse_update_spec` has been obsoleted! Use the `UpdateRules` class instead. "
+    raise RLGraphObsoletedError(
+        "update_spec", "update_spec", "Use the `UpdateRules` class instead. "
         "The following translations need to be done:\n"
         "do_updates -> do_updates\n"
         "update_mode -> unit (`time_steps` or `episodes`)\n"
         "update_interval -> update_every_n_units\n"
         "update_steps -> update_repeats\n"
         "steps_before_update -> first_update_after_n_units\n"
+        "sync_interval -> Use the new `SyncRules` class' `sync_every_n_updates` property and pass this "
+        "SyncRules (or spec) directly into the Agent\n"
     )
     # If no spec given.
     default_spec = dict(

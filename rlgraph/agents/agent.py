@@ -67,12 +67,26 @@ class Agent(Specifiable):
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
 
-            auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
-                graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
-                components before building.
-
             name (str): Some name for this Agent object.
         """
+        if update_spec is not None:
+            raise RLGraphError(
+                "`parse_update_spec` has been obsoleted! Use the `UpdateRules` class instead. "
+                "The following translations need to be done:\n"
+                "do_updates -> do_updates\n"
+                "update_mode -> unit (`time_steps` or `episodes`)\n"
+                "update_interval -> update_every_n_units\n"
+                "update_steps -> update_repeats\n"
+                "steps_before_update -> first_update_after_n_units\n"
+                "sync_interval -> Use the new `SyncRules` class' `sync_every_n_updates` property and pass this "
+                "SyncRules (or spec) directly into the Agent\n"
+            )
+        if observe_spec is not None:
+            raise RLGraphError(
+                "`observe_spec` has been obsoleted! Use `python_buffer_size` > 0 to enable python-side experience "
+                "buffering and to set the buffer's size. Use `python_buffer_size=0` to disable buffering."
+            )
+
         super(Agent, self).__init__()
         self.name = name
         #self.auto_build = auto_build
@@ -135,9 +149,6 @@ class Agent(Specifiable):
 
         # The agent's root-Component.
         self.root_component = None
-
-        # Update-spec dict tells the Agent how to update (e.g. memory batch size).
-        #self.update_spec = parse_update_spec(update_spec)
 
         # Create our GraphBuilder and -Executor.
         self.graph_builder = GraphBuilder(action_space=self.action_space, summary_spec=summary_spec)
@@ -217,7 +228,7 @@ class Agent(Specifiable):
         # To pre-process external data if needed.
         @rlgraph_api(component=self.root_component)
         def preprocess_states(root, states):
-            preprocessor_stack = root.get_sub_component_by_name(agent.root_component.preprocessor.scope)
+            preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
             return preprocessor_stack.preprocess(states)
 
         @graph_fn(component=self.root_component)

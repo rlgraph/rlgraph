@@ -108,9 +108,9 @@ class PPOAgent(Agent):
             value_function_optimizer_spec (dict): Optimizer config for value function optimizer. If None, the optimizer
                 spec for the policy is used (same learning rate and optimizer type).
 
-            observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
-            max_timesteps (Optional[int]): An optional max timesteps hint for Workers.
-            #update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            observe_spec (Optional[dict]): Obsoleted: Spec-dict to specify `Agent.observe()` settings.
+            max_timesteps (Optional[int]): Obsoleted: An optional max timesteps hint for Workers.
+            update_spec (Optional[dict]): Obsoleted: Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
 
@@ -307,7 +307,7 @@ class PPOAgent(Agent):
 class PPOAlgorithmComponent(AlgorithmComponent):
     def __init__(self, agent, memory_spec=None, gae_lambda=1.0, clip_rewards=0.0, clip_ratio=0.2,
                  value_function_clipping=None, weight_entropy=None, sample_episodes=True, standardize_advantages=False,
-                 batch_size=128, sample_size=32, num_iterations=10,
+                 sample_size=32, num_iterations=10,
                  scope="ppo-agent-component", **kwargs):
         """
         Args:

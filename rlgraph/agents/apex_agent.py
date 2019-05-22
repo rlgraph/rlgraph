@@ -64,8 +64,6 @@ class ApexAgent(DQNAgent):
     ):
         """
         Args:
-            state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
-            action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
             discount (float): The discount factor (gamma).
@@ -120,7 +118,6 @@ class ApexAgent(DQNAgent):
             shared_container_action_target=shared_container_action_target,
             memory_spec=memory_spec
         )
-        self.num_updates = 0
 
     def update(self, batch=None, time_percentage=None, **kwargs):
         self.num_updates += 1
@@ -145,7 +142,7 @@ class ApexAgent(DQNAgent):
             return ret[1]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
-            pps_dtype = self.preprocessed_state_space.dtype
+            pps_dtype = self.root_component.preprocessed_state_space.dtype
             batch_input = [np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
                            batch["actions"],
                            batch["rewards"], batch["terminals"],

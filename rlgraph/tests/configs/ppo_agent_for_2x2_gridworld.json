@@ -10,6 +10,10 @@
 
   "python_buffer_size": 16,
 
+  "memory_batch_size": 16,
+  "num_iterations": 10,
+  "sample_size": 4,
+
   "memory_spec":
   {
     "type": "ring-buffer",
@@ -40,19 +44,11 @@
     }
   ],
 
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 16,
-    "num_iterations": 10,
-    "sample_size": 4
-  },
-
   "optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.001
   },
+
   "value_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.001

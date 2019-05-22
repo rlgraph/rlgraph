@@ -26,8 +26,8 @@ from rlgraph.components.policies.dueling_policy import DuelingPolicy
 from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.spaces.space_utils import sanity_check_space
-# from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import strip_list
 
 
@@ -72,8 +72,6 @@ class DQNAgent(Agent):
     ):
         """
         Args:
-            state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
-            action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
             discount (float): The discount factor (gamma).
@@ -96,6 +94,7 @@ class DQNAgent(Agent):
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
             huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
+            sync_every_n_updates (int): Every how many updates, do we need to sync into the target network?
             n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
         """
@@ -114,17 +113,21 @@ class DQNAgent(Agent):
             name=name
         )
 
-        # TODO: Have to manually set it here for multi-GPU synchronizer to know its number
-        # TODO: of return values when calling _graph_fn_calculate_update_from_external_batch.
-        # self.root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"] = 4
+        if n_step > 1:
+            if self.python_buffer_size == 0:
+                raise RLGraphError(
+                    "Cannot setup observations with n-step (n={}), while buffering is switched "
+                    "off".format(n_step)
+                )
+            elif self.python_buffer_size < 3 * n_step:
+                raise RLGraphError(
+                    "Buffer must be at least 3x as large as n-step (3 x n={}, buffer-size={})!".
+                    format(n_step, self.python_buffer_size)
+                )
 
-        # Assert that the synch interval is a multiple of the update_interval.
-        if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
-                self.update_spec["sync_interval"] // self.update_spec["update_interval"]:
-            raise RLGraphError(
-                "ERROR: sync_interval ({}) must be multiple of update_interval "
-                "({})!".format(self.update_spec["sync_interval"], self.update_spec["update_interval"])
-            )
+        # Keep track of when to sync the target network (every n updates).
+        self.sync_rules = SyncRules.from_spec(sync_rules)
+        self.steps_since_target_net_sync = 0
 
         # Change our root-component to PPO.
         self.root_component = DQNAlgorithmComponent(
@@ -213,8 +216,8 @@ class DQNAgent(Agent):
         self.num_updates += 1
 
         # Should we sync the target net?
-        self.steps_since_target_net_sync += self.update_spec["update_interval"]
-        if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
+        self.steps_since_target_net_sync += 1
+        if self.steps_since_target_net_sync >= self.sync_rules.sync_every_n_updates:
             sync_call = "sync_target_qnet"
             self.steps_since_target_net_sync = 0
         else:
