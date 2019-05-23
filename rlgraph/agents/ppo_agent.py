@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
@@ -347,10 +345,10 @@ class PPOAlgorithmComponent(AlgorithmComponent):
 
     # Insert into memory.
     @rlgraph_api
-    def insert_records(self, preprocessed_states, actions, rewards, terminals, sequence_indices):
+    def insert_records(self, preprocessed_states, actions, rewards, terminals):
         records = dict(
             states=preprocessed_states, actions=actions, rewards=rewards,
-            terminals=terminals, sequence_indices=sequence_indices
+            terminals=terminals
         )
         return self.memory.insert_records(records)
 
@@ -369,9 +367,10 @@ class PPOAlgorithmComponent(AlgorithmComponent):
             records = self.memory.get_records(self.memory_batch_size)
 
         # Route to post process and update method.
+        sequence_indices = records["terminals"]  # TODO: memory must return sequence_indices automatically.
         return self.update_from_external_batch(
             records["states"], records["actions"], records["rewards"], records["terminals"],
-            records["sequence_indices"], apply_postprocessing=apply_postprocessing, time_percentage=time_percentage
+            sequence_indices, apply_postprocessing=apply_postprocessing, time_percentage=time_percentage
         )
 
     # Retrieve some records from memory.
@@ -601,16 +600,18 @@ class PPOAlgorithmComponent(AlgorithmComponent):
         records = self.get_records(num_records)
         prev_state_values = self.value_function.value_output(records["states"])
 
+        sequence_indices = records["terminals"]  # TODO: make ring-buffer return sequence indices automatically
+
         if get_backend() == "tf":
             # State values before update (stop-gradient as these are used in target term).
             prev_state_values = tf.stop_gradient(prev_state_values)
 
             # Advantages are based on previous state values.
             advantages = self.gae_function.calc_gae_values(
-                prev_state_values, records["rewards"], records["terminals"], records["sequence_indices"]
+                prev_state_values, records["rewards"], records["terminals"], sequence_indices
             )
             # Advantages are based on previous state values.
             td_errors = self.gae_function.calc_td_errors(
-                prev_state_values, records["rewards"], records["terminals"], records["sequence_indices"]
+                prev_state_values, records["rewards"], records["terminals"], sequence_indices
             )
-        return prev_state_values, advantages, td_errors, records["rewards"], records["terminals"], records["sequence_indices"]
+        return prev_state_values, advantages, td_errors, records["rewards"], records["terminals"], sequence_indices
