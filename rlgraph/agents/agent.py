@@ -70,15 +70,15 @@ class Agent(Specifiable):
         # Update_spec and observe_spec are obsoleted.
         if update_spec is not None:
             raise RLGraphError(
-                "`parse_update_spec` has been obsoleted! Use the `UpdateRules` class instead. "
+                "\n`update_spec` has been obsoleted!\nUse the `UpdateRules` class instead.\n"
                 "The following translations need to be done:\n"
-                "do_updates -> do_updates\n"
-                "update_mode -> unit (`time_steps` or `episodes`)\n"
-                "update_interval -> update_every_n_units\n"
-                "update_steps -> update_repeats\n"
-                "steps_before_update -> first_update_after_n_units\n"
-                "sync_interval -> Use the new `SyncRules` class' `sync_every_n_updates` property and pass this "
-                "SyncRules (or spec) directly into the Agent\n"
+                "do_updates -> UpdateRules.do_updates\n"
+                "update_mode -> UpdateRules.unit (one of `time_steps` or `episodes`)\n"
+                "update_interval -> UpdateRules.update_every_n_units\n"
+                "update_steps -> UpdateRules.update_repeats\n"
+                "steps_before_update -> UpdateRules.first_update_after_n_units\n"
+                "sync_interval -> Use `SyncRules` class, property: `SyncRules.sync_every_n_updates` and pass this "
+                "SyncRules object (or a spec-dict thereof) directly into the Agent's ctor (`sync_rules` arg)\n"
             )
         if observe_spec is not None:
             raise RLGraphError(
