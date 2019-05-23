@@ -2,10 +2,10 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": true,
-  "clip_ratio": ["linear", 0.2, 0.1],
+  "clip_ratio": [0.2, 0.1],
   "discount": 0.95,
   "gae_lambda": 0.1,
-  "weight_entropy": ["linear", 0.01, 0.0001],
+  "weight_entropy": [0.01, 0.0001],
   "num_iterations": 10,
   "sample_size": 64,
 
@@ -21,13 +21,13 @@
   [
     {
       "type": "dense",
-      "units": 64,
+      "units": 128,
       "activation": "tanh",
       "scope": "hidden1"
     },
         {
       "type": "dense",
-      "units": 64,
+      "units": 128,
       "activation": "tanh",
       "scope": "hidden2"
     }
@@ -37,25 +37,25 @@
   [
     {
       "type": "dense",
-      "units": 64,
-      "activation": "relu",
+      "units": 32,
+      "activation": "linear",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
-      "units": 64,
-      "activation": "relu",
+      "units": 32,
+      "activation": "linear",
       "scope": "vf-hidden2"
     }
   ],
 
   "optimizer_spec": {
-    "type": "adadelta",
-    "learning_rate": ["linear", 0.0003, 0.0000001]
+    "type": "rms-prop",
+    "learning_rate": ["polynomial", 0.003, 0.000001]
   },
 
   "value_function_optimizer_spec": {
-    "type": "adadelta",
-    "learning_rate": ["linear", 0.0003, 0.0000001]
+    "type": "adam",
+    "learning_rate": ["linear", 0.003, 0.00001]
   }
 }

@@ -7,15 +7,16 @@
   "clip_ratio": 0.2,
   "discount": 0.99,
   "gae_lambda": 0.7,
+  "weight_entropy": [0.25, 0.001],
   "num_iterations": 10,
-  "sample_size": 32,
+  "sample_size": 64,
 
-  "python_buffer_size": 1000,
-  "memory_batch_size": 128,
+  "python_buffer_size": 2000,
+  "memory_batch_size": 256,
   "memory_spec":
   {
     "type": "ring-buffer",
-    "capacity": 1000
+    "capacity": 2000
   },
 
   "preprocessing_spec":
@@ -47,13 +48,13 @@
   [
     {
       "type": "dense",
-      "units": 64,
+      "units": 32,
       "activation": "linear",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
-      "units": 64,
+      "units": 32,
       "activation": "linear",
       "scope": "vf-hidden2"
     }
@@ -61,6 +62,10 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0001
+    "learning_rate": [0.001, 0.000001]
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": [0.001, 0.0001]
   }
 }

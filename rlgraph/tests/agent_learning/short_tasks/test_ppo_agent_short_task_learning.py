@@ -22,7 +22,6 @@ import os
 import unittest
 
 import numpy as np
-
 from rlgraph.agents import PPOAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
@@ -157,6 +156,8 @@ class TestPPOShortTaskLearning(unittest.TestCase):
     def test_ppo_on_4_room_grid_world(self):
         """
         Creates a PPO agent and runs it via a Runner on a 4-rooms GridWorld.
+        NOTE: This is an extremely hard environment that can only be learnt with luck, if the agent finds - by chance -
+        the bottleneck door states.
         """
         env_spec = dict(world="4-room")
         dummy_env = GridWorld.from_spec(env_spec)
@@ -176,7 +177,8 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             preprocessing_spec=preprocessing_spec,
             worker_executes_preprocessing=True,
             render=False,
-            episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs: print("Episode done return={}".format(episode_return)),
+            episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs:
+            print("Episode done return={} ts={}".format(episode_return, timesteps)),
             #update_finish_callback=lambda loss: print("Update policy+vf-loss={}".format(loss[0]))
             update_rules=dict(update_every_n_units=8)
         )
@@ -216,7 +218,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             render=False,  #self.is_windows
             episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
             print("episode return {}; steps={}".format(episode_return, timesteps)),
-            update_rules=dict(update_every_n_units=16)
+            update_rules=dict(update_every_n_units=8)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -253,7 +255,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             print("episode return {}; steps={}".format(episode_return, timesteps)),
             update_rules=dict(update_every_n_units=16)
         )
-        results = worker.execute_timesteps(num_timesteps=int(5e6), use_exploration=True)
+        results = worker.execute_timesteps(num_timesteps=int(1e6), use_exploration=True)
 
         print(results)
 
@@ -261,6 +263,9 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         """
         Creates a PPO Agent and runs it via a Runner on the Pendulum env.
         """
+        # Try if LunarLander does not work:
+        # - pip install box2d box2d-kengz
+        # - install swig (only unzip & add path).
         env = OpenAIGymEnv("LunarLander-v2")
         agent = PPOAgent.from_spec(
             config_from_path("configs/ppo_agent_for_lunar_lander.json"),
@@ -276,6 +281,6 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
             print("episode return {}; steps={}".format(episode_return, timesteps))
         )
-        results = worker.execute_timesteps(num_timesteps=int(5e6), use_exploration=True)
+        results = worker.execute_timesteps(num_timesteps=int(10000), use_exploration=True)
 
         print(results)
