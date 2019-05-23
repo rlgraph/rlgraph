@@ -17,16 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.agents.agent import Agent
-from rlgraph.agents.dqn_agent import DQNAgent
-from rlgraph.agents.dqfd_agent import DQFDAgent
-from rlgraph.agents.apex_agent import ApexAgent
-from rlgraph.agents.impala_agents import IMPALAAgent, SingleIMPALAAgent
-from rlgraph.agents.ppo_agent import PPOAgent
 from rlgraph.agents.actor_critic_agent import ActorCriticAgent
+from rlgraph.agents.agent import Agent
+from rlgraph.agents.apex_agent import ApexAgent
+from rlgraph.agents.dqfd_agent import DQFDAgent
+from rlgraph.agents.dqn_agent import DQNAgent, DQNAlgorithmComponent
+from rlgraph.agents.impala_agents import IMPALAAgent, SingleIMPALAAgent
+from rlgraph.agents.ppo_agent import PPOAgent, PPOAlgorithmComponent
 from rlgraph.agents.random_agent import RandomAgent
 from rlgraph.agents.sac_agent import SACAgent
-
+from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
 
 Agent.__lookup_classes__ = dict(
     apex=ApexAgent,
@@ -47,6 +47,16 @@ Agent.__lookup_classes__ = dict(
     sacagent=SACAgent
 )
 
+AlgorithmComponent.__lookup_classes__ = dict(
+    #dqfdlgorithmcomponent=DQFDAlgorithmComponent,
+    dqnalgorithmcomponent=DQNAlgorithmComponent,
+    ppoalgorithmcomponent=PPOAlgorithmComponent,
+    #sacalgorithmcomponent=SACAlgorithmComponent
+)
+AlgorithmComponent.__default_constructor__ = PPOAlgorithmComponent
+
+
 __all__ = ["Agent"] + \
-          list(set(map(lambda x: x.__name__, Agent.__lookup_classes__.values())))
+          list(set(map(lambda x: x.__name__, Agent.__lookup_classes__.values()))) + \
+          list(set(map(lambda x: x.__name__, list(AlgorithmComponent.__lookup_classes__.values()))))
 

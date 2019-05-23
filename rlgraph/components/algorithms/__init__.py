@@ -17,14 +17,21 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.agents.ppo_agent import PPOAlgorithmComponent
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
 
-AlgorithmComponent.__lookup_classes__ = dict(
-    ppoalgorithmcomponent=PPOAlgorithmComponent,
-)
-AlgorithmComponent.__default_constructor__ = PPOAlgorithmComponent
+#from rlgraph.agents.dqfd_agent import DQFDAlgorithmComponent
+#from rlgraph.agents.dqn_agent import DQNAlgorithmComponent
+#from rlgraph.agents.ppo_agent import PPOAlgorithmComponent
+#from rlgraph.agents.sac_agent import SACAlgorithmComponent
+
+#AlgorithmComponent.__lookup_classes__ = dict(
+#    dqfdlgorithmcomponent=DQFDAlgorithmComponent,
+#    dqnalgorithmcomponent=DQNAlgorithmComponent,
+#    ppoalgorithmcomponent=PPOAlgorithmComponent,
+#    sacalgorithmcomponent=SACAlgorithmComponent
+#)
+#AlgorithmComponent.__default_constructor__ = PPOAlgorithmComponent
 
 
-__all__ = ["AlgorithmComponent", "PPOAlgorithmComponent"]
-
+__all__ = ["AlgorithmComponent"] #+ \
+          #list(set(map(lambda x: x.__name__, list(AlgorithmComponent.__lookup_classes__.values()))))

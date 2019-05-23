@@ -109,6 +109,8 @@ class AlgorithmComponent(Component):
             self.vars_merger = ContainerMerger("policy", scope="variable-dict-merger")
             self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
 
+        # Optional exploration object. None if no exploration needed (usually None for PG algos, as they use
+        # stochastic policies, not epsilon greedy Q).
         self.exploration = Exploration.from_spec(exploration_spec)
 
         # An object implementing the loss function interface is only strictly needed
@@ -201,7 +203,7 @@ class AlgorithmComponent(Component):
         return states
 
     @rlgraph_api
-    def get_actions(self, states, deterministic=False):
+    def get_actions(self, states, deterministic=False, time_percentage=None):
         """
         Args:
             states (DataOpRec): The states from which to derive actions (via mapping through the policy's NNs).
@@ -215,10 +217,10 @@ class AlgorithmComponent(Component):
                 `[other data]`: Depending on the AlgorithmComponent.
         """
         preprocessed_states = self.get_preprocessed_states(states)
-        return self.get_actions_from_preprocessed_states(preprocessed_states, deterministic)
+        return self.get_actions_from_preprocessed_states(preprocessed_states, deterministic, time_percentage)
 
     @rlgraph_api
-    def get_actions_from_preprocessed_states(self, preprocessed_states, deterministic=False):
+    def get_actions_from_preprocessed_states(self, preprocessed_states, deterministic=False, time_percentage=None):
         """
         Args:
             preprocessed_states (DataOpRec): The already preprocessed states from which to derive actions
@@ -233,6 +235,8 @@ class AlgorithmComponent(Component):
                 `[other data]`: Depending on the AlgorithmComponent.
         """
         out = self.policy.get_action(preprocessed_states, deterministic=deterministic)
+        if self.exploration is not None:
+            out["action"] = self.exploration.get_action(out["action"], time_percentage, not deterministic)
         return dict(actions=out["action"], preprocessed_states=preprocessed_states)
 
     @rlgraph_api
@@ -286,8 +290,8 @@ class AlgorithmComponent(Component):
     def preprocess_states(self, nn_inputs):
         raise RLGraphObsoletedError("API-method", "preprocess_states", "get_preprocessed_states")
 
-    def get_preprocessed_state_and_action(self, nn_inputs):
-        raise RLGraphObsoletedError("API-method", "get_preprocessed_state_and_action", "get_actions")
+    def get_preprocessed_state_and_action(self, states, time_percentage=None, use_exploration=True):
+        raise RLGraphObsoletedError("API-method", "get_preprocessed_state_and_action", "get_actions(deterministic=not use_exploration!)")
 
-    def action_from_preprocessed_state(self, nn_inputs):
-        raise RLGraphObsoletedError("API-method", "action_from_preprocessed_state", "get_actions_from_preprocessed_states")
+    def action_from_preprocessed_state(self, preprocessed_states, time_percentage=None, use_exploration=True):
+        raise RLGraphObsoletedError("API-method", "action_from_preprocessed_state", "get_actions_from_preprocessed_states(deterministic=not use_exploration!)")

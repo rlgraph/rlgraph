@@ -189,10 +189,10 @@ class DQFDAgent(Agent):
         extra_returns = [extra_returns] if isinstance(extra_returns, str) else (extra_returns or [])
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
-            call_method = "get_preprocessed_state_and_action"
+            call_method = "get_actions"
             batched_states = self.state_space.force_batch(states)
         else:
-            call_method = "action_from_preprocessed_state"
+            call_method = "get_actions_from_preprocessed_states"
             batched_states = states
         remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
@@ -202,7 +202,7 @@ class DQFDAgent(Agent):
 
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, not use_exploration, self.timesteps],
             # Control, which return value to "pull" (depending on `additional_returns`).
             ["actions"] + list(extra_returns)
         ))
@@ -400,19 +400,6 @@ class DQFDAlgorithmComponent(AlgorithmComponent):
         self.add_components(
             self.memory, self.demo_memory, self.target_policy, self.loss_function
         )
-
-    # Act from preprocessed states.
-    @rlgraph_api
-    def action_from_preprocessed_state(self, preprocessed_states, time_percentage=None, use_exploration=True):
-        sample_deterministic = self.policy.get_deterministic_action(preprocessed_states)
-        actions = self.exploration.get_action(sample_deterministic["action"], time_percentage, use_exploration)
-        return actions, preprocessed_states
-
-    # State (from environment) to action with preprocessing.
-    @rlgraph_api
-    def get_preprocessed_state_and_action(self, states, time_percentage=None, use_exploration=True):
-        preprocessed_states = self.preprocessor.preprocess(states)
-        return self.action_from_preprocessed_state(preprocessed_states, time_percentage, use_exploration)
 
     # Insert into memory.
     @rlgraph_api

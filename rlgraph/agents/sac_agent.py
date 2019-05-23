@@ -209,7 +209,7 @@ class SACAgent(Agent):
 
         ret = force_list(self.graph_executor.execute((
             call_method,
-            [batched_states, not use_exploration],  # deterministic = not use_exploration
+            [batched_states, not use_exploration, time_percentage],  # deterministic = not use_exploration
             # Control, which return value to "pull" (depending on `additional_returns`).
             extra_returns
         )))

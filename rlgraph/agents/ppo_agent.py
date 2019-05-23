@@ -221,7 +221,7 @@ class PPOAgent(Agent):
         return_ops = ["actions"] + list(extra_returns)
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, not use_exploration],  # deterministic = not use_exploration
+            [batched_states, not use_exploration, time_percentage],  # deterministic = not use_exploration
             # 0=preprocessed_states, 1=action
             return_ops
         ))
