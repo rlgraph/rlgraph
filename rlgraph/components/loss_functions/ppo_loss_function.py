@@ -125,8 +125,7 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                ratio = tf.squeeze(ratio, axis=-1)
-                entropy = tf.squeeze(entropy, axis=-1)
+                advantages = tf.expand_dims(advantages, axis=-1)
 
             clipped_advantages = tf.where(
                 condition=advantages > 0,
@@ -140,8 +139,8 @@ class PPOLossFunction(LossFunction):
             loss -= self.weight_entropy.get(time_percentage) * entropy
 
             # Reduce over the composite actions, if any.
-            #if self.ranks_to_reduce > 0:
-            #    loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
+            if self.ranks_to_reduce > 0:
+                loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
 
             return loss
 
@@ -151,8 +150,7 @@ class PPOLossFunction(LossFunction):
 
             # Make sure the pg_advantages vector (batch) is broadcast correctly.
             for _ in range(get_rank(ratio) - 1):
-                ratio = torch.squeeze(ratio, dim=-1)
-                entropy = torch.squeeze(entropy, dim=-1)
+                advantages = torch.unsqueeze(advantages, -1)
 
             clipped_advantages = torch.where(
                 advantages > 0,
