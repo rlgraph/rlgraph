@@ -17,3 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from rlgraph.agents.ppo_agent import PPOAlgorithmComponent
+from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
+
+AlgorithmComponent.__lookup_classes__ = dict(
+    ppoalgorithmcomponent=PPOAlgorithmComponent,
+)
+AlgorithmComponent.__default_constructor__ = PPOAlgorithmComponent
+
+
+__all__ = ["AlgorithmComponent", "PPOAlgorithmComponent"]
+
