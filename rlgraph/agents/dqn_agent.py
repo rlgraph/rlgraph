@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, PrioritizedReplay, DQNLossFunction
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
@@ -47,7 +46,6 @@ class DQNAgent(Agent):
         *,  # Force all following args as named.
         discount=0.98,
         python_buffer_size=0,
-        custom_python_buffers=None,
         memory_batch_size=None,
         double_q=True,
         dueling_q=True,
