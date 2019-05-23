@@ -13,13 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
-from rlgraph.agents import DQNAgent
+from rlgraph.agents.dqn_agent import DQNAgent
 from rlgraph.utils import util
 
 

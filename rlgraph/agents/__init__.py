@@ -13,12 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-from rlgraph.agents.actor_critic_agent import ActorCriticAgent
 from rlgraph.agents.agent import Agent
+from rlgraph.agents.actor_critic_agent import ActorCriticAgent
 from rlgraph.agents.apex_agent import ApexAgent
 from rlgraph.agents.dqfd_agent import DQFDAgent
 from rlgraph.agents.dqn_agent import DQNAgent, DQNAlgorithmComponent

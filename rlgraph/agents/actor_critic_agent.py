@@ -13,13 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
-from rlgraph.agents import Agent
+from rlgraph.agents.agent import Agent
 from rlgraph.components import Memory, RingBuffer
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation

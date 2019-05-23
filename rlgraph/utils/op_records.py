@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import inspect
 
@@ -629,8 +627,8 @@ def get_call_param_name(op_rec):
                 param_name = op_rec.kwarg
             else:
                 raise RLGraphAPICallParamError(
-                    "Op-rec's kwarg ({}) is not an parameter of API-method {}'s signature!".
-                    format(op_rec.kwarg, api_method_rec.name)
+                    "Op-rec's kwarg ({}) is not a parameter of API-method {}/{}'s signature!".
+                    format(op_rec.kwarg, api_method_rec.component.global_scope, api_method_rec.name)
                 )
 
     return param_name
