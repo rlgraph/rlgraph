@@ -28,7 +28,6 @@ from rlgraph.components.neural_networks.value_function import ValueFunction
 from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox, IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
-from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.ops import flatten_op, DataOpTuple
 from rlgraph.utils.util import strip_list, force_list
@@ -59,6 +58,7 @@ class SACAgent(Agent):
         value_function_optimizer_spec=None,
         observe_spec=None,
         update_spec=None,
+        sync_rules=None,
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
@@ -123,28 +123,11 @@ class SACAgent(Agent):
         )
 
         self.double_q = double_q
-        #self.target_entropy = target_entropy
-        #self.initial_alpha = initial_alpha
-
-        # Assert that the synch interval is a multiple of the update_interval.
-        # TODO: pass all these in directly as normal SAC properties.
-        if "sync_interval" in self.update_spec:
-            if self.update_spec["sync_interval"] / self.update_spec["update_interval"] != \
-                    self.update_spec["sync_interval"] // self.update_spec["update_interval"]:
-                raise RLGraphError(
-                    "ERROR: sync_interval ({}) must be multiple of update_interval "
-                    "({})!".format(self.update_spec["sync_interval"], self.update_spec["update_interval"])
-                )
-        elif "sync_tau" in self.update_spec:
-            if self.update_spec["sync_tau"] <= 0 or self.update_spec["sync_tau"] > 1.0:
-                raise RLGraphError(
-                    "sync_tau ({}) must be in interval (0.0, 1.0]!".format(self.update_spec["sync_tau"])
-                )
-        else:
-            self.update_spec["sync_tau"] = 0.005  # The value mentioned in the paper
-
-        #self.num_iterations = self.update_spec["num_iterations"]
-        #self.batch_size = self.update_spec["batch_size"]
+        # Keep track of when to sync the target network (every n updates).
+        if isinstance(sync_rules, dict) and "sync_tau" not in sync_rules:
+            sync_rules["sync_tau"] = 0.005  # The value mentioned in the paper
+        self.sync_rules = SyncRules.from_spec(sync_rules)
+        self.steps_since_target_net_sync = 0
 
         self.root_component = SACAlgorithmComponent(
             agent=self,
@@ -185,11 +168,9 @@ class SACAgent(Agent):
         ))
 
         if auto_build is True:
-            build_options = dict(optimizers=self.root_component.all_optimizers)
-            self.build(build_options=build_options)
+            self.build(build_options=dict(optimizers=self.root_component.all_optimizers))
 
     def set_weights(self, policy_weights, value_function_weights=None):
-        # TODO: Overrides parent but should this be policy of value function?
         return self.graph_executor.execute((self.root_component.set_policy_weights, policy_weights))
 
     def get_weights(self):
@@ -212,7 +193,7 @@ class SACAgent(Agent):
                 - action
                 - the preprocessed states
         """
-        extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
+        extra_returns = [extra_returns] if isinstance(extra_returns, str) else (extra_returns or list())
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
             call_method = "get_actions"
@@ -226,14 +207,13 @@ class SACAgent(Agent):
         batch_size = len(batched_states)
         self.timesteps += batch_size
 
-        # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]
         ret = force_list(self.graph_executor.execute((
             call_method,
             [batched_states, not use_exploration],  # deterministic = not use_exploration
-            # 0=preprocessed_states, 1=action
-            return_ops
+            # Control, which return value to "pull" (depending on `additional_returns`).
+            extra_returns
         )))
+
         # Convert Gumble (relaxed one-hot) sample back into int type for all discrete composite actions.
         if isinstance(self.action_space, ContainerSpace):
             ret[0] = ret[0].map(
@@ -263,9 +243,7 @@ class SACAgent(Agent):
             # TODO: is this necessary?
             #if size < self.batch_size:
             #    return 0.0, 0.0, 0.0
-            ret = self.graph_executor.execute(
-                ("update_from_memory", [time_percentage])
-            )
+            ret = self.graph_executor.execute(("update_from_memory", [time_percentage]))
         else:
             # No sequence indices means terminals are used in place.
             batch_input = [
@@ -294,17 +272,16 @@ class SACAgent(Agent):
 
 
 class SACAlgorithmComponent(AlgorithmComponent):
-    def __init__(self, agent, memory_spec, q_function, initial_alpha=1.0, gumbel_softmax_temperature=1.0,
+    def __init__(self, agent, memory_spec, q_function_spec, initial_alpha=1.0, gumbel_softmax_temperature=1.0,
                  target_entropy=None, q_sync_rules=None, num_q_functions=2,
                  scope="sac-agent-component", **kwargs):
 
         # If VF spec is a network spec, wrap with SAC vf type. The VF must concatenate actions and states,
         # which can require splitting the network in the case of e.g. conv-inputs.
-        value_function_spec = kwargs.pop("value_function_spec", None)
-        if isinstance(value_function_spec, list):
-            value_function_spec = dict(type="sac_value_function", network_spec=value_function_spec)
+        if isinstance(q_function_spec, list):
+            q_function_spec = dict(type="sac_value_function", network_spec=q_function_spec)
             self.logger.info("Using default SAC value function.")
-        elif isinstance(value_function_spec, ValueFunction):
+        elif isinstance(q_function_spec, ValueFunction):
             self.logger.info("Using value function object {}".format(ValueFunction))
 
         policy_spec = kwargs.pop("policy_spec", None)
@@ -320,32 +297,37 @@ class SACAlgorithmComponent(AlgorithmComponent):
             ))
 
         super(SACAlgorithmComponent, self).__init__(
-            agent, policy_spec=policy_spec, value_function_spec=value_function_spec, scope=scope, **kwargs
+            agent, policy_spec=policy_spec, value_function_spec=q_function_spec, scope=scope, **kwargs
         )
+        # Make base value_function (template for all our q-functions) synchronizable.
+        if "synchronizable" not in self.value_function.sub_components:
+            self.value_function.add_components(Synchronizable(), expose_apis="sync")
 
-        if q_sync_rules is None:
-            q_sync_rules = SyncRules(
-                sync_every_n_updates=self.agent.update_spec["sync_interval"] // self.agent.update_spec["update_interval"],
-                sync_tau=self.agent.update_spec["sync_tau"] if "sync_tau" in self.agent.update_spec else 5e-3
-            )
+        self.q_sync_rules = SyncRules.from_spec(q_sync_rules)
+        #if q_sync_rules is None:
+        #    q_sync_rules = SyncRules(
+        #        sync_every_n_updates=self.agent.update_spec["sync_interval"] // self.agent.update_spec["update_interval"],
+        #        sync_tau=self.agent.update_spec["sync_tau"] if "sync_tau" in self.agent.update_spec else 5e-3
+        #    )
 
         self.memory = Memory.from_spec(memory_spec)
-        self.q_functions = [q_function] + \
-                           [q_function.copy(scope="{}-{}".format(q_function.scope, i + 1), trainable=True)
-                            for i in range(num_q_functions - 1)]
+        self.q_functions = [self.value_function] + [
+            self.value_function.copy(scope="{}-{}".format(self.value_function.scope, i + 1), trainable=True)
+            for i in range(num_q_functions - 1)
+        ]
 
         # Set number of return values for get_q_values graph_fn.
         self.graph_fn_num_outputs["_graph_fn_get_q_values"] = num_q_functions
 
-        for q in self.q_functions:
-            # TODO: is there a better way to do this?
-            if "synchronizable" not in q.sub_components:
-                q.add_components(Synchronizable(), expose_apis="sync")
+        #for q in self.q_functions:
+        #    # TODO: is there a better way to do this?
+        #    if "synchronizable" not in q.sub_components:
+        #        q.add_components(Synchronizable(), expose_apis="sync")
         self.target_q_functions = [q.copy(scope="target-" + q.scope, trainable=True) for q in self.q_functions]
-        for target_q in self.target_q_functions:
-            # TODO: is there a better way to do this?
-            if "synchronizable" not in target_q.sub_components:
-                target_q.add_components(Synchronizable(), expose_apis="sync")
+        #for target_q in self.target_q_functions:
+        #    # TODO: is there a better way to do this?
+        #    if "synchronizable" not in target_q.sub_components:
+        #        target_q.add_components(Synchronizable(), expose_apis="sync")
 
         self.target_entropy = target_entropy
         self.alpha_optimizer = self.optimizer.copy(scope="alpha-" + self.optimizer.scope) if self.target_entropy is not None else None
@@ -405,8 +387,10 @@ class SACAlgorithmComponent(AlgorithmComponent):
 
     @rlgraph_api
     def insert_records(self, preprocessed_states, env_actions, rewards, next_states, terminals):
-        records = dict(states=preprocessed_states, env_actions=env_actions, rewards=rewards, next_states=next_states,
-                       terminals=terminals)
+        records = dict(
+            states=preprocessed_states, env_actions=env_actions, rewards=rewards, next_states=next_states,
+            terminals=terminals
+        )
         return self.memory.insert_records(records)
 
     @rlgraph_api
@@ -576,7 +560,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
         else:
             raise NotImplementedError("TODO")
 
-    # TODO: Move this logic into Agent API?
+    # TODO: Move `should_sync` logic into Agent (python side?).
     @graph_fn(returns=1, requires_variable_completeness=True)
     def _graph_fn_sync(self, should_sync):
         assign_ops = []

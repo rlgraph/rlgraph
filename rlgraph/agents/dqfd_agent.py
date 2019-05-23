@@ -220,6 +220,7 @@ class DQFDAgent(Agent):
                apply_demo_loss_to_batch=False):
         """
         Updates from external batch or replay memory.
+
         Args:
             batch (Optional[dict]): Optional dict to use for updating. If false, samples from replay memory
             update_from_demos (bool): If true, also updates from demo memory by sampling demonstrations from
