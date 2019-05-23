@@ -24,6 +24,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph.components import PreprocessorStack
+from rlgraph.execution.rules.update_rules import UpdateRules
 from rlgraph.execution.worker import Worker
 from rlgraph.spaces.containers import Dict, Tuple
 from rlgraph.utils.rlgraph_errors import RLGraphError
@@ -171,6 +172,8 @@ class SingleThreadedWorker(Worker):
         # Are we updating or just acting/observing?
         if update_rules is None:
             update_rules = self.update_rules
+        else:
+            update_rules = UpdateRules.from_spec(update_rules)
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
