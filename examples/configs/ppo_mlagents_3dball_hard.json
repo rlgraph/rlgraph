@@ -2,10 +2,10 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": false,
-  "clip_ratio": [0.2, 0.1],
+  "clip_ratio": 0.1,
   "discount": 0.995,
   "gae_lambda": 0.8,
-  "weight_entropy": [0.1, 0.001],
+  "weight_entropy": 0.001,
 
   "memory_spec":
   {
@@ -54,7 +54,6 @@
     }
   ],
 
-
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
@@ -66,10 +65,6 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": [0.01, 0.00025]
-  },
-  "value_function_optimizer_spec": {
-    "type": "adam",
-    "learning_rate": [0.01, 0.00025]
+    "learning_rate": [0.0005, 0.000001]
   }
 }
