@@ -27,14 +27,13 @@ from rlgraph import get_backend
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.spaces import Space, ContainerSpace
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.input_parsing import parse_execution_spec
 from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
 
 if get_backend() == "tf":
-    import tensorflow as tf
+    pass
 
 
 class Agent(Specifiable):
@@ -66,9 +65,9 @@ class Agent(Specifiable):
             max_timesteps (Optional[int]): An optional max timesteps hint for Workers.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
-
             name (str): Some name for this Agent object.
         """
+        # Update_spec and observe_spec are obsoleted.
         if update_spec is not None:
             raise RLGraphError(
                 "`parse_update_spec` has been obsoleted! Use the `UpdateRules` class instead. "
@@ -114,13 +113,16 @@ class Agent(Specifiable):
 
         # Global time step counter.
         self.timesteps = 0
-        self.max_timesteps = max_timesteps
         # Global updates counter.
         self.num_updates = 0
+        # An optional maximum timestep value to use by Workers to figure out `time_percentage` in calls to
+        # `update()` and `get_action()`.
+        self.max_timesteps = max_timesteps
 
+        # TODO: Create spec class for execution spec.
         self.execution_spec = parse_execution_spec(execution_spec)
 
-        # Python-side buffering enabled?
+        # Python-side buffering enabled and how large?
         self.python_buffer_size = python_buffer_size
 
         # Python-side experience buffer for better performance (may be disabled).
@@ -180,74 +182,74 @@ class Agent(Specifiable):
             del self.custom_buffers[key][env_id]
 
     # TODO: To be obsoleted once all Agents use their own AgentComponents.
-    def define_graph_api(self, *args, **kwargs):
-        """
-        Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
-        Each agent implements this to build its algorithm logic.
-        """
-        agent = self
+    #def define_graph_api(self, *args, **kwargs):
+    #    """
+    #    Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
+    #    Each agent implements this to build its algorithm logic.
+    #    """
+    #    agent = self
 
-        if self.value_function is not None:
-            # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
-            # value-function never performs any forward pass (only used as variable storage).
-            @rlgraph_api(component=self.root_component)
-            def get_state_values(root, preprocessed_states):
-                vf = root.get_sub_component_by_name(agent.value_function.scope)
-                return vf.value_output(preprocessed_states)
+    #    if self.value_function is not None:
+    #        # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
+    #        # value-function never performs any forward pass (only used as variable storage).
+    #        @rlgraph_api(component=self.root_component)
+    #        def get_state_values(root, preprocessed_states):
+    #            vf = root.get_sub_component_by_name(agent.value_function.scope)
+    #            return vf.value_output(preprocessed_states)
 
-        # Add API methods for syncing.
-        @rlgraph_api(component=self.root_component)
-        def get_weights(root):
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            policy_weights = policy.variables()
-            value_function_weights = None
-            if agent.value_function is not None:
-                value_func = root.get_sub_component_by_name(agent.value_function.scope)
-                value_function_weights = value_func.variables()
-            return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
+    #    # Add API methods for syncing.
+    #    @rlgraph_api(component=self.root_component)
+    #    def get_weights(root):
+    #        policy = root.get_sub_component_by_name(agent.policy.scope)
+    #        policy_weights = policy.variables()
+    #        value_function_weights = None
+    #        if agent.value_function is not None:
+    #            value_func = root.get_sub_component_by_name(agent.value_function.scope)
+    #            value_function_weights = value_func.variables()
+    #        return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
 
-        @rlgraph_api(component=self.root_component, must_be_complete=False)
-        def set_weights(root, policy_weights, value_function_weights=None):
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            policy_sync_op = policy.sync(policy_weights)
-            if value_function_weights is not None:
-                assert agent.value_function is not None
-                vf = root.get_sub_component_by_name(agent.value_function.scope)
-                vf_sync_op = vf.sync(value_function_weights)
-                return root._graph_fn_group(policy_sync_op, vf_sync_op)
-            else:
-                return policy_sync_op
+    #    @rlgraph_api(component=self.root_component, must_be_complete=False)
+    #    def set_weights(root, policy_weights, value_function_weights=None):
+    #        policy = root.get_sub_component_by_name(agent.policy.scope)
+    #        policy_sync_op = policy.sync(policy_weights)
+    #        if value_function_weights is not None:
+    #            assert agent.value_function is not None
+    #            vf = root.get_sub_component_by_name(agent.value_function.scope)
+    #            vf_sync_op = vf.sync(value_function_weights)
+    #            return root._graph_fn_group(policy_sync_op, vf_sync_op)
+    #        else:
+    #            return policy_sync_op
 
-        # To pre-process external data if needed.
-        @rlgraph_api(component=self.root_component)
-        def preprocess_states(root, states):
-            preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
-            return preprocessor_stack.preprocess(states)
+    #    # To pre-process external data if needed.
+    #    @rlgraph_api(component=self.root_component)
+    #    def preprocess_states(root, states):
+    #        preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
+    #        return preprocessor_stack.preprocess(states)
 
-        @graph_fn(component=self.root_component)
-        def _graph_fn_training_step(root, other_step_op=None):
-            """
-            Increases the global training timestep by 1. Should be called by all training API-methods to
-            timestamp each training/update step.
+    #    @graph_fn(component=self.root_component)
+    #    def _graph_fn_training_step(root, other_step_op=None):
+    #        """
+    #        Increases the global training timestep by 1. Should be called by all training API-methods to
+    #        timestamp each training/update step.
 
-            Args:
-                other_step_op (Optional[DataOp]): Another DataOp (e.g. a step_op) which should be
-                    executed before the increase takes place.
+    #        Args:
+    #            other_step_op (Optional[DataOp]): Another DataOp (e.g. a step_op) which should be
+    #                executed before the increase takes place.
 
-            Returns:
-                DataOp: no_op() or identity(other_step_op) in tf, None in pytorch.
-            """
-            if get_backend() == "tf":
-                add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
-                op_list = [add_op] + [other_step_op] if other_step_op is not None else []
-                with tf.control_dependencies(op_list):
-                    if other_step_op is None or hasattr(other_step_op, "type") and other_step_op.type == "NoOp":
-                        return tf.no_op()
-                    else:
-                        return tf.identity(other_step_op)
-            elif get_backend == "pytorch":
-                self.graph_executor.global_training_timestep += 1
-                return None
+    #        Returns:
+    #            DataOp: no_op() or identity(other_step_op) in tf, None in pytorch.
+    #        """
+    #        if get_backend() == "tf":
+    #            add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
+    #            op_list = [add_op] + [other_step_op] if other_step_op is not None else []
+    #            with tf.control_dependencies(op_list):
+    #                if other_step_op is None or hasattr(other_step_op, "type") and other_step_op.type == "NoOp":
+    #                    return tf.no_op()
+    #                else:
+    #                    return tf.identity(other_step_op)
+    #        elif get_backend == "pytorch":
+    #            self.graph_executor.global_training_timestep += 1
+    #            return None
 
     #def _build_graph(self, root_components, input_spaces, **kwargs):
     #    """
@@ -552,6 +554,7 @@ class Agent(Specifiable):
         """
         self.graph_executor.terminate()
 
+    # TODO: This one is never used anywhere. Either delete it, or make use of it instead of `self.graph_executor.execute`
     def call_api_method(self, op, inputs=None, return_ops=None):
         """
         Utility method to call any desired api method on the graph, identified via output socket.
