@@ -7,18 +7,11 @@
   "clip_ratio": 0.2,
   "discount": 0.99,
   "gae_lambda": 0.7,
-
-  "update_spec": {
-    "do_updates": true,
-    "update_mode": "time_steps",
-    "update_interval": 16,
-    "batch_size": 128,
-    "num_iterations": 10,
-    "sample_size": 32
-  },
+  "num_iterations": 10,
+  "sample_size": 32,
 
   "python_buffer_size": 1000,
-
+  "memory_batch_size": 128,
   "memory_spec":
   {
     "type": "ring-buffer",

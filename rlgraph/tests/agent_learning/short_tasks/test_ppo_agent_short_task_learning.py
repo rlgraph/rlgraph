@@ -108,7 +108,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=True,
             render=False
         )
-        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        results = worker.execute_timesteps(time_steps, use_exploration=True, update_rules=dict(update_every_n_units=16))
 
         print(results)
 
@@ -137,6 +137,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             preprocessing_spec=GridWorld.grid_world_4x4_preprocessing_spec,
             episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs: print(
                 "Episode done return={} timesteps={}".format(episode_return, timesteps)),
+            update_rules=dict(update_every_n_units=8)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -151,7 +152,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 4)
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], -6.0)
+        self.assertGreater(results["mean_episode_reward"], -1.0)
 
     def test_ppo_on_4_room_grid_world(self):
         """
@@ -177,6 +178,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             render=False,
             episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs: print("Episode done return={}".format(episode_return)),
             #update_finish_callback=lambda loss: print("Update policy+vf-loss={}".format(loss[0]))
+            update_rules=dict(update_every_n_units=8)
         )
         results = worker.execute_episodes(
             num_episodes=episodes, max_timesteps_per_episode=10000, use_exploration=True
@@ -206,14 +208,15 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        time_steps = 5000
+        time_steps = 3000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
             render=False,  #self.is_windows
             episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
-            print("episode return {}; steps={}".format(episode_return, timesteps))
+            print("episode return {}; steps={}".format(episode_return, timesteps)),
+            update_rules=dict(update_every_n_units=16)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -247,7 +250,8 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=True,
             render=False, #self.is_windows,
             episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
-            print("episode return {}; steps={}".format(episode_return, timesteps))
+            print("episode return {}; steps={}".format(episode_return, timesteps)),
+            update_rules=dict(update_every_n_units=16)
         )
         results = worker.execute_timesteps(num_timesteps=int(5e6), use_exploration=True)
 
@@ -259,7 +263,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         """
         env = OpenAIGymEnv("LunarLander-v2")
         agent = PPOAgent.from_spec(
-            config_from_path("configs/ppo_agent_for_pendulum.json"),
+            config_from_path("configs/ppo_agent_for_lunar_lander.json"),
             state_space=env.state_space,
             action_space=env.action_space
         )
