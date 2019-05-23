@@ -6,11 +6,11 @@
   "weight_entropy": 0.01,
 
   "python_buffer_size": 200,
-
+  "memory_batch_size": 32,
   "memory_spec":
   {
     "type": "ring_buffer",
-    "capacity": 10000
+    "capacity": 1000
   },
 
   "preprocessing_spec":
@@ -47,19 +47,8 @@
     }
   ],
 
-  "update_spec": {
-    "update_mode": "episodes",
-    "do_updates": true,
-    "update_interval": 32,
-    "batch_size": 32
-  },
-
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0025
-  },
-  "value_function_optimizer_spec": {
-    "type": "adam",
-    "learning_rate": 0.0025
+    "learning_rate": [0.01, 0.001]
   }
 }

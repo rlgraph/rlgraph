@@ -22,11 +22,13 @@ import os
 import unittest
 
 import numpy as np
+
 from rlgraph.agents import ActorCriticAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.utils import root_logger
+from rlgraph.utils.numpy import one_hot
 
 
 class TestActorCriticShortTaskLearning(unittest.TestCase):
@@ -56,25 +58,29 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=True,
             preprocessing_spec=GridWorld.grid_world_2x2_preprocessing_spec
         )
-        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        results = worker.execute_timesteps(
+            time_steps,
+            use_exploration=True,
+            update_rules=dict(unit="episodes", update_every_n_units=4)
+        )
 
         print(results)
 
         # Check value function outputs for states 0 and 1.
         values = agent.graph_executor.execute(
-            ("get_state_values", np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]]))
-        )[0]
-        recursive_assert_almost_equal(values[0], 0.0, decimals=1)  # state 0 should have a value of 0.0
+            ("get_state_values", one_hot(np.array([0, 1]), depth=4))
+        )
+        recursive_assert_almost_equal(values[0], 0.9, decimals=1)  # state 0 should have a value of 0.9
         recursive_assert_almost_equal(values[1], 1.0, decimals=1)  # state 1 should have a value of +1.0
 
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], -0.1)
+        self.assertGreater(results["mean_episode_reward"], 0.0)
 
     def test_actor_critic_on_cart_pole(self):
         """
         Creates an Actor-critic and runs it via a Runner on the CartPole Env.
         """
-        env_spec = dict(type="open-ai-gym", gym_env="CartPole-v0", visualize=False)  #self.is_windows)
+        env_spec = dict(type="openai-gym", gym_env="CartPole-v0", visualize=False)
         dummy_env = OpenAIGymEnv.from_spec(env_spec)
         agent = ActorCriticAgent.from_spec(
             config_from_path("configs/actor_critic_agent_for_cartpole.json"),
@@ -82,11 +88,12 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
             action_space=dummy_env.action_space
         )
 
-        time_steps = 20000
+        time_steps = 3000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
-            worker_executes_preprocessing=False
+            worker_executes_preprocessing=False,
+            update_rules=dict(unit="episodes", update_every_n_units=16)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -94,8 +101,8 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], 20)
-        self.assertGreaterEqual(results["max_episode_reward"], 100.0)
-        #self.assertLessEqual(results["episodes_executed"], time_steps / 30)
+        self.assertGreaterEqual(results["mean_episode_reward"], 35.0)
+        self.assertGreaterEqual(results["max_episode_reward"], 80.0)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 30)
 
 

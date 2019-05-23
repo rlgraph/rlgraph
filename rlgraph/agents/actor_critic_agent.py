@@ -166,7 +166,7 @@ class ActorCriticAgent(Agent):
         #if time_percentage is None:
         #    time_percentage = self.timesteps / (self.max_timesteps or 1e6)
 
-        extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
+        extra_returns = [extra_returns] if isinstance(extra_returns, str) else (extra_returns or list())
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
             call_method = "get_preprocessed_state_and_action"
@@ -180,12 +180,11 @@ class ActorCriticAgent(Agent):
         batch_size = len(batched_states)
         self.timesteps += batch_size
 
-        # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
             [batched_states, not use_exploration],  # deterministic = not use_exploration
-            return_ops
+            # Control, which return value to "pull" (depending on `extra_returns`).
+            ["actions"] + extra_returns
         ))
         if remove_batch_rank:
             return strip_list(ret)
@@ -220,11 +219,7 @@ class ActorCriticAgent(Agent):
         self.num_updates += 1
 
         if batch is None:
-            ret = self.graph_executor.execute(("update_from_memory", [None, time_percentage]))
-
-            # Remove unnecessary return dicts (e.g. sync-op).
-            if isinstance(ret, dict):
-                ret = ret["update_from_memory"]
+            ret = self.graph_executor.execute(("update_from_memory", [time_percentage]))
         else:
             # No sequence indices means terminals are used in place.
             if sequence_indices is None:
@@ -238,14 +233,8 @@ class ActorCriticAgent(Agent):
             # Execute post-processing or already post-processed by workers?
             if apply_postprocessing:
                 ret = self.graph_executor.execute(("post_process_and_update", batch_input))
-                # Remove unnecessary return dicts (e.g. sync-op).
-                if isinstance(ret, dict):
-                    ret = ret["post_process_and_update"]
             else:
                 ret = self.graph_executor.execute(("update_from_external_batch", batch_input))
-                # Remove unnecessary return dicts (e.g. sync-op).
-                if isinstance(ret, dict):
-                    ret = ret["update_from_external_batch"]
 
         return ret["loss"] + ret["vf_loss"], ret["loss_per_item"] + ret["vf_loss_per_item"]
 
@@ -293,7 +282,7 @@ class ActorCriticAlgorithmComponent(AlgorithmComponent):
     @rlgraph_api
     def action_from_preprocessed_state(self, preprocessed_states, deterministic=False):
         out = self.policy.get_action(preprocessed_states, deterministic=deterministic)
-        return out["action"], preprocessed_states
+        return dict(actions=out["action"], preprocessed_states=preprocessed_states)
 
     # State (from environment) to action with preprocessing.
     @rlgraph_api
@@ -320,9 +309,10 @@ class ActorCriticAlgorithmComponent(AlgorithmComponent):
             records = self.memory.get_episodes(self.memory_batch_size)
         else:
             records = self.memory.get_records(self.memory_batch_size)
+        sequence_indices = records["terminals"]  # TODO: return sequence_indeces from memory (optionally)
         return self.post_process_and_update(
             records["states"], records["actions"], records["rewards"], records["terminals"],
-            records["sequence_indices"], time_percentage
+            sequence_indices, time_percentage
         )
 
     # First post-process, then update (so we can separately update already post-processed data).
