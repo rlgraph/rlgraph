@@ -35,10 +35,8 @@ class LocalOptimizer(Optimizer):
     A local optimizer performs optimization irrespective of any distributed semantics, i.e.
     it has no knowledge of other machines and does not implement any communications with them.
     """
-    def __init__(self, learning_rate, clip_grad_norm=None, **kwargs):
-        super(LocalOptimizer, self).__init__(
-            learning_rate=learning_rate, scope=kwargs.pop("scope", "local-optimizer"), **kwargs
-        )
+    def __init__(self, learning_rate, clip_grad_norm=None, scope="local-optimizer", **kwargs):
+        super(LocalOptimizer, self).__init__(learning_rate=learning_rate, scope=scope, **kwargs)
 
         self.clip_grad_norm = clip_grad_norm
         if self.clip_grad_norm is not None:
@@ -116,18 +114,12 @@ class GradientDescentOptimizer(LocalOptimizer):
     Classic gradient descent optimizer:
     "Stochastic Estimation of the Maximum of a Regression Function." - Kiefer and Wolfowitz, 1952
     """
-    def __init__(self, learning_rate, **kwargs):
-        super(GradientDescentOptimizer, self).__init__(
-            learning_rate=learning_rate,
-            scope=kwargs.pop("scope", "gradient-descent-optimizer"),
-            **kwargs
-        )
+    def __init__(self, learning_rate, scope="gradient-descent-optimizer", **kwargs):
+        super(GradientDescentOptimizer, self).__init__(learning_rate=learning_rate, scope=scope, **kwargs)
 
     def create_variables(self, input_spaces, action_space=None):
         if get_backend() == "tf":
-            self.optimizer = tf.train.GradientDescentOptimizer(
-                learning_rate=self.learning_rate.placeholder()
-            )
+            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate.placeholder())
         elif get_backend() == "pytorch":
             raise NotImplementedError
 
@@ -137,13 +129,11 @@ class AdamOptimizer(LocalOptimizer):
     Adaptive momentum optimizer:
     https://arxiv.org/abs/1412.6980
     """
-    def __init__(self, learning_rate, **kwargs):
-        self.beta1 = kwargs.pop("beta_1", kwargs.pop("beta1", 0.9))
-        self.beta2 = kwargs.pop("beta_2", kwargs.pop("beta2", 0.999))
+    def __init__(self, learning_rate, beta_1=0.9, beta_2=0.999, scope="adam-optimizer", **kwargs):
+        super(AdamOptimizer, self).__init__(learning_rate=learning_rate, scope=scope, **kwargs)
 
-        super(AdamOptimizer, self).__init__(
-            learning_rate=learning_rate, scope=kwargs.pop("scope", "adam-optimizer"), **kwargs
-        )
+        self.beta1 = beta_1
+        self.beta2 = beta_2
 
     def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
@@ -167,14 +157,13 @@ class NadamOptimizer(LocalOptimizer):
 
     http://cs229.stanford.edu/proj2015/054_report.pdf
     """
-    def __init__(self, learning_rate, **kwargs):
-        self.beta1 = kwargs.pop("beta_1", kwargs.pop("beta1", 0.9))
-        self.beta2 = kwargs.pop("beta_2", kwargs.pop("beta2", 0.999))
-        self.schedule_decay = kwargs.pop("schedule_decay", 0.004)
+    def __init__(self, learning_rate, beta_1=0.9, beta_2=0.999, schedule_decay=0.004,
+                 scope="nadam-optimizer", **kwargs):
+        super(NadamOptimizer, self).__init__(learning_rate=learning_rate, scope=scope, **kwargs)
 
-        super(NadamOptimizer, self).__init__(
-            learning_rate=learning_rate, scope=kwargs.pop("scope", "nadam-optimizer"), **kwargs
-        )
+        self.beta1 = beta_1
+        self.beta2 = beta_2
+        self.schedule_decay = schedule_decay
 
     def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
@@ -195,14 +184,10 @@ class AdagradOptimizer(LocalOptimizer):
 
     http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
     """
-    def __init__(self, learning_rate, **kwargs):
-        self.initial_accumulator_value = kwargs.pop("initial_accumulator_value", 0.1)
+    def __init__(self, learning_rate, initial_accumulator_value=0.1, scope="adagrad-optimizer", **kwargs):
+        super(AdagradOptimizer, self).__init__(learning_rate=learning_rate, scope=scope, **kwargs)
 
-        super(AdagradOptimizer, self).__init__(
-            learning_rate=learning_rate.placeholder(),
-            scope=kwargs.pop("scope", "adagrad-optimizer"),
-            **kwargs
-        )
+        self.initial_accumulator_value = initial_accumulator_value
 
     def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
@@ -225,12 +210,10 @@ class AdadeltaOptimizer(LocalOptimizer):
 
     https://arxiv.org/abs/1212.5701
     """
-    def __init__(self, learning_rate, **kwargs):
-        self.rho = kwargs.pop("rho", 0.95)
+    def __init__(self, learning_rate, rho=0.95, scope="adadelta-optimizer", **kwargs):
+        super(AdadeltaOptimizer, self).__init__(learning_rate=learning_rate, scope=scope, **kwargs)
 
-        super(AdadeltaOptimizer, self).__init__(
-            learning_rate=learning_rate, scope=kwargs.pop("scope", "adadelta-optimizer"), **kwargs
-        )
+        self.rho = rho
 
     def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
@@ -252,14 +235,12 @@ class SGDOptimizer(LocalOptimizer):
     Stochastic gradient descent optimizer from tf.keras including support for momentum,
     learning-rate-decay and Nesterov momentum.
     """
-    def __init__(self, learning_rate, **kwargs):
-        self.momentum = kwargs.pop("momentum", 0.0)
-        self.decay = kwargs.pop("decay", 0.0)
-        self.nesterov = kwargs.pop("nesterov", False)
+    def __init__(self, learning_rate, momentum=0.0, decay=0.0, nesterov=False, scope="sgd-optimizer", **kwargs):
+        super(SGDOptimizer, self).__init__(learning_rate=learning_rate, scope=scope, **kwargs)
 
-        super(SGDOptimizer, self).__init__(
-            learning_rate=learning_rate, scope=kwargs.pop("scope", "sgd-optimizer"), **kwargs
-        )
+        self.momentum = momentum
+        self.decay = decay
+        self.nesterov = nesterov
 
     def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
@@ -298,7 +279,7 @@ class RMSPropOptimizer(LocalOptimizer):
     def check_input_spaces(self, input_spaces, action_space=None):
         if get_backend() == "tf":
             self.optimizer = tf.train.RMSPropOptimizer(
-                learning_rate=self.learning_rate,
+                learning_rate=self.learning_rate.placeholder(),
                 decay=self.decay,
                 momentum=self.momentum,
                 epsilon=self.epsilon
