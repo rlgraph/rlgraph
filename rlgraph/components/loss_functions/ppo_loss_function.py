@@ -55,8 +55,6 @@ class PPOLossFunction(LossFunction):
             weight_entropy if weight_entropy is not None else 0.00025, scope="weight-entropy"
         )
         self.value_function_clipping = value_function_clipping
-        self.ranks_to_reduce = None
-        self.expand_entropy = None  # Whether to expand the entropy input by one rank.
 
         self.add_components(self.clip_ratio, self.weight_entropy)
 
@@ -66,10 +64,6 @@ class PPOLossFunction(LossFunction):
         """
         assert action_space is not None
         self.action_space = action_space.with_batch_rank()
-        #self.flat_action_space = action_space.flatten()
-        #sanity_check_space(self.action_space, must_have_batch_rank=True)
-        self.ranks_to_reduce = len(self.action_space.get_shape(with_batch_rank=True)) - 1
-        self.expand_entropy = len(input_spaces["entropy"].get_shape(with_batch_rank=True)) == 1
 
     @rlgraph_api
     def loss(self, log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy, time_percentage):
@@ -139,8 +133,8 @@ class PPOLossFunction(LossFunction):
             loss -= self.weight_entropy.get(time_percentage) * entropy
 
             # Reduce over the composite actions, if any.
-            if self.ranks_to_reduce > 0:
-                loss = tf.reduce_mean(loss, axis=list(range(1, self.ranks_to_reduce + 1)))
+            if get_rank(ratio) > 1:
+                loss = tf.reduce_mean(loss, axis=list(range(1, get_rank(ratio))))
 
             return loss
 
@@ -164,8 +158,8 @@ class PPOLossFunction(LossFunction):
             loss -= self.weight_entropy.get(time_percentage) * entropy
 
             # Reduce over the composite actions, if any.
-            if self.ranks_to_reduce > 0:
-                loss = torch.mean(loss, tuple(range(1, self.ranks_to_reduce + 1)), keepdim=False)
+            if get_rank(ratio) > 1:
+                loss = torch.mean(loss, tuple(range(1, get_rank(ratio))), keepdim=False)
 
             return loss
 
