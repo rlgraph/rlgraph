@@ -158,7 +158,8 @@ class SACAgentComponent(Component):
 
     @rlgraph_api
     def update_from_external_batch(
-        self, preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights, time_percentage
+        self, preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights,
+            time_percentage=None
     ):
         actions = self._graph_fn_one_hot(env_actions)
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
@@ -479,7 +480,7 @@ class SACAgent(Agent):
         reward_space = FloatBox(add_batch_rank=True)
         terminal_space = BoolBox(add_batch_rank=True)
 
-        self.iterations = self.update_spec["num_iterations"]
+        #self.iterations = self.update_spec["num_iterations"]
         self.batch_size = self.update_spec["batch_size"]
 
         float_action_space = self.action_space.with_batch_rank().map(
@@ -610,11 +611,13 @@ class SACAgent(Agent):
             # TODO: is this necessary?
             if size < self.batch_size:
                 return 0.0, 0.0, 0.0
-            ret = self.graph_executor.execute((self.root_component.update_from_memory, [self.batch_size]))
+            ret = self.graph_executor.execute((self.root_component.update_from_memory, [self.batch_size, time_percentage]))
         else:
-            # No sequence indices means terminals are used in place.
-            batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"], batch["next_states"]]
-            ret = self.graph_executor.execute((self.root_component.update_from_external_batch, batch_input))
+            raise NotImplementedError
+            ## No sequence indices means terminals are used in place.
+            #batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+            #               batch["next_states"], batch["time_percentage"]]
+            #ret = self.graph_executor.execute((self.root_component.update_from_external_batch, batch_input))
 
         return ret["actor_loss"], ret["actor_loss_per_item"], ret["critic_loss"], ret["alpha_loss"]
 
