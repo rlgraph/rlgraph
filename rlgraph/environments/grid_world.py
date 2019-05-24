@@ -173,6 +173,7 @@ class GridWorld(Environment):
         self.n_row, self.n_col = self.world.shape
         (start_y,), (start_x,) = np.nonzero(self.world == "S")
 
+        # Init pygame (if installed) for visualizations.
         if pygame is not None:
             self.pygame_field_size = 30
             pygame.init()

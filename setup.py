@@ -21,7 +21,7 @@ import os
 
 from setuptools import setup, find_packages
 
-# Read __version__ avoiding imports that might be in install_requires
+# Read __version__ avoiding imports that might be in install_requires.
 version_vars = {}
 with open(os.path.join(os.path.dirname(__file__), 'rlgraph', 'version.py')) as fp:
     exec(fp.read(), version_vars)
@@ -40,13 +40,16 @@ install_requires = [
 setup_requires = []
 
 extras_require = {
+    # DL-backend specific extra-dependencies.
     'tf': ['tensorflow', 'tensorflow_probability'],
     'tf-gpu': ['tensorflow-gpu', 'tensorflow_probability'],
     'pytorch': ['torch', 'torchvision'],  # TODO platform dependent.
-    'gym': ['gym', 'atari-py'],  # To use openAI Gym Environments (e.g. Atari).
-    'mlagents_env': ['mlagents'],  # To use MLAgents Environments (Unity3D).
     'horovod': 'horovod',
-    'ray': ['ray', 'lz4', 'pyarrow']
+    'ray': ['ray', 'lz4', 'pyarrow'],
+    # Environment related extra dependencies.
+    'gym': ['gym', 'atari-py'],  # To use openAI Gym Envs (e.g. Atari).
+    'mlagents_env': ['mlagents'],  # To use MLAgents Envs (Unity3D).
+    'pygame': ['pygame'],  # To use GridWorld Envs with visualization tools (not required).
 }
 
 setup(
