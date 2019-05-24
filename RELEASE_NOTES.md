@@ -1,6 +1,10 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.5.1 - 2019/05/24
+- Fixed bug in PPOLossFunction affecting action spaces with shapes like
+  (x, y, z, >1) and container action spaces.
+
 ## RLgraph 0.5.0 - 2019/05/22
 - Fixed bug in PPOLossFunction in value-function target term. Here, the
   previous value-estimates need to be used (before the next update round)
