@@ -18,11 +18,19 @@ from __future__ import division
 from __future__ import print_function
 
 import math
+import os
 import random
 import time
 
 import numpy as np
 from six.moves import xrange as range_
+
+# Init pygame?
+pygame = None
+try:
+    import pygame
+except ImportError:
+    print("PyGame not installed. No human rendering possible.")
 
 import rlgraph.spaces as spaces
 from rlgraph.environments import Environment
@@ -103,13 +111,13 @@ class GridWorld(Environment):
         ],
         "4-room": [  # 30=start state, 79=goal state
             "     W     ",
-            "     W     ",
+            " H   W     ",
             "        G  ",
             "     W     ",
             "     W     ",
             "W WWWW     ",
             "     WWW WW",
-            "     W     ",
+            "     W F   ",
             "  S  W     ",
             "           ",
             "     W     "
@@ -164,6 +172,17 @@ class GridWorld(Environment):
         self.world = world
         self.n_row, self.n_col = self.world.shape
         (start_y,), (start_x,) = np.nonzero(self.world == "S")
+
+        # Init pygame (if installed) for visualizations.
+        if pygame is not None:
+            self.pygame_field_size = 30
+            pygame.init()
+            pygame.display.set_mode((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size))
+            self.pygame_agent = pygame.image.load(
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/agent.png")
+            )
+            # Create basic grid Surface for reusage.
+            self.pygame_basic_surface = self.grid_to_surface()
 
         # Figure out our state space.
         assert state_representation in ["discrete", "xy", "xy+orientation", "camera"]
@@ -340,10 +359,20 @@ class GridWorld(Environment):
 
         return state, reward, terminal
 
-    def render(self):
-        print(self.render_as_txt())
+    def render(self, mode="human"):
+        if mode == "human" and pygame is not None:
+            self.render_human()
+        else:
+            print(self.render_txt())
 
-    def render_as_txt(self):
+    def render_human(self):
+        surface = self.pygame_basic_surface.copy()
+        surface.blit(self.pygame_agent, (self.x * self.pygame_field_size + 1, self.y * self.pygame_field_size + 1))
+        pygame.display.get_surface().blit(surface, (0, 0))
+        pygame.display.flip()
+        pygame.event.get([])
+
+    def render_txt(self):
         actor = "X"
         if self.action_type == "ftj":
             actor = "^" if self.orientation == 0 else ">" if self.orientation == 90 else "v" if \
@@ -459,6 +488,18 @@ class GridWorld(Environment):
         """
         return x * self.n_col + y
 
+    def get_x_y(self, discrete_pos):
+        """
+        Returns an x/y tuple given a discrete position.
+
+        Args:
+            discrete_pos (int): An int describing the discrete position in the grid.
+
+        Returns:
+            Tuple[int,int]: x and y.
+        """
+        return discrete_pos // self.n_col, discrete_pos % self.n_col
+
     @property
     def x(self):
         return self.discrete_pos // self.n_col
@@ -532,3 +573,120 @@ class GridWorld(Environment):
             else:
                 converted_actions["jump"] = 1
             return converted_actions
+
+    # png Render helper methods.
+    def grid_to_surface(self):
+        """
+        Renders the grid-world as a png and returns the png as binary image.
+
+        Returns:
+
+        """
+        # Create the png surface.
+        surface = pygame.Surface((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size), flags=pygame.SRCALPHA)
+        surface.fill(pygame.Color("#ffffff"))
+        for col in range(self.n_col):
+            for row in range(self.n_row):
+                x = col * self.pygame_field_size
+                y = row * self.pygame_field_size
+                pygame.draw.rect(
+                    surface, pygame.Color("#000000"), [x, y, self.pygame_field_size, self.pygame_field_size], 1
+                )
+                # Goal: G
+                if self.world[row][col] in ["G", "S"]:
+                    special_field = pygame.font.SysFont("Arial", 24, bold=True).render(
+                        self.world[row][col], False, pygame.Color("#000000")
+                    )
+                    surface.blit(special_field, (x + 7, y + 1))
+                # Wall: W (black rect)
+                elif self.world[row][col] in ["W"]:
+                    special_field = pygame.Surface((self.pygame_field_size, self.pygame_field_size))
+                    special_field.fill((0, 0, 0))
+                    surface.blit(special_field, (x, y))
+                # Hole: Hole image.
+                elif self.world[row][col] in ["H"]:
+                    special_field = pygame.image.load(
+                        os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/hole.png")
+                    )
+                    surface.blit(special_field, (x, y))
+                # Fire: F (yellow rect)
+                elif self.world[row][col] in ["F"]:
+                    special_field = pygame.image.load(
+                        os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/fire.png")
+                    )
+                    #special_field = pygame.Surface((field_size, field_size))
+                    #special_field.fill((255, 0, 0) if self.world[row][col] == "H" else (255, 255, 0))
+                    surface.blit(special_field, (x, y))
+        # Return a png.
+        return surface
+
+    def create_states_heatmap(self, states):
+        """
+        Generates a heatmap from a list of states.
+        """
+        state_counts = np.bincount(states)
+        alpha = int(255 / np.max(state_counts))
+        surface = self.pygame_basic_surface.copy()
+        for s in states:
+            x, y = self.get_x_y(s)
+            #pygame.draw.rect(surface, pygame.Color(0, 255, 0, alpha), [x * field_size, y * field_size, field_size, field_size])
+            rect = pygame.Surface((self.pygame_field_size - 2, self.pygame_field_size - 2))
+            rect.set_alpha(alpha)
+            rect.fill(pygame.Color(0, 255, 0))
+            surface.blit(rect, (x * self.pygame_field_size + 1, y * self.pygame_field_size + 1))
+        pygame.image.save(surface, "test_states_heatmap.png")
+
+    def create_states_trajectory(self, states):
+        """
+        Generates a trajectory from arrows between fields.
+        """
+        surface = self.pygame_basic_surface.copy()
+        for i, s in enumerate(states):
+            s_ = states[i + 1] if len(states) > i + 1 else None
+            if s_ is not None:
+                x, y = self.get_x_y(s)
+                x_, y_ = self.get_x_y(s_)
+                arrow = pygame.image.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/arrow.png"))
+                self._add_field_connector(surface, x, x_, y, y_, arrow)
+        pygame.image.save(surface, "test_trajectory.png")
+
+    def create_rewards_trajectory(self, states, rewards):
+        """
+        Generates a trajectory of received rewards from arrows (green and red) between fields.
+        """
+        max_abs_r = max(abs(np.array(rewards)))
+        surface = self.pygame_basic_surface.copy()
+        for i, s in enumerate(states):
+            s_ = states[i + 1] if len(states) > i + 1 else None
+            if s_ is not None:
+                x, y = self.get_x_y(s)
+                x_, y_ = self.get_x_y(s_)
+                r = rewards[i]
+                arrow = pygame.image.load(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                       "images/arrow_"+("red" if r < 0 else "green")+".png"))
+                arrow_transparent = pygame.Surface((arrow.get_width(), arrow.get_height()), flags=pygame.SRCALPHA)
+                arrow_transparent.fill((255, 255, 255, int(255 * ((abs(r) / max_abs_r) / 2 + 0.5))))
+                #arrow_transparent.set_alpha(int(255 * abs(r) / max_abs_r))
+                #arrow_transparent = pygame.Surface.convert_alpha(arrow_transparent)
+                arrow.blit(arrow_transparent, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self._add_field_connector(surface, x, x_, y, y_, arrow)
+        pygame.image.save(surface, "test_rewards_trajectory.png")
+
+    def _add_field_connector(self, surface, x, x_, y, y_, connector_surface):
+        # Rotate connector (assumed to be pointing right) according to the direction of the move.
+        if x_ == x - 1:  # left
+            connector_surface = pygame.transform.rotate(connector_surface, 180.0)
+            x = x * self.pygame_field_size - connector_surface.get_width() / 2
+            y = y * self.pygame_field_size + (self.pygame_field_size - connector_surface.get_height()) / 2
+        elif y_ == y - 1:  # up
+            connector_surface = pygame.transform.rotate(connector_surface, 90.0)
+            x = x * self.pygame_field_size + (self.pygame_field_size - connector_surface.get_width()) / 2
+            y = y * self.pygame_field_size - connector_surface.get_height() / 2
+        elif y_ == y + 1:  # down
+            connector_surface = pygame.transform.rotate(connector_surface, 270.0)
+            x = x * self.pygame_field_size + (self.pygame_field_size - connector_surface.get_width()) / 2
+            y = y * self.pygame_field_size + connector_surface.get_height() / 2
+        else:  # right
+            x = x * self.pygame_field_size + ((self.pygame_field_size * 2) - connector_surface.get_width()) / 2
+            y = y * self.pygame_field_size + (self.pygame_field_size - connector_surface.get_height()) / 2
+        surface.blit(connector_surface, (x, y))
