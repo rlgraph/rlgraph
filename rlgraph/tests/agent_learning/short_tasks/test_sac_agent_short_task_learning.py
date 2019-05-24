@@ -22,8 +22,6 @@ import os
 import unittest
 
 import numpy as np
-from scipy import stats
-
 from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
 from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, \
     Synchronizable
@@ -33,6 +31,7 @@ from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
+from scipy import stats
 
 
 class TestSACShortTaskLearning(unittest.TestCase):
@@ -173,7 +172,9 @@ class TestSACShortTaskLearning(unittest.TestCase):
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
-            render=self.is_windows
+            render=False,  # self.is_windows
+            episode_finish_callback = lambda episode_return, duration, timesteps, **kwargs:
+            print("episode: return={} ts={}".format(episode_return, timesteps))
         )
         # Note: SAC is more computationally expensive.
         episodes = 50
@@ -200,7 +201,9 @@ class TestSACShortTaskLearning(unittest.TestCase):
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
-            render=self.is_windows
+            render=self.is_windows,
+            episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs:
+            print("episode: return={} ts={}".format(episode_return, timesteps))
         )
 
         time_steps = 10000
