@@ -143,22 +143,22 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             worker_executes_preprocessing=True,
             preprocessing_spec=GridWorld.grid_world_4x4_preprocessing_spec,
             episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs: print(
-                "Episode done return={} timesteps={}".format(episode_return, timesteps)),
+                "Episode done return={} timesteps={}".format(episode_return, timesteps))
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
         print(results)
 
-        # Check value function outputs for states on a good trajectory.
-        # NOTE that this test only works if standardize-advantages=False.
-        values = agent.graph_executor.execute(("get_state_values", one_hot(np.array([1, 2, 6, 7, 11]), depth=16)))[:, 0]
-        recursive_assert_almost_equal(values, np.array([0.6, 0.7, 0.8, 0.9, 1.0]), decimals=1)
+        # Test deterministic actions (expected to go towards goal).
+        #recursive_assert_almost_equal(agent.graph_executor.execute(
+        #    ("get_preprocessed_state_and_action", [one_hot(np.array([1, 2, 4, 7, 8, 9, 10, 11, 12]), depth=16), True])
+        #)[0], [2, 1, 1, 1, 2, 2, 2, 1, 3])
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 4)
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -6.0)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -2.0)
 
     def test_ppo_on_4_room_grid_world(self):
         """

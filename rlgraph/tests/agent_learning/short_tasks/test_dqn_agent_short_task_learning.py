@@ -211,7 +211,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         q_values = agent.graph_executor.execute(
             ("get_q_values", one_hot(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), depth=16))
         )
-        # Walking towards goal is always goo.
+        # Walking towards goal is always good.
         self.assertTrue(q_values[0][0] < q_values[0][1])
         self.assertTrue(q_values[6][3] < q_values[6][1])
         # Falling into holes.

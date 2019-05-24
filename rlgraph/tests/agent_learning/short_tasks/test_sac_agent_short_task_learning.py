@@ -215,9 +215,9 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
         self.assertTrue(results["timesteps_executed"] == time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 20)
-        self.assertGreater(results["mean_episode_reward"], 35.0)
+        self.assertGreater(results["mean_episode_reward"], 40.0)
         self.assertGreater(results["max_episode_reward"], 100.0)
-        self.assertGreater(results["mean_episode_reward_last_10_episodes"], 150.0)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], 100.0)
 
     def test_sac_2x2_grid_world_with_container_actions(self):
         """
