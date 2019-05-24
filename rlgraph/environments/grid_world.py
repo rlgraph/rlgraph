@@ -23,8 +23,14 @@ import random
 import time
 
 import numpy as np
-import pygame
 from six.moves import xrange as range_
+
+# Init pygame?
+pygame = None
+try:
+    import pygame
+except ImportError:
+    print("PyGame not installed. No human rendering possible.")
 
 import rlgraph.spaces as spaces
 from rlgraph.environments import Environment
@@ -167,13 +173,15 @@ class GridWorld(Environment):
         self.n_row, self.n_col = self.world.shape
         (start_y,), (start_x,) = np.nonzero(self.world == "S")
 
-        # Init pygame.
-        self.pygame_field_size = 30
-        pygame.init()
-        pygame.display.set_mode((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size))
-        self.pygame_agent = pygame.image.load(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/agent.png")
-        )
+        if pygame is not None:
+            self.pygame_field_size = 30
+            pygame.init()
+            pygame.display.set_mode((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size))
+            self.pygame_agent = pygame.image.load(
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/agent.png")
+            )
+            # Create basic grid Surface for reusage.
+            self.pygame_basic_surface = self.grid_to_surface()
 
         # Figure out our state space.
         assert state_representation in ["discrete", "xy", "xy+orientation", "camera"]
@@ -216,9 +224,6 @@ class GridWorld(Environment):
         self.reward = None
         self.is_terminal = None
         self.reset(randomize=False)
-
-        # Create basic grid Surface for reusage.
-        self.basic_surface = self.grid_to_surface()
 
     def seed(self, seed=None):
         if seed is None:
@@ -354,13 +359,13 @@ class GridWorld(Environment):
         return state, reward, terminal
 
     def render(self, mode="human"):
-        if mode == "human":
+        if mode == "human" and pygame is not None:
             self.render_human()
         else:
             print(self.render_txt())
 
     def render_human(self):
-        surface = self.basic_surface.copy()
+        surface = self.pygame_basic_surface.copy()
         surface.blit(self.pygame_agent, (self.x * self.pygame_field_size + 1, self.y * self.pygame_field_size + 1))
         pygame.display.get_surface().blit(surface, (0, 0))
         pygame.display.flip()
@@ -620,7 +625,7 @@ class GridWorld(Environment):
         """
         state_counts = np.bincount(states)
         alpha = int(255 / np.max(state_counts))
-        surface = self.basic_surface.copy()
+        surface = self.pygame_basic_surface.copy()
         for s in states:
             x, y = self.get_x_y(s)
             #pygame.draw.rect(surface, pygame.Color(0, 255, 0, alpha), [x * field_size, y * field_size, field_size, field_size])
@@ -634,7 +639,7 @@ class GridWorld(Environment):
         """
         Generates a trajectory from arrows between fields.
         """
-        surface = self.basic_surface.copy()
+        surface = self.pygame_basic_surface.copy()
         for i, s in enumerate(states):
             s_ = states[i + 1] if len(states) > i + 1 else None
             if s_ is not None:
@@ -649,7 +654,7 @@ class GridWorld(Environment):
         Generates a trajectory of received rewards from arrows (green and red) between fields.
         """
         max_abs_r = max(abs(np.array(rewards)))
-        surface = self.basic_surface.copy()
+        surface = self.pygame_basic_surface.copy()
         for i, s in enumerate(states):
             s_ = states[i + 1] if len(states) > i + 1 else None
             if s_ is not None:
