@@ -20,8 +20,8 @@ from __future__ import print_function
 import time
 
 from rlgraph.agents.impala_agents import IMPALAAgent
-from rlgraph.utils.util import default_dict
 from rlgraph.execution.worker import Worker
+from rlgraph.utils.util import default_dict
 
 
 class IMPALAWorker(Worker):
@@ -92,7 +92,7 @@ class IMPALAWorker(Worker):
         start = time.perf_counter()
         if reset is True:
             self.env_frames = 0
-            #self.finished_episode_rewards = list()
+            #self.finished_episode_returns = list()
             self.finished_episode_steps = list()
 
             #self.episode_returns = 0
@@ -140,16 +140,16 @@ class IMPALAWorker(Worker):
         total_time = (time.perf_counter() - start) or 1e-10
 
         # Return values for current episode(s) if None have been completed.
-        #if len(self.finished_episode_rewards) == 0:
+        #if len(self.finished_episode_returns) == 0:
         #    #mean_episode_runtime = 0
         #    mean_episode_reward = np.mean(self.episode_returns)
         #    max_episode_reward = np.max(self.episode_returns)
         #    final_episode_reward = self.episode_returns[0]
         #else:
         #    #mean_episode_runtime = np.mean(self.finished_episode_durations)
-        #    mean_episode_reward = np.mean(self.finished_episode_rewards)
-        #    max_episode_reward = np.max(self.finished_episode_rewards)
-        #    final_episode_reward = self.finished_episode_rewards[-1]
+        #    mean_episode_reward = np.mean(self.finished_episode_returns)
+        #    max_episode_reward = np.max(self.finished_episode_returns)
+        #    final_episode_reward = self.finished_episode_returns[-1]
 
         results = dict(
             runtime=total_time,
