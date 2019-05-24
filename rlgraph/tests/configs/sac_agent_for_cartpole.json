@@ -5,10 +5,13 @@
   "gumbel_softmax_temperature": 1.0,
   "double_q": false,
 
+  "observe_spec": {
+    "buffer_size": 200
+  },
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 64
+    "capacity": 1000
   },
 
   "preprocessing_spec":
@@ -19,7 +22,7 @@
     {
       "type": "dense",
       "units": 32,
-      "activation": "relu",
+      "activation": "tanh",
       "scope": "hidden1"
     }
   ],
@@ -28,7 +31,7 @@
     {
       "type": "dense",
       "units": 32,
-      "activation": "relu",
+      "activation": "tanh",
       "scope": "vf-hidden1"
     }
   ],
@@ -36,19 +39,18 @@
   "update_spec": {
     "update_mode": "time_steps",
     "do_updates": true,
-    "update_interval": 1,
-    "sync_interval": 1,
-    "sync_tau": 0.005,
-    "batch_size": 32,
-    "num_iterations": 1
+    "update_interval": 4,
+    "sync_interval": 32,
+    "sync_tau": 0.08,
+    "batch_size": 128
   },
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0002
+    "learning_rate": [0.001, 0.00001]
   },
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.0004
+    "learning_rate": [0.01, 0.0001]
   }
 }

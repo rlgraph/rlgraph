@@ -22,6 +22,8 @@ import os
 import unittest
 
 import numpy as np
+from scipy import stats
+
 from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
 from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, \
     Synchronizable
@@ -31,7 +33,6 @@ from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
-from scipy import stats
 
 
 class TestSACShortTaskLearning(unittest.TestCase):
@@ -148,11 +149,11 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
         worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
         worker.execute_episodes(num_episodes=500)
-        rewards = worker.finished_episode_rewards[0]  # 0=1st env in vector-env
+        rewards = worker.finished_episode_returns[0]  # 0=1st env in vector-env
         self.assertTrue(np.mean(rewards[:100]) < np.mean(rewards[-100:]))
 
         worker.execute_episodes(num_episodes=100, use_exploration=False, update_spec=None)
-        rewards = worker.finished_episode_rewards[0]
+        rewards = worker.finished_episode_returns[0]
         self.assertTrue(len(rewards) == 100)
         evaluation_score = np.mean(rewards)
         self.assertTrue(.5 * env.get_max_reward() < evaluation_score <= env.get_max_reward())
@@ -203,15 +204,21 @@ class TestSACShortTaskLearning(unittest.TestCase):
             env_spec=lambda: env,
             agent=agent,
             worker_executes_preprocessing=False,
-            render=self.is_windows,
+            render=False,  # self.is_windows,
             episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs:
             print("episode: return={} ts={}".format(episode_return, timesteps))
         )
 
-        time_steps = 10000
+        time_steps = 5000
         results = worker.execute_timesteps(time_steps)
 
         print(results)
+
+        self.assertTrue(results["timesteps_executed"] == time_steps)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 20)
+        self.assertGreater(results["mean_episode_reward"], 35.0)
+        self.assertGreater(results["max_episode_reward"], 100.0)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], 150.0)
 
     def test_sac_2x2_grid_world_with_container_actions(self):
         """
