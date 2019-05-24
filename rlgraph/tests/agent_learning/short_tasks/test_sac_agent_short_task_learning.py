@@ -185,9 +185,8 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
         self.assertTrue(results["timesteps_executed"] == episodes * 200)
         self.assertTrue(results["episodes_executed"] == episodes)
-        self.assertGreater(results["mean_episode_reward"], -900)
-        self.assertGreater(results["max_episode_reward"], -100)
-        self.assertGreater(results["final_episode_reward"], -600)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -400)
+        self.assertGreater(results["max_episode_reward"], -200)
 
     def test_sac_on_cartpole(self):
         """
