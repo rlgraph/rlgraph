@@ -409,7 +409,8 @@ class SACAlgorithmComponent(AlgorithmComponent):
 
     @rlgraph_api
     def update_from_external_batch(self, preprocessed_states, env_actions, rewards, terminals, next_states,
-                                   importance_weights, time_percentage=None):
+                                   importance_weights, time_percentage=None
+    ):
         actions = self._graph_fn_one_hot(env_actions)
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
             self.get_losses(preprocessed_states, actions, rewards, terminals, next_states, importance_weights)

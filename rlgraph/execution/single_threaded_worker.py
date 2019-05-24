@@ -61,7 +61,7 @@ class SingleThreadedWorker(Worker):
 
         # Global statistics.
         self.env_frames = 0
-        self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
+        self.finished_episode_returns = [[] for _ in range_(self.num_environments)]
         self.finished_episode_durations = [[] for _ in range_(self.num_environments)]
         self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
 
@@ -189,7 +189,7 @@ class SingleThreadedWorker(Worker):
         if reset is True:
             self.env_frames = 0
             self.episodes_since_update = 0
-            self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
+            self.finished_episode_returns = [[] for _ in range_(self.num_environments)]
             self.finished_episode_durations = [[] for _ in range_(self.num_environments)]
             self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
 
@@ -297,7 +297,7 @@ class SingleThreadedWorker(Worker):
                     episodes_executed += 1
                     self.episodes_since_update += 1
                     episode_duration = time.perf_counter() - self.episode_starts[i]
-                    self.finished_episode_rewards[i].append(self.episode_returns[i])
+                    self.finished_episode_returns[i].append(self.episode_returns[i])
                     self.finished_episode_durations[i].append(episode_duration)
                     self.finished_episode_timesteps[i].append(self.episode_timesteps[i])
 
@@ -347,16 +347,18 @@ class SingleThreadedWorker(Worker):
         if episodes_executed == 0:
             mean_episode_runtime = 0
             mean_episode_reward = np.mean(self.episode_returns)
+            mean_episode_reward_last_10_episodes = mean_episode_reward
             max_episode_reward = np.max(self.episode_returns)
             final_episode_reward = self.episode_returns[0]
         else:
             all_finished_durations = []
             all_finished_rewards = []
             for i in range_(self.num_environments):
-                all_finished_rewards.extend(self.finished_episode_rewards[i])
+                all_finished_rewards.extend(self.finished_episode_returns[i])
                 all_finished_durations.extend(self.finished_episode_durations[i])
             mean_episode_runtime = np.mean(all_finished_durations)
             mean_episode_reward = np.mean(all_finished_rewards)
+            mean_episode_reward_last_10_episodes = np.mean(all_finished_rewards[-10:])
             max_episode_reward = np.max(all_finished_rewards)
             final_episode_reward = all_finished_rewards[-1]
 
@@ -374,6 +376,7 @@ class SingleThreadedWorker(Worker):
             episodes_per_minute=(episodes_executed/(total_time / 60)),
             mean_episode_runtime=mean_episode_runtime,
             mean_episode_reward=mean_episode_reward,
+            mean_episode_reward_last_10_episodes=mean_episode_reward_last_10_episodes,
             max_episode_reward=max_episode_reward,
             final_episode_reward=final_episode_reward
         )
@@ -382,17 +385,20 @@ class SingleThreadedWorker(Worker):
         self.logger.info("Finished execution in {} s".format(total_time))
         # Total (RL) timesteps (actions) done (and timesteps/sec).
         self.logger.info("Time steps (actions) executed: {} ({} ops/s)".
-                         format(results['timesteps_executed'], results['ops_per_second']))
+                         format(results['timesteps_executed'], results["ops_per_second"]))
         # Total env-timesteps done (including action repeats) (and env-timesteps/sec).
         self.logger.info("Env frames executed (incl. action repeats): {} ({} frames/s)".
-                         format(results['env_frames'], results['env_frames_per_second']))
+                         format(results['env_frames'], results["env_frames_per_second"]))
         # Total episodes done (and episodes/min).
         self.logger.info("Episodes finished: {} ({} episodes/min)".
-                         format(results['episodes_executed'], results['episodes_per_minute']))
-        self.logger.info("Mean episode runtime: {}s".format(results['mean_episode_runtime']))
-        self.logger.info("Mean episode reward: {}".format(results['mean_episode_reward']))
-        self.logger.info("Max. episode reward: {}".format(results['max_episode_reward']))
-        self.logger.info("Final episode reward: {}".format(results['final_episode_reward']))
+                         format(results['episodes_executed'], results["episodes_per_minute"]))
+        self.logger.info("Mean episode runtime: {}s".format(results["mean_episode_runtime"]))
+        self.logger.info("Mean episode reward: {}".format(results["mean_episode_reward"]))
+        self.logger.info("Mean episode reward (last 10 episodes): {}".format(
+            results["mean_episode_reward_last_10_episodes"])
+        )
+        self.logger.info("Max. episode reward: {}".format(results["max_episode_reward"]))
+        self.logger.info("Final episode reward: {}".format(results["final_episode_reward"]))
 
         return results
 

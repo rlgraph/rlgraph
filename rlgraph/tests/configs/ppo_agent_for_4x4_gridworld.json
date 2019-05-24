@@ -57,6 +57,10 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": ["linear", 0.005, 0.000001]
+    "learning_rate": ["linear", 0.005, 0.00001]
+  },
+  "value_function_optimizer_spec": {
+    "type": "adam",
+    "learning_rate": ["linear", 0.05, 0.0001]
   }
 }

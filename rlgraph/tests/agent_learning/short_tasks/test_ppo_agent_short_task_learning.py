@@ -75,7 +75,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 2)
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], 0.0)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], 0.0)
 
     def test_ppo_on_2x2_grid_world_with_container_actions(self):
         """
@@ -111,11 +111,19 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         print(results)
 
+        # Check value function outputs for states 0 and 1.
+        # NOTE that this test only works if standardize-advantages=False.
+        #values = agent.graph_executor.execute(
+        #    ("get_state_values", np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]]))
+        #)[:, 0]
+        #recursive_assert_almost_equal(values[0], 0.9, decimals=1)  # state 0 should have a value of 0.0
+        #recursive_assert_almost_equal(values[1], 1.0, decimals=1)  # state 1 should have a value of +1.0
+
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps)
         # Assume we have learned something.
-        self.assertGreaterEqual(results["mean_episode_reward"], -2.0)
+        self.assertGreaterEqual(results["mean_episode_reward_last_10_episodes"], 0.0)
 
     def test_ppo_on_4x4_grid_world(self):
         """
@@ -142,16 +150,16 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         print(results)
 
-        # Check value function outputs for states on a good trajectory.
-        # NOTE that this test only works if standardize-advantages=False.
-        values = agent.graph_executor.execute(("get_state_values", one_hot(np.array([1, 2, 6, 7, 11]), depth=16)))[:, 0]
-        recursive_assert_almost_equal(values, np.array([0.6, 0.7, 0.8, 0.9, 1.0]), decimals=1)
+        # Test deterministic actions (expected to go towards goal).
+        #recursive_assert_almost_equal(agent.graph_executor.execute(
+        #    ("get_preprocessed_state_and_action", [one_hot(np.array([1, 2, 4, 7, 8, 9, 10, 11, 12]), depth=16), True])
+        #)[0], [2, 1, 1, 1, 2, 2, 2, 1, 3])
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 4)
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], -1.0)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -1.0)
 
     def test_ppo_on_4_room_grid_world(self):
         """
@@ -197,7 +205,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["episodes_executed"], episodes)
         # Assume we have learned something.
-        #self.assertGreaterEqual(results["mean_episode_reward"], -2.0)
+        #self.assertGreaterEqual(results["mean_episode_reward_last_10_episodes"], -2.0)
 
     def test_ppo_on_cart_pole(self):
         """
@@ -228,7 +236,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 10)
         # Assume we have learned something.
-        self.assertGreaterEqual(results["mean_episode_reward"], 40.0)
+        self.assertGreaterEqual(results["mean_episode_reward_last_10_episodes"], 40.0)
 
     def test_ppo_on_pendulum(self):
         """
