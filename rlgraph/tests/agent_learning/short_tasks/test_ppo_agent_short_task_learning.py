@@ -75,7 +75,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 2)
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], 0.0)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], 0.0)
 
     def test_ppo_on_2x2_grid_world_with_container_actions(self):
         """
@@ -123,7 +123,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps)
         # Assume we have learned something.
-        self.assertGreaterEqual(results["mean_episode_reward"], 0.0)
+        self.assertGreaterEqual(results["mean_episode_reward_last_10_episodes"], 0.0)
 
     def test_ppo_on_4x4_grid_world(self):
         """
@@ -158,7 +158,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 4)
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward"], -6.0)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -6.0)
 
     def test_ppo_on_4_room_grid_world(self):
         """
@@ -200,7 +200,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["episodes_executed"], episodes)
         # Assume we have learned something.
-        #self.assertGreaterEqual(results["mean_episode_reward"], -2.0)
+        #self.assertGreaterEqual(results["mean_episode_reward_last_10_episodes"], -2.0)
 
     def test_ppo_on_cart_pole(self):
         """
@@ -230,7 +230,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 10)
         # Assume we have learned something.
-        self.assertGreaterEqual(results["mean_episode_reward"], 40.0)
+        self.assertGreaterEqual(results["mean_episode_reward_last_10_episodes"], 40.0)
 
     def test_ppo_on_pendulum(self):
         """
