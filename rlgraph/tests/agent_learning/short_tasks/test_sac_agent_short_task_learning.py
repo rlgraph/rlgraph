@@ -173,7 +173,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             agent=agent,
             worker_executes_preprocessing=False,
             render=False,  # self.is_windows
-            episode_finish_callback = lambda episode_return, duration, timesteps, **kwargs:
+            episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs:
             print("episode: return={} ts={}".format(episode_return, timesteps))
         )
         # Note: SAC is more computationally expensive.
@@ -184,7 +184,9 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
         self.assertTrue(results["timesteps_executed"] == episodes * 200)
         self.assertTrue(results["episodes_executed"] == episodes)
-        self.assertGreater(results["mean_episode_reward"], -800)
+        self.assertGreater(results["mean_episode_reward"], -900)
+        self.assertGreater(results["max_episode_reward"], -100)
+        self.assertGreater(results["final_episode_reward"], -600)
 
     def test_sac_on_cartpole(self):
         """
