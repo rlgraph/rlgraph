@@ -18,11 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils import PyTorchVariable
-
-from rlgraph.utils.initializer import Initializer
-from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
+from rlgraph.components.layers.nn.nn_layer import NNLayer
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils import PyTorchVariable
+from rlgraph.utils.initializer import Initializer
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -53,11 +53,13 @@ class DenseLayer(NNLayer):
         # Number of nodes in this layer.
         self.units = units
 
+    def check_input_spaces(self, input_spaces, action_space=None):
+        in_space = input_spaces["inputs[0]"]
+        # Rank must at lesat be 2.
+        sanity_check_space(in_space, input_arg="inputs[0]", rank=(1, None))
+
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs[0]"]
-        # print(input_spaces)
-        # print("global scope = {}, layer name = {}".format(self.global_scope, self.name))
-        assert in_space.rank > 0, "ERROR: Must have input Space ({}) with rank larger 0!".format(in_space)
 
         # Create weights matrix and (maybe) biases vector.
         weights_shape = (in_space.shape[0], self.units)
