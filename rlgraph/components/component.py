@@ -24,15 +24,14 @@ import uuid
 from collections import OrderedDict
 
 import numpy as np
-from six.moves import xrange as range_
-
 from rlgraph import get_backend
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
     define_api_method, define_graph_fn
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, TraceContext
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError, RLGraphSpaceError
 from rlgraph.utils.specifiable import Specifiable
+from six.moves import xrange as range_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -353,8 +352,13 @@ class Component(Specifiable):
         input_spaces = input_spaces or self.api_method_inputs
         # print("Completing with input spaces after lookup = ", input_spaces)
 
-        # Allow the Component to check its input Space.
-        self.check_input_spaces(input_spaces, action_space)
+        # Allow the Component to check its input Space and catch input-space errors.
+        try:
+            self.check_input_spaces(input_spaces, action_space)
+        except RLGraphSpaceError as e:
+            # If there is a Space error, trace back the op
+            pass
+
         # Allow the Component to create all its variables.
         if get_backend() == "tf":
             # TODO: write custom scope generator for devices (in case None, etc..).
@@ -464,8 +468,7 @@ class Component(Specifiable):
                 has its own `trainable` property set to either True or False.
 
             from_space (Optional[Space,str]): Whether to create this variable from a Space object
-                (shape and dtype are not needed then). The Space object can be given directly or via the name
-                of the in-Socket holding the Space.
+                (shape and dtype are not needed then).
 
             add_batch_rank (Optional[bool,int]): If True and `from_space` is given, will add a 0th (1st) rank (None) to
                 the created variable. If it is an int, will add that int instead of None.
@@ -828,22 +831,20 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_summary(summary_key)
 
-    def add_components(self, *components, **kwargs):
+    def add_components(self, *components, expose_apis=None):
         """
         Adds sub-components to this one.
 
         Args:
             components (List[Component]): The list of Component objects to be added into this one.
 
-        Keyword Args:
-            expose_apis (Optional[Set[str]]): An optional set of strings with API-methods of the child component
-                that should be exposed as the parent's API via a simple wrapper API-method for the parent (that
-                calls the child's API-method).
-
-            #exposed_must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
+            expose_apis (Optional[Set[str],Dict[str,str]]): An optional set of strings with API-methods of the child
+                component that should be exposed as the parent's API via a simple wrapper API-method for the parent
+                (that calls the child's API-method).
         """
-        expose_apis = kwargs.pop("expose_apis", set())
-        if isinstance(expose_apis, str):
+        if expose_apis is None:
+            expose_apis = {}
+        elif isinstance(expose_apis, str):
             expose_apis = {expose_apis}
 
         for component in components:
@@ -881,18 +882,28 @@ class Component(Specifiable):
             )
 
             # Should we expose some API-methods of the child?
+            # Only if parent does not have that method yet (otherwise, use parent method).
             for api_method_name, api_method_rec in component.api_methods.items():
-                if api_method_name in expose_apis:
-                    # Hold these here to avoid closures (when Components get copied).
-                    name_ = api_method_name
-                    component_name = component.name
-                    must_be_complete = api_method_rec.must_be_complete
-
-                    @rlgraph_api(component=self, name=api_method_name, must_be_complete=must_be_complete)
-                    def exposed_api_method_wrapper(self, *inputs, **kwargs):
-                        # Complicated way to lookup sub-component's method to avoid closures when original
-                        # component gets copied.
-                        return getattr(self.sub_components[component_name], name_)(*inputs, **kwargs)
+                if api_method_name in expose_apis and api_method_name not in self.api_methods:
+                    exposed_api_method_name = api_method_name if isinstance(expose_apis, set) else \
+                        expose_apis[api_method_name]
+                    # Build exposed method code per string, then eval it.
+                    code = "@rlgraph_api(component=self, must_be_complete={}, ok_to_overwrite=False)\n".format(
+                        api_method_rec.must_be_complete
+                    )
+                    code += "def {}(self, ".format(exposed_api_method_name)
+                    args_str = ""
+                    args_str_w_default = ""
+                    for i, ak in enumerate(api_method_rec.non_args_kwargs):
+                        args_str += ak + ", "
+                        args_str_w_default += ak + ("="+str(api_method_rec.default_values[api_method_rec.default_args.index(ak)]) if ak in api_method_rec.default_args else "") + ", "
+                    args_str += ("*"+api_method_rec.args_name+", " if api_method_rec.args_name else "")
+                    args_str += ("**"+api_method_rec.kwargs_name+", " if api_method_rec.kwargs_name else "")
+                    args_str = args_str[:-2]  # cut last ', '
+                    code += args_str_w_default + "):\n"
+                    code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(component.name, api_method_name, args_str)
+                    print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
+                    exec(code, globals(), locals())
 
         # Add own reusable scope to front of all sub-components' reusable scope.
         if self.reuse_variable_scope is not None:
@@ -1121,6 +1132,16 @@ class Component(Specifiable):
         if trainable is None:
             trainable = self.trainable
 
+        # Remove the parent ref (will be set to None for the copy anyway).
+        parent_ref = self.parent_component
+        self.parent_component = None
+
+        # Make sure, containing Agents are not copied either.
+        agent_ref = None
+        if hasattr(self, "agent"):
+            agent_ref = self.agent
+            self.agent = None
+
         # Simply deepcopy self and change name and scope.
         new_component = copy.deepcopy(self)
         new_component.name = name
@@ -1140,8 +1161,11 @@ class Component(Specifiable):
             for sc in new_component.sub_components.values():
                 sc.propagate_sub_component_properties(dict(reuse_variable_scope=reuse_variable_scope_for_sub_components))
 
-        # Erase the parent pointer.
-        new_component.parent_component = None
+        # Put back critical refs.
+        if agent_ref is not None:
+            self.agent = new_component.agent = agent_ref
+        # Leave the copy's parent_component at None.
+        self.parent_component = parent_ref
 
         return new_component
 
@@ -1192,6 +1216,7 @@ class Component(Specifiable):
             indices (Optional[np.ndarray,tf.Tensor]): Indices (if any) to fetch from the variable.
             dtype (Optional[torch.dtype]): Optional dtype to convert read values to.
             shape (Optional[tuple]): Optional default shape.
+
         Returns:
             any: Variable values.
         """
