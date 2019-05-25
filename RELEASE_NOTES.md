@@ -2,11 +2,13 @@
 Summarizes updates in recent releases.
 
 ## RLgraph 0.5.2 - 2019/05/25
-- Tuned learning tests for SAC and PPO.
 - Fixed bug in Worker's reporting: `mean_episode_reward` was calculated
   incorrectly as the return of the last episode (regardless of whether
   this episode was completed or not).
-
+- Tuned learning tests for SAC and PPO.
+- Added visualization tools for GridWorld envs. Rendering is now done in
+  pygame (optional install and the env has additional heat-map and
+  rewards/states-paths visualizing methods (png output).
 
 ## RLgraph 0.5.1 - 2019/05/24
 - Fixed bug in PPOLossFunction affecting action spaces with shapes like
