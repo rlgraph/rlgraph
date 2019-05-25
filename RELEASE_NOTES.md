@@ -1,6 +1,13 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.5.1 - 2019/05/25
+- Tuned learning tests for SAC and PPO.
+- Fixed bug in Worker's reporting: `mean_episode_reward` was calculated
+  incorrectly as the return of the last episode (regardless of whether
+  this episode was completed or not).
+
+
 ## RLgraph 0.5.1 - 2019/05/24
 - Fixed bug in PPOLossFunction affecting action spaces with shapes like
   (x, y, z, >1) and container action spaces.
