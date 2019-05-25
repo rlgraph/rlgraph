@@ -73,7 +73,7 @@ class AlgorithmComponent(Component):
         # Some generic properties that all Agents have.
         self.discount = discount
 
-        assert isinstance(memory_batch_size, int)  # Make sure everything is defined.
+        #assert isinstance(memory_batch_size, int)  # Make sure everything is defined.
         self.memory_batch_size = memory_batch_size
 
         # Construct the Preprocessor.
@@ -185,7 +185,7 @@ class AlgorithmComponent(Component):
         super(AlgorithmComponent, self).add_components(*sub_components)
 
         # Keep track of all our Optimizers.
-        for sub_component in sub_components:
+        for sub_component in self.get_all_sub_components():
             if isinstance(sub_component, Optimizer):
                 self.all_optimizers.append(sub_component)
 
