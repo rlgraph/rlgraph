@@ -63,7 +63,7 @@ class NNLayer(Layer):
         Must not be Container (for now) and must have a batch rank.
         """
         # Make sure all inputs have the same time/batch ranks.
-        # TODO also check spaces for pytorch once unified space management
+        # TODO: also check spaces for pytorch once unified space management
         if get_backend() == "tf":
             if "inputs[0]" in input_spaces:
                 self.in_space_0 = input_spaces["inputs[0]"]
@@ -73,19 +73,11 @@ class NNLayer(Layer):
                     key = "inputs[{}]".format(idx)
                     if key not in input_spaces:
                         break
+                    # Make sure all concat inputs do have a batch rank as well as same time-rank (or None).
                     sanity_check_space(
-                        input_spaces[key], allowed_sub_types=[FloatBox, IntBox], must_have_batch_rank=True
+                        input_spaces[key], allowed_sub_types=[FloatBox, IntBox], must_have_batch_rank=True,
+                        must_have_time_rank=self.in_space_0.has_time_rank is not False
                     )
-                    # Make sure all concat inputs have same batch-/time-ranks.
-                    assert self.in_space_0.has_batch_rank == input_spaces[key].has_batch_rank and \
-                        self.in_space_0.has_time_rank == input_spaces[key].has_time_rank, \
-                        "ERROR: Input spaces to '{}' must have same batch-/time-rank structure! " \
-                        "0th input is batch-rank={} time-rank={}, but {}st input is batch-rank={} " \
-                        "time-rank={}.".format(
-                            self.global_scope, self.in_space_0.has_batch_rank, input_spaces[key].has_batch_rank, idx,
-                            self.in_space_0.has_time_rank, input_spaces[key].has_time_rank
-                        )
-
                     idx += 1
 
     @rlgraph_api
