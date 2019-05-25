@@ -56,6 +56,13 @@ setup(
     name='rlgraph',
     version=version_vars['__version__'],
     description='A Framework for Modular Deep Reinforcement Learning',
+    long_description="""
+RLgraph is a framework to quickly prototype, define and execute reinforcement learning
+algorithms both in research and practice. RLgraph supports both
+TensorFlow (or static graphs in general) and Pytorch (eager/define-by run execution) through
+a single component based interface. An introductory blogpost can be found here: 
+https://rlgraph.github.io/rlgraph/2019/01/04/introducing-rlgraph.html
+""",
     url='https://rlgraph.org',
     author='The RLgraph development team',
     author_email='rlgraph@rlgraph.org',
