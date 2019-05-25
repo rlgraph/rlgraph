@@ -113,7 +113,7 @@ class Memory(Component):
 
     def _read_records(self, indices):
         """
-        Obtains record values for the provided indices.
+        Obtains record values for the provided indices (across all columns).
 
         Args:
             indices (Union[ndarray,tf.Tensor]): Indices to read. Assumed to be not contiguous.
@@ -124,6 +124,10 @@ class Memory(Component):
         records = FlattenedDataOp()
         for name, variable in self.memory.items():
             records[name] = self.read_variable(variable, indices)
+            # Transfer num_categories information when pulling int records from memory.
+            if hasattr(variable, "_num_categories"):
+                records[name]._num_categories = variable._num_categories
+            #records[name]._batch_rank = 0
         return records
 
     @rlgraph_api

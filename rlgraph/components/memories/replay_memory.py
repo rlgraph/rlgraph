@@ -101,8 +101,12 @@ class ReplayMemory(Memory):
             indices = tf.random_uniform(shape=(num_records,), maxval=size, dtype=tf.int32)
             indices = (index - 1 - indices) % self.capacity
 
+            records = self._read_records(indices=indices)
+            # Add batch-rank=0 information to pulled record batches.
+            for record in records.values():
+                record._batch_rank = 0
             # Return default importance weight one.
-            return self._read_records(indices=indices), indices, tf.ones_like(tensor=indices, dtype=tf.float32)
+            return records, indices, tf.ones_like(tensor=indices, dtype=tf.float32)
         elif get_backend() == "pytorch":
             indices = []
             if self. size > 0:
