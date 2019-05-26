@@ -363,7 +363,8 @@ class DQFDAgent(Agent):
             )
             return loss, loss_per_item
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None):
+    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
+                   time_percentage=None):
         """
         Args:
             extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
@@ -378,6 +379,10 @@ class DQFDAgent(Agent):
                 - action
                 - the preprocessed states
         """
+        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
+        if time_percentage is None:
+            time_percentage = self.timesteps / self.update_spec.get("max_timesteps", 1e6)
+
         extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
@@ -396,7 +401,7 @@ class DQFDAgent(Agent):
         return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
-            [batched_states, self.timesteps, use_exploration],
+            [batched_states, time_percentage, use_exploration],
             return_ops
         ))
         if remove_batch_rank:
