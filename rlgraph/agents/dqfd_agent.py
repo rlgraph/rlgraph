@@ -280,7 +280,7 @@ class DQFDAgent(Agent):
             # Sample from demo memory.
             records, sample_indices, importance_weights = agent.demo_memory.get_records(demo_batch_size)
             preprocessed_s, actions, rewards, terminals, preprocessed_s_prime = agent.splitter.call(records)
-            step_op, loss, loss_per_item, q_values_s = root.update_from_external_batch(
+            step_op, loss, loss_per_item = root.update_from_external_batch(
                 preprocessed_s, actions, rewards, terminals, preprocessed_s_prime, importance_weights, apply_demo_loss,
                 expert_margins, time_percentage
             )
@@ -326,7 +326,7 @@ class DQFDAgent(Agent):
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins, q_values_sp,
-                importance_weights, apply_demo_loss, time_percentage
+                importance_weights, apply_demo_loss
             )
 
             # Args are passed in again because some device strategies may want to split them to different devices.
@@ -359,7 +359,7 @@ class DQFDAgent(Agent):
 
             loss, loss_per_item = loss_function.loss(
                 q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins,
-                q_values_sp, importance_weights, apply_demo_loss, time_percentage
+                q_values_sp, importance_weights, apply_demo_loss
             )
             return loss, loss_per_item
 

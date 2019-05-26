@@ -40,13 +40,11 @@ class DQFDLossFunction(DQNLossFunction):
     def __init__(self,  supervised_weight=1.0, scope="dqfd-loss-function", **kwargs):
         """
         Args:
-            supervised_weight (spec(TimeDependentParameter)): Indicates weight of the expert loss.
+            supervised_weight (float): Indicates weight of the expert loss.
         """
         super(DQFDLossFunction, self).__init__(scope=scope, **kwargs)
 
-        self.supervised_weight = TimeDependentParameter.from_spec(supervised_weight)
-
-        self.add_components(self.supervised_weight)
+        self.supervised_weight = supervised_weight
 
     @rlgraph_api
     def loss(self, q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins,
@@ -60,7 +58,7 @@ class DQFDLossFunction(DQNLossFunction):
 
     @rlgraph_api
     def loss_per_item(self, q_values_s, actions, rewards, terminals, qt_values_sp, expert_margins, q_values_sp=None,
-                      importance_weights=None, apply_demo_loss=False, time_percentage=None):
+                      importance_weights=None, apply_demo_loss=False):
         # Get the targets per action.
         td_targets = self._graph_fn_get_td_targets(rewards, terminals, qt_values_sp, q_values_sp)
         # Average over container sub-actions.
@@ -69,7 +67,7 @@ class DQFDLossFunction(DQNLossFunction):
 
         # Calculate the loss per item.
         loss_per_item = self._graph_fn_loss_per_item(td_targets, q_values_s, actions, expert_margins,
-                                                     importance_weights, apply_demo_loss, time_percentage)
+                                                     importance_weights, apply_demo_loss)
         # Average over container sub-actions.
         loss_per_item = self._graph_fn_average_over_container_keys(loss_per_item)
 
@@ -80,7 +78,7 @@ class DQFDLossFunction(DQNLossFunction):
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_loss_per_item(self, key, td_targets, q_values_s, actions, expert_margins,
-                                importance_weights=None, apply_demo_loss=False, time_percentage=None):
+                                importance_weights=None, apply_demo_loss=False):
         """
         Args:
             td_targets (SingleDataOp): The already calculated TD-target terms (r + gamma maxa'Qt(s',a')
@@ -138,7 +136,7 @@ class DQFDLossFunction(DQNLossFunction):
             supervised_delta = supervised_loss - q_s_a_values
             td_delta = tf.cond(
                 pred=apply_demo_loss,
-                true_fn=lambda: td_delta + self.supervised_weight.get(time_percentage) * supervised_delta,
+                true_fn=lambda: td_delta + self.supervised_weight * supervised_delta,
                 false_fn=lambda: td_delta
             )
 
