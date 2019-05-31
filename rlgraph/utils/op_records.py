@@ -37,7 +37,8 @@ class DataOpRecord(object):
     # build-prioritization).
     MAX_ID = 1e6
 
-    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_record=None):
+    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_record=None,
+                 placeholder=None):
         """
         Args:
             op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
@@ -52,6 +53,9 @@ class DataOpRecord(object):
 
             next\_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
             previous (Optional(DataOpRecord)): The previous op-record.
+
+            placeholder (Optional[str]): If this is a placeholder op-rec, what is the name of the placeholder arg
+                (root's API input-arg name).
         """
         self.id = self.get_id()
         self.op = op
@@ -73,6 +77,8 @@ class DataOpRecord(object):
                                                                       if next_record is not None else set())
         # The previous op that lead to this one.
         self.previous = previous
+
+        self.placeholder = placeholder
 
     @staticmethod
     def get_id():
