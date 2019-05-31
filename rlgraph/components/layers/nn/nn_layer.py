@@ -62,6 +62,7 @@ class NNLayer(Layer):
         Do some sanity checking on the incoming Space:
         Must not be Container (for now) and must have a batch rank.
         """
+        super(NNLayer, self).check_input_spaces(input_spaces, action_space)
         # Make sure all inputs have the same time/batch ranks.
         # TODO also check spaces for pytorch once unified space management
         if get_backend() == "tf":
