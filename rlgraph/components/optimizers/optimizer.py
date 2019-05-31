@@ -34,7 +34,7 @@ class Optimizer(Component):
         """
         super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
 
-        self.learning_rate = TimeDependentParameter.from_spec(learning_rate)
+        self.learning_rate = TimeDependentParameter.from_spec(learning_rate, scope="learning-rate")
 
         self.add_components(self.learning_rate)
 
