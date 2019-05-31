@@ -28,6 +28,7 @@ with open(os.path.join(os.path.dirname(__file__), 'rlgraph', 'version.py')) as f
 
 install_requires = [
     'absl-py',
+    'graphviz',
     'numpy',
     'opencv-python',
     'pyyaml',
