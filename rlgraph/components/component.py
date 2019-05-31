@@ -24,14 +24,15 @@ import uuid
 from collections import OrderedDict
 
 import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
     define_api_method, define_graph_fn
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, TraceContext
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError, RLGraphSpaceError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
 from rlgraph.utils.specifiable import Specifiable
-from six.moves import xrange as range_
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -353,11 +354,7 @@ class Component(Specifiable):
         # print("Completing with input spaces after lookup = ", input_spaces)
 
         # Allow the Component to check its input Space and catch input-space errors.
-        try:
-            self.check_input_spaces(input_spaces, action_space)
-        except RLGraphSpaceError as e:
-            # If there is a Space error, trace back the op
-            pass
+        self.check_input_spaces(input_spaces, action_space)
 
         # Allow the Component to create all its variables.
         if get_backend() == "tf":

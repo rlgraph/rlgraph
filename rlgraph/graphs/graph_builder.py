@@ -33,9 +33,10 @@ from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
 from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, unflatten_op, TraceContext
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError, RLGraphSpaceError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, force_tuple, get_shape
+from rlgraph.utils.visualization_util import draw_sub_meta_graph_from_op_rec
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -107,6 +108,8 @@ class GraphBuilder(Specifiable):
 
         # A register for all created placeholders by name.
         self.placeholders = {}
+        # Our meta-graph from which to build the graph.
+        self.meta_graph = None
 
     def build_graph_with_options(self, meta_graph, input_spaces, available_devices,
                                  device_strategy="default", default_device=None,
@@ -166,14 +169,16 @@ class GraphBuilder(Specifiable):
             default_device (Optional[str]): Default device identifier.
             device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
         """
+        self.meta_graph = meta_graph
+
         # Time the build procedure.
         time_start = time.perf_counter()
-        assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
-        self.root_component = meta_graph.root_component
+        assert self.meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
+        self.root_component = self.meta_graph.root_component
         self.graph_call_times = []
         self.var_call_times = []
-        self.api = meta_graph.api
-        self.num_meta_ops = meta_graph.num_ops
+        self.api = self.meta_graph.api
+        self.num_meta_ops = self.meta_graph.num_ops
 
         # Set the build phase to `building`.
         self.phase = "building"
@@ -189,7 +194,7 @@ class GraphBuilder(Specifiable):
         self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
-        components = self.root_component.get_all_sub_components()
+        components = self.root_component.get_all_sub_components(exclude_self=False)
         # Point to this GraphBuilder object.
         # Add those op-recs to the set that are constant.
         for component in components:
@@ -336,10 +341,14 @@ class GraphBuilder(Specifiable):
                 device = self.get_device(component, variables=True)
                 # This builds variables which would have to be done either way:
                 call_time = time.perf_counter()
-                component.when_input_complete(
-                    input_spaces=None, action_space=self.action_space, device=device,
-                    summary_regexp=self.summary_spec["summary_regexp"]
-                )
+                try:
+                    component.when_input_complete(
+                        input_spaces=None, action_space=self.action_space, device=device,
+                        summary_regexp=self.summary_spec["summary_regexp"]
+                    )
+                except RLGraphSpaceError as e:
+                    self._analyze_faulty_space_op(component, e)
+
                 self.var_call_times.append(time.perf_counter() - call_time)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
@@ -687,7 +696,7 @@ class GraphBuilder(Specifiable):
     def _analyze_none_op(self, op_rec):
         """
         Args:
-            op_rec (DataOpRecord): The op-rec to analyze for errors (whose op property is None).
+            op_rec (DataOpRecord): The op-rec to analyze for errors (whose `op` property is None).
 
         Raises:
             RLGraphError: After the problem has been identified.
@@ -806,9 +815,41 @@ class GraphBuilder(Specifiable):
             RLGraphError: After the problem has been identified.
         """
         # Find the sub-component that's input-incomplete and further track that one.
-        for sub_component in component.get_all_sub_components():
+        for sub_component in component.get_all_sub_components(exclude_self=True):
             if sub_component.input_complete is False:
                 self._analyze_input_incomplete_component(sub_component)
+
+    def _analyze_faulty_space_op(self, component, error):
+        """
+        Args:
+            component (Component): The Component, whose `check_input_spaces` threw a RLGraphSpaceError.
+            error (RLGraphSpaceError): The error thrown and from which to infer the op-rec whose Space threw this
+                error in a Component's `check_input_spaces`.
+
+        Raises:
+            RLGraphError: After the problem has been identified.
+        """
+        # If there is a Space error, trace back the op to the graph_fn that produced it.
+        input_arg = error.input_arg
+        add = 0
+        mo = re.search(r'\[(\d+)\]$', input_arg)
+        if mo:
+            input_arg = input_arg[:- (2 + len(str(mo.group(1))))]  # 2=len of '[' and ']'
+            add = int(mo.group(1))
+        else:
+            input_arg = re.sub(r'^.+\[(\w+)\]$', '\1', input_arg)
+            if mo:
+                input_arg = input_arg[:- (2 + len(str(mo.group(1))))]  # 2=len of '[' and ']'
+                add = int(mo.group(1))
+
+        # Look for the faulty op-rec/op to be able to trace it back.
+        op_rec = None
+        for api_method_rec in component.api_methods.values():
+            if input_arg in api_method_rec.input_names:
+                space_pos = api_method_rec.input_names.index(input_arg) + add
+                op_rec = api_method_rec.in_op_columns[-1].op_records[space_pos]
+                break
+        print(draw_sub_meta_graph_from_op_rec(op_rec, meta_graph=self.meta_graph))
 
     def get_execution_inputs(self, *api_method_calls):
         """
@@ -1088,7 +1129,7 @@ class GraphBuilder(Specifiable):
         self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
-        components = self.root_component.get_all_sub_components()
+        components = self.root_component.get_all_sub_components(exclude_self=False)
         for component in components:
             component.graph_builder = self  # point to us.
             self.op_records_to_process.update(component.constant_op_records)
