@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from rlgraph.version import __version__
-
 import json
-import os
 import logging
+import os
+
+from rlgraph.version import __version__
 
 # Libraries should add NullHandler() by default, as its the application code's
 # responsibility to configure log handlers.
@@ -149,5 +149,5 @@ def get_distributed_backend():
 
 
 __all__ = [
-    "__version__",  "get_backend", "get_distributed_backend"
+    "__version__",  "get_backend", "get_distributed_backend", "rl_graph_dir"
 ]
