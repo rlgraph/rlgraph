@@ -955,7 +955,7 @@ class Component(Specifiable):
             Component: The sub-Component with the given global scope if found, None if not found.
         """
         # TODO: make method more efficient.
-        components = self.get_all_sub_components()
+        components = self.get_all_sub_components(exclude_self=True)
         for component in components:
             if component.global_scope == scope:
                 return component
