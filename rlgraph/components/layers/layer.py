@@ -60,7 +60,7 @@ class Layer(Component):
 
     def __call__(self, *args, **kwargs):
         """
-        Make all Layers callable for the Keras-style functional API.
+        Makes all Layers callable for the Keras-style functional API.
 
         Args:
             *args (any): The args passed in to the layer when "called" via the Keras-style functional API.
@@ -112,7 +112,7 @@ class LayerCallOutput(object):
             kwarg_strings (List[str]): The kwargs corresponding to each input in `inputs` (use "" for no kwarg).
             component (Component): The Component, whose `call` method returns this output.
             output_slot (int): The position in the return tuple of the call.
-            num_outputs (int): The over all number of return values that the call returns.
+            num_outputs (int): The overall number of return values that the call returns.
             space(Optional[Space]): The Space this object represents iff at the input arg side of the call.
         """
         self.inputs = inputs

@@ -22,11 +22,10 @@ import unittest
 import numpy as np
 
 from rlgraph.components.layers.nn import DenseLayer, LSTMLayer, ConcatLayer, Conv2DLayer
-from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.components.layers.strings import StringToHashBucket, EmbeddingLookup
 from rlgraph.components.neural_networks import NeuralNetwork
-from rlgraph.spaces import Dict, FloatBox, TextBox, Tuple, IntBox
+from rlgraph.spaces import Dict, FloatBox, TextBox, IntBox
 from rlgraph.tests.component_test import ComponentTest
 from rlgraph.utils.numpy import dense_layer, relu, lstm_layer, one_hot
 
@@ -92,14 +91,14 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
 
         test.terminate()
 
-    def test_functional_api_two_inputs(self):
+    def test_functional_api_two_separate_input_spaces(self):
         # Define an input Space first (tuple of two input tensors).
-        input_space = Tuple([IntBox(3), FloatBox(shape=(4,))], add_batch_rank=True)
+        input_spaces = [IntBox(3, add_batch_rank=True), FloatBox(shape=(4,), add_batch_rank=True)]
 
         # One-hot flatten the int tensor.
-        flatten_layer_out = ReShape(flatten=True, flatten_categories=True)(input_space[0])
+        flatten_layer_out = ReShape(flatten=True, flatten_categories=True)(input_spaces[0])
         # Run the float tensor through two dense layers.
-        dense_1_out = DenseLayer(units=3, scope="d1")(input_space[1])
+        dense_1_out = DenseLayer(units=3, scope="d1")(input_spaces[1])
         dense_2_out = DenseLayer(units=5, scope="d2")(dense_1_out)
         # Concat everything.
         cat_out = ConcatLayer()(flatten_layer_out, dense_2_out)
@@ -107,7 +106,7 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
         # Use the `outputs` arg to allow your network to trace back the data flow until the input space.
         neural_net = NeuralNetwork(outputs=cat_out)
 
-        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=input_space))
+        test = ComponentTest(component=neural_net, input_spaces=dict(inputs=input_spaces))
 
         var_dict = neural_net.variable_registry
         w1_value = test.read_variable_values(var_dict["neural-network/d1/dense/kernel"])
@@ -116,7 +115,7 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
         b2_value = test.read_variable_values(var_dict["neural-network/d2/dense/bias"])
 
         # Batch of size=n.
-        input_ = input_space.sample(4)
+        input_ = [input_spaces[0].sample(4), input_spaces[1].sample(4)]
 
         expected = np.concatenate([  # concat everything
             one_hot(input_[0]),  # int flattening
@@ -133,10 +132,10 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
             "txt": TextBox()  # some text
         }, add_batch_rank=True, add_time_rank=True)
 
-        img, txt = ContainerSplitter("img", "txt")(input_space)
+        #img, txt = ContainerSplitter("img", "txt")(input_space)
         # Complex NN assembly via our Keras-style functional API.
         # Fold text input into single batch rank.
-        folded_text = ReShape(fold_time_rank=True)(txt)
+        folded_text = ReShape(fold_time_rank=True)(input_space["txt"])
         # String layer will create batched AND time-ranked (individual words) hash outputs (int64).
         string_bucket_out, lengths = StringToHashBucket(num_hash_buckets=5)(folded_text)
         # Batched and time-ranked embedding output (floats) with embed dim=n.
@@ -146,12 +145,12 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
             embedding_out, sequence_length=lengths
         )
         # Unfold to get original time-rank back.
-        string_lstm_out_unfolded = ReShape(unfold_time_rank=True)(string_lstm_out, txt)
+        string_lstm_out_unfolded = ReShape(unfold_time_rank=True)(string_lstm_out, input_space["txt"])
 
         # Parallel image stream via 1 CNN layer plus dense.
-        folded_img = ReShape(fold_time_rank=True, scope="img-fold")(img)
+        folded_img = ReShape(fold_time_rank=True, scope="img-fold")(input_space["img"])
         cnn_out = Conv2DLayer(filters=1, kernel_size=2, strides=2)(folded_img)
-        unfolded_cnn_out = ReShape(unfold_time_rank=True, scope="img-unfold")(cnn_out, img)
+        unfolded_cnn_out = ReShape(unfold_time_rank=True, scope="img-unfold")(cnn_out, input_space["img"])
         unfolded_cnn_out_flattened = ReShape(flatten=True, scope="img-flat")(unfolded_cnn_out)
         dense_out = DenseLayer(units=2, scope="dense-0")(unfolded_cnn_out_flattened)
 
