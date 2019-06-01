@@ -124,6 +124,7 @@ class LSTMLayer(NNLayer):
                 cell_clip=self.cell_clip,
                 forget_bias=self.forget_bias,
                 name="lstm-cell",
+                dtype=tf.float32,
                 reuse=tf.AUTO_REUSE
                 # TODO: self.trainable needs to be recognized somewhere here.
 
@@ -181,7 +182,7 @@ class LSTMLayer(NNLayer):
                     parallel_iterations=self.parallel_iterations,
                     swap_memory=self.swap_memory,
                     time_major=self.in_space.time_major,
-                    dtype="float"
+                    dtype=tf.float32
                 )
             # We are running with a fixed number of time steps (static unroll).
             else:
