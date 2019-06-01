@@ -181,11 +181,11 @@ class AlgorithmComponent(Component):
                 else:
                     return policy_sync_op
 
-    def add_components(self, *sub_components):
-        super(AlgorithmComponent, self).add_components(*sub_components)
+    def add_components(self, *sub_components, expose_apis=None):
+        super(AlgorithmComponent, self).add_components(*sub_components, expose_apis=expose_apis)
 
         # Keep track of all our Optimizers.
-        for sub_component in self.get_all_sub_components():
+        for sub_component in self.get_all_sub_components(exclude_self=True):
             if isinstance(sub_component, Optimizer):
                 self.all_optimizers.append(sub_component)
 
