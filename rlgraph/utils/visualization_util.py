@@ -49,10 +49,10 @@ def draw_meta_graph(component, *, apis=False, graph_fns=False, render=True, _gra
       (with root being called `root` if no name was given to it) and the prefix "cluster_" (GraphViz needs this
       to allow styling of the subgraph).
     - A Component's APIs are subgraphs (within the Component's subgraph) and named `api:[global_scope]/[api_name]`.
-    - An API's in- and out-columns are nodes and named `api-[in|out]:[global_scope]/[api_name]/[# starting from 0]`
+    - An API's in- and out-columns are nodes and named after their `id` property, which is unique accross
+        the entire graph.
     - graph_fns are subgraphs (within the Component's subgraph) and named `graph:[global_scope]/[graph_fn_name]`.
-    - A graph_fn's in- and out-columns are nodes and named
-      `graph-[in|out]:[global_scope]/[grpah_fn_name]/[# starting from 0]`
+    - A graph_fn's in- and out-columns are nodes and named via their `id` property (see API in/out columns).
 
     Args:
         component (Component): The Component object to draw the component-graph for.
@@ -123,14 +123,27 @@ def _add_api_to_graph(component, api_name, graphviz_graph, draw_columns=True):
 
     if num_calls > 0:
         # Create API as subgraph of graphviz_graph.
+        # Make all connections coming into all in columns and out-columns of this API.
         with graphviz_graph.subgraph(name="cluster_api:" + component.global_scope + "/" + api_name) as sg:
             sg.attr(color="#ff0000", bb="2px", label=api_name)
             # Draw all in/out columns as nodes.
             if draw_columns is True:
-                # Draw in/out columns as one node (op-recs going in and coming out will be edges).
-                for call_id, out_col in enumerate(component.api_methods[api_name].out_op_columns):
+                for call_id in reversed(range(len(component.api_methods[api_name].out_op_columns))):
+                    out_col = component.api_methods[api_name].out_op_columns[call_id]
                     assert len(out_col.op_records) > 0
-                    sg.node("api-out:{}/{}/{}".format(component.global_scope, api_name, call_id), label=str(call_id))
+                    sg.node(out_col.id, label="out-" + str(call_id))
+                    # Make all connections going into this column (all its op-recs).
+                    for incoming_op_rec in out_col.op_records:
+                        graphviz_graph.edge(incoming_op_rec.previous.column.id, out_col.id)
+                # Draw in/out columns as one node (op-recs going in and coming out will be edges).
+                for call_id in reversed(range(len(component.api_methods[api_name].in_op_columns))):
+                    in_col = component.api_methods[api_name].in_op_columns[call_id]
+                    if len(in_col.op_records) > 0:
+                        sg.node("api-in:{}/{}/{}".format(component.global_scope, api_name, call_id),
+                                label="in-" + str(call_id))
+                    # Make all connections going into this column (all its op-recs).
+                    for incoming_op_rec in in_col.op_records:
+                        graphviz_graph.edge(incoming_op_rec.previous.column.id, in_col.id)
             # TODO: This is a hack to make the subgraph visible (needs at least one node). Creating a fake-node here. Try to solve this more elegantly.
             else:
                 sg.node("api:" + component.global_scope + "/" + api_name, label="")

@@ -47,5 +47,5 @@ class TestVisualizations(unittest.TestCase):
         # Test graphviz component-graph drawing.
         #draw_meta_graph(ppo_agent.root_component, apis=False, graph_fns=False)
         # Test graphviz component-graph w/ API drawing (only the Policy component).
-        draw_meta_graph(ppo_agent.policy, apis=True)
+        draw_meta_graph(ppo_agent.policy.neural_network, apis=True)
 
