@@ -448,19 +448,17 @@ class NeuralNetwork(Stack):
             "ERROR: `spaces` must be tuple/list (Tuple Space) OR dict (Dict Space)!"
 
         for idx, in_space in (spaces.items() if isinstance(spaces, dict) else enumerate(spaces)):
-            orig_index_chain = copy.deepcopy(_index_chain)
+            index_chain_copy = copy.deepcopy(_index_chain)
             # Found the ID.
             if in_space.id == space_id:
                 _index_chain.append(str(idx) if isinstance(idx, int) else "\"" + idx + "\"")
                 return True
             # Another container -> recurse.
             elif isinstance(in_space, ContainerSpace):
-                _index_chain.append(str(idx) if isinstance(idx, int) else "\"" + idx + "\"")
-                if NeuralNetwork._get_container_space_index_chain(in_space, space_id, _index_chain):
+                index_chain_copy.append(str(idx) if isinstance(idx, int) else "\"" + idx + "\"")
+                if NeuralNetwork._get_container_space_index_chain(in_space, space_id, index_chain_copy):
+                    _index_chain[:] = index_chain_copy
                     return True
-                # Reset index-chain to its state before this iteration.
-                else:
-                    _index_chain = orig_index_chain
 
         # Not found -> Return False.
         return False
