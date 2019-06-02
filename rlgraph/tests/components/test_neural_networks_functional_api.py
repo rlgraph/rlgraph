@@ -165,7 +165,6 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
             "txt": TextBox()  # some text
         }, add_batch_rank=True, add_time_rank=True)
 
-        #img, txt = ContainerSplitter("img", "txt")(input_space)
         # Complex NN assembly via our Keras-style functional API.
         # Fold text input into single batch rank.
         folded_text = ReShape(fold_time_rank=True)(input_space["txt"])
