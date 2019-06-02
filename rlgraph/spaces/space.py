@@ -400,5 +400,18 @@ class Space(Specifiable):
         Space._ID += 1
         return Space._ID
 
+    def get_top_level_container(self):
+        """
+        Returns:
+            Space: The top-most container containing this Space. This returned top-level container
+                has no more parents above it.
+        """
+        top_level = top_level_check = self
+        while top_level_check is not None:
+            top_level = top_level_check
+            top_level_check = top_level.parent
+        return top_level
+
     def __hash__(self):
         return hash(self.id)
+
