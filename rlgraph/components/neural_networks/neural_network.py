@@ -13,17 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
+import copy
 import re
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
-from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
+# from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.stack import Stack
+from rlgraph.spaces.containers import ContainerSpace
 from rlgraph.utils import force_tuple, force_list
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -48,17 +48,21 @@ class NeuralNetwork(Stack):
             layers (Optional[list]): An optional list of Layer objects or spec-dicts to overwrite(!)
                 *layers.
 
+            inputs (Optional[List[Space]]): A list of Spaces or a single Space object defining the input spaces for
+                the `call` method of this network. Must be provided, if more than one input arg are needed by `call`
+                to determine the order in which these inputs will come in.
+
             outputs (Optional[List[NNCallOutput]]): A list or single output NNCallOutput object,
                 indicating that we have to infer the `call` method from the graph given by these outputs.
                 This is used iff a NN is constructed by the Keras-style functional API.
 
-            num_inputs (Optional[int]): An optional number of inputs the `call` method will take as `*inputs`.
-                If not given, NN will try to infer this value automatically.
+            #num_inputs (Optional[int]): An optional number of inputs the `call` method will take as `*inputs`.
+            #    If not given, NN will try to infer this value automatically.
 
-            fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the apply method.
+            fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the `call` method.
                 Only for auto-generated `call` method. Default: None.
 
-            unfold_time_rank (bool): Whether to overwrite the `unfold_time_rank` option for the apply method.
+            unfold_time_rank (bool): Whether to overwrite the `unfold_time_rank` option for the `call` method.
                 Only for auto-generated `call` method. Default: None.
         """
         # In case layers come in via a spec dict -> push it into *layers.
@@ -66,7 +70,8 @@ class NeuralNetwork(Stack):
         # Add a default scope (if not given) and pass on via kwargs.
         kwargs["scope"] = kwargs.get("scope", "neural-network")
         self.functional_api_outputs = force_list(kwargs.pop("outputs", None))
-        self.num_inputs = kwargs.pop("num_inputs", 1)
+        self.functional_api_inputs = force_list(kwargs.pop("inputs", []))
+        #self.num_inputs = kwargs.pop("num_inputs", 1)
         self.num_outputs = min(len(self.functional_api_outputs), 1)
 
         # Force the only API-method to be `call`. No matter whether custom-API or auto-generated (via Stack).
@@ -74,7 +79,7 @@ class NeuralNetwork(Stack):
         if not hasattr(self, "call"):
             # Automatically create the `call` stack.
             if "api_methods" not in kwargs:
-                kwargs["api_methods"] = [dict(api="apply_shadowed_", component_api="call")]
+                kwargs["api_methods"] = [dict(api="call_shadowed_", component_api="call")]
                 self.custom_call_given = False
             # Sanity check `api_method` to contain only specifications on `call`.
             else:
@@ -103,10 +108,10 @@ class NeuralNetwork(Stack):
 
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
 
-        self.inputs_splitter = None
-        if self.num_inputs > 1:
-            self.inputs_splitter = ContainerSplitter(tuple_length=self.num_inputs, scope=".helper-inputs-splitter")
-            self.add_components(self.inputs_splitter)
+        #self.inputs_splitter = None
+        #if self.num_inputs > 1:
+        #    self.inputs_splitter = ContainerSplitter(tuple_length=self.num_inputs, scope=".helper-inputs-splitter")
+        #    self.add_components(self.inputs_splitter)
 
     def build_auto_api_method(self, stack_api_method_name, component_api_method_name, fold_time_rank=False,
                               unfold_time_rank=False, ok_to_overwrite=False):
@@ -121,7 +126,7 @@ class NeuralNetwork(Stack):
         elif len(self.functional_api_outputs) > 0:
             self._build_call_via_keras_style_functional_api(*self.functional_api_outputs)
 
-        # Auto apply-API -> Handle LSTMs correctly.
+        # Auto call-API -> Handle LSTMs correctly.
         elif self.custom_call_given is False:
             self._build_auto_call_method(fold_time_rank, unfold_time_rank)
 
@@ -163,12 +168,12 @@ class NeuralNetwork(Stack):
         """
         assert self.custom_call_given is False,\
             "ERROR: Cannot add layer to neural network if `call` API-method is a custom one!"
-        assert hasattr(layer_component, self.map_api_to_sub_components_api["apply_shadowed_"]), \
+        assert hasattr(layer_component, self.map_api_to_sub_components_api["call_shadowed_"]), \
             "ERROR: Layer to be added ({}) does not have an API-method called '{}'!".format(
-                layer_component.scope, self.map_api_to_sub_components_api["apply_shadowed_"]
+                layer_component.scope, self.map_api_to_sub_components_api["call_shadowed_"]
             )
         self.add_components(layer_component)
-        self.build_auto_api_method("apply_shadowed_", self.map_api_to_sub_components_api["apply_shadowed_"],
+        self.build_auto_api_method("call_shadowed_", self.map_api_to_sub_components_api["call_shadowed_"],
                                    ok_to_overwrite=True)
 
     def _pytorch_fast_path_exec(self, *inputs, **kwargs):
@@ -233,7 +238,7 @@ class NeuralNetwork(Stack):
         output_set = set(layer_call_outputs)
         output_id = 0
         sub_components = set()
-        num_inputs = 0
+        #num_inputs = 0
 
         def _all_siblings_in_set(output, set_):
             siblings = []
@@ -249,7 +254,7 @@ class NeuralNetwork(Stack):
             output_id += 1
 
         # Write this NN's `call` code dynamically, then execute it.
-        apply_code = "\treturn {}\n".format(", ".join([o.var_name for o in layer_call_outputs]))
+        call_code = "\treturn {}\n".format(", ".join([o.var_name for o in layer_call_outputs]))
 
         prev_output_set = None
 
@@ -277,46 +282,60 @@ class NeuralNetwork(Stack):
             # Remove outs from set.
             for sibling in siblings:
                 output_set.remove(sibling)
-            # Add `ins` to set or to `apply_inputs` (if `in` is a Space).
+            # Add `ins` to set (or set to one of the `inputs[?]` for the `call` method.
+            functional_api_input_ids = [space.id for space in self.functional_api_inputs]
             for pos, in_ in enumerate(output.inputs):
+                # This input is a Space -> If we can find it in `self.functional_api_inputs`, use the correct
+                # `inputs[?]` reference here, if not, may be a child of a container input, in which case:
+                # tag it for now with `inputs[Space.id]`.
                 if in_.space is not None:
-                    in_.var_name = "inputs[{}]".format(pos)
-                    if pos + 1 > num_inputs:
-                        num_inputs = pos + 1
+                    # Given Space is in this NeuralNetwork's given inputs. Use its `*inputs`-index directly.
+                    if in_.space.id in functional_api_input_ids:
+                        in_.var_name = "inputs[{}]".format(functional_api_input_ids.index(in_.space.id))
+                    # A child of an input container space. Add the necessary ContainerSplitter and `inputs`-index
+                    # automatically.
+                    else:
+                        # Look for this Space in `self.functional_api_inputs`.
+                        index_chain = []
+                        if self._get_container_space_index_chain(
+                                self.functional_api_inputs, in_.space.id, index_chain
+                        ) is False:
+                            index_chain = [0]
+                        in_.var_name = "inputs[{}]".format("][".join([str(i) for i in index_chain]))
                 elif in_.var_name is None:
                     in_.var_name = "out{}".format(output_id)
                     output_id += 1
                     output_set.add(in_)
 
             inputs_str = ", ".join([k + i.var_name for i, k in zip(output.inputs, output.kwarg_strings)])
-            apply_code = "\t{} = self.get_sub_component_by_name('{}').call({})\n".format(
-                siblings_str, output.component.scope, inputs_str) + apply_code
+            call_code = "\t{} = self.get_sub_component_by_name('{}').call({})\n".format(
+                siblings_str, output.component.scope, inputs_str) + call_code
             sub_components.add(output.component)
 
             # Store previous state of our set.
             prev_output_set = output_set
 
         # Prepend inputs from left-over Space objects in set.
-        apply_code = "@rlgraph_api(component=self, ok_to_overwrite=True)\n" + \
+        call_code = "@rlgraph_api(component=self, ok_to_overwrite=True)\n" + \
                      "def call(self, *inputs):\n" + \
-                     apply_code
+                     call_code
 
         # Add all sub-components to this NN.
         self.add_components(*list(sub_components))
 
-        self.num_inputs = num_inputs
+        #self.num_inputs = num_inputs
 
         # Execute the code and assign self.call to it.
-        print("`apply_code` for NN:")
-        print(apply_code)
-        exec(apply_code, globals(), locals())
+        print("`call_code` for NN:")
+        print(call_code)
+        exec(call_code, globals(), locals())
 
     def _build_auto_call_method(self, fold_time_rank, unfold_time_rank):
         @rlgraph_api(component=self, ok_to_overwrite=True)
         def call(self_, *inputs):
             # Everything is lumped together in inputs[0] but is supposed to be split -> Do this here.
-            if len(inputs) == 1 and self.num_inputs > 1:
-                inputs = self.inputs_splitter.call(inputs[0])
+            #if len(inputs) == 1 and self.num_inputs > 1:
+            #    inputs = self.inputs_splitter.call(inputs[0])
 
             inputs = list(inputs)
             original_input = inputs[0]
@@ -374,3 +393,46 @@ class NeuralNetwork(Stack):
             else:
                 self.num_outputs = len(args_)
                 return args_
+
+    @staticmethod
+    def _get_container_space_index_chain(spaces, space_id, _index_chain=None):
+        """
+        Finds `space_id` in `spaces` and returns the actual path from the top-level Space till the child-Space
+        with id=space_id.
+
+        Args:
+            spaces (Union[List[Space],Tuple[Space],Dict[str,Space]]): The container Space or list of Spaces to look
+                through.
+
+            space_id (int): The ID of the Space, we are trying to find in `spaces`.
+
+            _index_chain (List[str,int]): The indexing chain so far. Starts with the index of the matching parent Space
+                in `spaces`. E.g. given:
+                spaces=(Tuple([spaceA(id=0),Dict(a=SpaceB(id=2), b=SpaceC(id=5))]))
+                space_id=5
+                -> returns: [1, "b"] -> pick index 1 in Tuple, then key "b" in Dict.
+
+        Returns:
+            List[str,int]: A chain of inputs indices, e.g. "[0]['img'][2]" to go from the top-level Space in `spaces`
+                to the given Space's id.
+        """
+        assert isinstance(spaces, (tuple, list, dict)), \
+            "ERROR: `spaces` must be tuple/list (Tuple Space) OR dict (Dict Space)!"
+
+        for idx, in_space in (spaces.items() if isinstance(spaces, dict) else enumerate(spaces)):
+            orig_index_chain = copy.deepcopy(_index_chain)
+            # Found the ID.
+            if in_space.id == space_id:
+                _index_chain.append(idx)
+                return True
+            # Another container -> recurse.
+            elif isinstance(in_space, ContainerSpace):
+                _index_chain.append(idx)
+                if NeuralNetwork._get_container_space_index_chain(in_space, space_id, _index_chain):
+                    return True
+                # Reset index-chain to its state before this iteration.
+                else:
+                    _index_chain = orig_index_chain
+
+        # Not found -> Return False.
+        return False
