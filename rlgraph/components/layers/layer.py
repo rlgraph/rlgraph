@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 
@@ -84,9 +82,14 @@ class Layer(Component):
                 self.api_method_inputs[key] = value
 
         inputs_list = list(args) + list(kwargs.values())
-        if len(inputs_list) > 0 and isinstance(inputs_list[0], Space):
-            inputs_list = [LayerCallOutput([], [], self, output_slot=i, num_outputs=len(inputs_list), space=s)
-                           for i, s in enumerate(inputs_list)]
+        # Translate all incoming Spaces also into a LayerCallOutput, where the `space` property is set
+        # and `inputs` is [].
+        if len(inputs_list) > 0:
+            inputs_list = [
+                LayerCallOutput([], [], self, output_slot=i, num_outputs=len(inputs_list), space=s)
+                if isinstance(s, Space) else s
+                for i, s in enumerate(inputs_list)
+            ]
         kwarg_strings = ["" for _ in range(len(args))]+[k + "=" for k in kwargs.keys()]
 
         # Need to return as many return values as `call` returns.
