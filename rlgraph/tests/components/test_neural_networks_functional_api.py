@@ -196,7 +196,7 @@ class TestNeuralNetworkFunctionalAPI(unittest.TestCase):
         dense2_after_lstm_out = DenseLayer(units=2, scope="dense-2")(dense1_after_lstm_out)
         dense3_after_lstm_out = DenseLayer(units=1, scope="dense-3")(dense2_after_lstm_out)
 
-        # A NN with 2 outputs.
+        # A NN with 3 outputs.
         neural_net = NeuralNetwork(outputs=[dense3_after_lstm_out, main_lstm_out, internal_states])
 
         test = ComponentTest(component=neural_net, input_spaces=dict(inputs=input_space))

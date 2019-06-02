@@ -19,9 +19,9 @@ import copy
 import re
 
 from rlgraph import get_backend
+from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
-# from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.spaces.containers import ContainerSpace
 from rlgraph.utils import force_tuple, force_list
@@ -57,7 +57,10 @@ class NeuralNetwork(Stack):
                 indicating that we have to infer the `call` method from the graph given by these outputs.
                 This is used iff a NN is constructed by the Keras-style functional API.
 
-            fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the `call` method.
+            num_inputs (Optional[int]): An optional number of inputs the `call` method will take as `*inputs`.
+                If not given, NN will try to infer this value automatically.
+
+            fold_time_rank (bool): Whether to overwrite the `fold_time_rank` option for the apply method.
                 Only for auto-generated `call` method. Default: None.
 
             unfold_time_rank (bool): Whether to overwrite the `unfold_time_rank` option for the `call` method.
@@ -67,9 +70,13 @@ class NeuralNetwork(Stack):
         layers_args = kwargs.pop("layers", layers)
         # Add a default scope (if not given) and pass on via kwargs.
         kwargs["scope"] = kwargs.get("scope", "neural-network")
-        self.functional_api_outputs = force_list(kwargs.pop("outputs", None))
-        self.functional_api_inputs = force_list(kwargs.pop("inputs", []))
-        self.num_outputs = min(len(self.functional_api_outputs), 1)
+        self.keras_style_api_outputs = force_list(kwargs.pop("outputs", None))
+        self.keras_style_api_inputs = force_list(kwargs.pop("inputs", []))
+        # If Keras-style inputs are given, just count those, otherwise allow for `num_inputs` hint (default: 1).
+        self.num_inputs = len(self.keras_style_api_inputs)
+        if self.num_inputs == 0:
+            self.num_inputs = kwargs.pop("num_inputs", 1)
+        self.num_outputs = min(len(self.keras_style_api_outputs), 1)
 
         # Force the only API-method to be `call`. No matter whether custom-API or auto-generated (via Stack).
         self.custom_call_given = True
@@ -96,7 +103,7 @@ class NeuralNetwork(Stack):
             if unfold_time_rank is not None:
                 kwargs["api_methods"][0]["unfold_time_rank"] = unfold_time_rank
 
-        assert len(self.functional_api_outputs) == 0 or self.custom_call_given is False, \
+        assert len(self.keras_style_api_outputs) == 0 or self.custom_call_given is False, \
             "ERROR: If functional API is used to construct network, a custom `call` method must not be provided!"
 
         # Pytorch specific objects.
@@ -104,6 +111,13 @@ class NeuralNetwork(Stack):
         self.non_layer_components = None
 
         super(NeuralNetwork, self).__init__(*layers_args, **kwargs)
+
+        # In case we have more than one input (and not using Keras-style assembly),
+        # add another input splitter here.
+        self.inputs_splitter = None
+        if self.num_inputs > 1:
+            self.inputs_splitter = ContainerSplitter(tuple_length=self.num_inputs, scope=".helper-inputs-splitter")
+            self.add_components(self.inputs_splitter)
 
     def build_auto_api_method(self, stack_api_method_name, component_api_method_name, fold_time_rank=False,
                               unfold_time_rank=False, ok_to_overwrite=False):
@@ -115,8 +129,8 @@ class NeuralNetwork(Stack):
                 return self._pytorch_fast_path_exec(*([nn_input] + list(nn_inputs)), **kwargs)
 
         # Functional API (Keras Style assembly). TODO: Add support for pytorch.
-        elif len(self.functional_api_outputs) > 0:
-            self._build_call_via_keras_style_functional_api(*self.functional_api_outputs)
+        elif len(self.keras_style_api_outputs) > 0:
+            self._build_call_via_keras_style_functional_api(*self.keras_style_api_outputs)
 
         # Auto call-API -> Handle LSTMs correctly.
         elif self.custom_call_given is False:
@@ -250,7 +264,7 @@ class NeuralNetwork(Stack):
         prev_output_set = None
 
         # Input Space-IDs that we know will be used.
-        functional_api_input_ids = [space.id for space in self.functional_api_inputs]
+        functional_api_input_ids = [space.id for space in self.keras_style_api_inputs]
         # If no inputs given -> Allow only a single-input arg setup (otherwise, there would be
         # ambiguity).
         auto_functional_api_single_input = None
@@ -281,7 +295,7 @@ class NeuralNetwork(Stack):
                 output_set.remove(sibling)
             # Add `ins` to set (or set to one of the `inputs[?]` for the `call` method.
             for pos, in_ in enumerate(output.inputs):
-                # This input is a Space -> If we can find it in `self.functional_api_inputs`, use the correct
+                # This input is a Space -> If we can find it in `self.keras_style_api_inputs`, use the correct
                 # `inputs[?]` reference here, if not, may be a child of a container input, in which case:
                 # tag it for now with `inputs[Space.id]`.
                 if in_.space is not None:
@@ -305,10 +319,10 @@ class NeuralNetwork(Stack):
                                     )
                             else:
                                 auto_functional_api_single_input = top_level_container_space
-                        # Look for this Space in `self.functional_api_inputs`.
+                        # Look for this Space in `self.keras_style_api_inputs`.
                         index_chain = []
                         if self._get_container_space_index_chain(
-                                self.functional_api_inputs if len(self.functional_api_inputs) > 0
+                                self.keras_style_api_inputs if len(self.keras_style_api_inputs) > 0
                                 else [auto_functional_api_single_input],
                                 in_.space.id, index_chain
                         ) is False:
@@ -347,6 +361,10 @@ class NeuralNetwork(Stack):
     def _build_auto_call_method(self, fold_time_rank, unfold_time_rank):
         @rlgraph_api(component=self, ok_to_overwrite=True)
         def call(self_, *inputs):
+            # Everything is lumped together in inputs[0] but is supposed to be split -> Do this here.
+            if len(inputs) == 1 and self.num_inputs > 1:
+                inputs = self.inputs_splitter.call(inputs[0])
+
             inputs = list(inputs)
             original_input = inputs[0]
 
