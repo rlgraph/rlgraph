@@ -45,6 +45,7 @@ class Space(Specifiable):
         self.id = self.get_id()
 
         self._shape = None
+        self.parent = None  # For usage in nested ContainerSpace structures.
 
         self.has_batch_rank = None
         self.has_time_rank = None
