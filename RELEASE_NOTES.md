@@ -1,6 +1,10 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.5.3 - 2019/06/03
+- Fixed remaining issues with Keras-style NN assembly. This is now the
+  recommended method for complex/multi-stream `NeuralNetworks`.
+
 ## RLgraph 0.5.2 - 2019/05/25
 - Fixed bug in Worker's reporting: `mean_episode_reward` was calculated
   incorrectly as the return of the last episode (regardless of whether
