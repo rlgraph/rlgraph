@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import re
@@ -29,6 +27,9 @@ class Space(Specifiable):
     Space class (based on and compatible with openAI Spaces).
     Provides a classification for state-, action-, reward- and other spaces.
     """
+    # Global unique Space ID.
+    _ID = -1
+
     def __init__(self, add_batch_rank=False, add_time_rank=False, time_major=False):
         """
         Args:
@@ -40,6 +41,8 @@ class Space(Specifiable):
                 of these ranks (or both) does not exist.
         """
         super(Space, self).__init__()
+
+        self.id = self.get_id()
 
         self._shape = None
 
@@ -389,3 +392,12 @@ class Space(Specifiable):
         if isinstance(spec, str) and re.search(r'^variables:', spec):
             return None
         return super(Space, cls).from_spec(spec, **kwargs)
+
+    # TODO: Same procedure as for DataOpRecords. Maybe unify somehow (common ancestor class: IDable).
+    @staticmethod
+    def get_id():
+        Space._ID += 1
+        return Space._ID
+
+    def __hash__(self):
+        return hash(self.id)

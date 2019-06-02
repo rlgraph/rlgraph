@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import inspect
 
 import numpy as np
-
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import convert_dtype
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
@@ -115,6 +112,10 @@ class DataOpRecord(object):
 
 
 class DataOpRecordColumn(object):
+    """
+    A DataOpRecordColumn is a list of DataOpRecords that either go into (a call) or come from (return) a
+    Component's GraphFn or API method.
+    """
     _ID = -1
 
     def __init__(self, component, num_op_records=None, args=None, kwargs=None):
