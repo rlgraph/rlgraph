@@ -29,8 +29,13 @@ from six.moves import xrange as range_
 pygame = None
 try:
     import pygame
-except ImportError:
-    print("PyGame not installed. No human rendering possible.")
+    # Only use pygame if a display is available.
+    pygame.display.init()
+    modes = pygame.display.list_modes()
+    if len(modes) == 0:
+        pygame = None
+except:
+    print("PyGame not installed or no display mode available. No human rendering possible.")
 
 import rlgraph.spaces as spaces
 from rlgraph.environments import Environment
