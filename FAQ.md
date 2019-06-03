@@ -4,7 +4,7 @@
 Here we collect short answers to common questions and point to resources.
 
 
-#### How can I execute a gym environment?
+### How can I execute a gym environment?
 
 The simplest way of executing an environment is the single-threaded executor. For an example, see
 the ```examples/dqn_cartpole.py``` script. While single-threaded, the executor can still use
@@ -25,7 +25,7 @@ and merges them into one update. Examples are in the tests package (```TestSyncB
 tests/execution).
 
 
-#### How can I use a custom environment?
+### How can I use a custom environment?
 
 Both the single-threaded executor and all Ray executors accept:
 - Environment spec dicts for pre-registered environments.
@@ -48,7 +48,7 @@ executor = ApexExecutor(
 ```
 
 
-#### How can I train with decaying/changing parameters (like learning rates) over time?
+### How can I train with decaying/changing parameters (like learning rates) over time?
 
 This is easily done in json or other Agent config types since version 0.4.2 and it is applicable to
 all hyper-parameters that are based on the `TimeDependentParameter` class, which should
@@ -123,33 +123,90 @@ NOTE here that the Agent should not have to worry about time-step counting
 (or time_percentage calculations). This is an execution detail that should be left outside an Agent.
 
 
-#### How can I use a more complex network structure?
+### How can I use a more complex network structure?
 
-There are a couple of different ways to define your own NeuralNetworks.
+There are many different ways to define your own neural networks in RLgraph
+using our flexible NeuralNetwork Component class. It supports everything from simple
+sequential setups, to sub-classing or custom `call` methods, and even a
+full Keras-style assembly procedure (the new recommended way for
+multi-stream and other complex NNs).
+Here are the different ways allowing for arbitrary network complexity:
 
-###### Sequential via lists of layer configs
-The simplest method is to provide a list of layer configurations to the
-`from_spec` method as in
-the following example:
+##### Sequential via lists of layer configs (recommended for simple, sequential NNs)
+For simple, sequential networks, the method of choice is to provide a list of
+layer configurations to the `NeuralNetwork.from_spec()` method or the
+`NeuralNetwork` c'tor as in the following examples:
 
 ```
+# Using the from_spec util:
 my_sequential_network = NeuralNetwork.from_spec([
     {"type": "dense", "units": 10, "scope": "layer-1"},
     {"type": "dense", "units": 5, "scope": "layer-2"},
 ])
 
-# This is the same as passing in all layer specs directly into the ctor as *args:
+# This is the same as passing in all layer specs directly into the NeuralNetwork c'tor as *args:
 my_sequential_network = NeuralNetwork(
     {"type": "dense", "units": 10, "scope": "layer-1"},
     {"type": "dense", "units": 5, "scope": "layer-2"},
 )
 ```
 
-###### Using the base NeuralNetwork class plus a custom `call()` method.
+##### Keras-Style functional API NeuralNetwork assembly (recommended for multi-stream/complex NNs).
+
+From version 0.5.0 on, you can create complex NeuralNetworks by
+using a Keras-style functional API, without sub-classing and without custom
+`call` methods (see below). This way, you can write your networks Keras-like inside
+your code (where you then also create and run your Agent).
+
+For example, to generate an NN with 2 input streams, you can do:
+
+```
+# Define all dataflow on the fly using RLgraph Layer Components and
+# calling them via `Layer([some input(s)])`:
+
+# Define an input Space first (tuple of two input tensors).
+input_space = Tuple([IntBox(3), FloatBox(shape=(4,))], add_batch_rank=True)
+
+# One-hot flatten the int tensor (Tuple index 0).
+flatten_layer_out = ReShape(flatten=True, flatten_categories=True)(input_space[0])
+
+# Run the float tensor (Tuple index 1) through two dense layers.
+dense_1_out = DenseLayer(units=3)(input_space[1])
+dense_2_out = DenseLayer(units=5)(dense_1_out)
+
+# Concat everything.
+cat_out = ConcatLayer()(flatten_layer_out, dense_2_out)
+
+# Use the `outputs` arg (like in Keras) to allow your network to trace back the
+# data flow until the input space.
+# You do not(!) need an `inputs` arg here as we only have one input (the Tuple).
+my_keras_style_nn = NeuralNetwork(outputs=cat_out)
+
+# Create an Agent and pass the NN into it as `network_spec`:
+my_agent = DQNAgent( .. , network_spec=my_keras_style_nn, ..)
+```
+
+In case you don't like passing Tuples into multi-input NNs, you can also use
+single Spaces like so:
+
+```
+# Simple list of two inputs.
+input_spaces = [IntBox(3, add_batch_rank=True), FloatBox(shape=(4,), add_batch_rank=True)]
+
+# ...
+# build your network using input_spaces[0] and input_spaces[1] as inputs to some layers.
+# ...
+
+# Now we do have to specify an `inputs` c'tor arg so that the NN knows the order of the inputs.
+my_keras_style_nn = NeuralNetwork(inputs=input_spaces, outputs=cat_out)
+```
+
+
+##### Using the base NeuralNetwork class plus a custom `call()` method.
 
 For non-sequential networks (e.g. with many input streams that need
 to be merged or for LSTM-containing networks with internal
-states- or sequence-length inputs), you have the ability to use the plain
+states- or sequence-length inputs), you have the ability to use the base
 NeuralNetwork class and pass a custom `call` method (taking a single
 Tuple-space `inputs` arg) into the constructor like so:
 
@@ -197,7 +254,7 @@ my_lstm_network = NeuralNetwork(
 )
 ```
 
-###### Subclassing the base NeuralNetwork class.
+##### Subclassing the base NeuralNetwork class.
 
 To further customize a NN and its data flow, you can also subclass the
 base NeuralNetwork class and create your own NN class. In your sub-class
@@ -238,38 +295,5 @@ class MyCustomNetwork(NeuralNetwork):
         # "complex" dataflow.
         out_repeat_d1 = self.get_sub_component_by_name("d1").call(out2)
         return out_repeat_d1
-```
-
-
-###### Keras-Style functional API NeuralNetwork assembly (since version 0.5.0).
-
-Lastly, since version 0.5.0, we can create complex NeuralNetworks by
-using a Keras-style functional API, without sub-classing and without custom
-`call` methods. This way, you can write your networks Keras-like inside
-your code (where you then also create and run your Agent).
-
-For example, to mimic the above `MyCustomNetwork` class, you could
-instead do:
-
-```
-# Define all dataflow on the fly using RLgraph Layer Components and
-# calling them via `Layer([some input(s)])`:
-
-# Define an input Space first (tuple of two input tensors).
-input_space = Tuple([IntBox(3), FloatBox(shape=(4,))], add_batch_rank=True)
-
-# One-hot flatten the int tensor.
-flatten_layer_out = ReShape(flatten=True, flatten_categories=True)(input_space[0])
-# Run the float tensor through two dense layers.
-dense_1_out = DenseLayer(units=3)(input_space[1])
-dense_2_out = DenseLayer(units=5)(dense_1_out)
-# Concat everything.
-cat_out = ConcatLayer()(flatten_layer_out, dense_2_out)
-
-# Use the `outputs` arg to allow your network to trace back the data flow until the input space.
-my_keras_style_nn = NeuralNetwork(outputs=cat_out)
-
-# Create an Agent and pass the NN into it as `network_spec`:
-my_agent - DQNAgent( .. , network_spec=my_keras_style_nn, ..)
 ```
 

@@ -29,8 +29,12 @@ from six.moves import xrange as range_
 pygame = None
 try:
     import pygame
-except ImportError:
-    print("PyGame not installed. No human rendering possible.")
+    # Only use pygame if a display is available.
+    pygame.display.init()
+
+except (ImportError, pygame.error):
+    print("PyGame not installed or no display mode available. No human rendering possible.")
+    pygame = None
 
 import rlgraph.spaces as spaces
 from rlgraph.environments import Environment
@@ -424,7 +428,7 @@ class GridWorld(Environment):
 
         Returns:
             List[Tuple[int,float]]: A list of tuples (s', p(s'\|s,a)). Where s' is the next discrete position and
-                p(s'\|s,a) is the probability of ending up in that position when in state s and taking action a.
+                p(s'|s,a) is the probability of ending up in that position when in state s and taking action a.
         """
         x = discrete_pos // self.n_col
         y = discrete_pos % self.n_col

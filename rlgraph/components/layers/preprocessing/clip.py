@@ -34,8 +34,8 @@ class Clip(PreprocessLayer):
     def __init__(self, min=0.0, max=1.0, scope="clip", **kwargs):
         """
         Args:
-            min\_ (float): The min value that any value in the input can have.
-            max\_ (float): The max value that any value in the input can have.
+            min (float): The min value that any value in the input can have.
+            max (float): The max value that any value in the input can have.
         """
         super(Clip, self).__init__(scope=scope, **kwargs)
         self.min = min

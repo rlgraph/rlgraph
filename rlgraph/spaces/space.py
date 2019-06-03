@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import re
@@ -29,6 +27,9 @@ class Space(Specifiable):
     Space class (based on and compatible with openAI Spaces).
     Provides a classification for state-, action-, reward- and other spaces.
     """
+    # Global unique Space ID.
+    _ID = -1
+
     def __init__(self, add_batch_rank=False, add_time_rank=False, time_major=False):
         """
         Args:
@@ -41,7 +42,10 @@ class Space(Specifiable):
         """
         super(Space, self).__init__()
 
+        self.id = self.get_id()
+
         self._shape = None
+        self.parent = None  # For usage in nested ContainerSpace structures.
 
         self.has_batch_rank = None
         self.has_time_rank = None
@@ -243,9 +247,9 @@ class Space(Specifiable):
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
                 Default: False.
 
-            scope\_ (Optional[str]): For recursive calls only. Used for automatic key generation.
+            scope_ (Optional[str]): For recursive calls only. Used for automatic key generation.
 
-            list\_ (Optional[list]): For recursive calls only. The list so far.
+            list_ (Optional[list]): For recursive calls only. The list so far.
 
         Returns:
             OrderedDict: The OrderedDict using auto-generated keys and containing only primitive Spaces
@@ -283,8 +287,8 @@ class Space(Specifiable):
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
                 Default: False.
 
-            scope\_ (str): The flat-key to use to store the mapped result in list_.
-            list\_ (list): The list to append the mapped results to (under key=`scope_`).
+            scope_ (str): The flat-key to use to store the mapped result in list_.
+            list_ (list): The list to append the mapped results to (under key=`scope_`).
         """
         list_.append(tuple([scope_, mapping(scope_, self)]))
 
@@ -389,3 +393,25 @@ class Space(Specifiable):
         if isinstance(spec, str) and re.search(r'^variables:', spec):
             return None
         return super(Space, cls).from_spec(spec, **kwargs)
+
+    # TODO: Same procedure as for DataOpRecords. Maybe unify somehow (common ancestor class: IDable).
+    @staticmethod
+    def get_id():
+        Space._ID += 1
+        return Space._ID
+
+    def get_top_level_container(self):
+        """
+        Returns:
+            Space: The top-most container containing this Space. This returned top-level container
+                has no more parents above it.
+        """
+        top_level = top_level_check = self
+        while top_level_check is not None:
+            top_level = top_level_check
+            top_level_check = top_level.parent
+        return top_level
+
+    def __hash__(self):
+        return hash(self.id)
+

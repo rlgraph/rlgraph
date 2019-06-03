@@ -552,7 +552,7 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
             Has no effect if `split_ops` is False.
             Default: False.
 
-        \*args (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.
+        args (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.
     """
     flatten_ops = options.pop("flatten_ops", False)
     split_ops = options.pop("split_ops", False)

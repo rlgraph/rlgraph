@@ -916,8 +916,8 @@ class Component(Specifiable):
         by the scope (name) of the Components.
 
         Args:
-            list\_ (Optional[List[Component]])): A list of already collected components to append to.
-            level\_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
+            list_ (Optional[List[Component]])): A list of already collected components to append to.
+            level_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
             exclude_self (bool): Whether `self` should be returned as the last sub-Component in the list.
                 Default: True.
 

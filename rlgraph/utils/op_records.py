@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import inspect
 
@@ -51,7 +49,7 @@ class DataOpRecord(object):
             space (Optional[Space]): The Space of `op` if already known at construction time. Will be poulated
                 later (during build phase) if not.
 
-            next\_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
+            next_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
             previous (Optional(DataOpRecord)): The previous op-record.
 
             placeholder (Optional[str]): If this is a placeholder op-rec, what is the name of the placeholder arg
@@ -121,6 +119,10 @@ class DataOpRecord(object):
 
 
 class DataOpRecordColumn(object):
+    """
+    A DataOpRecordColumn is a list of DataOpRecords that either go into (a call) or come from (return) a
+    Component's GraphFn or API method.
+    """
     _ID = -1
 
     def __init__(self, component, num_op_records=None, args=None, kwargs=None):

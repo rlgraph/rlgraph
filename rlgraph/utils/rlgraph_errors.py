@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 
 class RLGraphError(Exception):
@@ -102,3 +100,10 @@ class RLGraphSpaceError(RLGraphError):
         super(RLGraphSpaceError, self).__init__(msg)
         self.space = space
         self.input_arg = input_arg
+
+
+class RLGraphKerasStyleAssemblyError(RLGraphError):
+    """
+    Special error to raise when constructing a NeuralNetwork using our Keras-style assembly support.
+    """
+    pass

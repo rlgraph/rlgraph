@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.util import get_rank

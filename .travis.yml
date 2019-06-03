@@ -12,7 +12,7 @@ matrix:
 #    - DOCKER_IMAGE='tensorflow/tensorflow:latest'
   - env:
     - DOCKER_JOB_NAME='rlgraph_py3'
-    - DOCKER_IMAGE='rlgraph/rlgraph:py3-full-torch-jq'
+    - DOCKER_IMAGE='rlgraph/rlgraph:full'
 
 before_install:
   - docker pull ${DOCKER_IMAGE}
@@ -74,8 +74,7 @@ script:
   # - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_fifo_queue.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_local_optimizers.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_neural_networks.py';
-  # Keras-style tests: Still has a bug.
-  # - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_neural_networks_functional_api.py';
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_neural_networks_keras_style_assembly.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_nn_layers.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_noise_components.py';
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/components/test_time_dependent_parameters.py';

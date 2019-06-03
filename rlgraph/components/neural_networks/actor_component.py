@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.components.component import Component
 from rlgraph.components.explorations.exploration import Exploration
-from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.policies.policy import Policy
 from rlgraph.utils.decorators import rlgraph_api
@@ -49,13 +46,11 @@ class ActorComponent(Component):
 
         self.preprocessor = PreprocessorStack.from_spec(preprocessor_spec)
         self.policy = Policy.from_spec(policy_spec)
-        self.num_nn_inputs = self.policy.neural_network.num_inputs
         self.exploration = Exploration.from_spec(exploration_spec)
 
         self.tuple_merger = ContainerMerger(is_tuple=True, merge_tuples_into_one=True)
-        self.tuple_splitter = ContainerSplitter(tuple_length=self.num_nn_inputs)
 
-        self.add_components(self.policy, self.exploration, self.preprocessor, self.tuple_merger, self.tuple_splitter)
+        self.add_components(self.policy, self.exploration, self.preprocessor, self.tuple_merger)
 
     @rlgraph_api
     def get_preprocessed_state_and_action(self, states, other_nn_inputs=None, time_step=0, use_exploration=True):
@@ -82,7 +77,6 @@ class ActorComponent(Component):
             # TODO: Do this automatically when using the `+` operator on DataOpRecords.
             nn_inputs = self.tuple_merger.merge(nn_inputs, other_nn_inputs)
 
-        #inputs = self.tuple_splitter.call(nn_inputs)
         out = self.policy.get_action(nn_inputs)
 
         actions = self.exploration.get_action(out["action"], time_step, use_exploration)
@@ -118,8 +112,6 @@ class ActorComponent(Component):
         if other_nn_inputs is not None:
             # TODO: Do this automatically when using the `+` operator on DataOpRecords.
             nn_inputs = self.tuple_merger.merge(nn_inputs, other_nn_inputs)
-
-        #inputs = self.tuple_splitter.call(nn_inputs)
 
         # TODO: Dynamic Batching problem. State-value is not really needed, but dynamic batching will require us to
         # TODO: run through the exact same partial-graph as the learner (which does need the extra state-value output).
