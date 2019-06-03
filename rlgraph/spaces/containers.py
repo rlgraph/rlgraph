@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import re
 
 import numpy as np
-
 from rlgraph.spaces.space import Space
 from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op
 from rlgraph.utils.rlgraph_errors import RLGraphError
@@ -87,6 +84,8 @@ class Dict(ContainerSpace, dict):
                 space_dict[key] = Dict(
                     value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
                 )
+            # Set the parent of the added Space to `self`.
+            space_dict[key].parent = self
 
         dict.__init__(self, space_dict)
 
@@ -211,6 +210,10 @@ class Tuple(ContainerSpace, tuple):
         add_time_rank = kwargs.get("add_time_rank", False)
         time_major = kwargs.get("time_major", False)
         super(Tuple, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major)
+
+        # Set the parent of the added Space to `self`.
+        for c in self:
+            c.parent = self
 
     def _add_batch_rank(self, add_batch_rank=False):
         super(Tuple, self)._add_batch_rank(add_batch_rank)

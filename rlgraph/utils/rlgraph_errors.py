@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 
 class RLGraphError(Exception):
@@ -70,3 +68,10 @@ class RLGraphObsoletedError(RLGraphError):
     def __init__(self, type_, old_value, new_value):
         msg = "The {} '{}' you are using has been obsoleted! Use '{}' instead.".format(type_, old_value, new_value)
         super(RLGraphObsoletedError, self).__init__(msg)
+
+
+class RLGraphKerasStyleAssemblyError(RLGraphError):
+    """
+    Special error to raise when constructing a NeuralNetwork using our Keras-style assembly support.
+    """
+    pass
