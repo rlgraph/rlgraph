@@ -31,11 +31,10 @@ try:
     import pygame
     # Only use pygame if a display is available.
     pygame.display.init()
-    modes = pygame.display.list_modes()
-    if len(modes) == 0:
-        pygame = None
-except:
+
+except (ImportError, pygame.error):
     print("PyGame not installed or no display mode available. No human rendering possible.")
+    pygame = None
 
 import rlgraph.spaces as spaces
 from rlgraph.environments import Environment
