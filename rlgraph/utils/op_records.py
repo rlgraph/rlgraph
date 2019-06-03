@@ -18,6 +18,7 @@ from __future__ import absolute_import, division, print_function
 import inspect
 
 import numpy as np
+
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import convert_dtype
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
@@ -47,7 +48,7 @@ class DataOpRecord(object):
             space (Optional[Space]): The Space of `op` if already known at construction time. Will be poulated
                 later (during build phase) if not.
 
-            next\_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
+            next_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
             previous (Optional(DataOpRecord)): The previous op-record.
         """
         self.id = self.get_id()

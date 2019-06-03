@@ -34,10 +34,6 @@ class DictPreprocessorStack(PreprocessorStack):
     A generic PreprocessorStack that can handle Dict/Tuple Spaces and parallely preprocess different Spaces within
     different (and separate) single PreprocessorStack components.
     The output is again a dict of preprocessed inputs.
-
-    API:
-        preprocess(input\_): Outputs the preprocessed input after sending it through all sub-Components of this Stack.
-        reset(): An op to trigger all PreprocessorStacks of this Vector to be reset.
     """
     def __init__(self, preprocessors, **kwargs):
         """

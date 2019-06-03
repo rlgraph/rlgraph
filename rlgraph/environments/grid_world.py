@@ -428,7 +428,7 @@ class GridWorld(Environment):
 
         Returns:
             List[Tuple[int,float]]: A list of tuples (s', p(s'\|s,a)). Where s' is the next discrete position and
-                p(s'\|s,a) is the probability of ending up in that position when in state s and taking action a.
+                p(s'|s,a) is the probability of ending up in that position when in state s and taking action a.
         """
         x = discrete_pos // self.n_col
         y = discrete_pos % self.n_col

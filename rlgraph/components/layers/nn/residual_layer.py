@@ -29,9 +29,6 @@ class ResidualLayer(NNLayer):
 
     [1] Identity Mappings in Deep Residual Networks - He, Zhang, Ren and Sun (Microsoft) 2016
     (https://arxiv.org/pdf/1603.05027.pdf)
-
-    API:
-        call(input\_) ->
     """
     def __init__(self, residual_unit, repeats=2, scope="residual-layer", **kwargs):
         """

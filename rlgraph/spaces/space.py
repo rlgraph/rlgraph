@@ -247,9 +247,9 @@ class Space(Specifiable):
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
                 Default: False.
 
-            scope\_ (Optional[str]): For recursive calls only. Used for automatic key generation.
+            scope_ (Optional[str]): For recursive calls only. Used for automatic key generation.
 
-            list\_ (Optional[list]): For recursive calls only. The list so far.
+            list_ (Optional[list]): For recursive calls only. The list so far.
 
         Returns:
             OrderedDict: The OrderedDict using auto-generated keys and containing only primitive Spaces
@@ -287,8 +287,8 @@ class Space(Specifiable):
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
                 Default: False.
 
-            scope\_ (str): The flat-key to use to store the mapped result in list_.
-            list\_ (list): The list to append the mapped results to (under key=`scope_`).
+            scope_ (str): The flat-key to use to store the mapped result in list_.
+            list_ (list): The list to append the mapped results to (under key=`scope_`).
         """
         list_.append(tuple([scope_, mapping(scope_, self)]))
 
