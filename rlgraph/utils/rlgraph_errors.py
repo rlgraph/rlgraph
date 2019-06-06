@@ -90,7 +90,7 @@ class RLGraphSpaceError(RLGraphError):
     """
     A Space related error. Raises together with a message and Space information.
     """
-    def __init__(self, space, input_arg=None, msg=None):
+    def __init__(self, space, msg=None):
         """
         Args:
             space (Space): The Space that failed some check.
@@ -99,7 +99,6 @@ class RLGraphSpaceError(RLGraphError):
         """
         super(RLGraphSpaceError, self).__init__(msg)
         self.space = space
-        self.input_arg = input_arg
 
 
 class RLGraphKerasStyleAssemblyError(RLGraphError):

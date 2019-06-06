@@ -13,11 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
@@ -27,7 +27,6 @@ from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphSpaceError
 from rlgraph.utils.util import convert_dtype, get_shape, LARGE_INTEGER, force_tuple
-from six.moves import xrange as range_
 
 if get_backend() == "pytorch":
     import torch
@@ -201,7 +200,7 @@ def sanity_check_space(
         must_have_batch_rank=None, must_have_time_rank=None, must_have_batch_or_time_rank=False,
         must_have_categories=None, num_categories=None,
         must_have_lower_limit=None, must_have_upper_limit=None,
-        rank=None, shape=None, input_arg=None
+        rank=None, shape=None
 ):
     """
     Sanity checks a given Space for certain criteria and raises exceptions if they are not met.
@@ -241,7 +240,6 @@ def sanity_check_space(
             None if it doesn't matter.
 
         shape (Optional[tuple[int]]): A tuple of ints specifying the required shape. None if it doesn't matter.
-        input_arg (Optional[str]): An optional name of the API input arg that `space` belongs to.
 
     Raises:
         RLGraphSpaceError: If any of the conditions is not met.
@@ -252,14 +250,14 @@ def sanity_check_space(
     if allowed_types is not None:
         if not isinstance(space, force_tuple(allowed_types)):
             raise RLGraphSpaceError(
-                space, input_arg, "ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types)
+                space, "ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types)
             )
 
     if allowed_sub_types is not None:
         for flat_key, sub_space in flattened_space.items():
             if not isinstance(sub_space, force_tuple(allowed_sub_types)):
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: sub-Space '{}' ({}) is not an instance of {}!".
                     format(flat_key, sub_space, allowed_sub_types)
                 )
@@ -267,7 +265,7 @@ def sanity_check_space(
     if non_allowed_types is not None:
         if isinstance(space, force_tuple(non_allowed_types)):
             raise RLGraphSpaceError(
-                space, input_arg,
+                space,
                 "ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types)
             )
 
@@ -275,7 +273,7 @@ def sanity_check_space(
         for flat_key, sub_space in flattened_space.items():
             if isinstance(sub_space, force_tuple(non_allowed_sub_types)):
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: sub-Space '{}' ({}) must not be an instance of {}!".
                     format(flat_key, sub_space, non_allowed_sub_types)
                 )
@@ -283,7 +281,7 @@ def sanity_check_space(
     if must_have_batch_or_time_rank is True:
         if space.has_batch_rank is False and space.has_time_rank is False:
             raise RLGraphSpaceError(
-                space, input_arg,
+                space,
                 "ERROR: Space ({}) does not have a batch- or a time-rank, but must have either one of "
                 "these!".format(space)
             )
@@ -297,12 +295,12 @@ def sanity_check_space(
             # Something is wrong.
             elif space.has_batch_rank is not False:
                 raise RLGraphSpaceError(
-                    space, input_arg,
+                    space,
                     "ERROR: Space ({}) has a batch rank, but is not allowed to!".format(space)
                 )
             else:
                 raise RLGraphSpaceError(
-                    space, input_arg,
+                    space,
                     "ERROR: Space ({}) does not have a batch rank, but must have one!".format(space)
                 )
 
@@ -315,12 +313,12 @@ def sanity_check_space(
             # Something is wrong.
             elif space.has_time_rank is not False:
                 raise RLGraphSpaceError(
-                    space, input_arg,
+                    space,
                     "ERROR: Space ({}) has a time rank, but is not allowed to!".format(space)
                 )
             else:
                 raise RLGraphSpaceError(
-                    space, input_arg,
+                    space,
                     "ERROR: Space ({}) does not have a time rank, but must have one!".format(space)
                 )
 
@@ -328,13 +326,13 @@ def sanity_check_space(
         for flat_key, sub_space in flattened_space.items():
             if not isinstance(sub_space, IntBox):
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: Space {}({}) is not an IntBox. Only IntBox Spaces can have categories!".
                     format("" if flat_key == "" else "'{}' ".format(flat_key), space)
                 )
             elif sub_space.global_bounds is False:
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: Space {}({}) must have categories (globally valid value bounds)!".
                     format("" if flat_key == "" else "'{}' ".format(flat_key), space)
                 )
@@ -344,13 +342,13 @@ def sanity_check_space(
             low = sub_space.low
             if must_have_lower_limit is True and (low == -LARGE_INTEGER or low == float("-inf")):
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: Space {}({}) must have a lower limit, but has none!".
                     format("" if flat_key == "" else "'{}' ".format(flat_key), space)
                 )
             elif must_have_lower_limit is False and (low != -LARGE_INTEGER and low != float("-inf")):
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: Space {}({}) must not have a lower limit, but has one ({})!".
                     format("" if flat_key == "" else "'{}' ".format(flat_key), space, low)
                 )
@@ -360,13 +358,13 @@ def sanity_check_space(
             high = sub_space.high
             if must_have_upper_limit is True and (high != LARGE_INTEGER and high != float("inf")):
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: Space {}({}) must have an upper limit, but has none!".
                     format("" if flat_key == "" else "'{}' ".format(flat_key), space)
                 )
             elif must_have_upper_limit is False and (high == LARGE_INTEGER or high == float("inf")):
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: Space {}({}) must not have a upper limit, but has one ({})!".
                     format("" if flat_key == "" else "'{}' ".format(flat_key), space, high)
                 )
@@ -376,7 +374,7 @@ def sanity_check_space(
             for flat_key, sub_space in flattened_space.items():
                 if sub_space.rank != rank:
                     raise RLGraphSpaceError(
-                        sub_space, input_arg,
+                        sub_space,
                         "ERROR: A Space (flat-key={}) of '{}' has rank {}, but must have rank "
                         "{}!".format(flat_key, space, sub_space.rank, rank)
                     )
@@ -385,7 +383,7 @@ def sanity_check_space(
                 if not ((rank[0] or 0) <= sub_space.rank <= (rank[1] or float("inf"))):
                     raise RLGraphSpaceError(
 
-                        sub_space, input_arg,
+                        sub_space,
                         "ERROR: A Space (flat-key={}) of '{}' has rank {}, but its rank must be between {} and "
                         "{}!".format(flat_key, space, sub_space.rank, rank[0], rank[1])
                     )
@@ -394,7 +392,7 @@ def sanity_check_space(
         for flat_key, sub_space in flattened_space.items():
             if sub_space.shape != shape:
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: A Space (flat-key={}) of '{}' has shape {}, but its shape must be "
                     "{}!".format(flat_key, space, sub_space.get_shape(), shape)
                 )
@@ -403,19 +401,19 @@ def sanity_check_space(
         for flat_key, sub_space in flattened_space.items():
             if not isinstance(sub_space, IntBox):
                 raise RLGraphSpaceError(
-                    sub_space, input_arg,
+                    sub_space,
                     "ERROR: A Space (flat-key={}) of '{}' is not an IntBox. Only IntBox Spaces can have "
                     "categories!".format(flat_key, space)
                 )
             elif isinstance(num_categories, int):
                 if sub_space.num_categories != num_categories:
                     raise RLGraphSpaceError(
-                        sub_space, input_arg,
+                        sub_space,
                         "ERROR: A Space (flat-key={}) of '{}' has `num_categories` {}, but must have {}!".
                         format(flat_key, space, sub_space.num_categories, num_categories)
                     )
             elif not ((num_categories[0] or 0) <= sub_space.num_categories <= (num_categories[1] or float("inf"))):
-                raise RLGraphSpaceError(sub_space, input_arg,
+                raise RLGraphSpaceError(sub_space,
                     "ERROR: A Space (flat-key={}) of '{}' has `num_categories` {}, but this value must be between "
                     "{} and {}!".format(flat_key, space, sub_space.num_categories, num_categories[0], num_categories[1])
                 )
