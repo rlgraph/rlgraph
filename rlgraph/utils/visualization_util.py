@@ -18,37 +18,13 @@ from __future__ import absolute_import, division, print_function
 import os
 import re
 
+import graphviz
+
 from rlgraph import rlgraph_dir
 from rlgraph.components.component import Component
 from rlgraph.spaces import IntBox, BoolBox, FloatBox, TextBox
 from rlgraph.utils.op_records import DataOpRecord, DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromAPIMethod, \
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
-
-# Try importing graphviz.
-try:
-    import graphviz
-    dummy = graphviz.Digraph("test")
-    dummy.render(os.path.join(rlgraph_dir, "rlgraph_debug_draw.gv"), view=False)
-
-except ImportError as e:
-    print(
-        "Error when importing python module graphviz: Try the following steps to enable automated graphviz-backed "
-        "debug drawings:\n"
-        "1) pip install graphviz\n"
-        "2) Reopen your `python` shell and try again.\n\n"
-    )
-    raise e
-
-except graphviz.backend.ExecutableNotFound as e:
-    print(
-        "Error: GraphViz (backend engine) executable missing: Try the following steps to enable automated "
-        "graphviz-backed debug drawings:\n"
-        "1) Install the GraphViz engine on your local machine: https://graphviz.gitlab.io/download/\n"
-        "2) Add the GraphViz `bin` directory (created in step 2) when installing GraphViz) to your `PATH` "
-        "environment variable\n"
-        "3) Reopen your `python` shell and try again.\n\n"
-    )
-    raise e
 
 # Define some colors for the debug graphs.
 _API_COLOR = "#f4c542"
@@ -156,13 +132,7 @@ def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
 
         # Render the graph as pdf (in browser).
         if render is True:
-            # Try rendering with the installed GraphViz engine.
-            try:
-                _graphviz_graph.render(os.path.join(rlgraph_dir, "rlgraph_debug_draw.gv"), view=True)
-            # If GraphViz is not installed, warn here and print out the source.
-            except graphviz.backend.ExecutableNotFound as e:
-                print("WARNING: GraphViz does not seem to be installed.")
-                print(_graphviz_graph.source)  # debug printout
+            _render(_graphviz_graph, os.path.join(rlgraph_dir, "rlgraph_debug_draw.gv"), view=True)
 
 
 def draw_sub_meta_graph_from_op_rec(op_rec, meta_graph):
@@ -467,140 +437,17 @@ def _get_api_subgraph_color(nesting_level, max_nesting_level):
     return color
 
 
-"""
-def get_component_markup(
-        component, max_nesting_level=None, draw_graph_fns=False, api_methods_and_graph_fns_filter=None,
-        connections_filter=None, _recursive=False, _indent=0
-):
-    ""
-    Returns graph markup to be used for meta-graph plotting.
-    Uses the (mermaid)[https://github.com/knsv/mermaid] markup language.
-
-    Args:
-        component (Component): Component to generate meta-graph markup for.
-        level (int): Indentation level. If >= 1, return this component as sub-component.
-        draw_graph_fns (bool): Include graph fns in plot.
-
-    Returns:
-        str: Meta-graph markup string.
-    ""
-    markup = ""
-    # Define some styling classes.
-    if component.nesting_level == 0:
-        markup = "graph LR\n"
-    #    markup += "classDef component fill:#33f,stroke:#000,stroke-width:2px;\n"
-    #    markup += "classDef api fill:#f9f,stroke:#333,stroke-width:1px;\n"
-    #    markup += "classDef graph_fn fill:#ff9,stroke:#333,stroke-width:1px;\n"
-    #    markup += "classDef space fill:#9f9,stroke:#333,stroke-width:1px;\n"
-    #    markup += "\n"
-
-    #backend = get_backend()
-
-    # The Component itself is a subgraph.
-    markup += " " * _indent + "%% Component: {}\n".format(component.global_scope)
-    markup += " " * _indent + "subgraph {}\n".format(component.scope)
-
-    # Unique input-args.
-    markup += " " * _indent + "%% Inputs\n"
-    for input_name in component.api_method_inputs:
-        markup += " " * _indent + " input:" + component.global_scope + "/" + input_name + "(" + input_name + ")\n"
-
-    # API-methods as subgraph into the Component.
-    markup += " " * _indent + "%% APIs\n"
-    for api_method_rec in component.api_methods.values():
-        # Check filter.
-        name = component.global_scope + "/" + api_method_rec.name
-        if api_methods_and_graph_fns_filter is None or name in api_methods_and_graph_fns_filter:
-            markup += " " * _indent + " subgraph {}\n".format(name)
-            # All input args for this API-method (as either simple arg-pos or kwarg).
-            for input_name in api_method_rec.input_names:
-                # Ignore args[].
-                if re.search(r'\[(\d+)\]$', input_name):
-                    continue
-                markup += " " * _indent + "  " + component.global_scope + "/" + input_name + "(" + input_name +")\n"
-            markup += " " * _indent + " end\n"
-
-    # graph_fns as subgraph into the Component.
-    markup += " " * _indent + "%% GraphFns\n"
-    for graph_fn_rec in component.graph_fns.values():
-        # Check filter.
-        graph_fn_name = component.global_scope + "/" + graph_fn_rec.name
-        if api_methods_and_graph_fns_filter is None or graph_fn_name in api_methods_and_graph_fns_filter:
-            markup += " " * _indent + " subgraph {}\n".format(graph_fn_name)
-            # Inputs.
-            markup += " " * _indent + "  subgraph inputs\n"
-            for input_slot in range(len(graph_fn_rec.in_op_columns[0].op_records)):
-                markup += " " * _indent + "   " + graph_fn_name + "/{}(({}))\n".format(input_slot, input_slot)
-            markup += " " * _indent + "  end\n"
-            # Outputs.
-            markup += " " * _indent + " subgraph outputs\n"
-            for output_slot in range(len(graph_fn_rec.out_op_columns[0].op_records)):
-                markup += " " * _indent + "  " + graph_fn_name + "/{}(({}))\n".format(output_slot, output_slot)
-            markup += " " * _indent + "  end\n"
-            markup += " " * _indent + " end\n"
-
-    if _recursive is True and max_nesting_level is not None and component.nesting_level > max_nesting_level:
-        markup += " " * _indent + "end\n"
-        return markup
-
-    # Add sub-components.
-    for sub_component in component.sub_components.values():
-        markup += get_component_markup(
-            sub_component, max_nesting_level=max_nesting_level, draw_graph_fns=draw_graph_fns,
-            api_methods_and_graph_fns_filter=api_methods_and_graph_fns_filter, connections_filter=connections_filter,
-            _recursive=True, _indent=_indent + 1
+def _render(graphviz_graph, file, view=False):
+    # Try rendering with the installed GraphViz engine.
+    try:
+        graphviz_graph.render(file, view=view)
+    except graphviz.backend.ExecutableNotFound as e:
+        print(
+            "Error: GraphViz (backend engine) executable missing: Try the following steps to enable automated "
+            "graphviz-backed debug drawings:\n"
+            "1) Install the GraphViz engine on your local machine: https://graphviz.gitlab.io/download/\n"
+            "2) Add the GraphViz `bin` directory (created in step 2) when installing GraphViz) to your `PATH` "
+            "environment variable\n"
+            "3) Reopen your `python` shell and try again.\n\n"
         )
-
-    # Connection are inserted after the graph
-    #for connection in all_connections:
-        #if connection[2]:
-        #    # Labeled connection
-        #    markup += " " * 4 * _indent + "{}--{}-->{}\n".format(connection[0], connection[2], connection[1])
-        # Unlabeled connection
-    #    markup += " " * _indent + "{}-->{}\n".format(connection[0], connection[1])
-
-    markup += " " * _indent + "end\n"
-
-    return markup
-
-
-def send_graph_markup(markup, host="localhost", port=8080, token=None, ssl=False, path="markup",
-                      level=0, draw_graph_fns=True, **kwargs):
-    ""
-    Send graph markup to HTTP(s) host for pseudo-interactive plotting.
-
-    Args:
-        component (Component): component to plot.
-        host (str): HTTP host to send markup to.
-        port (int): Port on host to connect to.
-        token (str): Optional token to identify at host.
-        ssl (bool): Use HTTPS or not.
-        path (str): Path to post data to (e.g. 'markup' for `host:port/markup`)
-        level (int): level argument for `get_graph_markup()`.
-        draw_graph_fns (bool): create markup for graph fns, argument for `get_graph_markup()`.
-        **kwargs: Keyword arguments will be passed to the `requests.post()` function.
-
-    Returns:
-        bool: True if markup generation succeeded and server accepted the request, False otherwise
-
-    ""
-    graph_markup = markup  #get_graph_markup(component, level=0, draw_graph_fns=draw_graph_fns)
-    if not graph_markup:
-        return False
-
-    target_url = "{protocol}://{host}:{port}/{path}".format(
-        protocol="https" if ssl else "http",
-        host=host,
-        port=port,
-        path=path
-    )
-    result = requests.post(target_url, data=dict(graph_markup=graph_markup, token=token), **kwargs)
-
-    if result.status_code == 200:
-        # Only return true if everything went well.
-        return True
-
-    # No, we do not follow redirects. Anything other than 200 leads to an error.
-    return False
-
-"""
+        print(graphviz_graph.source)  # debug printout
