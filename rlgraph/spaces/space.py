@@ -45,11 +45,16 @@ class Space(Specifiable):
         self.id = self.get_id()
 
         self._shape = None
-        self.parent = None  # For usage in nested ContainerSpace structures.
+
+        # Parent Space for usage in nested ContainerSpace structures.
+        self.parent = None
 
         self.has_batch_rank = None
         self.has_time_rank = None
         self.time_major = None
+
+        # Back-reference to an op-record that has this Space.
+        self.op_rec_ref = None
 
         self._add_batch_rank(add_batch_rank)
         self._add_time_rank(add_time_rank, time_major)
@@ -403,8 +408,8 @@ class Space(Specifiable):
     def get_top_level_container(self):
         """
         Returns:
-            Space: The top-most container containing this Space. This returned top-level container
-                has no more parents above it.
+            Space: The top-most container containing this Space. This returned top-level container has no more
+                parents above it.
         """
         top_level = top_level_check = self
         while top_level_check is not None:
