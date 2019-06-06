@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import inspect
@@ -882,7 +880,8 @@ class Component(Specifiable):
             # Should we expose some API-methods of the child?
             # Only if parent does not have that method yet (otherwise, use parent method).
             for api_method_name, api_method_rec in component.api_methods.items():
-                if api_method_name in expose_apis and not api_method_name in self.api_methods:
+                if expose_apis is not None and api_method_name in expose_apis and \
+                        api_method_name not in self.api_methods:
                     # Build exposed method code per string, then eval it.
                     code = "@rlgraph_api(component=self, must_be_complete={}, ok_to_overwrite=False)\n".format(
                         api_method_rec.must_be_complete
@@ -897,7 +896,9 @@ class Component(Specifiable):
                     args_str += ("**"+api_method_rec.kwargs_name+", " if api_method_rec.kwargs_name else "")
                     args_str = args_str[:-2]  # cut last ', '
                     code += args_str_w_default + "):\n"
-                    code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(component.name, api_method_name, args_str)
+                    code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(
+                        component.name, api_method_name, args_str
+                    )
                     print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
                     exec(code, globals(), locals())
 
