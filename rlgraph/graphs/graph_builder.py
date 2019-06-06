@@ -650,6 +650,9 @@ class GraphBuilder(Specifiable):
             assert out_graph_fn_column.op_records[i].op is None
             out_graph_fn_column.op_records[i].op = op
             out_graph_fn_column.op_records[i].space = space
+            # Assign op-rec property in Space so we have a backref in case the Space causes an error during
+            # sanity checking.
+            space.op_rec_ref = out_graph_fn_column.op_records[i]
 
         return out_graph_fn_column
 
@@ -824,38 +827,6 @@ class GraphBuilder(Specifiable):
         for sub_component in component.get_all_sub_components(exclude_self=True):
             if sub_component.input_complete is False:
                 self._analyze_input_incomplete_component(sub_component)
-
-    def _analyze_faulty_space_op(self, component, error):
-        """
-        Args:
-            component (Component): The Component, whose `check_input_spaces` threw a RLGraphSpaceError.
-            error (RLGraphSpaceError): The error thrown and from which to infer the op-rec whose Space threw this
-                error in a Component's `check_input_spaces`.
-
-        Raises:
-            RLGraphError: After the problem has been identified.
-        """
-        # If there is a Space error, trace back the op to the graph_fn that produced it.
-        input_arg = error.input_arg
-        add = 0
-        mo = re.search(r'\[(\d+)\]$', input_arg)
-        if mo:
-            input_arg = input_arg[:- (2 + len(str(mo.group(1))))]  # 2=len of '[' and ']'
-            add = int(mo.group(1))
-        else:
-            input_arg = re.sub(r'^.+\[(\w+)\]$', '\1', input_arg)
-            if mo:
-                input_arg = input_arg[:- (2 + len(str(mo.group(1))))]  # 2=len of '[' and ']'
-                add = int(mo.group(1))
-
-        # Look for the faulty op-rec/op to be able to trace it back.
-        op_rec = None
-        for api_method_rec in component.api_methods.values():
-            if input_arg in api_method_rec.input_names:
-                space_pos = api_method_rec.input_names.index(input_arg) + add
-                op_rec = api_method_rec.in_op_columns[-1].op_records[space_pos]
-                break
-        print(draw_sub_meta_graph_from_op_rec(op_rec, meta_graph=self.meta_graph))
 
     def get_execution_inputs(self, *api_method_calls):
         """
@@ -1250,6 +1221,9 @@ class GraphBuilder(Specifiable):
                                     # Overwrite both entries with the more generic Space.
                                     next_op_rec.space = component.api_method_inputs[param_name] = generic_space
 
+                        # Update Space's op_rec ref (should always refer to the deepest-into-the-graph op-rec).
+                        next_op_rec.space.op_rec_ref = next_op_rec
+
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
                         # placeholder).
@@ -1334,6 +1308,7 @@ class GraphBuilder(Specifiable):
                                 component.get_variables(custom_scope_separator="-").items()
                             )})
                             op_rec.space = var_space
+                            var_space.op_rec_ref = op_rec  # store op-rec in Space for sanity-checking and debugging
                             placeholder_name = next(iter(op_rec.next)).column.api_method_rec.input_names[op_rec.position]
                             assert len(op_rec.next) == 1, \
                                 "ERROR: root_component API op-rec ('{}') expected to have only one `next` op-rec!". \
