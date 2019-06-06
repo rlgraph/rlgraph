@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 import logging
@@ -55,7 +53,8 @@ class TestDQNAgentLongTaskLearning(unittest.TestCase):
         worker = SingleThreadedWorker(
             env_spec=lambda: env, agent=agent, render=True,
             preprocessing_spec=preprocessing_spec,
-            worker_executes_preprocessing=True
+            worker_executes_preprocessing=True,
+            update_rules=dict(update_every_n_units=4, first_update_after_n_units=50000)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 

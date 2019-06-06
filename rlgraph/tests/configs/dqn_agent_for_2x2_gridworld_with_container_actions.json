@@ -3,9 +3,14 @@
 
   "python_buffer_size": 32,
 
+  "memory_batch_size": 8,
   "memory_spec": {
     "type": "prioritized-replay",
     "capacity": 64
+  },
+
+  "sync_rules": {
+    "sync_every_n_updates": 2
   },
 
   "preprocessing_spec": [
@@ -65,13 +70,6 @@
         "to": 0.05
       }
     }
-  },
-
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 8,
-    "sync_interval": 8
   },
 
   "optimizer_spec":

@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
@@ -225,8 +223,12 @@ class AlgorithmComponent(Component):
         Args:
             preprocessed_states (DataOpRec): The already preprocessed states from which to derive actions
                 (via mapping through the policy's NNs).
+
             deterministic (DataOpRec(bool)): Whether to draw the action deterministically (deterministic sampling
                 from the Policy's distribution(s)).
+
+            time_percentage (SingleDataOpRec): The percentage (between 0.0 and 1.0) of the time steps already done
+                with respect to some total (maximum) number of time steps.
 
         Returns:
             DataOpRec(dict):

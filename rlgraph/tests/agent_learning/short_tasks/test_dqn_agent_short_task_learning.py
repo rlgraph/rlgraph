@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import os
@@ -151,7 +149,11 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
             print("episode return {}; steps={}".format(episode_return, timesteps))
         )
-        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        results = worker.execute_timesteps(
+            time_steps,
+            use_exploration=True,
+            update_rules=dict(update_every_n_units=4)
+        )
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
@@ -324,7 +326,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             agent=agent,
             preprocessing_spec=preprocessing_spec,
             worker_executes_preprocessing=True,
-            render=False
+            render=False,
+            update_rules=dict(update_every_n_units=4)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
         print(results)

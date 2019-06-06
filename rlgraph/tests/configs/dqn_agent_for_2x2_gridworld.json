@@ -8,6 +8,10 @@
     "capacity": 64
   },
 
+  "sync_rules": {
+    "sync_every_n_updates": 4
+  },
+
   "preprocessing_spec":
   [
     {

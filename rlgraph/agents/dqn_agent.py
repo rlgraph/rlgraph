@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
@@ -59,8 +57,8 @@ class DQNAgent(Agent):
         exploration_spec=None,
         execution_spec=None,
         optimizer_spec=None,
-        observe_spec=None,
-        update_spec=None,
+        observe_spec=None,  # Obsoleted.
+        update_spec=None,  # Obsoleted.
         sync_rules=None,
         summary_spec=None,
         saver_spec=None,
@@ -86,9 +84,6 @@ class DQNAgent(Agent):
             update_spec (Optional[dict]): Obsoleted: Spec-dict to specify `Agent.update()` settings.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
-            #auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
-            #    graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
-            #    components before building.
             name (str): Some name for this Agent object.
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
@@ -96,6 +91,9 @@ class DQNAgent(Agent):
             sync_every_n_updates (int): Every how many updates, do we need to sync into the target network?
             n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
+            auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
+                graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
+                components before building.
         """
         super(DQNAgent, self).__init__(
             state_space=state_space,
@@ -143,14 +141,14 @@ class DQNAgent(Agent):
             actions=self.action_space.with_batch_rank(),
             # Weights will have a Space derived from the vars of policy.
             policy_weights="variables:{}".format(self.root_component.policy.scope),
-            use_exploration=bool,
             preprocessed_states=preprocessed_state_space,
             rewards=FloatBox(add_batch_rank=True),
             terminals=BoolBox(add_batch_rank=True),
             next_states=preprocessed_state_space,
             preprocessed_next_states=preprocessed_state_space,
             importance_weights=FloatBox(add_batch_rank=True),
-            apply_postprocessing=bool
+            apply_postprocessing=bool,
+            deterministic=bool
         ))
 
         # Build this Agent's graph.
@@ -392,7 +390,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
 
         q_values_sp = None
         if self.double_q:
-            q_values_sp = self.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
+            q_values_sp = self.policy.get_adapter_outputs_and_parameters(preprocessed_next_states)["adapter_outputs"]
 
         loss, loss_per_item = self.loss_function.loss(
             q_values_s, actions, rewards, terminals, qt_values_sp, q_values_sp, importance_weights

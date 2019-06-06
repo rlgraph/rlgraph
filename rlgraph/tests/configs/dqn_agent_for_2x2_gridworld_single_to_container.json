@@ -1,18 +1,15 @@
 {
   "type": "dqn",
 
+  "python_buffer_size": 8,
+  "memory_batch_size": 32,
   "memory_spec": {
     "type": "prioritized-replay",
     "capacity": 256
   },
 
-  "python_buffer_size": 8,
-
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 32,
-    "sync_interval": 32
+  "sync_rules": {
+    "sync_every_n_updates": 8
   },
 
   "preprocessing_spec": [
@@ -37,7 +34,7 @@
         "scope": "dense-1"
     }
   ],
-    "policy_spec":
+  "policy_spec":
   {
     "type": "dueling-policy",
     "units_state_value_stream": 16,

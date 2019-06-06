@@ -2,11 +2,15 @@
   "type": "dqn",
 
   "python_buffer_size": 64,
-
+  "memory_batch_size": 16,
   "memory_spec":
   {
     "type": "replay",
     "capacity": 64
+  },
+
+  "sync_rules": {
+    "sync_every_n_updates": 8
   },
 
   "preprocessing_spec":
@@ -34,11 +38,5 @@
     "epsilon_spec": {
       "decay_spec": ["linear", 1.0, 0.0]
     }
-  },
-
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 16
   }
 }
