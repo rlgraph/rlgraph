@@ -18,7 +18,10 @@ from __future__ import absolute_import, division, print_function
 import os
 import re
 
-import graphviz
+try:
+    import graphviz
+except ImportError:
+    graphviz = None
 
 from rlgraph import rlgraph_dir
 from rlgraph.components.component import Component
@@ -69,6 +72,9 @@ def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
     Returns:
         Digraph: The GraphViz Digraph object.
     """
+    if graphviz is None:
+        return
+
     # _return is True if we are in the first original call (not one of the recursive ones).
     return_ = False
     if _graphviz_graph is None:

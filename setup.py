@@ -28,7 +28,6 @@ with open(os.path.join(os.path.dirname(__file__), 'rlgraph', 'version.py')) as f
 
 install_requires = [
     'absl-py',
-    'graphviz',
     'numpy',
     'opencv-python',
     'pyyaml',
@@ -51,6 +50,7 @@ extras_require = {
     'gym': ['gym', 'atari-py'],  # To use openAI Gym Envs (e.g. Atari).
     'mlagents_env': ['mlagents'],  # To use MLAgents Envs (Unity3D).
     'pygame': ['pygame'],  # To use GridWorld Envs with visualization tools (not required).
+    'graphviz': ['graphviz']  # To use GraphViz
 }
 
 setup(
