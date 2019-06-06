@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import inspect
 import logging
@@ -23,7 +21,7 @@ import re
 import time
 from collections import OrderedDict
 
-from rlgraph import get_backend
+from rlgraph import get_backend, get_config
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
@@ -341,13 +339,21 @@ class GraphBuilder(Specifiable):
                 device = self.get_device(component, variables=True)
                 # This builds variables which would have to be done either way:
                 call_time = time.perf_counter()
+                # If the Component throws a Space checking error, catch it here and perform the proper debugging
+                # routine.
                 try:
                     component.when_input_complete(
                         input_spaces=None, action_space=self.action_space, device=device,
                         summary_regexp=self.summary_spec["summary_regexp"]
                     )
                 except RLGraphSpaceError as e:
-                    self._analyze_faulty_space_op(component, e)
+                    # Should we plot the subgraph that lead to this error?
+                    if get_config().get("BUILD_DEBUG_PLOTS", True) is True:
+                        op_rec = e.space.op_rec_ref
+                        assert op_rec is not None
+                        draw_sub_meta_graph_from_op_rec(op_rec, meta_graph=self.meta_graph)
+                    # Reraise e.
+                    raise e
 
                 self.var_call_times.append(time.perf_counter() - call_time)
                 # Call all no-input graph_fns of the new Component.
