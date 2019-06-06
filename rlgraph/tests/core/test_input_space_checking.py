@@ -13,20 +13,18 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import unittest
 
-import rlgraph.spaces as spaces
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.strings.embedding_lookup import EmbeddingLookup
+import rlgraph.spaces as spaces
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.dummy_components import *
 from rlgraph.utils import root_logger
-from rlgraph.utils.visualization_util import draw_component_graph
+from rlgraph.utils.visualization_util import draw_meta_graph
 
 
 class TestInputSpaceChecking(unittest.TestCase):
@@ -54,7 +52,7 @@ class TestInputSpaceChecking(unittest.TestCase):
             return self.get_sub_component_by_name("embed-layer").call(dense_result)
 
         # Test graphviz component graph drawing.
-        draw_component_graph(container_component)
+        draw_meta_graph(container_component, apis=True)
 
         test = ComponentTest(
             component=container_component,
