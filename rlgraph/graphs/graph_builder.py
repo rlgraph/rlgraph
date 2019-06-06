@@ -652,7 +652,8 @@ class GraphBuilder(Specifiable):
             out_graph_fn_column.op_records[i].space = space
             # Assign op-rec property in Space so we have a backref in case the Space causes an error during
             # sanity checking.
-            space.op_rec_ref = out_graph_fn_column.op_records[i]
+            if space:  # could be 0
+                space.op_rec_ref = out_graph_fn_column.op_records[i]
 
         return out_graph_fn_column
 
