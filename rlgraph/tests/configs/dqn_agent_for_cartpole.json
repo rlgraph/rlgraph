@@ -4,8 +4,6 @@
   "python_buffer_size": 128,
 
   "memory_batch_size": 16,
-  "sync_every_n_updates": 8,
-
   "memory_spec":
   {
     "type": "replay",
