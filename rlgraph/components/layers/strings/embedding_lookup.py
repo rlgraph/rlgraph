@@ -70,7 +70,7 @@ class EmbeddingLookup(Layer):
     def check_input_spaces(self, input_spaces, action_space=None):
         ids_space = input_spaces["ids"]
         # Require int with batch-rank.
-        sanity_check_space(ids_space, input_arg="ids", must_have_batch_rank=True, allowed_sub_types=[IntBox])
+        sanity_check_space(ids_space, must_have_batch_rank=True, allowed_sub_types=[IntBox])
 
     def create_variables(self, input_spaces, action_space=None):
         # Create weights matrix and (maybe) biases vector.

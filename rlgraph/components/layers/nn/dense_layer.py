@@ -57,7 +57,7 @@ class DenseLayer(NNLayer):
         super(DenseLayer, self).check_input_spaces(input_spaces, action_space)
         in_space = input_spaces["inputs[0]"]
         # Rank must at least be 2.
-        sanity_check_space(in_space, input_arg="inputs[0]", rank=(1, None))
+        sanity_check_space(in_space, rank=(1, None))
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs[0]"]
