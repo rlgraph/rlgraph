@@ -101,7 +101,7 @@ class DQNAgent(Agent):
             state_space=state_space,
             action_space=action_space,
             python_buffer_size=python_buffer_size,
-            custom_python_buffers=custom_python_buffers,
+            #custom_python_buffers=custom_python_buffers,  # why would we need custom buffers for DQN?
             internal_states_space=internal_states_space,
             execution_spec=execution_spec,
             observe_spec=observe_spec,  # Obsoleted.

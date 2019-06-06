@@ -57,7 +57,7 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=12),
             memory_batch_size=24,
-            sync_every_n_updates=8,
+            sync_rules=dict(sync_every_n_updates=8),
             optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
@@ -96,8 +96,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=10),
-            batch_size=24,
-            sync_every_n_updates=8,
+            memory_batch_size=24,
+            sync_rules=dict(sync_every_n_updates=8),
             optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
@@ -192,8 +192,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             dueling_q=False,
             state_space=self.grid_world_4x4_flattened_state_space,
             action_space=dummy_env.action_space,
-            batch_size=32,
-            sync_every_n_updates=8,
+            memory_batch_size=32,
+            sync_rules=dict(sync_every_n_updates=8),
             optimizer_spec=dict(type="adam", learning_rate=["linear", 0.01, 0.0001])
         )
 
@@ -239,8 +239,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=15),
-            batch_size=24,
-            sync_every_n_updates=16,
+            memory_batch_size=24,
+            sync_rules=dict(sync_every_n_updates=16),
             optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
@@ -278,8 +278,8 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=13),
-            batch_size=64,
-            sync_every_n_updates=4,
+            memory_batch_size=64,
+            sync_rules=dict(sync_every_n_updates=4),
             optimizer_spec=dict(type="adam", learning_rate=["linear", 0.01, 0.00001])
         )
 
