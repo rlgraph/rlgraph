@@ -1223,7 +1223,8 @@ class GraphBuilder(Specifiable):
                                     next_op_rec.space = component.api_method_inputs[param_name] = generic_space
 
                         # Update Space's op_rec ref (should always refer to the deepest-into-the-graph op-rec).
-                        next_op_rec.space.op_rec_ref = next_op_rec
+                        if next_op_rec.space:  # space could be 0
+                            next_op_rec.space.op_rec_ref = next_op_rec
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
