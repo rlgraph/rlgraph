@@ -12,7 +12,7 @@ matrix:
 #    - DOCKER_IMAGE='tensorflow/tensorflow:latest'
   - env:
     - DOCKER_JOB_NAME='rlgraph_py3'
-    - DOCKER_IMAGE='rlgraph/rlgraph:full'
+    - DOCKER_IMAGE='rlgraph/rlgraph:latest'
 
 before_install:
   - docker pull ${DOCKER_IMAGE}
