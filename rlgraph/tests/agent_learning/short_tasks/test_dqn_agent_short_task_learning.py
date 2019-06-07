@@ -54,9 +54,6 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=12),
-            memory_batch_size=24,
-            sync_rules=dict(sync_every_n_updates=8),
-            optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
         time_steps = 2000
@@ -72,13 +69,14 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
         self.assertGreaterEqual(results["mean_episode_reward"], -1.5)
+        self.assertGreaterEqual(results["mean_episode_reward_last_10_episodes"], -0.5)
         self.assertGreaterEqual(results["max_episode_reward"], 0.0)
         self.assertLessEqual(results["episodes_executed"], time_steps / 2)
 
         # Check all learnt Q-values.
         q_values = agent.graph_executor.execute(("get_q_values", one_hot(np.array([0, 1]), depth=4)))[:]
-        recursive_assert_almost_equal(q_values[0], (0.8, -5, 0.9, 0.8), decimals=1)
-        recursive_assert_almost_equal(q_values[1], (0.8, 1.0, 0.9, 0.9), decimals=1)
+        recursive_assert_almost_equal(q_values[0], (0.8, -5, 0.9, 0.8), rtol=0.1)
+        recursive_assert_almost_equal(q_values[1], (0.8, 1.0, 0.9, 0.9), rtol=0.1)
 
     def test_double_dqn_on_2x2_grid_world(self):
         """
@@ -94,9 +92,6 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=self.grid_world_2x2_flattened_state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=10),
-            memory_batch_size=24,
-            sync_rules=dict(sync_every_n_updates=8),
-            optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
         time_steps = 2000
@@ -194,9 +189,6 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             dueling_q=False,
             state_space=self.grid_world_4x4_flattened_state_space,
             action_space=dummy_env.action_space,
-            memory_batch_size=32,
-            sync_rules=dict(sync_every_n_updates=8),
-            optimizer_spec=dict(type="adam", learning_rate=["linear", 0.01, 0.0001])
         )
 
         time_steps = 9000
@@ -241,9 +233,6 @@ class TestDQNAgentShortTaskLearning(unittest.TestCase):
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=15),
-            memory_batch_size=24,
-            sync_rules=dict(sync_every_n_updates=16),
-            optimizer_spec=dict(type="adam", learning_rate=0.05)
         )
 
         time_steps = 3000

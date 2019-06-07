@@ -2,6 +2,7 @@
   "type": "dqn",
 
   "python_buffer_size": 64,
+  "memory_batch_size": 24,
   "memory_spec":
   {
     "type": "replay",
@@ -9,7 +10,7 @@
   },
 
   "sync_rules": {
-    "sync_every_n_updates": 4
+    "sync_every_n_updates": 8
   },
 
   "preprocessing_spec":
@@ -40,5 +41,10 @@
         "to": 0.2
       }
     }
+  },
+
+  "optimizer_spec": {
+    "type": "adam",
+    "learning_rate": 0.05
   }
 }
