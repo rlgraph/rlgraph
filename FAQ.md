@@ -1,7 +1,15 @@
 
 # FAQ
 
-Here we collect short answers to common questions and point to resources.
+Here we collect short answers to common questions and point to resources:
+
+[How can I execute a gym environment?](#how-can-i-execute-a-gym-environment)
+
+[How can I use a custom environment?](#how-can-i-use-a-custom-environment)
+
+[How can I train with decaying/changing parameters (like learning rates) over time?](#how-can-i-train-with-decayingchanging-parameters-like-learning-rates-over-time)
+
+[How can I use a more complex network structure?](#how-can-i-use-a-more-complex-network-structure)
 
 
 ### How can I execute a gym environment?
@@ -297,3 +305,30 @@ class MyCustomNetwork(NeuralNetwork):
         return out_repeat_d1
 ```
 
+
+### How can I use GraphViz to quickly detect and render build problems (like shape and type errors)?
+
+##### First, install the two requirements, pypi graphviz and the GraphViz backend engine:
+
+```
+pip install graphviz
+```
+
+Then ownload the [GraphViz installer from here](https://graphviz.gitlab.io/download/),
+install GraphViz locally and then (very important!) add its `bin` directory to
+your `PATH` env variable. You will have to restart your python-shell, IDE, etc. before
+this will work.
+
+##### Test your GraphViz installation.
+
+```
+python
+> import graphviz
+> g = graphviz.Digraph("my Digraph")
+> g.render("[some pdf filename]", view=True)
+```
+
+This should open a new browser tab showing an empty graph.
+
+
+#####

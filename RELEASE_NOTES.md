@@ -4,10 +4,11 @@ Summarizes updates in recent releases.
 ## RLgraph 0.5.4 - 2019/06/07
 - Added a prototype for a debug visualization util that automatically
   builds sub-sections of the (meta-)graph and visualizes this sub-graph
-  in the browser (as pdf) using GraphViz. Installing the GraphViz engine
-  (and pypi `graphviz`) is not a requirement.
+  in the browser (as pdf) using GraphViz.
+  See FAQs for details on how to activate this feature.
+  Installing the GraphViz engine (and pypi `graphviz`) is not a requirement.
   In the visualized sub-graph, where only the fault-relevant parts of
-  the Agent are shown (to reduce information overload), one can see
+  the Agent are shown to reduce information overload, one can see
   immediately where Space (shape/type) problems occurred.
 - Cleaner handling of exposing child API methods when calling:
   `Component.add_components()`. The auto-generated (exposed) parent API
