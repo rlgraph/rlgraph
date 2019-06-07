@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+import os
 import unittest
 
 from rlgraph import rlgraph_dir
@@ -25,6 +26,7 @@ from rlgraph.agents.ppo_agent import PPOAgent
 from rlgraph.environments import GridWorld
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphSpaceError
 from rlgraph.utils.visualization_util import draw_meta_graph
 
 
@@ -48,8 +50,10 @@ class TestVisualizations(unittest.TestCase):
 
         # Test graphviz component-graph drawing.
         draw_meta_graph(ppo_agent.root_component, output=rlgraph_dir + "/ppo.gv", apis=False, graph_fns=False)
+        self.assertTrue(os.path.isfile(rlgraph_dir + "/ppo.gv"))
         # Test graphviz component-graph w/ API drawing (only the Policy component).
         draw_meta_graph(ppo_agent.policy.neural_network, output=rlgraph_dir + "/ppo_nn.gv", apis=True)
+        self.assertTrue(os.path.isfile(rlgraph_dir + "/ppo_nn.gv"))
 
     def test_ppo_agent_faulty_op_visualization(self):
         """
@@ -63,8 +67,13 @@ class TestVisualizations(unittest.TestCase):
         ]
         env = GridWorld(world="2x2")
         # Build Agent and hence trigger the Space error.
-        ppo_agent = PPOAgent.from_spec(
-            config_from_path("configs/ppo_agent_for_2x2_gridworld.json"),
-            state_space=GridWorld.grid_world_2x2_flattened_state_space,
-            action_space=env.action_space
-        )
+        try:
+            ppo_agent = PPOAgent.from_spec(
+                agent_config,
+                state_space=GridWorld.grid_world_2x2_flattened_state_space,
+                action_space=env.action_space
+            )
+        except RLGraphSpaceError as e:
+            print("Seeing expected RLGraphSpaceError ({}). Test ok.".format(e))
+        else:
+            raise RLGraphError("Not seeing expected RLGraphSpaceError with faulty input Space to embed layer of PPO!")

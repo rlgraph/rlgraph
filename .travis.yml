@@ -102,6 +102,9 @@ script:
   # Test all our envs.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/environments';
 
+  # Test our debug visualizations.
+  - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c 'cd /rlgraph && python -m pytest -s rlgraph/tests/visualization';
+
   # Switch to PyTorch backend.
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c "jq '.BACKEND = \"pytorch\"' ~/.rlgraph/rlgraph.json > tmp.json && mv tmp.json ~/.rlgraph/rlgraph.json";
   - docker exec ${DOCKER_JOB_NAME}  /bin/sh -c "jq '.DISTRIBUTED_BACKEND = \"ray\"' ~/.rlgraph/rlgraph.json > tmp.json && mv tmp.json ~/.rlgraph/rlgraph.json";
