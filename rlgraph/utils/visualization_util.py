@@ -40,9 +40,9 @@ _TEXTBOX_COLOR = "#3b6ddb"
 _OTHER_TYPE_COLOR = "#777777"
 
 
-def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
-                    component_filter=None, connection_filter=None,
-                    _graphviz_graph=None, _max_nesting_level=None, _all_connections=None, highlighted_connections=None):
+def draw_meta_graph(component, *, output=None, apis=True, graph_fns=False, render=True,
+                    component_filter="auto", connection_filter=None,
+                    _graphviz_graph=None, _all_connections=None, _max_nesting_level=None, highlighted_connections=None):
     """
     Creates and draws the GraphViz component graph for the given Component (and all its sub-components).
     - An (outermost) placeholder is represented by a node named `Placeholder_[arg-name]`.
@@ -58,19 +58,29 @@ def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
 
     Args:
         component (Component): The Component object to draw the component-graph for.
+        output (Optional[str]): The output filename to write to. Default: ~/.rlgraph/rlgraph_debug_draw.gv.pdf
+
         apis (Union[bool,Set[str]]): Whether to include API methods. If Set of str: Only include APIs whose names are in
             the given set.
+
         graph_fns (Union[bool,str]): Whether to include GraphFns. If Set of str: Only include GraphFns whose names are
             in the given set.
+
         component_filter (Optional[Set[Component]]): If provided, only Components in the filter set will be rendered.
+            Set to "auto" for only allowing given `component` plus sub-components to be rendered.
+
         connection_filter (Optional[Set[str]]): If provided, only connections in the filter set will be rendered.
         render (bool): Whether to show the resulting graph as pdf in the browser.
         _graphviz_graph (Digraph): Whether this is a recursive (sub-component) call.
-        _all_connections (Optional[Set[Tuple[str]]]): An optional set of connection-defining tuples, only applied on
-            the global level.
 
-    Returns:
-        Digraph: The GraphViz Digraph object.
+        _all_connections (Optional[Set[Tuple[str]]]): An set of connection-defining tuples (from-col, to-col).
+            Connections are generated (as graphviz edges) at the very end, on the top-most graph level.
+
+        _max_nesting_level (Optional[int]): The maximum nesting level of the original call's `component` and all
+            its sub-Components. Used for finding the correct color shade for the Component subgraphs.
+
+        highlighted_connections (Optional[set]): Connections that should be highlighted (e.g. in red), indicating
+            shape-, type- or other Space-related problems in the build process.
     """
     if graphviz is None:
         return
@@ -79,8 +89,11 @@ def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
     return_ = False
     if _graphviz_graph is None:
         assert _all_connections is None and _max_nesting_level is None  # only for recursive calls
+        if component_filter == "auto":
+            component_filter = set(component.get_all_sub_components(exclude_self=False))
         _graphviz_graph, _all_connections, _max_nesting_level = \
-            _init_meta_graph(component, apis, graph_fns, connection_filter, highlighted_connections)
+            _init_meta_graph(component, apis=apis, graph_fns=graph_fns, component_filter=component_filter,
+                             connection_filter=connection_filter, highlighted_connections=highlighted_connections)
         return_ = True
 
     for sub_component in component.sub_components.values():
@@ -90,10 +103,8 @@ def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
             continue
         with _graphviz_graph.subgraph(name="cluster_" + sub_component.global_scope) as sg:
             # Set some attributes of the sub-graph for display purposes.
+            sg.attr(style="rounded", label=sub_component.scope, bb="3px")
             sg.attr(color=_get_api_subgraph_color(sub_component.nesting_level, _max_nesting_level))
-            #sg.attr(style="")
-            sg.attr(bb="3px")
-            sg.attr(label=sub_component.scope)
             # Add all APIs of this sub-Component.
             if apis is not False and sub_component.graph_builder is not None:
                 for api_name in sub_component.api_methods:
@@ -101,13 +112,15 @@ def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
                             (apis is True or "api:" + sub_component.global_scope + "/" + api_name in apis):
                         _add_api_or_graph_fn_to_graph(
                             sub_component, sg, api_name=api_name, apis=apis, graph_fns=graph_fns,
-                            connection_filter=connection_filter, _connections=_all_connections,
+                            component_filter=component_filter, connection_filter=connection_filter,
+                            _connections=_all_connections,
                             highlighted_connections=highlighted_connections
                         )
             else:
-                # Add a fake node. TODO: remove this necessity.
-                sg.node(sub_component.global_scope, label="")
-                sg.node_attr.update(shape="point")
+                # Add a fake node to make the Component's subgraph visible.
+                sg.node(
+                    sub_component.global_scope, label="", _attributes=dict(shape="point", color="#ffffff")
+                )
 
             # Add all GraphFns of this sub-Component.
             if graph_fns is not False and sub_component.graph_builder is not None:
@@ -116,13 +129,15 @@ def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
                             (graph_fns is True or "graph:" + sub_component.global_scope + "/" + graph_fn_name in graph_fns):
                         _add_api_or_graph_fn_to_graph(
                             sub_component, sg, graph_fn_name=graph_fn_name, apis=apis, graph_fns=graph_fns,
-                            connection_filter=connection_filter, _connections=_all_connections,
+                            component_filter=component_filter, connection_filter=connection_filter,
+                            _connections=_all_connections,
                             highlighted_connections=highlighted_connections
                         )
 
             # Call recursively on sub-Components of this sub-Component.
             draw_meta_graph(
                 sub_component, apis=apis, graph_fns=graph_fns, connection_filter=connection_filter,
+                component_filter=component_filter,
                 render=False, _graphviz_graph=sg, _all_connections=_all_connections,
                 _max_nesting_level=_max_nesting_level
             )
@@ -138,7 +153,9 @@ def draw_meta_graph(component, *, apis=True, graph_fns=False, render=True,
 
         # Render the graph as pdf (in browser).
         if render is True:
-            _render(_graphviz_graph, os.path.join(rlgraph_dir, "rlgraph_debug_draw.gv"), view=True)
+            if output is None:
+                output = os.path.join(rlgraph_dir, "rlgraph_debug_draw.gv")
+            _render(_graphviz_graph, output, view=True)
 
 
 def draw_sub_meta_graph_from_op_rec(op_rec, meta_graph):
@@ -199,7 +216,7 @@ def _backtrace_op_rec(op_rec, _components=None, _api_methods=None, _graph_fns=No
         col = op_rec.column
         if col is not None:
             _components.add(col.component)
-        column_type, column_scope = _get_column_type_and_scope(col)
+        column_type, column_scope, _ = _get_column_type_scope_and_component(col)
         if column_type == "API":
             _api_methods.add(column_scope)
         else:
@@ -233,7 +250,7 @@ def _backtrace_op_rec(op_rec, _components=None, _api_methods=None, _graph_fns=No
 
 def _add_api_or_graph_fn_to_graph(
         component, graphviz_graph, *, api_name=None, graph_fn_name=None, draw_columns=True, apis=True, graph_fns=False,
-        connection_filter=None, _connections=None, highlighted_connections=None
+        component_filter=None, connection_filter=None, _connections=None, highlighted_connections=None
 ):
     """
     Args:
@@ -241,6 +258,8 @@ def _add_api_or_graph_fn_to_graph(
         api_name (str): The name of the API method to add to the graph.
         graphviz_graph (Digraph): The GraphViz Digraph object to add the API-method's nodes and edges to.
         draw_columns (bool): Whether to draw in/out-columns as nodes or not draw them at all.
+        component_filter
+        component_filter (Optional[Set[Component]]): If provided, only Components in the filter set will be rendered.
         connection_filter (Optional[Set[str]]): If provided, only draw connections that are in this set.
         _connections (Set[Tuple[str]]): Set of connection tuples to add to. Connections will only be done on the
             top-level.
@@ -258,8 +277,10 @@ def _add_api_or_graph_fn_to_graph(
         # Create API as subgraph of graphviz_graph.
         # Make all connections coming into all in columns and out-columns of this API.
         with graphviz_graph.subgraph(name="cluster_{}:{}/{}".format(type_, component.global_scope, name)) as sg:
-            sg.attr(color=_API_COLOR if api_name else _GRAPH_FN_COLOR, bb="2px", label=name)
-            sg.attr(style="filled")
+            # Style the API/graph-fn subgraph.
+            color = _API_COLOR if api_name else _GRAPH_FN_COLOR
+            sg.attr(color=color, bgcolor=color, bb="0px", label=name, style="rounded")
+
             # Draw all in/out columns as nodes.
             if draw_columns is True:
                 # Draw in/out columns as one node (op-recs going in and coming out will be edges).
@@ -276,18 +297,23 @@ def _add_api_or_graph_fn_to_graph(
                             continue
 
                         # Possible filtering by API/graph-fn.
-                        type_, scope = _get_column_type_and_scope(op_rec.previous.column)
-                        if (type_ == "GF" and (graph_fns is True or (graph_fns is not False and scope in graph_fns))) \
-                                or (type_ == "API" and (apis is True or (apis is not False and scope in apis))) \
-                                or type_ == "":
-                            # Check connection-filter as well.
-                            from_to = (op_rec.previous.column.id, out_col.id)
-                            if connection_filter is None or from_to in connection_filter:
-                                color, shape = _get_color_and_shape_from_space(op_rec.space)
-                                # Highlight this connection?
-                                if highlighted_connections is not None and from_to in highlighted_connections:
-                                    color = "#ff0000"
-                                _connections.add((str(from_to[0]), str(from_to[1])) + (shape, color))
+                        prev_type, prev_scope, prev_component = _get_column_type_scope_and_component(
+                            op_rec.previous.column
+                        )
+                        if (component_filter is not None and prev_component not in component_filter) or \
+                                (prev_type == "GF" and
+                                 (graph_fns is False or (graph_fns is not True and prev_scope not in graph_fns))) \
+                                or (prev_type == "API" and
+                                    (apis is False or (apis is not True and prev_scope not in apis))):
+                            continue
+                        # Check connection-filter as well.
+                        from_to = (op_rec.previous.column.id, out_col.id)
+                        if connection_filter is None or from_to in connection_filter:
+                            color, shape = _get_color_and_shape_from_space(op_rec.space)
+                            # Highlight this connection?
+                            if highlighted_connections is not None and from_to in highlighted_connections:
+                                color = "#ff0000"
+                            _connections.add((str(from_to[0]), str(from_to[1])) + (shape, color))
 
                 # In columns.
                 for call_id in reversed(range(len(record.in_op_columns))):
@@ -296,45 +322,53 @@ def _add_api_or_graph_fn_to_graph(
                         sg.node(str(in_col.id), label="in-" + str(call_id))
                     # Make all connections going into this column (all its op-recs).
                     for op_rec in in_col.op_records:
-                        # Possible filtering by graph-fn.
-                        prev_type, prev_scope = _get_column_type_and_scope(op_rec.previous.column)
-                        if (prev_type == "GF" and (graph_fns is True or (graph_fns is not False and prev_scope in graph_fns))) \
-                                or (prev_type == "API" and (apis is True or (apis is not False and prev_scope in apis))) \
-                                or prev_type == "":
-                            color, shape = _get_color_and_shape_from_space(op_rec.space)
+                        # Possible filtering by Component/API/graph-fn.
+                        prev_type, prev_scope, prev_component = _get_column_type_scope_and_component(
+                            op_rec.previous.column
+                        )
+                        if (component_filter is not None and prev_component not in component_filter) or \
+                                (prev_type == "GF" and
+                                 (graph_fns is False or (graph_fns is not True and prev_scope not in graph_fns))) \
+                                or (prev_type == "API" and
+                                    (apis is False or (apis is not True and prev_scope not in apis))):
+                            continue
 
-                            # GraphFn -> Use input arg position as label.
-                            if type_ == "graph":
-                                label = str(op_rec.previous.position)
-                            # API no kwarg -> Use input arg's name.
-                            elif op_rec.kwarg is None:
-                                label = op_rec.column.api_method_rec.input_names[op_rec.position]
-                            # API kwarg -> Use kwarg.
-                            else:
-                                label = op_rec.kwarg
+                        color, shape = _get_color_and_shape_from_space(op_rec.space)
 
-                            if op_rec.previous.placeholder is None:
-                                from_ = op_rec.previous.column.id
-                                label += " (" + shape + ")"
-                            else:
-                                from_ = "Placeholder_{}".format(op_rec.previous.placeholder)
-                                label = ""  # Set label to None (placeholder already describes itself)
+                        # GraphFn -> Use input arg position as label.
+                        if type_ == "graph":
+                            label = str(op_rec.previous.position)
+                        # API no kwarg -> Use input arg's name.
+                        elif op_rec.kwarg is None:
+                            label = op_rec.column.api_method_rec.input_names[op_rec.position]
+                        # API kwarg -> Use kwarg.
+                        else:
+                            label = op_rec.kwarg
 
-                            # Check connection-filter as well.
-                            from_to = (from_, in_col.id)
-                            if connection_filter is None or from_to in connection_filter:
-                                # Highlight this connection?
-                                if highlighted_connections is not None and from_to in highlighted_connections:
-                                    color = "#ff0000"
-                                _connections.add((str(from_to[0]), str(from_to[1])) + (label, color))
+                        if op_rec.previous.placeholder is None:
+                            from_ = op_rec.previous.column.id
+                            label += " (" + shape + ")"
+                        else:
+                            from_ = "Placeholder_{}".format(op_rec.previous.placeholder)
+                            label = ""  # Set label to None (placeholder already describes itself)
 
-            # TODO: This is a hack to make the subgraph visible (needs at least one node). Creating a fake-node here. Try to solve this more elegantly.
+                        # Check connection-filter as well.
+                        from_to = (from_, in_col.id)
+                        if connection_filter is None or from_to in connection_filter:
+                            # Highlight this connection?
+                            if highlighted_connections is not None and from_to in highlighted_connections:
+                                color = "#ff0000"
+                            _connections.add((str(from_to[0]), str(from_to[1])) + (label, color))
+
+            # Add a fake node to make this API/graph-fn's node visible.
             else:
-                sg.node(type_ + ":" + component.global_scope + "/" + api_name, label="")
-                sg.node_attr.update(shape="point")
+                sg.node(
+                    type_ + ":" + component.global_scope + "/" + api_name, label="",
+                    _attributes=dict(shape="point", color="#ffffff")
+                )
 
 
-def _init_meta_graph(component, apis, graph_fns, connection_filter, highlighted_connections=None):
+def _init_meta_graph(component, *, apis, graph_fns, component_filter, connection_filter, highlighted_connections=None):
     _all_connections = set()
     graphviz_graph = graphviz.Digraph(name=component.scope if len(component.scope) > 0 else "root")
     graphviz_graph.attr(label=graphviz_graph.name)
@@ -364,35 +398,37 @@ def _init_meta_graph(component, apis, graph_fns, connection_filter, highlighted_
             if apis is not False and (apis is True or "api:" + component.global_scope + "/" + api_name in apis):
                 _add_api_or_graph_fn_to_graph(
                     component, graphviz_graph,  # draw_columns=(apis is True),
-                    api_name=api_name, apis=apis, graph_fns=graph_fns, connection_filter=connection_filter,
+                    api_name=api_name, apis=apis, graph_fns=graph_fns,
+                    component_filter=component_filter, connection_filter=connection_filter,
                     _connections=_all_connections, highlighted_connections=highlighted_connections
                 )
     # Calculate the max. nesting level of the Component and all its sub-components and subtract
     # by the Component's nesting_level.
     _max_nesting_level = 0
     for sub_component in component.get_all_sub_components(exclude_self=False):
+        if component_filter is not None and sub_component not in component_filter:
+            continue
         if (sub_component.nesting_level or 0) > _max_nesting_level:
             _max_nesting_level = sub_component.nesting_level
     _max_nesting_level -= (component.nesting_level or 0)
 
     # Now that we know the max nesting level, set this Component's subgraph color.
     graphviz_graph.attr(color=_get_api_subgraph_color((component.nesting_level or 0), _max_nesting_level))
-    #graphviz_graph.attr(style="filled")
 
     return graphviz_graph, _all_connections, _max_nesting_level
 
 
-def _get_column_type_and_scope(col):
+def _get_column_type_scope_and_component(col):
     if isinstance(col, DataOpRecordColumnIntoAPIMethod):
-        return "API", "api:" + col.component.global_scope + "/" + col.api_method_rec.name
+        return "API", "api:" + col.component.global_scope + "/" + col.api_method_rec.name, col.component
     elif isinstance(col, DataOpRecordColumnFromAPIMethod):
-        return "API", "api:" + col.component.global_scope + "/" + col.api_method_name
+        return "API", "api:" + col.component.global_scope + "/" + col.api_method_name, col.component
     elif isinstance(col, DataOpRecordColumnIntoGraphFn):
-        return "GF", "graph:" + col.component.global_scope + "/" + col.graph_fn.__name__
+        return "GF", "graph:" + col.component.global_scope + "/" + col.graph_fn.__name__, col.component
     elif isinstance(col, DataOpRecordColumnFromGraphFn):
-        return "GF", "graph:" + col.component.global_scope + "/" + col.graph_fn_name
+        return "GF", "graph:" + col.component.global_scope + "/" + col.graph_fn_name, col.component
     else:
-        return "", ""
+        return "", "", None
 
 
 def _get_color_and_shape_from_space(space):
