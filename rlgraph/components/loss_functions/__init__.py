@@ -13,25 +13,36 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.loss_functions.loss_function import LossFunction
 from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCriticLossFunction
+from rlgraph.components.loss_functions.categorical_cross_entropy_loss import CategoricalCrossEntropyLoss
+from rlgraph.components.loss_functions.container_loss_function import ContainerLossFunction
 from rlgraph.components.loss_functions.dqn_loss_function import DQNLossFunction
 from rlgraph.components.loss_functions.dqfd_loss_function import DQFDLossFunction
+from rlgraph.components.loss_functions.euclidian_distance_loss import EuclidianDistanceLoss
 from rlgraph.components.loss_functions.impala_loss_function import IMPALALossFunction
+from rlgraph.components.loss_functions.neg_log_likelihood_loss import NegativeLogLikelihoodLoss
 from rlgraph.components.loss_functions.ppo_loss_function import PPOLossFunction
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 
 LossFunction.__lookup_classes__ = dict(
     actorcriticlossfunction=ActorCriticLossFunction,
+    categoricalcrossentropy=CategoricalCrossEntropyLoss,
+    categoricalcrossentropyloss=CategoricalCrossEntropyLoss,
+    containerloss=ContainerLossFunction,
     dqnlossfunction=DQNLossFunction,
     dqfdlossfunction=DQFDLossFunction,
+    euclidiandistance=EuclidianDistanceLoss,
+    euclidiandistanceloss=EuclidianDistanceLoss,
     impalalossfunction=IMPALALossFunction,
+    negativeloglikelihoodloss=NegativeLogLikelihoodLoss,
+    negativeloglikelihood=NegativeLogLikelihoodLoss,
+    negloglikelihoodloss=NegativeLogLikelihoodLoss,
+    negloglikelihood=NegativeLogLikelihoodLoss,
     ppolossfunction=PPOLossFunction,
-    saclossfunction=SACLossFunction,
+    saclossfunction=SACLossFunction
 )
 
 __all__ = ["LossFunction"] + \
