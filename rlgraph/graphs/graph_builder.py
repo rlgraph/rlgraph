@@ -1222,10 +1222,6 @@ class GraphBuilder(Specifiable):
                                     # Overwrite both entries with the more generic Space.
                                     next_op_rec.space = component.api_method_inputs[param_name] = generic_space
 
-                        # Update Space's op_rec ref (should always refer to the deepest-into-the-graph op-rec).
-                        if next_op_rec.space:  # space could be 0
-                            next_op_rec.space.op_rec_ref = next_op_rec
-
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
                         # placeholder).
@@ -1234,6 +1230,10 @@ class GraphBuilder(Specifiable):
                             self.build_component_when_input_complete(next_component)
                             if next_component.input_complete is False:
                                 non_complete_components.add(next_component.global_scope)
+
+                        # Update Space's op_rec ref (should always refer to the deepest-into-the-graph op-rec).
+                        if next_op_rec.space:  # space could be 0
+                            next_op_rec.space.op_rec_ref = next_op_rec
 
                 # No next records:
                 # - Op belongs to a column going into a graph_fn.
