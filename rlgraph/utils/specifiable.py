@@ -26,6 +26,7 @@ from copy import deepcopy
 from functools import partial
 
 import yaml
+
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import default_dict, force_list
 
@@ -41,6 +42,8 @@ class Specifiable(object):
     # and args/kwargs are both empty. This may be a functools.partial object.
     __default_constructor__ = None
 
+    # TODO: Remove from here. Only Specifyables that really need a Logger should have this. Creates problems when
+    # TODO: deepcopying.
     logger = logging.getLogger(__name__)
 
     # Analogous to: http://effbot.org/pyfaq/how-do-i-get-a-list-of-all-instances-of-a-given-class.htm
