@@ -1,6 +1,20 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.5.4 - 2019/06/07
+- Added a prototype for a debug visualization util that automatically
+  builds sub-sections of the (meta-)graph and visualizes this sub-graph
+  in the browser (as pdf) using GraphViz. Installing the GraphViz engine
+  (and pypi `graphviz`) is not a requirement.
+  In the visualized sub-graph, where only the fault-relevant parts of
+  the Agent are shown (to reduce information overload), one can see
+  immediately where Space (shape/type) problems occurred.
+- Cleaner handling of exposing child API methods when calling:
+  `Component.add_components()`. The auto-generated (exposed) parent API
+  now has the same name and signature as the child's one (which makes it
+  more consistent when tracking incoming Spaces into API-input-args
+  (a Component's input-completeness is affected by this)).
+
 ## RLgraph 0.5.3 - 2019/06/03
 - Fixed remaining issues with Keras-style NN assembly. This is now the
   recommended method for complex/multi-stream `NeuralNetworks`.
