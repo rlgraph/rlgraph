@@ -181,12 +181,12 @@ class GridWorld(Environment):
         if pygame is not None:
             self.pygame_field_size = 30
             pygame.init()
-            pygame.display.set_mode((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size))
             self.pygame_agent = pygame.image.load(
                 os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/agent.png")
             )
             # Create basic grid Surface for reusage.
             self.pygame_basic_surface = self.grid_to_surface()
+            self.pygame_display_set = False
 
         # Figure out our state space.
         assert state_representation in ["discrete", "xy", "xy+orientation", "camera"]
@@ -370,6 +370,10 @@ class GridWorld(Environment):
             print(self.render_txt())
 
     def render_human(self):
+        # Set pygame's display, if not already done.
+        if self.pygame_display_set is False:
+            pygame.display.set_mode((self.n_col * self.pygame_field_size, self.n_row * self.pygame_field_size))
+            self.pygame_display_set = True
         surface = self.pygame_basic_surface.copy()
         surface.blit(self.pygame_agent, (self.x * self.pygame_field_size + 1, self.y * self.pygame_field_size + 1))
         pygame.display.get_surface().blit(surface, (0, 0))
