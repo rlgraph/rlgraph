@@ -19,8 +19,13 @@ from __future__ import print_function
 
 import logging
 import unittest
+import mock
+import pytest
+
+from tensorflow.core.framework import summary_pb2
 
 from rlgraph.tests import ComponentTest
+from rlgraph.tests.test_util import regex_pattern
 from rlgraph.utils import root_logger
 from rlgraph.tests.dummy_components import *
 from rlgraph.tests.dummy_components_with_sub_components import *
@@ -191,6 +196,123 @@ class TestAPIMethods(unittest.TestCase):
 
         test.test((component.run_plus, 1.23456), expected_outputs=3.23456, decimals=5)
         test.test((component.run_minus, 1.23456), expected_outputs=-0.7654, decimals=4)
+
+    @staticmethod
+    def _parse_summary_if_needed(summary):
+        """
+        Parses the summary if it is provided in serialized form (bytes).
+        This code is copied from tensorflow's SummaryToEventTransformer::add_summary
+        :param summary:
+        :return:
+        """
+        if isinstance(summary, bytes):
+            summ = summary_pb2.Summary()
+            summ.ParseFromString(summary)
+            summary = summ
+        return summary
+
+    def test_summaries(self):
+        container = Component(scope="container")
+
+        # Define container's API:
+        @rlgraph_api(component=container)
+        def add(self_, value, value2):
+            return self_._graph_fn_sum(value, value2)
+
+        @graph_fn(component=container)
+        def _graph_fn_sum(self_, *inputs):
+            summary_op = tf.summary.histogram("summary_sum", inputs)
+            self_.register_summary_op(summary_op)
+            return sum(inputs)
+
+        @rlgraph_api(component=container)
+        def _graph_fn_graph_api(self_):
+            summary_op = tf.summary.scalar("summary_graph_api", 1.0)
+            self_.register_summary_op(summary_op)
+            return tf.constant(1.0)
+
+        @rlgraph_api(component=container)
+        def api_method_double(self_, value):
+            return self_.add(value, value)
+
+        @rlgraph_api(component=container)
+        def _graph_fn_api_method_complex(self_, value):
+            doubled = self_._graph_fn_sum(value, value)
+            incremented = self_._graph_fn_inc(doubled)
+            denominator = self_.graph_api()
+            return incremented / denominator
+
+        @rlgraph_api(component=container)
+        def increment(self_, value):
+            return self_._graph_fn_inc(value)
+
+        test = ComponentTest(component=container, input_spaces=dict(
+            value=float,
+            value2=float
+        ), auto_build=False)
+
+        @graph_fn(component=container)
+        def _graph_fn_inc(self_, value):
+            summary_op = tf.summary.scalar("summary_inc", value)
+            self_.register_summary_op(summary_op)
+            assign_op = tf.assign_add(test.graph_executor.global_training_timestep, 1)
+            with tf.control_dependencies([assign_op]):
+                return value + 1
+
+        test.build()
+
+        test.graph_executor.summary_writer = mock.Mock(
+            spec=test.graph_executor.summary_writer,
+            wraps=test.graph_executor.summary_writer
+        )
+        test.graph_executor.summary_writer.add_summary = mock.Mock()
+
+        test.test((add, [1.0, 2.0]), expected_outputs=3.0, decimals=2)
+        assert test.graph_executor.summary_writer.add_summary.call_count == 1
+        summary, step = test.graph_executor.summary_writer.add_summary.call_args[0]
+        summary = self._parse_summary_if_needed(summary)
+        assert len(summary.value) == 1
+        assert summary.value[0].tag == regex_pattern(container.scope + "/summary_sum" + r"(_\d)?")
+        assert step == 0
+
+        test.graph_executor.summary_writer.add_summary.reset_mock()
+        test.test((increment, [6.0]), expected_outputs=7.0, decimals=2)
+        assert test.graph_executor.summary_writer.add_summary.call_count == 1
+        summary, step = test.graph_executor.summary_writer.add_summary.call_args[0]
+        summary = self._parse_summary_if_needed(summary)
+        assert len(summary.value) == 1
+        assert summary.value[0].tag == container.scope + "/summary_inc"
+        assert step == 1
+
+        test.graph_executor.summary_writer.add_summary.reset_mock()
+        test.test("graph_api", expected_outputs=1.0, decimals=2)
+        assert test.graph_executor.summary_writer.add_summary.call_count == 1
+        summary, step = test.graph_executor.summary_writer.add_summary.call_args[0]
+        summary = self._parse_summary_if_needed(summary)
+        assert len(summary.value) == 1
+        assert summary.value[0].tag == container.scope + "/summary_graph_api"
+        assert step == 1
+
+        test.graph_executor.summary_writer.add_summary.reset_mock()
+        test.test((api_method_double, [3.0]), expected_outputs=6.0, decimals=2)
+        assert test.graph_executor.summary_writer.add_summary.call_count == 1
+        summary, step = test.graph_executor.summary_writer.add_summary.call_args[0]
+        summary = self._parse_summary_if_needed(summary)
+        assert len(summary.value) == 1
+        assert summary.value[0].tag == regex_pattern(container.scope + "/summary_sum" + r"(_\d)?")
+        assert step == 1
+
+        test.graph_executor.summary_writer.add_summary.reset_mock()
+        test.test(("api_method_complex", [3.0]), expected_outputs=7.0, decimals=2)
+        assert test.graph_executor.summary_writer.add_summary.call_count == 1
+        summary, step = test.graph_executor.summary_writer.add_summary.call_args[0]
+        summary = self._parse_summary_if_needed(summary)
+        assert len(summary.value) == 3
+        assert summary.value[0].tag == regex_pattern(container.scope + "/summary_sum" + r"(_\d)?")
+        assert summary.value[1].tag == regex_pattern(container.scope + "/summary_inc" + r"(_\d)?")
+        assert summary.value[2].tag == regex_pattern(container.scope + "/summary_graph_api" + r"(_\d)?")
+        assert step == 2
+
 
     #def test_kwargs_in_api_call(self):
     #    core = Component(scope="container")

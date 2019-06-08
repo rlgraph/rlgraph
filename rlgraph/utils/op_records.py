@@ -415,7 +415,7 @@ class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
     """
     An array of return values from a graph_fn pass through.
     """
-    def __init__(self, num_op_records, component, graph_fn_name, in_graph_fn_column):
+    def __init__(self, num_op_records, component, graph_fn_name, in_graph_fn_column, summary_ops):
         """
         Args:
             graph_fn_name (str): The name of the graph_fn that returned the ops going into `self.op_records`.
@@ -427,9 +427,11 @@ class DataOpRecordColumnFromGraphFn(DataOpRecordColumn):
         self.graph_fn_name = graph_fn_name
         # The column after passing this one through the graph_fn.
         self.in_graph_fn_column = in_graph_fn_column
+        self.summary_ops = summary_ops
 
     def __str__(self):
-        return "GraphFn('{}')->OpRecCol(ops: {})".format(self.graph_fn_name, self.op_id_list)
+        return "GraphFn('{}')->OpRecCol(ops: {}, #summary_ops: {})".format(
+            self.graph_fn_name, self.op_id_list, len(self.summary_ops))
 
 
 class DataOpRecordColumnIntoAPIMethod(DataOpRecordColumn):
@@ -621,3 +623,22 @@ def get_call_param_name(op_rec):
                 )
 
     return param_name
+
+
+def gather_summaries(op_recs):
+    summaries = []
+    processed_columns = []
+    for op_rec in op_recs:
+        _gather_summaries(op_rec.column, processed_columns, summaries)
+    return summaries
+
+
+def _gather_summaries(op_rec_column, processed_columns, summaries):
+    if op_rec_column is None or op_rec_column in processed_columns:
+        return
+    processed_columns.append(op_rec_column)
+    if isinstance(op_rec_column, DataOpRecordColumnFromGraphFn):
+        summaries.extend(op_rec_column.summary_ops)
+    for op_rec in op_rec_column.op_records:
+        if op_rec.previous is not None:
+            _gather_summaries(op_rec.previous.column, processed_columns, summaries)

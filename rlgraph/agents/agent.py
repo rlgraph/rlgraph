@@ -113,7 +113,9 @@ class Agent(Specifiable):
         # the Agent's policy Component.
         self.input_spaces = dict(
             states=self.state_space.with_batch_rank(),
-            time_percentage=float
+            time_percentage=float,
+            increment=int,
+            episode_reward=float
         )
 
         # Construct the Preprocessor.
@@ -237,6 +239,14 @@ class Agent(Specifiable):
                 vf = root.get_sub_component_by_name(agent.value_function.scope)
                 return vf.value_output(preprocessed_states)
 
+        self.root_component.episode_reward = None
+
+        def _create_variables(input_spaces, action_space):
+            agent.root_component.episode_reward = agent.root_component.get_variable(
+                "episode_reward", shape=(), initializer=0.0)
+
+        self.root_component.create_variables = _create_variables
+
         # Add API methods for syncing.
         @rlgraph_api(component=self.root_component)
         def get_weights(root):
@@ -297,6 +307,27 @@ class Agent(Specifiable):
             elif get_backend == "pytorch":
                 self.graph_executor.global_training_timestep += 1
                 return None
+
+        @rlgraph_api(component=self.root_component)
+        def get_global_timestep(root):
+            return root.read_variable(self.graph_executor.global_timestep)
+
+        @rlgraph_api(component=self.root_component)
+        def _graph_fn_update_global_timestep(root, increment):
+            if get_backend() == "tf":
+                add_op = tf.assign_add(self.graph_executor.global_timestep, increment)
+                return add_op
+            elif get_backend == "pytorch":
+                self.graph_executor.global_timestep += increment
+                return self.graph_executor.global_timestep
+
+        @rlgraph_api(component=self.root_component)
+        def _graph_fn_get_episode_reward(root):
+            return root.episode_reward
+
+        @rlgraph_api(component=self.root_component)
+        def _graph_fn_set_episode_reward(root, episode_reward):
+            return tf.assign(root.episode_reward, episode_reward)
 
     def _build_graph(self, root_components, input_spaces, **kwargs):
         """
@@ -462,6 +493,11 @@ class Agent(Specifiable):
                             actions_[key] = np.reshape(actions_[key], (1,))
                 else:
                     actions_ = np.asarray(self.actions_buffer[env_id])
+                self._write_rewards_summary(
+                    rewards=self.rewards_buffer[env_id],  # No need to be converted to np
+                    terminals=self.terminals_buffer[env_id],
+                    env_id=env_id
+                )
                 self._observe_graph(
                     preprocessed_states=np.asarray(self.states_buffer[env_id]),
                     actions=actions_,
@@ -479,6 +515,11 @@ class Agent(Specifiable):
                 rewards = [rewards]
                 terminals = [terminals]
 
+            self._write_rewards_summary(
+                rewards=rewards,  # No need to be converted to np
+                terminals=terminals,
+                env_id=env_id
+            )
             self._observe_graph(preprocessed_states, actions, internals, rewards, next_states, terminals)
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
@@ -498,6 +539,38 @@ class Agent(Specifiable):
             terminals (Union[list,bool]): Boolean indicating terminal.
         """
         raise NotImplementedError
+
+    def _write_rewards_summary(self, rewards, terminals, env_id):
+        """
+        Writes summary for the observed rewards.
+        :param rewards: The observed rewards
+        :param terminals: The observed episode terminal states
+        :param env_id: The id of the environment
+        :return:
+        """
+        # TODO: 1. handle env_id
+        # TODO: 2. control the level of verbosity
+        # TODO: 3. can we reduce the graph interactions?
+        ret = self.graph_executor.execute(
+            "get_episode_reward", "get_global_timestep"
+        )
+        episode_reward = ret["get_episode_reward"]
+        timestep = ret["get_global_timestep"]
+        for i in range(len(rewards)):
+            summary = tf.Summary(value=[
+                tf.Summary.Value(tag="reward/raw_reward", simple_value=rewards[i])])
+            self.graph_executor.summary_writer.add_summary(summary, timestep)
+            episode_reward += rewards[i]
+            if terminals[i]:
+                summary = tf.Summary(value=[
+                    tf.Summary.Value(tag="reward/episode_reward", simple_value=episode_reward)])
+                self.graph_executor.summary_writer.add_summary(summary, timestep)
+                episode_reward = 0
+        timestep += 1
+        self.graph_executor.execute(
+            ("set_episode_reward", [episode_reward]),
+            ("update_global_timestep", [len(rewards)])
+        )
 
     def update(self, batch=None, time_percentage=None, **kwargs):
         """

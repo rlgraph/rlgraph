@@ -69,7 +69,7 @@ def main(argv):
     )
     episode_returns = []
 
-    def episode_finished_callback(episode_return, duration, timesteps, **kwargs):
+    def episode_finished_callback(episode_return, duration, timesteps, *args, **kwargs):
         episode_returns.append(episode_return)
         if len(episode_returns) % 100 == 0:
             print("Episode {} finished: reward={:.2f}, average reward={:.2f}.".format(

@@ -26,6 +26,7 @@ from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronize
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.utils.util import force_list
+from rlgraph.utils.op_records import gather_summaries
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -69,8 +70,8 @@ class TensorFlowExecutor(GraphExecutor):
         # Summary settings.
         self.summary_writer = None
 
-        # The merged summary op to be used by the session to write the summaries.
-        self.summary_op = None
+        # Merged summaries per API method
+        self.summary_ops = dict()
 
         # The session for the computation graph.
         self.session = None
@@ -219,9 +220,23 @@ class TensorFlowExecutor(GraphExecutor):
     def execute(self, *api_method_calls):
         # Fetch inputs for the different API-methods.
         fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_method_calls)
+        for api_name in fetch_dict.keys():
+            if api_name in self.summary_ops:
+                fetch_dict[api_name].append(self.summary_ops[api_name])
+
+        fetch_dict["__GLOBAL_TRAINING_TIMESTEP"] = self.global_training_timestep
         ret = self.monitored_session.run(
             fetch_dict, feed_dict=feed_dict, options=self.tf_session_options, run_metadata=self.run_metadata
         )
+        global_training_timestep_value = ret["__GLOBAL_TRAINING_TIMESTEP"]
+        del ret["__GLOBAL_TRAINING_TIMESTEP"]
+
+        for api_name in fetch_dict.keys():
+            if api_name in self.summary_ops:
+                assert len(ret[api_name]) > 1, "Expected multiple values, but {} found".format(len(fetch_dict[api_name]))
+                summary = ret[api_name].pop()
+                # Assuming that all API methods are on the training timesteps.
+                self.summary_writer.add_summary(summary, global_training_timestep_value)
 
         if self.profiling_enabled:
             self.update_profiler_if_necessary()
@@ -348,6 +363,9 @@ class TensorFlowExecutor(GraphExecutor):
         self.graph_default_context.__enter__()
 
         self.global_training_timestep = tf.get_variable(
+            name="global-training-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,
+            collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
+        self.global_timestep = tf.get_variable(
             name="global-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,
             collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
 
@@ -416,6 +434,16 @@ class TensorFlowExecutor(GraphExecutor):
         Args:
             hooks (list): List of hooks to use for Saver and Summarizer in Session. Should be appended to.
         """
+        self.summary_ops = dict()
+
+        for name, method in self.graph_builder.root_component.api_methods.items():
+            _, op_recs_to_fetch = self.graph_builder.api[name]
+            summaries = gather_summaries(op_recs_to_fetch)
+            if len(summaries) > 0:
+                self.logger.info(f"Summaries for {name}: {len(summaries)}")
+                summary_op = tf.summary.merge(inputs=summaries)
+                self.summary_ops[name] = summary_op
+
         # Create our tf summary writer object.
         self.summary_writer = tf.summary.FileWriter(
             logdir=self.summary_spec["directory"],
@@ -425,6 +453,7 @@ class TensorFlowExecutor(GraphExecutor):
             filename_suffix=None
         )
 
+        """
         # Creates a single summary op to be used by the session to write the summary files.
         summary_list = list(self.graph_builder.root_component.summaries.values())
         if len(summary_list) > 0:
@@ -440,6 +469,7 @@ class TensorFlowExecutor(GraphExecutor):
             )
             # ... and append it to our list of hooks to use in the session.
             hooks.append(summary_saver_hook)
+        """
 
     def setup_scaffold(self):
         """
@@ -450,6 +480,7 @@ class TensorFlowExecutor(GraphExecutor):
         # Determine init_op and ready_op.
         var_list = list(self.graph_builder.root_component.variable_registry.values())
         var_list.append(self.global_training_timestep)
+        var_list.append(self.global_timestep)
 
         # We can not fetch optimizer vars.
         # TODO let graph builder do this
@@ -502,7 +533,7 @@ class TensorFlowExecutor(GraphExecutor):
                 ready_op=self.ready_op,
                 ready_for_local_init_op=self.ready_for_local_init_op,
                 local_init_op=self.local_init_op,
-                summary_op=self.summary_op,
+                #summary_op=self.summary_op,
                 saver=self.saver,
                 copy_from_scaffold=None
             )

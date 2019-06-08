@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import json
 import os
+import re
 
 import numpy as np
 
@@ -130,3 +131,20 @@ def recursive_assert_almost_equal(x, y, decimals=7):
             if isinstance(y, torch.Tensor):
                 y = y.detach().numpy()
         np.testing.assert_almost_equal(x, y, decimal=decimals)
+
+
+class regex_pattern(object):
+    def __init__(self, pattern):
+        self.pattern = pattern
+
+    def __eq__(self, other):
+        return re.match(self.pattern, other) is not None
+
+    def __ne__(self, other):
+        return not re.match(self.pattern, other)
+
+    def __str__(self):
+        return "~ {}".format(self.pattern)
+
+    def __repr__(self):
+        return "~ r\"{}\"".format(self.pattern)

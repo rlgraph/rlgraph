@@ -63,6 +63,9 @@ class GraphExecutor(Specifiable):
         # A global training/update counter. Should be increased by 1 each update/learning step.
         self.global_training_timestep = None
 
+        # Global timestep tracking the interactions with the environment.
+        self.global_timestep = None
+
         self.logger.info("Execution spec is: {}".format(self.execution_spec))
 
         self.load_from_file = load_from_file

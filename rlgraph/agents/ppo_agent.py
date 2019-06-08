@@ -25,7 +25,7 @@ from rlgraph.components import Memory, RingBuffer, PPOLossFunction
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
-from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten
 from rlgraph.utils.ops import flatten_op, unflatten_op, DataOpDict, ContainerDataOp, FlattenedDataOp
 from rlgraph.utils.util import strip_list
@@ -424,6 +424,8 @@ class PPOAgent(Agent):
                         loop_vars=init_loop_vars,
                         parallel_iterations=1
                     )
+                    root.register_summary_op(tf.summary.scalar("losses/policy_loss", loss))
+                    root.register_summary_op(tf.summary.scalar("losses/vf_loss", vf_loss))
                     # Increase the global training step counter.
                     loss = root._graph_fn_training_step(loss)
                     return loss, loss_per_item, vf_loss, vf_loss_per_item
