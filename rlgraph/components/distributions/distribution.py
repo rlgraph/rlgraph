@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -53,14 +54,26 @@ class Distribution(Component):
         self.seed = kwargs.pop("seed", None)
         super(Distribution, self).__init__(scope=scope, **kwargs)
 
+        # TEST
+        self.variable_complete = True
+        # END: TEST
+
         # For define-by-run to avoid creating new objects when calling `get_distribution`.
         self.dist_object = None
 
-    def get_action_adapter_type(self):
-        """Returns the type of the action adapter to be used for this distribution.
+    @rlgraph_api
+    def get_distribution(self, parameters):
+        """
+        Parameterizes this distribution (normally from an NN-output vector). Returns
+        the backend-distribution object (a DataOp).
+
+        Args:
+            parameters (DataOpRec): The input(s) used to parameterize this distribution. This is normally a cleaned up
+                single NN-output (e.g.: the two values for mean and variance for a univariate Gaussian
+                distribution).
 
         Returns:
-            Union[str, class]: The type of the action adapter
+            The parameterized backend-specific distribution object.
         """
         raise NotImplementedError
 
@@ -100,24 +113,8 @@ class Distribution(Component):
     @rlgraph_api(must_be_complete=False)
     def kl_divergence(self, parameters, other_parameters):
         distribution = self.get_distribution(parameters)
-        other_distribution = self._graph_fn_get_distribution(other_parameters)
+        other_distribution = self.get_distribution(other_parameters)
         return self._graph_fn_kl_divergence(distribution, other_distribution)
-
-    @rlgraph_api
-    def _graph_fn_get_distribution(self, parameters):
-        """
-        Parameterizes this distribution (normally from an NN-output vector). Returns
-        the backend-distribution object (a DataOp).
-
-        Args:
-            parameters (DataOp): The input(s) used to parameterize this distribution. This is normally a cleaned up
-                single NN-output (e.g.: the two values for mean and variance for a univariate Gaussian
-                distribution).
-
-        Returns:
-            DataOp: The parameterized backend-specific distribution object.
-        """
-        raise NotImplementedError
 
     @graph_fn
     def _graph_fn_draw(self, distribution, deterministic):
@@ -138,7 +135,8 @@ class Distribution(Component):
         """
         # Fixed boolean input (not a DataOp/Tensor).
         if get_backend() == "pytorch" or isinstance(deterministic, (bool, np.ndarray)):
-            if deterministic is True:
+            # Don't do `is True` here in case `deterministic` is np.ndarray!
+            if deterministic:
                 return self._graph_fn_sample_deterministic(distribution)
             else:
                 return self._graph_fn_sample_stochastic(distribution)
@@ -151,7 +149,7 @@ class Distribution(Component):
                 false_fn=lambda: self._graph_fn_sample_stochastic(distribution)
             )
 
-    @graph_fn
+    @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_sample_deterministic(self, distribution):
         """
         Returns the maximum-likelihood value for a given distribution.
@@ -165,7 +163,7 @@ class Distribution(Component):
         """
         raise NotImplementedError
 
-    @graph_fn
+    @graph_fn(flatten_ops=True, split_ops=True)
     def _graph_fn_sample_stochastic(self, distribution):
         """
         Returns an actual sample for a given distribution.
