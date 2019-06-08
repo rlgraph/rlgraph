@@ -35,7 +35,8 @@ class TestPPOLossFunctions(unittest.TestCase):
         state_values=FloatBox(shape=(1,), add_batch_rank=True),
         prev_state_values=FloatBox(shape=(1,), add_batch_rank=True),
         advantages=FloatBox(add_batch_rank=True),
-        entropy=FloatBox(add_batch_rank=True)
+        entropy=FloatBox(add_batch_rank=True),
+        time_percentage=float
     )
 
     def test_ppo_loss_function_on_int_action_space(self):
@@ -75,7 +76,7 @@ class TestPPOLossFunctions(unittest.TestCase):
 
         test.test(
             ("pg_loss_per_item", [log_probs, prev_log_probs, advantages, entropy]),
-            expected_outputs=expected_pg_loss_per_item, decimals=5
+            expected_outputs=expected_pg_loss_per_item, decimals=3
         )
 
         v_targets = advantages + np.squeeze(prev_state_values)  # Q-value targets
@@ -83,13 +84,13 @@ class TestPPOLossFunctions(unittest.TestCase):
 
         test.test(
             ("value_function_loss_per_item", [state_values, prev_state_values, advantages]),
-            expected_outputs=expected_value_loss_per_item, decimals=5
+            expected_outputs=expected_value_loss_per_item, decimals=3
         )
 
         # All together.
         test.test(
             ("loss_per_item", [log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy]),
-            expected_outputs=[expected_pg_loss_per_item, expected_value_loss_per_item], decimals=5
+            expected_outputs=[expected_pg_loss_per_item, expected_value_loss_per_item], decimals=3
         )
 
         # Expect the mean over the batch.
@@ -101,6 +102,6 @@ class TestPPOLossFunctions(unittest.TestCase):
             expected_outputs=[
                 expected_pg_loss_per_item.mean(), expected_pg_loss_per_item,
                 expected_value_loss_per_item.mean(), expected_value_loss_per_item
-            ], decimals=5
+            ], decimals=3
         )
 
