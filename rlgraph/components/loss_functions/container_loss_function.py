@@ -14,9 +14,8 @@
 # ==============================================================================
 
 from rlgraph.components.loss_functions.loss_function import LossFunction
+from rlgraph.components.loss_functions.supervised_loss_function import SupervisedLossFunction
 from rlgraph.utils.decorators import rlgraph_api
-
-from apollo.components.loss_functions.supervised_loss_function import SupervisedLossFunction
 
 
 class ContainerLossFunction(SupervisedLossFunction):

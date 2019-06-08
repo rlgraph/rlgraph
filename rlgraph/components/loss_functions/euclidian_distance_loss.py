@@ -16,10 +16,9 @@
 import numpy as np
 
 from rlgraph import get_backend
+from rlgraph.components.loss_functions.supervised_loss_function import SupervisedLossFunction
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.utils.decorators import rlgraph_api
-
-from apollo.components.loss_functions.supervised_loss_function import SupervisedLossFunction
 
 if get_backend() == "tf":
     import tensorflow as tf
