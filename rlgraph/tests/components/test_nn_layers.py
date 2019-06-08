@@ -22,8 +22,8 @@ import unittest
 import numpy as np
 
 from rlgraph.components.layers.nn import NNLayer, DenseLayer, Conv2DLayer, ConcatLayer, MaxPool2DLayer, \
-    LSTMLayer, ResidualLayer, LocalResponseNormalizationLayer
-from rlgraph.spaces import FloatBox, Dict
+    LSTMLayer, ResidualLayer, LocalResponseNormalizationLayer, MultiLSTMLayer
+from rlgraph.spaces import FloatBox, Dict, Tuple
 from rlgraph.tests import ComponentTest
 from rlgraph.utils.numpy import sigmoid, relu, lstm_layer
 
@@ -236,3 +236,52 @@ class TestNNLayer(unittest.TestCase):
 
         expected = [expected_outputs, expected_internal_states]
         test.test(("call", inputs), expected_outputs=tuple(expected))
+
+    def test_multi_lstm_layer(self):
+        return  # TODO: finish this test case
+        # Tests a double MultiLSTMLayer.
+        input_spaces = dict(
+            inputs=FloatBox(shape=(3,), add_batch_rank=True, add_time_rank=True),
+            initial_c_and_h_states=Tuple(
+                Tuple(FloatBox(shape=(5,)), FloatBox(shape=(5,))),
+                Tuple(FloatBox(shape=(5,)), FloatBox(shape=(5,))),
+                add_batch_rank=True
+            )
+        )
+
+        multi_lstm_layer = MultiLSTMLayer(
+            num_lstms=2,
+            units=5,
+            # Full skip connections (x goes into both layers, out0 goes into layer1).
+            skip_connections=[[True, False], [True, True]]
+        )
+
+        # Do not seed, we calculate expectations manually.
+        test = ComponentTest(component=multi_lstm_layer, input_spaces=input_spaces)
+
+        # Batch of size=n, time-steps=m.
+        input_ = input_spaces["inputs"].sample((2, 3))
+
+        global_scope = "variational-auto-encoder/"
+        # Calculate output manually.
+        var_dict = test.read_variable_values(multi_lstm_layer.variable_registry)
+
+        encoder_network_out = dense_layer(
+            input_, var_dict[global_scope+"encoder-network/encoder-layer/dense/kernel"],
+            var_dict[global_scope+"encoder-network/encoder-layer/dense/bias"]
+        )
+        expected_mean = dense_layer(
+            encoder_network_out, var_dict[global_scope+"mean-layer/dense/kernel"],
+            var_dict[global_scope+"mean-layer/dense/bias"]
+        )
+        expected_stddev = dense_layer(
+            encoder_network_out, var_dict[global_scope + "stddev-layer/dense/kernel"],
+            var_dict[global_scope + "stddev-layer/dense/bias"]
+        )
+        out = test.test(("encode", input_), expected_outputs=None)
+        recursive_assert_almost_equal(out["mean"], expected_mean, decimals=5)
+        recursive_assert_almost_equal(out["stddev"], expected_stddev, decimals=5)
+        self.assertTrue(out["z_sample"].shape == (3, 1))
+
+        test.terminate()
+
