@@ -73,6 +73,7 @@ class LSTMLayer(NNLayer):
         )
 
         self.units = units
+        self.time_major = time_major
         self.use_peepholes = use_peepholes
         self.cell_clip = cell_clip
         self.static_loop = static_loop
@@ -174,6 +175,7 @@ class LSTMLayer(NNLayer):
 
             # We are running the LSTM as a dynamic while-loop.
             if self.static_loop is False:
+                print("input time major =  ",self.in_space.time_major)
                 lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
                     cell=self.lstm,
                     inputs=inputs,
@@ -181,14 +183,14 @@ class LSTMLayer(NNLayer):
                     initial_state=initial_c_and_h_states,
                     parallel_iterations=self.parallel_iterations,
                     swap_memory=self.swap_memory,
-                    time_major=self.in_space.time_major,
+                    time_major=self.time_major ,
                     dtype=tf.float32
                 )
             # We are running with a fixed number of time steps (static unroll).
             else:
                 # Set to zeros as tf lstm object does not handle None.
                 if initial_c_and_h_states is None:
-                    shape = (tf.shape(inputs)[0 if self.in_space.time_major is False else 1], self.units)
+                    shape = (tf.shape(inputs)[0 if self.time_major is False else 1], self.units)
                     initial_c_and_h_states = tf.nn.rnn_cell.LSTMStateTuple(
                         tf.zeros(shape=shape, dtype=tf.float32),
                         tf.zeros(shape=shape, dtype=tf.float32)
@@ -209,15 +211,15 @@ class LSTMLayer(NNLayer):
 
             # Only return last value.
             if self.return_sequences is False:
-                if self.in_space.time_major is True:
+                if self.time_major is True:
                     lstm_out = lstm_out[-1]
                 else:
                     lstm_out = lstm_out[:,-1]
                 lstm_out._batch_rank = 0
             # Return entire sequence.
             else:
-                lstm_out._batch_rank = 0 if self.in_space.time_major is False else 1
-                lstm_out._time_rank = 0 if self.in_space.time_major is True else 1
+                lstm_out._batch_rank = 0 if self.time_major is False else 1
+                lstm_out._time_rank = 0 if self.time_major is True else 1
 
             # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
             return lstm_out, DataOpTuple(lstm_state_tuple)
