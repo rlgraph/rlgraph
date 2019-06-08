@@ -58,10 +58,10 @@ class TestActionAdapters(unittest.TestCase):
         test.test(("call", inputs), expected_outputs=expected_logits, decimals=5)
         #test.test(("get_logits", inputs), expected_outputs=expected_logits, decimals=5)  # w/o the dict
 
-        expected_parameters = softmax(expected_logits)
-        expected_log_probs = np.log(expected_parameters)
+        expected_probs = softmax(expected_logits)
+        expected_log_probs = np.log(expected_probs)
         test.test(("get_parameters", inputs), expected_outputs=dict(
-            adapter_outputs=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
+            adapter_outputs=expected_logits, parameters=expected_logits, log_probs=expected_log_probs
         ), decimals=5)
 
     def test_simple_action_adapter_with_batch_apply(self):
@@ -94,10 +94,10 @@ class TestActionAdapters(unittest.TestCase):
 
         test.test(("call", inputs), expected_outputs=expected_logits, decimals=4)
 
-        expected_parameters = softmax(expected_logits)
-        expected_log_probs = np.log(expected_parameters)
+        expected_probs = softmax(expected_logits)
+        expected_log_probs = np.log(expected_probs)
         test.test(("get_parameters", inputs), expected_outputs=dict(
-            adapter_outputs=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
+            adapter_outputs=expected_logits, parameters=expected_logits, log_probs=expected_log_probs
         ), decimals=4)
 
     def test_action_adapter_with_complex_lstm_output(self):
@@ -130,10 +130,10 @@ class TestActionAdapters(unittest.TestCase):
         #test.test(("get_logits", inputs), expected_outputs=expected_logits)
 
         # Softmax (probs).
-        expected_parameters = softmax(expected_logits)
+        expected_probs = softmax(expected_logits)
         # Log probs.
-        expected_log_probs = np.log(expected_parameters)
+        expected_log_probs = np.log(expected_probs)
         test.test(("get_parameters", inputs), expected_outputs=dict(
-            adapter_outputs=expected_logits, parameters=expected_parameters, log_probs=expected_log_probs
+            adapter_outputs=expected_logits, parameters=expected_logits, log_probs=expected_log_probs
         ), decimals=5)
 
