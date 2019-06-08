@@ -175,7 +175,6 @@ class LSTMLayer(NNLayer):
 
             # We are running the LSTM as a dynamic while-loop.
             if self.static_loop is False:
-                print("input time major =  ",self.in_space.time_major)
                 lstm_out, lstm_state_tuple = tf.nn.dynamic_rnn(
                     cell=self.lstm,
                     inputs=inputs,
