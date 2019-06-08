@@ -13,20 +13,21 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import numpy as np
-from six.moves import xrange as range_
-
 from rlgraph import get_backend
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
-from rlgraph.spaces.containers import Dict, Tuple
+from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphSpaceError
 from rlgraph.utils.util import convert_dtype, get_shape, LARGE_INTEGER, force_tuple
+from six.moves import xrange as range_
 
 if get_backend() == "pytorch":
     import torch
@@ -88,6 +89,9 @@ def get_space_from_op(op):
         add_time_rank = False
         for key, value in op.items():
             spec[key] = get_space_from_op(value)
+            # Return
+            if spec[key] == 0:
+                return 0
             if spec[key].has_batch_rank:
                 add_batch_rank = True
             if spec[key].has_time_rank:
@@ -498,11 +502,13 @@ def try_space_inference_from_list(list_op):
         raise ValueError("List inference should only be attempted on the Python backend.")
 
 
-def get_default_distribution_from_space(box_space, bounded_distribution_type="beta",
-                                        discrete_distribution_type="categorical", gumbel_softmax_temperature=1.0):
+def get_default_distribution_from_space(
+        space, bounded_distribution_type="beta", discrete_distribution_type="categorical",
+        gumbel_softmax_temperature=1.0
+):
     """
     Args:
-        box_space (BoxSpace): The primitive Space for which to derive a default distribution spec.
+        space (Space): The primitive Space for which to derive a default distribution spec.
         bounded_distribution_type (str): The lookup class string for a bounded FloatBox distribution.
             Default: "beta".
         discrete_distribution_type(str): The class of distributions to use for discrete action spaces. For options
@@ -515,22 +521,29 @@ def get_default_distribution_from_space(box_space, bounded_distribution_type="be
         Dict: A Spec dict, from which a valid default distribution object can be created.
     """
     # IntBox: Categorical.
-    if isinstance(box_space, IntBox):
+    if isinstance(space, IntBox):
         if discrete_distribution_type == "gumbel_softmax":
-            return dict(type="gumbel_softmax", temperature=gumbel_softmax_temperature)
+            return dict(type="gumbel-softmax", temperature=gumbel_softmax_temperature)
         else:
             return dict(type=discrete_distribution_type)
     # BoolBox: Bernoulli.
-    elif isinstance(box_space, BoolBox):
+    elif isinstance(space, BoolBox):
         return dict(type="bernoulli")
     # Continuous action space: Normal/Beta/etc. distribution.
-    elif isinstance(box_space, FloatBox):
+    elif isinstance(space, FloatBox):
         # Unbounded -> Normal distribution.
-        if not is_bounded_space(box_space):
+        if not is_bounded_space(space):
             return dict(type="normal")
         # Bounded -> according to the bounded_distribution parameter.
         else:
-            return dict(type=bounded_distribution_type, low=box_space.low, high=box_space.high)
+            return dict(type=bounded_distribution_type, low=space.low, high=space.high)
+    # Container Space.
+    elif isinstance(space, ContainerSpace):
+        return dict(type="joint-cumulative", distribution_specs=dict(
+            {k: get_default_distribution_from_space(s) for k, s in space.flatten().items()}
+        ))
+    else:
+        raise RLGraphError("No distribution defined for space {}!".format(space))
 
 
 def is_bounded_space(box_space):
