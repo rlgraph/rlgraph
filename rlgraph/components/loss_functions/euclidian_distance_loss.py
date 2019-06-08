@@ -58,12 +58,12 @@ class EuclidianDistanceLoss(SupervisedLossFunction):
         self.time_major = in_space.time_major
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, predictions, labels, sequence_length=None, time_percentage=None):
+    def _graph_fn_loss_per_item(self, parameters, labels, sequence_length=None, time_percentage=None):
         """
         Euclidian distance loss.
 
         Args:
-            predictions (SingleDataOp): Output predictions.
+            parameters (SingleDataOp): Output predictions.
             labels (SingleDataOp): Labels.
             sequence_length (SingleDataOp): The lengths of each sequence (if applicable) in the given batch.
 
@@ -77,8 +77,8 @@ class EuclidianDistanceLoss(SupervisedLossFunction):
             # Reduce over last rank (vector axis) and take the square root.
             if self.is_bool:
                 labels = tf.cast(labels, tf.float32)
-                predictions = tf.cast(predictions, tf.float32)
-            euclidian_distance = tf.square(tf.subtract(predictions, labels))
+                parameters = tf.cast(parameters, tf.float32)
+            euclidian_distance = tf.square(tf.subtract(parameters, labels))
             euclidian_distance = tf.reduce_sum(euclidian_distance, axis=self.reduce_ranks)
             euclidian_distance = tf.sqrt(euclidian_distance)
 
@@ -98,7 +98,7 @@ class EuclidianDistanceLoss(SupervisedLossFunction):
                 euclidian_distance = tf.divide(euclidian_distance, tf.cast(sequence_length, dtype=tf.float32))
             else:
                 # Reduce away the time-rank.
-                if hasattr(predictions, "_time_rank"):
+                if hasattr(parameters, "_time_rank"):
                     euclidian_distance = tf.reduce_mean(euclidian_distance, axis=time_rank)
 
             return euclidian_distance

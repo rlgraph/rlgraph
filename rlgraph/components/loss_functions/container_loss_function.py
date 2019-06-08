@@ -70,10 +70,12 @@ class ContainerLossFunction(SupervisedLossFunction):
         )
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, predictions, labels, sequence_length=None, time_percentage=None):
+    def _graph_fn_loss_per_item(self, parameters, labels, sequence_length=None, time_percentage=None):
         """
         Args:
-            predictions (ContainerDataOp): The container predictions, each one represents the input for one of our sub loss functions.
+            predictions (ContainerDataOp): The container parameters, each one represents the input for one of our sub
+                loss functions.
+
             labels (ContainerDataOp): The container labels.
             sequence_length: The lengths of each sequence (if applicable) in the given batch.
         """
@@ -81,7 +83,7 @@ class ContainerLossFunction(SupervisedLossFunction):
         # Feed all inputs through their respective loss function and do the weighted sum.
         if isinstance(self.loss_functions, dict):
             for key, loss_fn in self.loss_functions.items():
-                loss_per_item = loss_fn.loss_per_item(predictions[key], labels[key], sequence_length, time_percentage)
+                loss_per_item = loss_fn.loss_per_item(parameters[key], labels[key], sequence_length, time_percentage)
                 if self.weights is not None:
                     loss_per_item *= self.weights[key]
                 if weighted_sum_loss_per_item is None:
@@ -90,7 +92,7 @@ class ContainerLossFunction(SupervisedLossFunction):
                     weighted_sum_loss_per_item += loss_per_item
         else:
             for i, loss_fn in enumerate(self.loss_functions):
-                loss_per_item = loss_fn.loss_per_item(predictions[i], labels[i], sequence_length, time_percentage)
+                loss_per_item = loss_fn.loss_per_item(parameters[i], labels[i], sequence_length, time_percentage)
                 if self.weights is not None:
                     loss_per_item *= self.weights[i]
                 if weighted_sum_loss_per_item is None:

@@ -57,28 +57,32 @@ class CategoricalCrossEntropyLoss(SupervisedLossFunction):
             sanity_check_space(labels_space, allowed_types=FloatBox, must_have_batch_rank=True)
 
     @rlgraph_api
-    def _graph_fn_loss_per_item(self, predictions, labels, sequence_length=None, time_percentage=None):
+    def _graph_fn_loss_per_item(self, parameters, labels, sequence_length=None, time_percentage=None):
         """
         Supervised cross entropy classification loss.
 
         Args:
-            predictions (SingleDataOp): The predictions output by a DistributionAdapter (before sampling from a
+            parameters (SingleDataOp): The parameters output by a DistributionAdapter (before sampling from a
                 possible distribution).
+
             labels (SingleDataOp): The corresponding labels (ideal probabilities) or int categorical labels.
-            sequence_length (SingleDataOp): The lengths of each sequence (if applicable) in the given batch.
+            sequence_length (SingleDataOp[int]): The lengths of each sequence (if applicable) in the given batch.
+
+            time_percentage (SingleDataOp[bool]): The time-percentage (0.0 to 1.0) with respect to the max number of
+                timesteps.
 
         Returns:
             SingleDataOp: The loss values vector (one single value for each batch item).
         """
         if get_backend() == "tf":
-            batch_rank = predictions._batch_rank
+            batch_rank = parameters._batch_rank
             time_rank = 0 if batch_rank == 1 else 1
 
-            # TODO: This softmaxing is duplicate computation (waste) as `probabilities` are already softmaxed.
+            # TODO: This softmaxing is duplicate computation (waste) as `parameters` are already softmaxed.
             if self.sparse is True:
-                cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=predictions)
+                cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=parameters)
             else:
-                cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=predictions)
+                cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=parameters)
 
             # TODO: Make it possible to customize the time-step decay (or increase?) behavior.
             # Weight over time-steps (linearly decay weighting over time rank, cutting out entirely values past the
@@ -86,9 +90,9 @@ class CategoricalCrossEntropyLoss(SupervisedLossFunction):
             if sequence_length is not None:
                 # Add KL Divergence between given distribution and uniform.
                 if self.with_kl_regularizer is True:
-                    uniform_probs = tf.fill(tf.shape(predictions), 1.0 / float(predictions.shape.as_list()[-1]))
+                    uniform_probs = tf.fill(tf.shape(parameters), 1.0 / float(parameters.shape.as_list()[-1]))
                     # Subtract KL-divergence from loss term such that
-                    kl = - tf.reduce_sum(uniform_probs * tf.log((tf.maximum(predictions, SMALL_NUMBER)) / uniform_probs), axis=-1)
+                    kl = - tf.reduce_sum(uniform_probs * tf.log((tf.maximum(parameters, SMALL_NUMBER)) / uniform_probs), axis=-1)
                     cross_entropy += kl
 
                 max_time_steps = tf.cast(tf.shape(labels)[time_rank], dtype=tf.float32)
@@ -106,7 +110,7 @@ class CategoricalCrossEntropyLoss(SupervisedLossFunction):
                     cross_entropy = tf.divide(cross_entropy, tf.cast(sequence_length, dtype=tf.float32))
             else:
                 # Reduce away the time-rank.
-                if hasattr(predictions, "_time_rank"):
+                if hasattr(parameters, "_time_rank"):
                     cross_entropy = tf.reduce_sum(cross_entropy, axis=time_rank)
 
             return cross_entropy
