@@ -18,32 +18,30 @@ from __future__ import division
 from __future__ import print_function
 
 from rlgraph import get_backend
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.components.distributions.distribution import Distribution
-from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.spaces import Tuple, FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
+from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
 if get_backend() == "tf":
     import tensorflow_probability as tfp
 elif get_backend() == "pytorch":
-    import torch
+    pass
 
 
 class MultivariateNormal(Distribution):
     """
     A multivariate Gaussian distribution.
     """
-    def __init__(self, num_events=2, parameterize_via_diagonal=True,
+    def __init__(self, parameterize_via_diagonal=True,
                  parameterize_via_covariance=False, scope="multivariate-normal", **kwargs):
         """
         Args:
-            num_events (int): The number of events in the multivariate Gaussian. Default: Bivariate (2).
             parameterize_via_diagonal (bool): Whether we are parameterizing via the diagonal stddev values.
                 Note that
             parameterize_via_covariance (bool): Whether we are parameterizing via the full covariance values.
         """
         super(MultivariateNormal, self).__init__(scope=scope, **kwargs)
-        self.num_events = num_events
         self.parameterize_via_diagonal = parameterize_via_diagonal
         self.parameterize_via_covariance = parameterize_via_covariance
         assert self.parameterize_via_diagonal != self.parameterize_via_covariance, \
