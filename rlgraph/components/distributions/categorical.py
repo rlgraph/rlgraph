@@ -40,9 +40,9 @@ class Categorical(Distribution):
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
-            return tfp.distributions.Categorical(probs=parameters, dtype=util.convert_dtype("int"))
+            return tfp.distributions.Categorical(logits=parameters, dtype=util.convert_dtype("int"))
         elif get_backend() == "pytorch":
-            return torch.distributions.Categorical(probs=parameters)
+            return torch.distributions.Categorical(logits=parameters)
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):

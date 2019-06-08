@@ -43,20 +43,25 @@ class CategoricalDistributionAdapter(ActionAdapter):
 
     @graph_fn
     def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
-        parameters = None
+        """
+        Returns:
+            Tuple:
+                - DataOp: Raw logits (parameters for a Categorical Distribution).
+                - DataOp: log-probs: log(softmaxed_logits).
+        """
+        parameters = adapter_outputs
         log_probs = None
 
         if get_backend() == "tf":
-            parameters = tf.maximum(x=tf.nn.softmax(logits=adapter_outputs, axis=-1), y=SMALL_NUMBER)
             parameters._batch_rank = 0
+            probs = tf.maximum(x=tf.nn.softmax(logits=parameters, axis=-1), y=SMALL_NUMBER)
             # Log probs.
-            log_probs = tf.log(x=parameters)
+            log_probs = tf.log(x=probs)
             log_probs._batch_rank = 0
 
         elif get_backend() == "pytorch":
-            softmax_logits = torch.softmax(adapter_outputs, dim=-1)
-            parameters = torch.max(softmax_logits, SMALL_NUMBER_TORCH)
+            probs = torch.max(torch.softmax(adapter_outputs, dim=-1), SMALL_NUMBER_TORCH)
             # Log probs.
-            log_probs = torch.log(parameters)
+            log_probs = torch.log(probs)
 
         return parameters, log_probs

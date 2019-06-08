@@ -167,22 +167,19 @@ class ActionAdapter(NeuralNetwork):
             tuple (2x SingleDataOp):
                 parameters (DataOp): The parameters, ready to be passed to a Distribution object's
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
-                log_probs (DataOp): Simply the log(parameters).
+                log_probs (DataOp): log(probs) in categorical case. In all other cases: None.
         """
         raise NotImplementedError
 
+    # OBSOLETED API methods. Raise ERROR when called.
     def get_logits(self, nn_input, original_nn_input=None):
         raise RLGraphObsoletedError("API-method", "get_logits", "call")
 
     def get_logits_parameters_log_probs(self, nn_input, original_nn_input=None):
-        raise RLGraphObsoletedError(
-            "API method", "get_logits_parameters_log_probs", "get_parameters"
-        )
+        raise RLGraphObsoletedError("API method", "get_logits_parameters_log_probs", "get_parameters")
 
     def get_logits_probabilities_log_probs(self, nn_input, original_nn_input=None):
-        raise RLGraphObsoletedError(
-            "API method", "get_logits_probabilities_log_probs", "get_parameters"
-        )
+        raise RLGraphObsoletedError("API method", "get_logits_probabilities_log_probs", "get_parameters")
 
     def get_parameters_log_probs(self, logits):
         raise RLGraphObsoletedError("API-method", "get_parameters_log_probs", "get_parameters_from_adapter_outputs")
