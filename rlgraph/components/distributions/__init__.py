@@ -22,6 +22,7 @@ from rlgraph.components.distributions.beta import Beta
 from rlgraph.components.distributions.categorical import Categorical
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.components.distributions.gumbel_softmax import GumbelSoftmax
+from rlgraph.components.distributions.joint_cumulative_distribution import JointCumulativeDistribution
 from rlgraph.components.distributions.mixture_distribution import MixtureDistribution
 from rlgraph.components.distributions.multivariate_normal import MultivariateNormal
 from rlgraph.components.distributions.normal import Normal
@@ -36,6 +37,8 @@ Distribution.__lookup_classes__ = dict(
     gaussiandistribution=Normal,
     gumbelsoftmax=GumbelSoftmax,
     gumbelsoftmaxdistribution=GumbelSoftmax,
+    jointcumulative=JointCumulativeDistribution,
+    jointcumulativedistribution=JointCumulativeDistribution,
     mixture=MixtureDistribution,
     mixturedistribution=MixtureDistribution,
     multivariatenormal=MultivariateNormal,
