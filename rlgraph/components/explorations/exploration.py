@@ -69,7 +69,7 @@ class Exploration(Component):
             @rlgraph_api(component=self)
             def get_action(self, actions, time_percentage=None, use_exploration=True):
                 """
-                Action depends on time-step (e.g. epsilon-decay).
+                Action depends on `time_percentage` (e.g. epsilon-decay).
                 """
                 epsilon_decisions = self.epsilon_exploration.do_explore(actions, time_percentage)
                 return self._graph_fn_pick(use_exploration, epsilon_decisions, actions)
