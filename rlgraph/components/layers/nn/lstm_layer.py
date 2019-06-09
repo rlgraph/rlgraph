@@ -13,11 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-import re
+from packaging import version
 
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.nn_layer import NNLayer
@@ -29,7 +27,6 @@ from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as tf
-    major_version = re.sub(r'^(\d+\.\d+)\..+$', '\1', tf.__version__)
 elif get_backend() == "pytorch":
     import torch
     import torch.nn as nn
@@ -121,14 +118,15 @@ class LSTMLayer(NNLayer):
 
         # Wrapper for backend.
         if get_backend() == "tf":
-            if major_version > "1.12":
+            # dtype arg is only supported from 1.13 on.
+            if version.parse(tf.__version__) >= version.parse("1.13.0"):
                 self.lstm = tf.contrib.rnn.LSTMBlockCell(
                     num_units=self.units,
                     use_peephole=self.use_peepholes,
                     cell_clip=self.cell_clip,
                     forget_bias=self.forget_bias,
                     name="lstm-cell",
-                    dtype=tf.float32,  # this is only supported from 1.13 on
+                    dtype=tf.float32,
                     reuse=tf.AUTO_REUSE
                 )
             else:
