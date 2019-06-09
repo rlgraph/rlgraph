@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import re
+
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.spaces import Tuple
@@ -27,6 +29,7 @@ from rlgraph.utils.ops import DataOpTuple
 
 if get_backend() == "tf":
     import tensorflow as tf
+    major_version = re.sub(r'^(\d+\.\d+)\..+$', '\1', tf.__version__)
 elif get_backend() == "pytorch":
     import torch
     import torch.nn as nn
@@ -118,21 +121,30 @@ class LSTMLayer(NNLayer):
 
         # Wrapper for backend.
         if get_backend() == "tf":
-            self.lstm = tf.contrib.rnn.LSTMBlockCell(  #tf.nn.rnn_cell.LSTMCell(
-                num_units=self.units,
-                use_peephole=self.use_peepholes,
-                cell_clip=self.cell_clip,
-                forget_bias=self.forget_bias,
-                name="lstm-cell",
-                dtype=tf.float32,
-                reuse=tf.AUTO_REUSE
-                # TODO: self.trainable needs to be recognized somewhere here.
-
-                # These are all not supported yet for LSTMBlockCell (only for the slower LSTMCell)
-                # initializer=self.weights_init.initializer,
-                # activation=get_activation_function(self.activation, *self.activation_params),
-                # dtype=self.dtype,
-            )
+            if major_version > "1.12":
+                self.lstm = tf.contrib.rnn.LSTMBlockCell(
+                    num_units=self.units,
+                    use_peephole=self.use_peepholes,
+                    cell_clip=self.cell_clip,
+                    forget_bias=self.forget_bias,
+                    name="lstm-cell",
+                    dtype=tf.float32,  # this is only supported from 1.13 on
+                    reuse=tf.AUTO_REUSE
+                )
+            else:
+                self.lstm = tf.contrib.rnn.LSTMBlockCell(
+                    num_units=self.units,
+                    use_peephole=self.use_peepholes,
+                    cell_clip=self.cell_clip,
+                    forget_bias=self.forget_bias,
+                    name="lstm-cell",
+                    reuse=tf.AUTO_REUSE
+                    # TODO: self.trainable needs to be recognized somewhere here.
+                    # These are all not supported yet for LSTMBlockCell (only for the slower LSTMCell)
+                    # initializer=self.weights_init.initializer,
+                    # activation=get_activation_function(self.activation, *self.activation_params),
+                    # dtype=self.dtype,
+                )
 
             # Now build the layer so that its variables get created.
             in_space_without_time_rank = list(self.in_space.get_shape(with_batch_rank=True))
