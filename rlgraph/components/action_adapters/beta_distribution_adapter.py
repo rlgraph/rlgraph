@@ -43,7 +43,7 @@ class BetaDistributionAdapter(ActionAdapter):
     @graph_fn
     def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
         parameters = None
-        log_probs = None
+        #log_probs = None
 
         if get_backend() == "tf":
             # Stabilize both alpha and beta (currently together in last_nn_layer_output).
@@ -54,13 +54,13 @@ class BetaDistributionAdapter(ActionAdapter):
             alpha, beta = tf.split(parameters, num_or_size_splits=2, axis=-1)
             alpha._batch_rank = 0
             beta._batch_rank = 0
-            log_alpha = tf.log(alpha)
-            log_beta = tf.log(beta)
-            log_alpha._batch_rank = 0
-            log_beta._batch_rank = 0
+            #log_alpha = tf.log(alpha)
+            #log_beta = tf.log(beta)
+            #log_alpha._batch_rank = 0
+            #log_beta._batch_rank = 0
 
             parameters = DataOpTuple([alpha, beta])
-            log_probs = DataOpTuple([log_alpha, log_beta])
+            #log_probs = DataOpTuple([log_alpha, log_beta])
 
         elif get_backend() == "pytorch":
             # Stabilize both alpha and beta (currently together in last_nn_layer_output).
@@ -71,10 +71,10 @@ class BetaDistributionAdapter(ActionAdapter):
 
             # Split in the middle.
             alpha, beta = torch.split(parameters, split_size_or_sections=int(parameters.shape[0] / 2), dim=-1)
-            log_alpha = torch.log(alpha)
-            log_beta = torch.log(beta)
+            #log_alpha = torch.log(alpha)
+            #log_beta = torch.log(beta)
 
             parameters = DataOpTuple([alpha, beta])
-            log_probs = DataOpTuple([log_alpha, log_beta])
+            #log_probs = DataOpTuple([log_alpha, log_beta])
 
-        return parameters, log_probs
+        return parameters, None, None

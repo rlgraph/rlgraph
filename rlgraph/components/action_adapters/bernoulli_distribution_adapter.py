@@ -34,19 +34,23 @@ class BernoulliDistributionAdapter(ActionAdapter):
 
     @graph_fn
     def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
-        parameters = None
+        parameters = adapter_outputs
+        probs = None
         log_probs = None
 
         if get_backend() == "tf":
-            parameters = tf.nn.sigmoid(adapter_outputs)
             parameters._batch_rank = 0
+            # Probs (sigmoid).
+            probs = tf.nn.sigmoid(parameters)
+            probs._batch_rank = 0
             # Log probs.
-            log_probs = tf.log(x=parameters)
+            log_probs = tf.log(x=probs)
             log_probs._batch_rank = 0
 
         elif get_backend() == "pytorch":
-            parameters = torch.sigmoid(adapter_outputs)
+            # Probs (sigmoid).
+            probs = torch.sigmoid(parameters)
             # Log probs.
-            log_probs = torch.log(parameters)
+            log_probs = torch.log(probs)
 
-        return parameters, log_probs
+        return parameters, probs, log_probs

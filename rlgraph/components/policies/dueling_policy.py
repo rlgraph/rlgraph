@@ -104,17 +104,17 @@ class DuelingPolicy(Policy):
                 last_internal_states: The last internal states (if network is RNN-based).
         """
         nn_outputs = self.get_nn_outputs(nn_inputs)
-        advantages, _, _ = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
+        advantages, _, _, _ = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
         state_values_tmp = self.dense_layer_state_value_stream.call(nn_outputs)
         state_values = self.state_value_node.call(state_values_tmp)
 
         q_values = self._graph_fn_calculate_q_values(state_values, advantages)
 
-        parameters, log_probs = self._graph_fn_get_parameters_from_q_values(q_values)
+        parameters, probs, log_probs = self._graph_fn_get_parameters_from_q_values(q_values)
 
         return dict(
             nn_outputs=nn_outputs, adapter_outputs=q_values, state_values=state_values,
-            parameters=parameters, log_probs=log_probs,
+            parameters=parameters, probabilities=probs, log_probs=log_probs,
             advantages=advantages, q_values=q_values
         )
 
@@ -133,7 +133,7 @@ class DuelingPolicy(Policy):
                 q_values:
         """
         nn_outputs = self.get_nn_outputs(nn_inputs)
-        advantages, _, _ = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
+        advantages, _, _, _ = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
         state_values_tmp = self.dense_layer_state_value_stream.call(nn_outputs)
         state_values = self.state_value_node.call(state_values_tmp)
 
@@ -213,7 +213,7 @@ class DuelingPolicy(Policy):
         """
         """
         out = self.action_adapters[key].get_parameters_from_adapter_outputs(q_values)
-        return out["parameters"], out["log_probs"]
+        return out["parameters"], out["probabilities"], out["log_probs"]
 
     def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):
         raise RLGraphObsoletedError(

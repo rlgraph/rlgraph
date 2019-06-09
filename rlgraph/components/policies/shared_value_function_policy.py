@@ -83,7 +83,7 @@ class SharedValueFunctionPolicy(Policy):
                 log_probs: The log(probabilities) values.
         """
         nn_outputs = self.get_nn_outputs(nn_inputs)
-        adapter_outputs, parameters, log_probs = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
+        adapter_outputs, parameters, probs, log_probs = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
         #if self.value_unfold_time_rank is True:
         #    state_values = self.value_network.call(nn_outputs, nn_inputs)
         #else:
@@ -91,7 +91,7 @@ class SharedValueFunctionPolicy(Policy):
 
         return dict(
             nn_outputs=nn_outputs, state_values=state_values, adapter_outputs=adapter_outputs,
-            parameters=parameters, log_probs=log_probs
+            parameters=parameters, probabilities=probs, log_probs=log_probs
         )
 
     def get_state_values_logits_probabilities_log_probs(self, nn_input, internal_states=None):

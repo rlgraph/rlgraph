@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
@@ -185,7 +184,8 @@ class Policy(Component):
             nn_main_outputs = nn_outputs[0]
         out = self._graph_fn_get_adapter_outputs_and_parameters(nn_main_outputs)
         return dict(
-            nn_outputs=nn_outputs, adapter_outputs=out[0], parameters=out[1], log_probs=out[2]
+            nn_outputs=nn_outputs, adapter_outputs=out[0], parameters=out[1],
+            action_probabilities=out[2], log_probs=out[3]
         )
 
     @rlgraph_api
@@ -214,9 +214,9 @@ class Policy(Component):
             nn_outputs=out["nn_outputs"],
             adapter_outputs=out["adapter_outputs"],
             parameters=out["parameters"],
-            log_probs=out.get("log_probs")
+            log_probs=out.get("log_probs"),
+            action_probabilities=out.get("action_probabilities")
         )
-                # last_internal_states=out["last_internal_states"]
 
     @rlgraph_api
     def get_action_and_log_likelihood(self, nn_inputs, deterministic=None):
@@ -242,7 +242,10 @@ class Policy(Component):
             nn_outputs=out["nn_outputs"],
             adapter_outputs=out["adapter_outputs"],
             action=action,
+            # log-llh of the drawn action.
             log_likelihood=log_likelihood,
+            # All action probabilities (discrete case).
+            action_probabilities=out.get("action_probabilities")
         )
 
     @rlgraph_api(must_be_complete=False)
@@ -358,23 +361,24 @@ class Policy(Component):
         if flat_key in self.action_adapters:
             adapter_outs = self.action_adapters[flat_key].call(nn_outputs)
             params = self.action_adapters[flat_key].get_parameters_from_adapter_outputs(adapter_outs)
-            return adapter_outs, params["parameters"], params.get("log_probs")
+            return adapter_outs, params["parameters"], params.get("probabilities"), params.get("log_probs")
         # Many NN outputs, but no action adapters specified for this one -> return nn_outputs as is.
         elif flat_key != "":
-            return nn_outputs, nn_outputs, None
+            return nn_outputs, nn_outputs, None, None
 
         # There is only a single NN-output, but many action adapters.
         adapter_outputs = FlattenedDataOp()
         parameters = FlattenedDataOp()
+        probs = FlattenedDataOp()
         log_probs = FlattenedDataOp()
         for aa_flat_key, action_adapter in self.action_adapters.items():
             adapter_outs = action_adapter.call(nn_outputs)
             params = action_adapter.get_parameters_from_adapter_outputs(adapter_outs)
             #out = action_adapter.get_adapter_outputs_and_parameters(nn_outputs, nn_inputs)
-            adapter_outputs[aa_flat_key], parameters[aa_flat_key], log_probs[aa_flat_key] = \
-                adapter_outs, params["parameters"], params.get("log_probs")
+            adapter_outputs[aa_flat_key], parameters[aa_flat_key], probs[aa_flat_key], log_probs[aa_flat_key] = \
+                adapter_outs, params["parameters"], params.get("probabilities"), params.get("log_probs")
 
-        return adapter_outputs, parameters, log_probs
+        return adapter_outputs, parameters, probs, log_probs
 
     @graph_fn(flatten_ops="flat_action_space", split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_get_distribution_entropies(self, flat_key, parameters):
@@ -425,7 +429,6 @@ class Policy(Component):
 
     @graph_fn(flatten_ops="flat_action_space", split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_get_action_components(self, flat_key, logits, parameters, deterministic):
-        #ret = {}
         action_space_component = self.flat_action_space[flat_key]
 
         # Skip our distribution, iff discrete action-space and deterministic acting (greedy).

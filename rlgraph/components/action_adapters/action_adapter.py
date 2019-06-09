@@ -150,8 +150,8 @@ class ActionAdapter(NeuralNetwork):
         Args:
             adapter_outputs (SingleDataOp): The (action-space reshaped) output of the action adapter's action layer.
         """
-        parameters, log_probs = self._graph_fn_get_parameters_from_adapter_outputs(adapter_outputs)
-        return dict(parameters=parameters, log_probs=log_probs)
+        parameters, probs, log_probs = self._graph_fn_get_parameters_from_adapter_outputs(adapter_outputs)
+        return dict(parameters=parameters, probabilities=probs, log_probs=log_probs)
 
     # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
