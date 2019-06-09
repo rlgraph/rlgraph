@@ -23,9 +23,9 @@ from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.environments.environment import Environment
-from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
 from rlgraph.spaces import Space, Dict
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.ops import DataOpTuple, DataOpDict, flatten_op, unflatten_op
 from rlgraph.utils.specifiable_server import SpecifiableServer
 
 if get_backend() == "tf":
@@ -45,6 +45,7 @@ class EnvironmentStepper(Component):
                  add_action_probs=False, action_probs_space=None,
                  add_action=False, add_reward=False,
                  add_previous_action_to_state=False, add_previous_reward_to_state=False,
+                 max_timesteps=None,
                  scope="environment-stepper",
                  **kwargs):
         """
@@ -80,6 +81,8 @@ class EnvironmentStepper(Component):
             add_previous_reward_to_state (bool): Whether to add the previous reward as another input channel to the
                 ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
                 It will be added under the key "previous_reward". Default: False.
+            max_timesteps (Optional[int]): An optional max. timestep estimate to use for calculating `time_percentage`
+                values.
         """
         super(EnvironmentStepper, self).__init__(scope=scope, **kwargs)
 
@@ -165,7 +168,9 @@ class EnvironmentStepper(Component):
         # Variables that hold information of last step through Env.
         self.current_state = None
         self.current_internal_states = None
-        self.time_step = 0
+        self.time_step = None
+
+        self.max_timesteps = max_timesteps
 
         self.has_rnn = self.actor_component.policy.neural_network.has_rnn()
 
@@ -222,7 +227,8 @@ class EnvironmentStepper(Component):
                     state,
                     # Add simple batch rank to internal_states.
                     None if internal_states is None else DataOpTuple(internal_states),  # <- None for non-RNN systems
-                    time_step=self.time_step + time_delta
+                    time_precentage=(((self.time_step + time_delta) / self.max_timesteps) if
+                                     self.max_timesteps is not None else None)
                 )
 
                 # Get output depending on whether it contains internal_states or not.
