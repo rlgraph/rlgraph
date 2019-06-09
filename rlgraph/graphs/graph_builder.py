@@ -641,6 +641,8 @@ class GraphBuilder(Specifiable):
                     op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
                     len(out_graph_fn_column.op_records)
                 )
+            # Replace graph_fn-returned Nones with no_op().
+            ops = tuple([tf.no_op() if o is None else o for o in ops])
 
         # Determine the Spaces for each out op and then move it into the respective op and Space slot of the
         # out_graph_fn_column.
@@ -697,6 +699,7 @@ class GraphBuilder(Specifiable):
                 for op_rec in out_op_column.op_records:
                     if op_rec.op is None:
                         try:
+                            #draw_sub_meta_graph_from_op_rec(op_rec, self.meta_graph)
                             self._analyze_none_op(op_rec)
                         except RLGraphBuildError as e:
                             if still_building:
