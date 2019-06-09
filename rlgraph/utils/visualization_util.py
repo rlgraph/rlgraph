@@ -217,9 +217,10 @@ def _backtrace_op_rec(op_rec, _components=None, _api_methods=None, _graph_fns=No
 
         api_input = op_rec
         # TODO: This could be risky, if op_rec is an graph-fn-output.
-        while not isinstance(api_input.column, DataOpRecordColumnIntoAPIMethod):
-            api_input = op_rec.previous
-        highlighted_connection = (api_input.previous.id, api_input.id)
+        while api_input is not None and not isinstance(api_input.column, DataOpRecordColumnIntoAPIMethod):
+            api_input = api_input.previous
+        if api_input is not None:
+            highlighted_connection = (api_input.previous.id, api_input.id)
 
         assert _api_methods is None and _graph_fns is None and _columns is None and _connections is None
         _api_methods = set()
