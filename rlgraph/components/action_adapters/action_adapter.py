@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
@@ -153,7 +151,6 @@ class ActionAdapter(NeuralNetwork):
         parameters, probs, log_probs = self._graph_fn_get_parameters_from_adapter_outputs(adapter_outputs)
         return dict(parameters=parameters, probabilities=probs, log_probs=log_probs)
 
-    # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
     def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
         """
