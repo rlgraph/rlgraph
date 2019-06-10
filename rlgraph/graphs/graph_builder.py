@@ -554,6 +554,7 @@ class GraphBuilder(Specifiable):
                 # There is some splitting to do. Call graph_fn many times (one for each split).
                 if isinstance(split_args_and_kwargs, FlattenedDataOp):
                     ops = {}
+                    summary_ops = []
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
                         params_args = params[0]
@@ -561,6 +562,7 @@ class GraphBuilder(Specifiable):
 
                         ret_ops, ret_summary_ops = self._run_in_context(
                             op_rec_column.graph_fn, op_rec_column.component, *params_args, **params_kwargs)
+                        summary_ops.extend(ret_summary_ops)
                         ops[key] = force_tuple(ret_ops)
 
                         if num_return_values >= 0 and num_return_values != len(ops[key]):

@@ -31,8 +31,13 @@ class TestSACAgentFunctionality(unittest.TestCase):
         policy.add_components(Synchronizable(), expose_apis="sync")
         q_function = SACValueNetwork.from_spec(config["value_function"])
 
+        class DummyAgent(object):
+            def __init__(self):
+                self.graph_executor = None
+
+        dummy_agent = DummyAgent()
         agent_component = SACAgentComponent(
-            agent=None,
+            agent=dummy_agent,
             policy=policy,
             q_function=q_function,
             preprocessor=PreprocessorStack.from_spec([]),
@@ -50,6 +55,8 @@ class TestSACAgentFunctionality(unittest.TestCase):
         test = ComponentTest(
             component=agent_component,
             input_spaces=dict(
+                increment=int,
+                episode_reward=float,
                 states=state_space.with_batch_rank(),
                 preprocessed_states=state_space.with_batch_rank(),
                 env_actions=continuous_action_space.with_batch_rank(),
@@ -74,8 +81,11 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 build_options=dict(
                     vf_optimizer=agent_component.vf_optimizer,
                 ),
-            )
+            ),
+            auto_build=False
         )
+        dummy_agent.graph_executor = test.graph_executor
+        test.build()
 
         batch_size = 10
         action_sample = continuous_action_space.with_batch_rank().sample(batch_size)

@@ -99,6 +99,7 @@ class SACAgentComponent(Component):
         self.steps_since_last_sync = None
         self.q_sync_spec = q_sync_spec
         self.env_action_space = None
+        self.episode_reward = None
 
     def check_input_spaces(self, input_spaces, action_space=None):
         for s in ["states", "actions", "env_actions", "preprocessed_states", "rewards", "terminals"]:
@@ -109,6 +110,7 @@ class SACAgentComponent(Component):
     def create_variables(self, input_spaces, action_space=None):
         self.steps_since_last_sync = self.get_variable("steps_since_last_sync", dtype="int", initializer=0)
         self.log_alpha = self.get_variable("log_alpha", dtype="float", initializer=np.log(self.initial_alpha))
+        self.episode_reward = self.get_variable("episode_reward", shape=(), initializer=0.0)
 
     @rlgraph_api
     def get_policy_weights(self):
@@ -350,6 +352,27 @@ class SACAgentComponent(Component):
     @graph_fn
     def _graph_fn_no_op(self):
         return tf.no_op()
+
+    @rlgraph_api
+    def get_global_timestep(self):
+        return self.read_variable(self.agent.graph_executor.global_timestep)
+
+    @rlgraph_api
+    def _graph_fn_update_global_timestep(self, increment):
+        if get_backend() == "tf":
+            add_op = tf.assign_add(self.agent.graph_executor.global_timestep, increment)
+            return add_op
+        elif get_backend == "pytorch":
+            self.agent.graph_executor.global_timestep += increment
+            return self.agent.graph_executor.global_timestep
+
+    @rlgraph_api
+    def _graph_fn_get_episode_reward(self):
+        return self.episode_reward
+
+    @rlgraph_api
+    def _graph_fn_set_episode_reward(self, episode_reward):
+        return tf.assign(self.episode_reward, episode_reward)
 
 
 class SACAgent(Agent):

@@ -232,6 +232,10 @@ class IMPALAAgent(Agent):
         # Remove `states` key from input_spaces: not needed.
         del self.input_spaces["states"]
 
+        # TODO: implement the reward summary
+        del self.input_spaces["increment"]
+        del self.input_spaces["episode_reward"]
+
         # Add all our sub-components to the core.
         if self.type == "single":
             pass
