@@ -57,3 +57,4 @@ class GumbelSoftmaxDistributionAdapter(ActionAdapter):
             log_probs = torch.log(probs)
 
         return parameters, probs, log_probs
+

@@ -48,9 +48,9 @@ class GumbelSoftmax(Distribution):
     @rlgraph_api
     def _graph_fn_get_distribution(self, parameters):
         if get_backend() == "tf":
-            return tfp.distributions.RelaxedOneHotCategorical(temperature=self.temperature, probs=parameters)
+            return tfp.distributions.RelaxedOneHotCategorical(temperature=self.temperature, logits=parameters)
         elif get_backend() == "pytorch":
-            return torch.distributions.RelaxedOneHotCategorical(temperature=self.temperature, probs=parameters)
+            return torch.distributions.RelaxedOneHotCategorical(temperature=self.temperature, logits=parameters)
 
     @graph_fn
     def _graph_fn_sample_deterministic(self, distribution):
