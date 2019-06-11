@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os
 
@@ -30,6 +28,7 @@ install_requires = [
     'absl-py',
     'numpy',
     'opencv-python',
+    'packaging',  # Needed for version string comparisons.
     'pyyaml',
     'pytest',
     'requests',
