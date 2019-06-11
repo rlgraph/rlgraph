@@ -87,7 +87,7 @@ class Memory(Component):
         """
         raise NotImplementedError
 
-    @rlgraph_api
+    @rlgraph_api(returns=0)
     def _graph_fn_get_episodes(self, num_episodes=1):
         """
         Retrieves a given number of episodes.
