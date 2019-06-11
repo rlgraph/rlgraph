@@ -13,18 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
 import numpy as np
+from scipy.stats import norm, beta
+
 from rlgraph.components.distributions import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 from rlgraph.utils.numpy import softmax
-from scipy.stats import norm, beta
 
 
 class TestDistributions(unittest.TestCase):
@@ -386,6 +385,53 @@ class TestDistributions(unittest.TestCase):
             outs.append(out)
             self.assertTrue(out.max() <= high)
             self.assertTrue(out.min() >= low)
+
+        recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
+
+        # Test log-likelihood outputs.
+        means = np.array([[0.1, 0.2, 0.3, 0.4, 5.0]])
+        stds = np.array([[0.8, 0.2, 0.3, 2.0, 4.0]])
+        # Make sure values are within low and high.
+        values = np.array([[0.9, 0.2, 0.4, -0.1, -1.05]])
+
+        # TODO: understand and comment the following formula to get the log-prob.
+        # Unsquash values, then get log-llh from regular gaussian.
+        unsquashed_values = np.arctanh((values - low) / (high - low) * 2.0 - 1.0)
+        log_prob_unsquashed = np.log(norm.pdf(unsquashed_values, means, stds))
+        log_prob = log_prob_unsquashed - np.sum(np.log(1 - np.tanh(unsquashed_values) ** 2), axis=-1, keepdims=True)
+
+        test.test(("log_prob", [tuple([means, stds]), values]), expected_outputs=log_prob, decimals=4)
+
+    def test_gumbel_softmax_distribution(self):
+        # 5-categorical Gumble-Softmax.
+        param_space = Tuple(FloatBox(shape=(5,)), add_batch_rank=True)
+        values_space = FloatBox(shape=(5,), add_batch_rank=True)
+        input_spaces = dict(parameters=param_space, deterministic=bool, values=values_space)
+
+        gumble_softmax_distribution = GumbelSoftmax(switched_off_apis={"kl_divergence", "entropy"}, temperature=1.0)
+        test = ComponentTest(component=gumble_softmax_distribution, input_spaces=input_spaces)
+
+        # Batch of size=2 and deterministic (True).
+        input_ = [param_space.sample(2), True]
+        expected = np.argmax(input_[0], axis=-1)
+        # Sample n times, expect always argmax value (deterministic draw).
+        for _ in range(50):
+            test.test(("draw", input_), expected_outputs=expected, decimals=5)
+            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected, decimals=5)
+
+        # TODO: finish this test case, using an actual Gumble-Softmax distribution from the
+        # paper: https://arxiv.org/pdf/1611.01144.pdf.
+        return
+
+        # Batch of size=1 and non-deterministic -> expect roughly the mean.
+        input_ = [param_space.sample(1), False]
+        expected = "???"
+        outs = []
+        for _ in range(100):
+            out = test.test(("draw", input_))
+            outs.append(np.argmax(out, axis=-1))
+            out = test.test(("sample_stochastic", tuple([input_[0]])))
+            outs.append(np.argmax(out, axis=-1))
 
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
 
