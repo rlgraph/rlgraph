@@ -20,13 +20,12 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
-from scipy.stats import beta
-
 from rlgraph.components.policies import Policy, SharedValueFunctionPolicy, DuelingPolicy
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
-from rlgraph.utils import softmax, relu
+from rlgraph.utils import softmax, relu, MAX_LOG_STDDEV, MIN_LOG_STDDEV, SMALL_NUMBER
+from scipy.stats import beta, norm
 
 
 class TestPolicies(unittest.TestCase):
@@ -454,7 +453,7 @@ class TestPolicies(unittest.TestCase):
         self.assertTrue(out["entropy"].dtype == np.float32)
         self.assertTrue(out["entropy"].shape == (3,))
 
-    def test_policy_for_bounded_continuous_action_space(self):
+    def test_policy_for_bounded_continuous_action_space_using_beta(self):
         """
         https://github.com/rlgraph/rlgraph/issues/43
         """
@@ -540,6 +539,102 @@ class TestPolicies(unittest.TestCase):
         actions = test.test(("get_deterministic_action", nn_input))["action"]
         self.assertTrue(actions.dtype == np.float32)
         self.assertGreaterEqual(actions.min(), -1.0)
+        self.assertLessEqual(actions.max(), 1.0)
+        self.assertTrue(actions.shape == (3, 1))
+
+        # Distribution's entropy.
+        entropy = test.test(("get_entropy", nn_input))["entropy"]
+        self.assertTrue(entropy.dtype == np.float32)
+        self.assertTrue(entropy.shape == (3, 1))
+
+    def test_policy_for_bounded_continuous_action_space_using_squashed_normal(self):
+        """
+        Same test case, but with different bounded continuous distribution (squashed normal).
+        """
+        nn_input_space = FloatBox(shape=(4,), add_batch_rank=True)
+        action_space = FloatBox(low=-2.0, high=1.0, shape=(1,), add_batch_rank=True)
+
+        policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space,
+                        distributions_spec=dict(bounded_distribution_type="squashed-normal"))
+        test = ComponentTest(
+            component=policy,
+            input_spaces=dict(
+                nn_inputs=nn_input_space,
+                actions=action_space,
+            ),
+            action_space=action_space
+        )
+
+        policy_params = test.read_variable_values(policy.variable_registry)
+
+        # Some NN inputs.
+        nn_input = nn_input_space.sample(size=3)
+        # Raw NN-output.
+        expected_nn_output = np.matmul(
+            nn_input, ComponentTest.read_params("policy/test-network/hidden-layer", policy_params)
+        )
+        test.test(("get_nn_outputs", nn_input), expected_outputs=expected_nn_output)
+
+        # Raw action layer output.
+        expected_raw_logits = np.matmul(
+            expected_nn_output,
+            ComponentTest.read_params("policy/action-adapter-0/action-network/action-layer", policy_params)
+        )
+        test.test(
+            ("get_adapter_outputs", nn_input),
+            expected_outputs=dict(adapter_outputs=expected_raw_logits, nn_outputs=expected_nn_output),
+            decimals=5
+        )
+
+        # Parameter (mean/stddev).
+        expected_mean_parameters = expected_raw_logits[:, 0:1]
+        expected_log_stddev_parameters = np.clip(expected_raw_logits[:, 1:2], MIN_LOG_STDDEV, MAX_LOG_STDDEV)
+        expected_parameters = tuple([expected_mean_parameters, np.exp(expected_log_stddev_parameters)])
+        test.test(
+            ("get_adapter_outputs_and_parameters", nn_input, ["adapter_outputs", "parameters"]),
+            expected_outputs=dict(adapter_outputs=expected_raw_logits, parameters=expected_parameters),
+            decimals=5
+        )
+
+        print("Params: {}".format(expected_parameters))
+
+        action = test.test(("get_action", nn_input))["action"]
+        self.assertTrue(action.dtype == np.float32)
+        self.assertGreaterEqual(action.min(), -2.0)
+        self.assertLessEqual(action.max(), 1.0)
+        self.assertTrue(action.shape == (3, 1))
+
+        out = test.test(("get_action_and_log_likelihood", nn_input))
+        action = out["action"]
+        llh = out["log_likelihood"]
+
+        # Action log-probs.
+        actions_tanh_d = (action + 2.0) / 3.0 * 2.0 - 1.0
+        actions_unsquashed = np.arctanh(actions_tanh_d)
+        expected_action_log_llh_output = np.log(
+            norm.pdf(actions_unsquashed, loc=expected_parameters[0], scale=expected_parameters[1])
+        )
+        expected_action_log_llh_output -= np.sum(np.log(1 - actions_tanh_d ** 2 + SMALL_NUMBER), axis=-1, keepdims=True)
+        # expected_action_log_prob_output = np.array([[expected_action_log_prob_output[0][0]],
+        # [expected_action_log_prob_output[1][1]], [expected_action_log_prob_output[2][2]]])
+        test.test(
+            ("get_log_likelihood", [nn_input, action], "log_likelihood"),
+            expected_outputs=dict(log_likelihood=expected_action_log_llh_output),
+            decimals=5
+        )
+        recursive_assert_almost_equal(expected_action_log_llh_output, llh, decimals=5)
+
+        # Stochastic sample.
+        actions = test.test(("get_stochastic_action", nn_input))["action"]
+        self.assertTrue(actions.dtype == np.float32)
+        self.assertGreaterEqual(actions.min(), -2.0)
+        self.assertLessEqual(actions.max(), 1.0)
+        self.assertTrue(actions.shape == (3, 1))
+
+        # Deterministic sample.
+        actions = test.test(("get_deterministic_action", nn_input))["action"]
+        self.assertTrue(actions.dtype == np.float32)
+        self.assertGreaterEqual(actions.min(), -2.0)
         self.assertLessEqual(actions.max(), 1.0)
         self.assertTrue(actions.shape == (3, 1))
 

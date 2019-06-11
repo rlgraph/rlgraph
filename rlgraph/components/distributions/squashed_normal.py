@@ -16,7 +16,6 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.spaces import Tuple, FloatBox
@@ -81,11 +80,14 @@ class SquashedNormal(Distribution):
 
     @graph_fn
     def _graph_fn_log_prob(self, distribution, values):
-        log_prob = distribution.log_prob(value=self._graph_fn_unsquash(values))
+        unsquashed_values = self._graph_fn_unsquash(values)
+        log_prob = distribution.log_prob(value=unsquashed_values)
         if get_backend() == "tf":
-            log_prob -= tf.reduce_sum(tf.log(1 - values ** 2 + SMALL_NUMBER), axis=-1, keepdims=True)
+            unsquashed_values_tanhd = tf.tanh(unsquashed_values)
+            log_prob -= tf.reduce_sum(tf.log(1 - unsquashed_values_tanhd ** 2 + SMALL_NUMBER), axis=-1, keepdims=True)
         elif get_backend() == "pytorch":
-            log_prob -= torch.sum(tf.log(1 - values ** 2 + SMALL_NUMBER), axis=-1, keepdims=True)
+            unsquashed_values_tanhd = torch.tanh(unsquashed_values)
+            log_prob -= torch.sum(tf.log(1 - unsquashed_values_tanhd ** 2 + SMALL_NUMBER), axis=-1, keepdims=True)
         return log_prob
 
     @graph_fn
@@ -101,7 +103,6 @@ class SquashedNormal(Distribution):
 
     @graph_fn
     def _graph_fn_sample_and_log_prob(self, distribution, deterministic):
-        #action = self._graph_fn_draw(distribution, deterministic)
         action = None
         log_prob = None
         if get_backend() == "tf":

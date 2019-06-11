@@ -20,12 +20,11 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
-from scipy.stats import norm, beta
-
 from rlgraph.components.distributions import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
 from rlgraph.utils.numpy import softmax
+from scipy.stats import norm, beta
 
 
 class TestDistributions(unittest.TestCase):
@@ -362,35 +361,39 @@ class TestDistributions(unittest.TestCase):
             values=values_space
         )
 
-        low, high = -1.0, 1.0
+        low, high = -2.0, 1.0
         squashed_distribution = SquashedNormal(switched_off_apis={"kl_divergence"}, low=low, high=high)
         test = ComponentTest(component=squashed_distribution, input_spaces=input_spaces)
 
         # Batch of size=2 and deterministic (True).
         input_ = [param_space.sample(2), True]
-        expected = ((np.tanh(input_[0][0]) + 1.0) / 2.0) * (high - low) + low   # 0 = mean
+        expected = ((np.tanh(input_[0][0]) + 1.0) / 2.0) * (high - low) + low   # [0] = mean
         # Sample n times, expect always mean value (deterministic draw).
         for _ in range(50):
-            test.test(("draw", input_), expected_outputs=expected)
-            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected)
+            test.test(("draw", input_), expected_outputs=expected, decimals=5)
+            test.test(("sample_deterministic", tuple([input_[0]])), expected_outputs=expected, decimals=5)
 
         # Batch of size=1 and non-deterministic -> expect roughly the mean.
         input_ = [param_space.sample(1), False]
-        expected = ((np.tanh(input_[0][0]) + 1.0) / 2.0) * (high - low) + low  # 0 = mean
+        expected = ((np.tanh(input_[0][0]) + 1.0) / 2.0) * (high - low) + low  # [0] = mean
         outs = []
-        for _ in range(50):
+        for _ in range(500):
             out = test.test(("draw", input_))
             outs.append(out)
+            self.assertTrue(out.max() <= high)
+            self.assertTrue(out.min() >= low)
             out = test.test(("sample_stochastic", tuple([input_[0]])))
             outs.append(out)
+            self.assertTrue(out.max() <= high)
+            self.assertTrue(out.min() >= low)
 
         recursive_assert_almost_equal(np.mean(outs), expected.mean(), decimals=1)
 
         # Test log-likelihood outputs.
-        means = np.array([[0.1, 0.2, 0.3, 0.4, 100.0]])
-        stds = np.array([[0.8, 0.2, 0.3, 2.0, 50.0]])
+        means = np.array([[0.1, 0.2, 0.3, 0.4, 5.0]])
+        stds = np.array([[0.8, 0.2, 0.3, 2.0, 4.0]])
         # Make sure values are within low and high.
-        values = np.array([[0.99, 0.2, 0.4, -0.1, -0.8542]])
+        values = np.array([[0.9, 0.2, 0.4, -0.1, -1.05]])
 
         # TODO: understand and comment the following formula to get the log-prob.
         # Unsquash values, then get log-llh from regular gaussian.
