@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.distributions.distribution import Distribution
@@ -60,7 +58,7 @@ class GumbelSoftmax(Distribution):
         Returns the argmax (int) of a relaxed one-hot vector. See `_graph_fn_sample_stochastic` for details.
         """
         if get_backend() == "tf":
-            # Cast to float again because this is called rom a tf.cond where the other option calls a stochastic
+            # Cast to float again because this is called from a tf.cond where the other option calls a stochastic
             # sample returning a float.
             argmax = tf.argmax(input=distribution._distribution.probs, axis=-1, output_type=tf.int32)
             sample = tf.cast(argmax, dtype=tf.float32)
@@ -68,7 +66,7 @@ class GumbelSoftmax(Distribution):
             # TODO: What if we have a time rank as well?
             if len(sample.shape) == 1:
                 sample = tf.expand_dims(sample, -1)
-                return sample
+            return sample
         elif get_backend() == "pytorch":
             # TODO: keepdims?
             return torch.argmax(distribution.probs, dim=-1).int()

@@ -607,6 +607,10 @@ class GraphBuilder(Specifiable):
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
 
+        assert len(ops) > 0, \
+            "ERROR: GraphFn '{}/{}' did not return any values!".\
+            format(op_rec_column.component.global_scope, op_rec_column.graph_fn.__name__)
+
         # Always un-flatten all return values. Otherwise, we would allow Dict Spaces
         # with '/' keys in them, which is not allowed.
         ops = op_rec_column.unflatten_output_ops(*ops)
