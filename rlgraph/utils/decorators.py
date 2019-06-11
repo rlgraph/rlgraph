@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import inspect
@@ -609,7 +607,12 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
             num_graph_fn_return_values = returns
         else:
             num_graph_fn_return_values = util.get_num_return_values(wrapped_func)
-        component.logger.debug("Graph_fn has {} return values (inferred).".format(
+            # Safety measure: If not explicitly declared, do not allow 0 return values.
+            assert num_graph_fn_return_values > 0,\
+                "ERROR: GraphFn '{}/{}' does not seem to be returning any values!".\
+                format(component.global_scope, wrapped_func.__name__)
+
+        component.logger.debug("GraphFn has {} return values (inferred).".format(
             wrapped_func.__name__, num_graph_fn_return_values)
         )
         # If in-column is empty, add it to the "empty in-column" set.
