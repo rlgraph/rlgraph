@@ -133,14 +133,18 @@ class ActionAdapter(NeuralNetwork):
         Returns:
             Dict[str,SingleDataOp]:
                 - "adapter_outputs": The raw nn_input, only reshaped according to the action_space.
-                - "parameters": The softmaxed(logits) for the discrete case and the mean/std values for the continuous
-                    case.
-                - "log_probs": log([action probabilities]) iff discrete actions.
+                - "parameters": The raw parameters to pass into the distribution Component for generating an actual
+                    backend-distribution object.
+                - "probs": The action-probabilities iff discrete actions. None otherwise.
+                - "log_probs": log([action probabilities]) iff discrete actions. None otherwise.
         """
         #nn_outputs = self.get_action_adapter_outputs(nn_input, original_nn_input)
         adapter_outputs = self.call(*inputs)  #, original_nn_input)
         out = self.get_parameters_from_adapter_outputs(adapter_outputs)
-        return dict(adapter_outputs=adapter_outputs, parameters=out["parameters"], log_probs=out["log_probs"])
+        return dict(
+            adapter_outputs=adapter_outputs, parameters=out["parameters"],
+            probabilities=out["probabilities"], log_probs=out["log_probs"]
+        )
 
     @rlgraph_api(must_be_complete=False)
     def get_parameters_from_adapter_outputs(self, adapter_outputs):
