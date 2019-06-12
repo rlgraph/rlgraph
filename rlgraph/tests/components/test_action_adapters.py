@@ -20,7 +20,6 @@ from __future__ import print_function
 import unittest
 
 import numpy as np
-
 from rlgraph.components.action_adapters import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -61,7 +60,8 @@ class TestActionAdapters(unittest.TestCase):
         expected_probs = softmax(expected_logits)
         expected_log_probs = np.log(expected_probs)
         test.test(("get_parameters", inputs), expected_outputs=dict(
-            adapter_outputs=expected_logits, parameters=expected_logits, log_probs=expected_log_probs
+            adapter_outputs=expected_logits, parameters=expected_logits, probabilities=expected_probs,
+            log_probs=expected_log_probs
         ), decimals=5)
 
     def test_simple_action_adapter_with_batch_apply(self):
@@ -97,7 +97,8 @@ class TestActionAdapters(unittest.TestCase):
         expected_probs = softmax(expected_logits)
         expected_log_probs = np.log(expected_probs)
         test.test(("get_parameters", inputs), expected_outputs=dict(
-            adapter_outputs=expected_logits, parameters=expected_logits, log_probs=expected_log_probs
+            adapter_outputs=expected_logits, parameters=expected_logits, probabilities=expected_probs,
+            log_probs=expected_log_probs
         ), decimals=4)
 
     def test_action_adapter_with_complex_lstm_output(self):
@@ -134,6 +135,7 @@ class TestActionAdapters(unittest.TestCase):
         # Log probs.
         expected_log_probs = np.log(expected_probs)
         test.test(("get_parameters", inputs), expected_outputs=dict(
-            adapter_outputs=expected_logits, parameters=expected_logits, log_probs=expected_log_probs
+            adapter_outputs=expected_logits, parameters=expected_logits, probabilities=expected_probs,
+            log_probs=expected_log_probs
         ), decimals=5)
 
