@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, PrioritizedReplay, ContainerMerger, ContainerSplitter, DQFDLossFunction
-from rlgraph.spaces import FloatBox, BoolBox
+from rlgraph.spaces import FloatBox, BoolBox, ContainerSpace
 from rlgraph.utils import RLGraphError
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.util import strip_list
@@ -391,10 +391,15 @@ class DQFDAgent(Agent):
         else:
             call_method = "action_from_preprocessed_state"
             batched_states = states
-        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
+
+        if isinstance(self.state_space, ContainerSpace):
+            batch_size = len(list(batched_states.values())[0])
+            remove_batch_rank = False
+        else:
+            batch_size = len(batched_states)
+            remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
         # Increase timesteps by the batch size (number of states in batch).
-        batch_size = len(batched_states)
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
