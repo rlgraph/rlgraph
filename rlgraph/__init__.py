@@ -154,6 +154,13 @@ def get_config():
     return CONFIG
 
 
+# Import useful packages, such that "import rlgraph as rl" will enable one to do e.g. "agent = rl.agents.PPOAgent"
+import rlgraph.agents
+import rlgraph.components
+import rlgraph.environments
+
+
+
 __all__ = [
     "__version__",  "get_backend", "get_distributed_backend", "rlgraph_dir",
     "get_config"
