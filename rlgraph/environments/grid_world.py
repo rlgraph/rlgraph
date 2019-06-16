@@ -32,8 +32,11 @@ try:
     # Only use pygame if a display is available.
     pygame.display.init()
 
-except (ImportError, pygame.error):
-    print("PyGame not installed or no display mode available. No human rendering possible.")
+except ImportError:
+    print("PyGame not installed. No human rendering possible.")
+    pygame = None
+except pygame.error:
+    print("No display for PyGame available. No human rendering possible.")
     pygame = None
 
 import rlgraph.spaces as spaces
