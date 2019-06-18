@@ -13,13 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
 from rlgraph.components.layers.nn.nn_layer import NNLayer
+from rlgraph.spaces import FloatBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.initializer import Initializer
@@ -57,7 +56,7 @@ class DenseLayer(NNLayer):
         super(DenseLayer, self).check_input_spaces(input_spaces, action_space)
         in_space = input_spaces["inputs[0]"]
         # Rank must at least be 2.
-        sanity_check_space(in_space, rank=(1, None))
+        sanity_check_space(in_space, allowed_types=[FloatBox], rank=(1, None))
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs[0]"]
