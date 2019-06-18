@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import inspect
@@ -867,6 +865,7 @@ class Component(Specifiable):
                 raise RLGraphError("ERROR: Cannot add a Component ({}) as a sub-Component to itself!".format(self.name))
             component.parent_component = self
             component.nesting_level = (self.nesting_level or 0) + 1
+            component.graph_builder = self.graph_builder
             self.sub_components[component.name] = component
 
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
