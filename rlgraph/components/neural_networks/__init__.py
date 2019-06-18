@@ -13,18 +13,24 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.neural_networks.stack import Stack
 from rlgraph.components.neural_networks.dict_preprocessor_stack import DictPreprocessorStack
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
-
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
+from rlgraph.components.neural_networks.multi_input_stream_neural_network import MultiInputStreamNeuralNetwork
+from rlgraph.components.neural_networks.variational_auto_encoder import VariationalAutoEncoder
 from rlgraph.components.neural_networks.value_function import ValueFunction
 from rlgraph.components.neural_networks.sac.sac_networks import SACValueNetwork
 
+# NeuralNetworks
+NeuralNetwork.__lookup_classes__ = dict(
+    neuralnetwork=NeuralNetwork,
+    multiinputstreamneuralnetwork=MultiInputStreamNeuralNetwork,
+    multiinputstreamnn=MultiInputStreamNeuralNetwork,
+    variationalautoencoder=VariationalAutoEncoder
+)
 
 # The Stacks.
 Stack.__lookup_classes__ = dict(
@@ -41,6 +47,7 @@ ValueFunction.__default_constructor__ = ValueFunction
 
 __all__ = ["NeuralNetwork", "ValueFunction"] + \
           ["Stack"] + \
+          list(set(map(lambda x: x.__name__, NeuralNetwork.__lookup_classes__.values()))) + \
           list(set(map(lambda x: x.__name__, Stack.__lookup_classes__.values()))) + \
           list(set(map(lambda x: x.__name__, ValueFunction.__lookup_classes__.values())))
 
