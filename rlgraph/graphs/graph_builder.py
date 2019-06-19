@@ -1183,53 +1183,56 @@ class GraphBuilder(Specifiable):
                         if next_op_rec.is_terminal_op is False:
                             assert next_op_rec.op is None or is_constant(next_op_rec.op) or next_op_rec.op is op_rec.op
                             self.op_records_to_process.add(next_op_rec)
-                        # Push op and Space into next op-record.
-                        # With op-instructions?
-                        if "key-lookup" in next_op_rec.op_instructions:
-                            lookup_key = next_op_rec.op_instructions["key-lookup"]
-                            if isinstance(lookup_key, str) and (not isinstance(op_rec.op, dict) or lookup_key
-                                                                not in op_rec.op):
-                                raise RLGraphError(
-                                    "op_rec.op ({}) is not a dict or does not contain the lookup key '{}'!". \
-                                    format(op_rec.op, lookup_key)
-                                )
-                            elif isinstance(lookup_key, int) and (not isinstance(op_rec.op, (list, tuple)) or
-                                                                  lookup_key >= len(op_rec.op)):
-                                raise RLGraphError(
-                                    "op_rec.op ({}) is not a list/tuple or contains not enough items for lookup "
-                                    "index '{}'!".format(op_rec.op, lookup_key)
-                                )
-                            next_op_rec.op = op_rec.op[lookup_key]
-                            next_op_rec.space = op_rec.space[lookup_key]
-                        # No instructions -> simply pass on.
-                        else:
-                            next_op_rec.op = op_rec.op
-                            next_op_rec.space = op_rec.space
+                        ## Push op and Space into next op-record.
+                        ## With op-instructions?
+                        #if "key-lookup" in next_op_rec.op_instructions:
+                        #    lookup_key = next_op_rec.op_instructions["key-lookup"]
+                        #    if isinstance(lookup_key, str) and (not isinstance(op_rec.op, dict) or lookup_key
+                        #                                        not in op_rec.op):
+                        #        raise RLGraphError(
+                        #            "op_rec.op ({}) is not a dict or does not contain the lookup key '{}'!". \
+                        #            format(op_rec.op, lookup_key)
+                        #        )
+                        #    elif isinstance(lookup_key, int) and (not isinstance(op_rec.op, (list, tuple)) or
+                        #                                          lookup_key >= len(op_rec.op)):
+                        #        raise RLGraphError(
+                        #            "op_rec.op ({}) is not a list/tuple or contains not enough items for lookup "
+                        #            "index '{}'!".format(op_rec.op, lookup_key)
+                        #        )
+                        #    next_op_rec.op = op_rec.op[lookup_key]
+                        #    next_op_rec.space = op_rec.space[lookup_key]
+                        ## No instructions -> simply pass on.
+                        #else:
+                        #    next_op_rec.op = op_rec.op
+                        #    next_op_rec.space = op_rec.space
+                        op_rec.connect_to(next_op_rec)
 
-                            # Also push Space into possible API-method record if slot's Space is still None.
-                            if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
-                                param_name = get_call_param_name(op_rec)
-                                component = op_rec.column.api_method_rec.component
+                        # Also push Space into possible API-method record if slot's Space is still None.
+                        if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
+                            param_name = get_call_param_name(op_rec)
+                            component = op_rec.column.api_method_rec.component
 
-                                # Place Space for this input-param name (valid for all input params of same name even of
-                                # different API-method of the same Component).
-                                if component.api_method_inputs[param_name] is None or \
-                                        component.api_method_inputs[param_name] == "flex":
-                                    component.api_method_inputs[param_name] = next_op_rec.space
-                                # For non-space agnostic Components: Sanity check, whether Spaces are equivalent.
-                                elif component.space_agnostic is False:
-                                    generic_space = check_space_equivalence(
-                                        component.api_method_inputs[param_name], next_op_rec.space
-                                    )
-                                    # Spaces are not equivalent.
-                                    if generic_space is False:
-                                        raise RLGraphError(
-                                            "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
-                                            "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
-                                                           component.api_method_inputs[param_name])
+                            # Place Space for this input-param name (valid for all input params of same name even of
+                            # different API-method of the same Component).
+                            if component.api_method_inputs[param_name] is None or \
+                                    component.api_method_inputs[param_name] == "flex":
+                                component.api_method_inputs[param_name] = next_op_rec.space
+                            # For non-space agnostic Components: Sanity check, whether Spaces are equivalent.
+                            elif component.space_agnostic is False:
+                                generic_space = check_space_equivalence(
+                                    component.api_method_inputs[param_name], next_op_rec.space
+                                )
+                                # Spaces are not equivalent.
+                                if generic_space is False:
+                                    raise RLGraphError(
+                                        "ERROR: op-rec '{}' going into API '{}' has Space '{}', but input-param "
+                                        "'{}' already has Space '{}'!".format(
+                                            next_op_rec, op_rec.column.api_method_rec.api_method_name,
+                                            next_op_rec.space, param_name, component.api_method_inputs[param_name]
                                         )
-                                    # Overwrite both entries with the more generic Space.
-                                    next_op_rec.space = component.api_method_inputs[param_name] = generic_space
+                                    )
+                                # Overwrite both entries with the more generic Space.
+                                next_op_rec.space = component.api_method_inputs[param_name] = generic_space
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
