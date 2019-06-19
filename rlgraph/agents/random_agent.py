@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.agents import Agent
 
@@ -52,3 +50,6 @@ class RandomAgent(Agent):
 
     def call_api_method(self, op, inputs=None, return_ops=None):
         pass
+
+    def __repr__(self):
+        return "RandomAgent()"
