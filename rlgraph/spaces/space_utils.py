@@ -13,11 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
@@ -27,9 +27,10 @@ from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphSpaceError
 from rlgraph.utils.util import convert_dtype, get_shape, LARGE_INTEGER, force_tuple
-from six.moves import xrange as range_
 
-if get_backend() == "pytorch":
+if get_backend() == "tf":
+    import tensorflow as tf
+elif get_backend() == "pytorch":
     import torch
 
 
@@ -71,13 +72,15 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
     return var
 
 
-def get_space_from_op(op):
+def get_space_from_op(op, num_categories=None):
     """
     Tries to re-create a Space object given some DataOp (e.g. a tf op).
     This is useful for shape inference on returned ops after having run through a graph_fn.
 
     Args:
         op (DataOp): The op to create a corresponding Space for.
+        num_categories (Optional[int]): An optional indicator, what the `num_categories` property for
+            an IntBox should be.
 
     Returns:
         Space: The inferred Space object.
@@ -88,7 +91,12 @@ def get_space_from_op(op):
         add_batch_rank = False
         add_time_rank = False
         for key, value in op.items():
-            spec[key] = get_space_from_op(value)
+            # Special case for IntBoxes:
+            # If another key exists, with the name: `_num_[key]` -> take num_categories from that key's value.
+            if key[:5] == "_num_":
+                continue
+            num_categories = op.get("_num_{}".format(key))
+            spec[key] = get_space_from_op(value, num_categories=num_categories)
             # Return
             if spec[key] == 0:
                 return 0
@@ -114,14 +122,15 @@ def get_space_from_op(op):
         return Tuple(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # primitive Space -> infer from op dtype and shape
     else:
+        int_high = {"high": num_categories} if num_categories is not None else {}
         # Op itself is a single value, simple python type.
         if isinstance(op, (bool, int, float)):
-            return BoxSpace.from_spec(spec=type(op), shape=())
+            return BoxSpace.from_spec(spec=type(op), shape=(), **int_high)
         elif isinstance(op, str):
             raise RLGraphError("Cannot derive Space from non-allowed op ({})!".format(op))
         # A single numpy array.
         elif isinstance(op, np.ndarray):
-            return BoxSpace.from_spec(spec=convert_dtype(str(op.dtype), "np"), shape=op.shape)
+            return BoxSpace.from_spec(spec=convert_dtype(str(op.dtype), "np"), shape=op.shape, **int_high)
         elif isinstance(op, list):
             return try_space_inference_from_list(op)
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
@@ -184,7 +193,7 @@ def get_space_from_op(op):
                                 time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # IntBox
             elif "int" in base_dtype_str:
-                high = getattr(op, "_num_categories", None)
+                high = num_categories or getattr(op, "_num_categories", None)
                 return IntBox(high, shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                               time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # a BoolBox
@@ -477,29 +486,33 @@ def try_space_inference_from_list(list_op):
     Returns:
         Space: Inferred Space object represented by list.
     """
-    if get_backend() == "pytorch":
-        batch_shape = len(list_op)
-        if batch_shape > 0:
-            # Try to infer more things by looking inside list.
-            elem = list_op[0]
-            if isinstance(elem, torch.Tensor):
-                list_type = elem.dtype
-                inner_shape = elem.shape
-                return BoxSpace.from_spec(spec=convert_dtype(list_type, "np"), shape=(batch_shape,) + inner_shape,
-                                          add_batch_rank=True)
-            elif isinstance(elem, list):
-                inner_shape = len(elem)
-                return BoxSpace.from_spec(spec=convert_dtype(float, "np"), shape=(batch_shape, inner_shape),
-                                          add_batch_rank=True)
-            elif isinstance(elem, int):
-                return IntBox.from_spec(spec=int, shape=(batch_shape,), add_batch_rank=True)
-            elif isinstance(elem, float):
-                return FloatBox.from_spec(spec=int, shape=(batch_shape,), add_batch_rank=True)
-        else:
-            # Most general guess is a Float box.
-            return FloatBox(shape=(batch_shape,))
+    shape = len(list_op)
+    if shape > 0:
+        # Try to infer more things by looking inside list.
+        elem = list_op[0]
+        if (get_backend() == "pytorch" and isinstance(elem, torch.Tensor)) or \
+                get_backend() == "tf" and isinstance(elem, tf.Tensor):
+            list_type = elem.dtype
+            inner_shape = elem.shape
+            return BoxSpace.from_spec(spec=convert_dtype(list_type, "np"), shape=(shape,) + inner_shape,
+                                      add_batch_rank=True)
+        elif isinstance(elem, list):
+            inner_shape = len(elem)
+            return BoxSpace.from_spec(spec=convert_dtype(float, "np"), shape=(shape, inner_shape),
+                                      add_batch_rank=True)
+        elif isinstance(elem, int):
+            # In case of missing comma values, check all other items in list for float.
+            # If one float in there -> FloatBox, otherwise -> IntBox.
+            has_floats = any(isinstance(el, float) for el in list_op)
+            if has_floats is False:
+                return IntBox.from_spec(spec=int, shape=(shape,), add_batch_rank=True)
+            else:
+                return FloatBox.from_spec(spec=float, shape=(shape,), add_batch_rank=True)
+        elif isinstance(elem, float):
+            return FloatBox.from_spec(spec=int, shape=(shape,), add_batch_rank=True)
     else:
-        raise ValueError("List inference should only be attempted on the Python backend.")
+        # Most general guess is a Float box.
+        return FloatBox(shape=(shape,))
 
 
 def get_default_distribution_from_space(
