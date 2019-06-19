@@ -18,6 +18,7 @@ from __future__ import absolute_import, division, print_function
 import re
 
 import numpy as np
+
 from rlgraph.spaces.space import Space
 from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op
 from rlgraph.utils.rlgraph_errors import RLGraphError
@@ -27,7 +28,7 @@ class ContainerSpace(Space):
     """
     A simple placeholder class for Spaces that contain other Spaces.
     """
-    def sample(self, size=None, horizontal=False):
+    def sample(self, size=None, fill_value=None, horizontal=False):
         """
         Child classes must overwrite this one again with support for the `horizontal` parameter.
 
@@ -62,7 +63,7 @@ class Dict(ContainerSpace, dict):
                 raise RLGraphError("ERROR: No non-str keys allowed in a Dict-Space!")
             # Prohibit reserved characters (for flattened syntax).
             if re.search(r'/|{}\d+{}'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key):
-                raise RLGraphError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Is {}.".
+                raise RLGraphError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Key='{}'.".
                                    format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
             value = spec[key]
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch/time-ranks.
@@ -133,17 +134,21 @@ class Dict(ContainerSpace, dict):
             )) for key, subspace in self.items()]
         )
 
-    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space,
+                 scope_, list_):
         # Iterate through this Dict.
         scope_ += custom_scope_separator if len(scope_) > 0 or scope_separator_at_start else ""
         for key in sorted(self.keys()):
-            self[key].flatten(mapping, custom_scope_separator, scope_separator_at_start, scope_ + key, list_)
+            self[key].flatten(
+                mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space, scope_ + key, list_
+            )
 
-    def sample(self, size=None, horizontal=False):
+    def sample(self, size=None, fill_value=None, horizontal=False):
         if horizontal:
-            return np.array([{key: self[key].sample() for key in sorted(self.keys())}] * (size or 1))
+            return np.array([{key: self[key].sample(fill_value=fill_value) for key in sorted(self.keys())}] *
+                            (size or 1))
         else:
-            return {key: self[key].sample(size=size) for key in sorted(self.keys())}
+            return {key: self[key].sample(size=size, fill_value=fill_value) for key in sorted(self.keys())}
 
     def zeros(self, size=None):
         return DataOpDict([(key, subspace.zeros(size=size)) for key, subspace in self.items()])
@@ -259,19 +264,20 @@ class Tuple(ContainerSpace, tuple):
             ) for i, subspace in enumerate(self)]
         )
 
-    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space, scope_, list_):
         # Iterate through this Tuple.
         scope_ += (custom_scope_separator if len(scope_) > 0 or scope_separator_at_start else "") + FLAT_TUPLE_OPEN
         for i, component in enumerate(self):
             component.flatten(
-                mapping, custom_scope_separator, scope_separator_at_start, scope_ + str(i) + FLAT_TUPLE_CLOSE, list_
+                mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space,
+                scope_ + str(i) + FLAT_TUPLE_CLOSE, list_
             )
 
-    def sample(self, size=None, horizontal=False):
+    def sample(self, size=None, fill_value=None, horizontal=False):
         if horizontal:
-            return np.array([tuple(subspace.sample() for subspace in self)] * (size or 1))
+            return np.array([tuple(subspace.sample(fill_value=fill_value) for subspace in self)] * (size or 1))
         else:
-            return tuple(x.sample(size=size) for x in self)
+            return tuple(x.sample(size=size, fill_value=fill_value) for x in self)
 
     def zeros(self, size=None):
         return tuple([c.zeros(size=size) for i, c in enumerate(self)])
