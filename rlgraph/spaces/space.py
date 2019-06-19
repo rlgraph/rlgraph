@@ -252,6 +252,7 @@ class Space(Specifiable):
         raise NotImplementedError
 
     def flatten(self, mapping=None, custom_scope_separator='/', scope_separator_at_start=True,
+                return_as_dict_space=False,
                 scope_=None, list_=None):
         """
         A mapping function to flatten this Space into an OrderedDict whose only values are
@@ -266,6 +267,9 @@ class Space(Specifiable):
                 Default: '/'.
 
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
+                Default: False.
+
+            return_as_dict_space (bool): Whether to return a Dict space or as OrderedDict.
                 Default: False.
 
             scope_ (Optional[str]): For recursive calls only. Used for automatic key generation.
@@ -288,13 +292,22 @@ class Space(Specifiable):
             ret = True
             scope_ = ""
 
-        self._flatten(mapping, custom_scope_separator, scope_separator_at_start, scope_, list_)
+        self._flatten(
+            mapping, custom_scope_separator=custom_scope_separator,
+            scope_separator_at_start=scope_separator_at_start, return_as_dict_space=return_as_dict_space,
+            scope_=scope_, list_=list_
+        )
 
-        # Non recursive (first) call -> Return the final FlattenedDataOp.
+        # Non recursive (first) call -> Return the final flat OrderedDict or a Dict space.
         if ret:
-            return OrderedDict(list_)
+            ordered_dict = OrderedDict(list_)
+            if return_as_dict_space:
+                ordered_dict["type"] = dict
+                return Space.from_spec(ordered_dict)
+            else:
+                return ordered_dict
 
-    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space, scope_, list_):
         """
         Base implementation. May be overridden by ContainerSpace classes.
         Simply sends `self` through the mapping function.
@@ -332,7 +345,7 @@ class Space(Specifiable):
     def __eq__(self, other):
         raise NotImplementedError
 
-    def sample(self, size=None, fill_value=None):
+    def sample(self, size=None, fill_value=None, **kwargs):
         """
         Uniformly randomly samples an element from this space. This is for testing purposes, e.g. to simulate
         a random environment.
