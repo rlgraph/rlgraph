@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import re
 from collections import OrderedDict
@@ -147,7 +145,8 @@ class FlattenedDataOp(DataOp, OrderedDict):
 
 
 def flatten_op(
-        op, key_scope="", op_tuple_list=None, scope_separator_at_start=True, mapping=None, flatten_alongside=None
+        op, key_scope="", op_tuple_list=None, custom_scope_separator=None, scope_separator_at_start=True, mapping=None,
+        flatten_alongside=None
 ):
     """
     Flattens a single ContainerDataOp or a native python dict/tuple into a FlattenedDataOp with auto-key generation.
@@ -156,9 +155,15 @@ def flatten_op(
         op (Union[ContainerDataOp,dict,tuple]): The item to flatten.
         key_scope (str): The recursive scope for auto-key generation.
         op_tuple_list (list): The list of tuples (key, value) to be converted into the final FlattenedDataOp.
-        scope_separator_at_start (bool): If to prepend a scope separator before the first key in a
-            recursive structure. Default false.
+
+        custom_scope_separator (str): The separator to use in the returned dict for scopes.
+            Default: '/'.
+
+        scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
+            Default: False.
+
         mapping (Optional[callable]): An optional mapping function for op (and all nested ops) to be passed through.
+
         flatten_alongside (Optional[dict]): If given, flatten only according to this dictionary, not any further down
             the nested input structure of `op`. This is useful to flatten e.g. along some action-space, but not
             further down (e.g. into the tuple of a distribution's parameters).
@@ -181,9 +186,11 @@ def flatten_op(
     if mapping is not None:
         op = mapping(op)
 
+    flatten_scope_prefix = custom_scope_separator or FLATTEN_SCOPE_PREFIX
+
     if isinstance(op, dict):
         if scope_separator_at_start:
-            key_scope += FLATTEN_SCOPE_PREFIX
+            key_scope += flatten_scope_prefix
         else:
             key_scope = ""
         for key in sorted(op.keys()):
@@ -199,7 +206,7 @@ def flatten_op(
                 )
     elif isinstance(op, tuple):
         if scope_separator_at_start:
-            key_scope += FLATTEN_SCOPE_PREFIX + FLAT_TUPLE_OPEN
+            key_scope += flatten_scope_prefix + FLAT_TUPLE_OPEN
         else:
             key_scope += "" + FLAT_TUPLE_OPEN
         for i, c in enumerate(op):
@@ -219,7 +226,7 @@ def flatten_op(
         return FlattenedDataOp(op_tuple_list)
 
 
-def unflatten_op(op):
+def unflatten_op(op, custom_scope_separator=None):
     """
     Takes a FlattenedDataOp with auto-generated keys and returns the corresponding
     unflattened DataOp.
@@ -240,6 +247,8 @@ def unflatten_op(op):
     # Normal case: FlattenedDataOp that came from a ContainerItem.
     base_structure = None
 
+    flatten_scope_prefix = custom_scope_separator or FLATTEN_SCOPE_PREFIX
+
     op_names = sorted(op.keys())
     for op_name in op_names:
         op_val = op[op_name]
@@ -249,7 +258,7 @@ def unflatten_op(op):
         op_type = None
 
         # N.b. removed this because we do not prepend / any more before first key.
-        if op_name.startswith(FLATTEN_SCOPE_PREFIX):
+        if op_name.startswith(flatten_scope_prefix):
             op_name = op_name[1:]
         op_key_list = op_name.split("/")  # skip 1st char (/)
         for sub_key in op_key_list:
@@ -293,10 +302,11 @@ def unflatten_op(op):
     return deep_tuple(base_structure)
 
 
-def flat_key_lookup(container, flat_key, default=None):
-    if flat_key.startswith(FLATTEN_SCOPE_PREFIX):
+def flat_key_lookup(container, flat_key, default=None, custom_scope_separator=None):
+    flatten_scope_prefix = custom_scope_separator or FLATTEN_SCOPE_PREFIX
+    if flat_key.startswith(flatten_scope_prefix):
         flat_key = flat_key[1:]
-    key_sequence = flat_key.split(FLATTEN_SCOPE_PREFIX)
+    key_sequence = flat_key.split(flatten_scope_prefix)
     result = container
     for key in key_sequence:
         mo = re.match(r'^{}(\d+){}$'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key)
