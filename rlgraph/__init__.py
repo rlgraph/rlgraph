@@ -158,7 +158,8 @@ def get_config():
 import rlgraph.agents
 import rlgraph.components
 import rlgraph.environments
-
+import rlgraph.spaces
+import rlgraph.utils
 
 
 __all__ = [
