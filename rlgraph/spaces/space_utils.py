@@ -505,11 +505,11 @@ def try_space_inference_from_list(list_op):
             # If one float in there -> FloatBox, otherwise -> IntBox.
             has_floats = any(isinstance(el, float) for el in list_op)
             if has_floats is False:
-                return IntBox.from_spec(spec=int, shape=(shape,), add_batch_rank=True)
+                return IntBox.from_spec(shape=(shape,), add_batch_rank=True)
             else:
-                return FloatBox.from_spec(spec=float, shape=(shape,), add_batch_rank=True)
+                return FloatBox.from_spec(shape=(shape,), add_batch_rank=True)
         elif isinstance(elem, float):
-            return FloatBox.from_spec(spec=int, shape=(shape,), add_batch_rank=True)
+            return FloatBox.from_spec(shape=(shape,), add_batch_rank=True)
     else:
         # Most general guess is a Float box.
         return FloatBox(shape=(shape,))
