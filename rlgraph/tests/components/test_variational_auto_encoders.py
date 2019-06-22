@@ -13,14 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
 import numpy as np
-from rlcore.components.neural_networks.variational_auto_encoder import VariationalAutoEncoder
+
+from rlgraph.components.neural_networks.variational_auto_encoder import VariationalAutoEncoder
 from rlgraph.spaces import FloatBox
 from rlgraph.tests.component_test import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
