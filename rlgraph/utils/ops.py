@@ -47,7 +47,18 @@ class DataOp(object):
     The basic class for any Socket-held operation or variable, or collection thereof.
     Each Socket (in or out) holds either one DataOp or a set of alternative DataOps.
     """
-    pass
+    def map(self, mapping):
+        """
+        A convenience method for mapping all (flattened) contents (primitive DataOps) of primitive
+        as well as ContainerDataOps to something else.
+
+        Args:
+            mapping (callable): The mapping function taking a DataOp as arg and returning another DataOp.
+
+        Returns:
+            DataOp: The mapped DataOp (or ContainerDataOp).
+        """
+        return self
 
 
 class SingleDataOp(DataOp):
@@ -63,17 +74,18 @@ class ContainerDataOp(DataOp):
     A placeholder class for any DataOp that's not a SingleDataOp, but a (possibly nested) container structure
     containing SingleDataOps as leave nodes.
     """
-    def flat_key_lookup(self, flat_key):
+    def flat_key_lookup(self, flat_key, custom_scope_separator=None):
         """
         Returns an element within this DataOp following a given flat-key.
 
         Args:
-            flat_key ():
+            flat_key (str): The flat key to lookup (e.g. "/a/_T0_/b").
+            custom_scope_separator (Optional[str]): The scope separator used in the flat-key. It's usually "/".
 
         Returns:
-
+            any: The looked up item or None if nothing found.
         """
-        return flat_key_lookup(self, flat_key)
+        return flat_key_lookup(self, flat_key, custom_scope_separator=custom_scope_separator)
 
 
 class DataOpDict(ContainerDataOp, dict):
@@ -303,9 +315,26 @@ def unflatten_op(op, custom_scope_separator=None):
 
 
 def flat_key_lookup(container, flat_key, default=None, custom_scope_separator=None):
+    """
+    Looks up a flattened key (a sequence of simple lookups inside a deep nested dict/tuple)
+    and returns the found item. Returns a  default value if no item under that flat-key was found.
+
+    Args:
+        container (any): The (non-flattened) structure (can be a dict, a ).
+        flat_key (str): The flat key to look for.
+        default (any): The default value if nothing was found. Default: None.
+        custom_scope_separator (Optional[str]): The scope separator that's used in the flat-key string.
+            Default: Value of `FLATTEN_SCOPE_PREFIX`.
+
+    Returns:
+        any: The found item under the flat key or a default value if nothing was found.
+    """
     flatten_scope_prefix = custom_scope_separator or FLATTEN_SCOPE_PREFIX
+
+    # Ignore starting scope-separators.
     if flat_key.startswith(flatten_scope_prefix):
         flat_key = flat_key[1:]
+
     key_sequence = flat_key.split(flatten_scope_prefix)
     result = container
     for key in key_sequence:
