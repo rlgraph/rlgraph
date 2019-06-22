@@ -26,17 +26,19 @@ class RandomAgent(Agent):
         super(RandomAgent, self).__init__(
             update_spec=dict(do_updates=False), state_space=state_space, action_space=action_space, name=name, **kwargs
         )
+        self.action_space_batched = self.action_space.with_batch_rank()
 
-    def get_action(self, states, internals=None, use_exploration=False,  apply_preprocessing=True, extra_returns=None,
+    def get_action(self, states, internals=None, use_exploration=False, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):
-        a = self.action_space.sample(size=len(states[0]))
+        a = self.action_space_batched.sample(size=len(states[0]))
         if extra_returns is not None and "preprocessed_states" in extra_returns:
             return a, states
         else:
             return a
 
     def update(self, batch=None, time_percentage=None, **kwargs):
-        pass
+        # Return fake loss and loss-per-item.
+        return 0.0, 0.0
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, next_states, terminals):
         pass
