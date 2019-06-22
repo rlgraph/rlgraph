@@ -13,11 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import re
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
@@ -58,9 +54,10 @@ class ContainerMerger(Component):
         if len(input_names_or_num_items) == 1 and isinstance(input_names_or_num_items[0], int):
             self.is_tuple = True
         else:
-            assert all(isinstance(i, str) and not re.search(r'/', i) for i in input_names_or_num_items), \
-                "ERROR: Not all input names of DictMerger Component '{}' are strings or some of them have '/' " \
-                "characters in them, which are not allowed.".format(self.global_scope)
+            # and not re.search(r'/', i)
+            # or some of them have '/' characters in them, which are not allowed
+            assert all(isinstance(i, str) for i in input_names_or_num_items), \
+                "ERROR: Not all input names of DictMerger Component '{}' are strings.".format(self.global_scope)
             self.dict_keys = input_names_or_num_items
 
     def check_input_spaces(self, input_spaces, action_space=None):
