@@ -38,8 +38,8 @@ class TestVariationalAutoEncoders(unittest.TestCase):
 
         variational_auto_encoder = VariationalAutoEncoder(
             z_units=1,
-            encoder_network_spec=config_from_path("configs/encoder_network.json", root="../"),
-            decoder_network_spec=config_from_path("configs/decoder_network.json", root="../")
+            encoder_network_spec=config_from_path("configs/test_vae_encoder_network.json"),
+            decoder_network_spec=config_from_path("configs/test_vae_decoder_network.json")
         )
 
         # Do not seed, we calculate expectations manually.
