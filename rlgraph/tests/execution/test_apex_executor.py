@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 from copy import deepcopy
@@ -240,7 +238,7 @@ class TestApexExecutor(unittest.TestCase):
             terminal = False
             ep_reward = 0
             while not terminal:
-                state = agent.state_space.force_batch(state)
+                state, _ = agent.state_space.force_batch(state)
                 if processor_stack is not None:
                     state = processor_stack.preprocess(state)
 
