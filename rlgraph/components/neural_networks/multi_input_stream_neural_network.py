@@ -17,6 +17,7 @@ from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
+from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.decorators import rlgraph_api
 
 
@@ -40,8 +41,8 @@ class MultiInputStreamNeuralNetwork(NeuralNetwork):
         # Create all streams' networks.
         if isinstance(input_network_specs, dict):
             self.input_stream_nns = {}
-            for i, (key, nn_spec) in enumerate(input_network_specs.items()):
-                self.input_stream_nns[key] = NeuralNetwork.from_spec(nn_spec, scope="input-stream-nn-{}".format(i))
+            for i, (flat_key, nn_spec) in enumerate(flatten_op(input_network_specs).items()):
+                self.input_stream_nns[flat_key] = NeuralNetwork.from_spec(nn_spec, scope="input-stream-nn-{}".format(i))
             # Create the concat layer to merge all streams.
             self.concat_layer = ConcatLayer(dict_keys=list(self.input_stream_nns.keys()), axis=-1)
         else:
@@ -72,8 +73,8 @@ class MultiInputStreamNeuralNetwork(NeuralNetwork):
         if isinstance(self.input_stream_nns, dict):
             outputs = {}
             # TODO: Support last-timestep returning LSTMs in input-stream-networks.
-            for input_stream_key, input_stream_nn in self.input_stream_nns.items():
-                outputs[input_stream_key] = input_stream_nn.call(inputs[input_stream_key])
+            for input_stream_flat_key, input_stream_nn in self.input_stream_nns.items():
+                outputs[input_stream_flat_key] = input_stream_nn.call(inputs[input_stream_flat_key])
             # Concat everything.
             concat_output = self.concat_layer.call(outputs)
         else:
