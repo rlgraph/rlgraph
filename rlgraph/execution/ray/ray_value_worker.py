@@ -13,19 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from copy import deepcopy
-import numpy as np
-from rlgraph.utils import util
-from six.moves import xrange as range_
 import time
 
+import numpy as np
+from six.moves import xrange as range_
+
+from rlgraph.utils import util
 from rlgraph import get_distributed_backend
 from rlgraph.utils.util import SMALL_NUMBER
-from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 from rlgraph.execution.environment_sample import EnvironmentSample
 from rlgraph.execution.ray import RayExecutor
@@ -238,7 +236,7 @@ class RayValueWorker(RayActor):
         while timesteps_executed < num_timesteps:
             current_iteration_start_timestamp = time.perf_counter()
             for i, env_id in enumerate(self.env_ids):
-                state = self.agent.state_space.force_batch(env_states[i])
+                state, _ = self.agent.state_space.force_batch(env_states[i])
                 if self.preprocessors[env_id] is not None:
                     if self.is_preprocessed[env_id] is False:
                         self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
@@ -313,7 +311,7 @@ class RayValueWorker(RayActor):
                     # Get next states for this environment's trajectory.
                     env_sample_next_states = env_sample_states[1:]
 
-                    next_state = self.agent.state_space.force_batch(next_states[i])
+                    next_state, _ = self.agent.state_space.force_batch(next_states[i])
                     if self.preprocessors[env_id] is not None:
                         next_state = self.preprocessors[env_id].preprocess(next_state)
 
@@ -352,7 +350,7 @@ class RayValueWorker(RayActor):
                     if self.preprocessors[env_id] is not None:
                         self.preprocessors[env_id].reset()
                         # This re-fills the sequence with the reset state.
-                        state = self.agent.state_space.force_batch(env_states[i])
+                        state, _ = self.agent.state_space.force_batch(env_states[i])
                         # Pre - process, add to buffer
                         self.preprocessed_states_buffer[i] = np.array(self.preprocessors[env_id].preprocess(state))
                         self.is_preprocessed[env_id] = True
@@ -380,7 +378,7 @@ class RayValueWorker(RayActor):
                 env_sample_states = sample_states[env_id]
                 # Get next states for this environment's trajectory.
                 env_sample_next_states = env_sample_states[1:]
-                next_state = self.agent.state_space.force_batch(next_states[i])
+                next_state, _ = self.agent.state_space.force_batch(next_states[i])
                 if self.preprocessors[env_id] is not None:
                     next_state = self.preprocessors[env_id].preprocess(next_state)
                     # This is the env state in the next call so avoid double preprocessing

@@ -150,17 +150,23 @@ class Space(Specifiable):
         """
         return self.with_extra_ranks(add_batch_rank=None, add_time_rank=add_time_rank)
 
-    def force_batch(self, samples):
+    def force_batch(self, samples, horizontal=False):
         """
         Makes sure that `samples` is always returned with a batch rank no matter whether
         it already has one or not (in which case this method returns a batch of 1) or
-        whether this Space has a batch rank or not.
+        whether this Space has a batch rank or not. Optionally horizontalizes the given sample.
 
         Args:
             samples (any): The samples to be batched. If already batched, return as-is.
 
+            horizontal (Optional[bool]): For containers, whether the output should be a batch of
+                containers (horizontal=True) or a container of batched data (horizontal=False).
+                Default: None (for non-BoxSpaces) or False (for ContainerSpaces).
+
         Returns:
-            any: The batched sample.
+            tuple
+                - any: The batched sample.
+                - bool: True, if batch rank of 1 had to be added, False if `samples` was already batched.
         """
         raise NotImplementedError
 

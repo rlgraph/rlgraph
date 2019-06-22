@@ -13,18 +13,16 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from copy import deepcopy
-import numpy as np
-from rlgraph.utils import util
-from six.moves import xrange as range_
 import time
 
+import numpy as np
+from six.moves import xrange as range_
+
+from rlgraph.utils import util
 from rlgraph import get_distributed_backend
-from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
 from rlgraph.execution.environment_sample import EnvironmentSample
 from rlgraph.execution.ray import RayExecutor
@@ -203,7 +201,7 @@ class RayPolicyWorker(RayActor):
         while timesteps_executed < num_timesteps:
             current_iteration_start_timestamp = time.perf_counter()
             for i, env_id in enumerate(self.env_ids):
-                state = self.agent.state_space.force_batch(env_states[i])
+                state, _ = self.agent.state_space.force_batch(env_states[i])
                 if self.preprocessors[env_id] is not None:
                     if self.is_preprocessed[env_id] is False:
                         self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
@@ -299,7 +297,7 @@ class RayPolicyWorker(RayActor):
                     if self.preprocessors[env_id] is not None:
                         self.preprocessors[env_id].reset()
                         # This re-fills the sequence with the reset state.
-                        state = self.agent.state_space.force_batch(env_states[i])
+                        state, _ = self.agent.state_space.force_batch(env_states[i])
                         # Pre - process, add to buffer
                         self.preprocessed_states_buffer[i] = np.array(self.preprocessors[env_id].preprocess(state))
                         self.is_preprocessed[env_id] = True

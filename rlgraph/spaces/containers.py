@@ -15,12 +15,10 @@
 
 from __future__ import absolute_import, division, print_function
 
-import re
-
 import numpy as np
 
 from rlgraph.spaces.space import Space
-from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op
+from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op, flat_key_lookup
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
@@ -62,9 +60,9 @@ class Dict(ContainerSpace, dict):
             if not isinstance(key, str):
                 raise RLGraphError("ERROR: No non-str keys allowed in a Dict-Space!")
             # Prohibit reserved characters (for flattened syntax).
-            if re.search(r'/|{}\d+{}'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key):
-                raise RLGraphError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Key='{}'.".
-                                   format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
+            #if re.search(r'/|{}\d+{}'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key):
+            #    raise RLGraphError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Key='{}'.".
+            #                       format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
             value = spec[key]
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch/time-ranks.
             if isinstance(value, Space):
@@ -100,8 +98,28 @@ class Dict(ContainerSpace, dict):
         for v in self.values():
             v._add_time_rank(add_time_rank, time_major)
 
-    def force_batch(self, samples):
-        return dict([(key, self[key].force_batch(samples[key])) for key in sorted(self.keys())])
+    def force_batch(self, samples, horizontal=False):
+        # Return a batch of dicts.
+        if horizontal is True:
+            # Input is already batched.
+            if isinstance(samples, (np.ndarray, list, tuple)):
+                return samples, False  # False=batch rank was not added
+            # Input is a single dict, return batch=1 sample.
+            else:
+                return np.array([samples]), True  # True=batch rank was added
+        # Return a dict of batched data.
+        else:
+            # `samples` is already a batched structure (list, tuple, ndarray).
+            if isinstance(samples, (np.ndarray, list, tuple)):
+                return dict({key: self[key].force_batch([s[key] for s in samples], horizontal=horizontal)[0]
+                             for key in sorted(self.keys())}), False
+            # `samples` is already a container (underlying data could be batched or not).
+            else:
+                # Figure out, whether underlying data is already batched.
+                first_key = next(iter(samples))
+                batch_was_added = self[first_key].force_batch(samples[first_key], horizontal=horizontal)[1]
+                return dict({key: self[key].force_batch(samples[key], horizontal=horizontal)[0]
+                             for key in sorted(self.keys())}), batch_was_added
 
     @property
     def shape(self):
@@ -230,8 +248,8 @@ class Tuple(ContainerSpace, tuple):
         for v in self:
             v._add_time_rank(add_time_rank, time_major)
 
-    def force_batch(self, samples):
-        return tuple([c.force_batch(samples[i]) for i, c in enumerate(self)])
+    def force_batch(self, samples, horizontal=False):
+        return tuple([c.force_batch(samples[i])[0] for i, c in enumerate(self)])
 
     @property
     def shape(self):

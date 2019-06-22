@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import re
 
@@ -97,7 +95,7 @@ class BoxSpace(Space):
         self.high = np.array(high)
         assert self.low.shape == self.high.shape
 
-    def force_batch(self, samples):
+    def force_batch(self, samples, horizontal=None):
         assert self.has_time_rank is False, "ERROR: Cannot force a batch rank if Space `has_time_rank` is True!"
         # 0D (means: certainly no batch rank) or no extra rank given (compared to this Space), add a batch rank.
         if np.asarray(samples).ndim == 0 or \

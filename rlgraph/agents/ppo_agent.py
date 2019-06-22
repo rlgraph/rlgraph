@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
@@ -27,7 +25,7 @@ from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten
-from rlgraph.utils.ops import flatten_op, unflatten_op, DataOpDict, ContainerDataOp, FlattenedDataOp
+from rlgraph.utils.ops import flatten_op, DataOpDict
 from rlgraph.utils.util import strip_list
 
 if get_backend() == "tf":
@@ -497,11 +495,12 @@ class PPOAgent(Agent):
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
             call_method = "get_preprocessed_state_and_action"
-            batched_states = self.state_space.force_batch(states)
+            batched_states, remove_batch_rank = self.state_space.force_batch(states)
+            #remove_batch_rank = had_to_force  #batched_states.ndim == np.asarray(states).ndim + 1
         else:
             call_method = "action_from_preprocessed_state"
             batched_states = states
-        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
+            remove_batch_rank = False
 
         # Increase timesteps by the batch size (number of states in batch).
         batch_size = len(batched_states)
@@ -515,8 +514,10 @@ class PPOAgent(Agent):
             # 0=preprocessed_states, 1=action
             return_ops
         ))
+        # If unbatched data came in, return unbatched data.
         if remove_batch_rank:
             return strip_list(ret)
+        # Return batched data.
         else:
             return ret
 

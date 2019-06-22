@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import time
 from copy import deepcopy
@@ -216,7 +214,7 @@ class SingleThreadedWorker(Worker):
 
             if self.worker_executes_preprocessing:
                 for i, env_id in enumerate(self.env_ids):
-                    state = self.agent.state_space.force_batch(env_states[i])
+                    state, _ = self.agent.state_space.force_batch(env_states[i])
                     if self.preprocessors[env_id] is not None:
                         if self.state_is_preprocessed[env_id] is False:
                             self.preprocessed_states_buffer[i] = self.preprocessors[env_id].preprocess(state)
@@ -311,7 +309,7 @@ class SingleThreadedWorker(Worker):
                     if self.worker_executes_preprocessing and self.preprocessors[env_id] is not None:
                         self.preprocessors[env_id].reset()
                         # This re-fills the sequence with the reset state.
-                        state = self.agent.state_space.force_batch(env_states[i])
+                        state, _ = self.agent.state_space.force_batch(env_states[i])
                         # Pre - process, add to buffer
                         self.preprocessed_states_buffer[i] = np.array(self.preprocessors[env_id].preprocess(state))
                         self.state_is_preprocessed[env_id] = True
@@ -324,7 +322,7 @@ class SingleThreadedWorker(Worker):
                     env_states[i] = next_states[i]
 
                 if self.worker_executes_preprocessing and self.preprocessors[env_id] is not None:
-                    #next_state = self.agent.state_space.force_batch(env_states[i])
+                    #next_state, _ = self.agent.state_space.force_batch(env_states[i])
                     next_states[i] = np.array(self.preprocessors[env_id].preprocess(env_states[i]))  # next_state
                 self._observe(
                     self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],

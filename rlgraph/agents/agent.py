@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 from collections import defaultdict
@@ -473,9 +471,9 @@ class Agent(Specifiable):
                 self.reset_env_buffers(env_id)
         else:
             if not batched:
-                preprocessed_states = self.preprocessed_state_space.force_batch(preprocessed_states)
-                next_states = self.preprocessed_state_space.force_batch(next_states)
-                actions = self.action_space.force_batch(actions)
+                preprocessed_states, _ = self.preprocessed_state_space.force_batch(preprocessed_states)
+                next_states, _ = self.preprocessed_state_space.force_batch(next_states)
+                actions, _ = self.action_space.force_batch(actions)
                 rewards = [rewards]
                 terminals = [terminals]
 
