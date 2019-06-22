@@ -295,7 +295,7 @@ class PPOAgent(Agent):
             prev_state_values = value_function.value_output(preprocessed_states)
 
             if get_backend() == "tf":
-                batch_size = tf.shape(preprocessed_states)[0]
+                batch_size = tf.shape(list(flatten_op(preprocessed_states).values())[0])[0]
 
                 # Log probs before update (stop-gradient as these are used in target term).
                 prev_log_probs = tf.stop_gradient(prev_log_probs)
@@ -317,14 +317,10 @@ class PPOAgent(Agent):
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size, dtype=tf.int32)
                     indices = tf.range(start=start, limit=start + agent.sample_size) % batch_size
-                    sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                    if isinstance(actions, ContainerDataOp):
-                        sample_actions = FlattenedDataOp()
-                        for name, action in flatten_op(actions).items():
-                            sample_actions[name] = tf.gather(params=action, indices=indices)
-                        sample_actions = unflatten_op(sample_actions)
-                    else:
-                        sample_actions = tf.gather(params=actions, indices=indices)
+
+                    # Use `map` here in case we have container states/actions.
+                    sample_states = preprocessed_states.map(lambda k, v: tf.gather(v, indices))
+                    sample_actions = actions.map(lambda k, v: tf.gather(v, indices))
 
                     sample_prev_log_probs = tf.gather(params=prev_log_probs, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
@@ -427,7 +423,7 @@ class PPOAgent(Agent):
                     return loss, loss_per_item, vf_loss, vf_loss_per_item
 
             elif get_backend() == "pytorch":
-                batch_size = preprocessed_states.shape[0]
+                batch_size = list(flatten_op(preprocessed_states).values())[0].shape[0]
                 sample_size = min(batch_size, agent.sample_size)
 
                 if isinstance(prev_log_probs, dict):
