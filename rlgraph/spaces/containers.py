@@ -36,6 +36,9 @@ class ContainerSpace(Space):
         """
         raise NotImplementedError
 
+    def flat_key_lookup(self, flat_key, custom_scope_separator=None):
+        return flat_key_lookup(self, flat_key, custom_scope_separator)
+
 
 class Dict(ContainerSpace, dict):
     """
