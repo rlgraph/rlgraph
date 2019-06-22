@@ -100,11 +100,12 @@ class BoxSpace(Space):
         # 0D (means: certainly no batch rank) or no extra rank given (compared to this Space), add a batch rank.
         if np.asarray(samples).ndim == 0 or \
                 np.asarray(samples).ndim == len(self.get_shape(with_batch_rank=False, with_time_rank=False)):
-            return np.array([samples])  # batch size=1
+            return np.array([samples]), True  # batch size=1
         # Samples is a list (whose len is interpreted as the batch size) -> return as np.array.
         elif isinstance(samples, list):
-            return np.asarray(samples)
-        return samples
+            return np.asarray(samples), False
+        # Samples is already assumed to be batched. Return as is.
+        return samples, False
 
     def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         batch_rank = ()
