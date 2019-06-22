@@ -237,7 +237,7 @@ def _backtrace_op_rec(op_rec, _components=None, _api_methods=None, _graph_fns=No
         if column_type == "API":
             _api_methods.add(column_scope)
         else:
-            assert column_type == "GF"
+            assert column_type == "GF" or column_type == ""  # could be a non-specific key-lookup column as well.
             _graph_fns.add(column_scope)
 
         if op_rec.previous is None:
