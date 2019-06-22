@@ -21,7 +21,7 @@ import numpy as np
 
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import convert_dtype
-from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
+from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant, DataOpDict
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 
 
@@ -100,20 +100,40 @@ class DataOpRecord(object):
             #if "key-lookup" in next_op_rec.op_instructions:
             if "key-lookup" in self.op_instructions:
                 lookup_key = self.op_instructions["key-lookup"]
-                if isinstance(lookup_key, str) and \
-                        (not isinstance(self.op, dict) or lookup_key not in self.op):
-                    raise RLGraphError(
-                        "Op ({}) is not a dict or does not contain the lookup key '{}'!". \
-                        format(self.op, lookup_key)
-                    )
+                if isinstance(lookup_key, str):
+                    found_op = None
+                    found_space = None
+                    if isinstance(self.op, dict):
+                        assert isinstance(self.op, DataOpDict)
+                        if lookup_key in self.op:
+                            found_op = self.op[lookup_key]
+                            found_space = self.space[lookup_key]
+                        # Lookup-key could also be a flat-key. -> Try to find entry in nested (dict) op.
+                        else:
+                            found_op = self.op.flat_key_lookup(lookup_key)
+                            if found_op is not None:
+                                found_space = self.space.flat_key_lookup(lookup_key)
+
+                    # Did we find anything? If not, error for invalid key-lookup.
+                    if found_op is None or found_space is None:
+                        raise RLGraphError(
+                            "Op ({}) is not a dict or does not contain the lookup key '{}'!". \
+                            format(self.op, lookup_key)
+                        )
+
+                    next_op_rec.op = found_op
+                    next_op_rec.space = found_space
+
                 elif isinstance(lookup_key, int) and \
                         (not isinstance(self.op, (list, tuple)) or lookup_key >= len(self.op)):
                     raise RLGraphError(
                         "Op ({}) is not a list/tuple or contains not enough items for lookup "
                         "index '{}'!".format(self.op, lookup_key)
                     )
-                next_op_rec.op = self.op[lookup_key]
-                next_op_rec.space = self.space[lookup_key]
+
+                else:
+                    next_op_rec.op = self.op[lookup_key]
+                    next_op_rec.space = self.space[lookup_key]
             # No instructions -> simply pass on.
             else:
                 next_op_rec.op = self.op
@@ -140,15 +160,16 @@ class DataOpRecord(object):
         """
         Creates new DataOpRecordColumn with a single op-rec pointing via its `op_instruction` dict
         back to the previous column's op-rec (this one). This can be used to instruct the building process to
-        do tuple/dict lookups during the build process to implicitly use ContainerMerger/Splitter helper components
-        for a more intuitive handling of DataOpRecords within Component API methods.
+        do tuple/dict lookups during the build process for a more intuitive handling of DataOpRecords within Component
+        API methods.
 
         Args:
-            key (str): The lookup key
+            key (str): The lookup key.
 
         Returns:
             A new DataOpRecord with the op_instructions set to do a tuple (idx) or dict (key) lookup at build time.
         """
+        # TODO: This should be some specific type?
         column = DataOpRecordColumn(
             self.column.component, args=[self]
         )
