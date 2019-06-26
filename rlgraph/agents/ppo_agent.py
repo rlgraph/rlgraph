@@ -16,7 +16,6 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, RingBuffer, PPOLossFunction
@@ -244,6 +243,9 @@ class PPOAgent(Agent):
         # Insert into memory.
         @rlgraph_api(component=self.root_component)
         def insert_records(root, preprocessed_states, actions, rewards, terminals):
+            # Standardize rewards before pushing them into the memory.
+            #if root.standardize_rewards is not None:
+            #    rewards = self.standardize_rewards.call(rewards)
             records = dict(states=preprocessed_states, actions=actions, rewards=rewards, terminals=terminals)
             return agent.memory.insert_records(records)
 
@@ -491,15 +493,20 @@ class PPOAgent(Agent):
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
             call_method = "get_preprocessed_state_and_action"
-            batched_states, remove_batch_rank = self.state_space.force_batch(states)
-            #remove_batch_rank = had_to_force  #batched_states.ndim == np.asarray(states).ndim + 1
+            batched_states, remove_batch_rank = self.state_space.force_batch(states, horizontal=False)
+        # States are already pre-processed (and therefore also batched).
         else:
             call_method = "action_from_preprocessed_state"
             batched_states = states
             remove_batch_rank = False
 
         # Increase timesteps by the batch size (number of states in batch).
-        batch_size = len(batched_states)
+        if not isinstance(batched_states, (dict, tuple)):
+            batch_size = len(batched_states)
+        elif isinstance(batched_states, dict):
+            batch_size = len(batched_states[next(iter(batched_states))])
+        else:
+            batch_size = len(next(iter(batched_states)))
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).

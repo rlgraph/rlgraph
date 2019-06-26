@@ -20,7 +20,6 @@ from collections import defaultdict
 from functools import partial
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components import Component, Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
     ContainerMerger, ContainerSplitter
@@ -160,15 +159,15 @@ class Agent(Specifiable):
         self.default_env = "env_0"
 
         def factory_(i):
-            if i < 2:
+            if i == 0:
                 return []
             return tuple([[] for _ in range(i)])
 
-        self.states_buffer = defaultdict(list)  # partial(fact_, len(self.flat_state_space)))
+        self.states_buffer = defaultdict(partial(factory_, len(self.flat_state_space or [])))
         self.actions_buffer = defaultdict(partial(factory_, len(self.flat_action_space or [])))
         self.internals_buffer = defaultdict(list)
         self.rewards_buffer = defaultdict(list)
-        self.next_states_buffer = defaultdict(list)  # partial(fact_, len(self.flat_state_space)))
+        self.next_states_buffer = defaultdict(partial(factory_, len(self.flat_state_space or [])))
         self.terminals_buffer = defaultdict(list)
 
         self.observe_spec = parse_observe_spec(observe_spec)
@@ -449,6 +448,23 @@ class Agent(Specifiable):
                     self.terminals_buffer[env_id][-1] = True
 
                 # TODO: Apply n-step post-processing if necessary.
+                if self.flat_state_space is not None:
+                    states_ = {}
+                    next_states_ = {}
+                    for i, key in enumerate(self.flat_state_space.keys()):
+                        states_[key] = np.asarray(self.states_buffer[env_id][i])
+                        next_states_[key] = np.asarray(self.next_states_buffer[env_id][i])
+                        # Squeeze, but do not squeeze (1,) to ().
+                        if len(states_[key]) > 1:
+                            states_[key] = np.squeeze(states_[key])
+                            next_states_[key] = np.squeeze(next_states_[key])
+                        else:
+                            states_[key] = np.reshape(states_[key], (1,))
+                            next_states_[key] = np.reshape(next_states_[key], (1,))
+                else:
+                    states_ = np.asarray(self.states_buffer[env_id])
+                    next_states_ = np.asarray(self.next_states_buffer[env_id])
+
                 if self.flat_action_space is not None:
                     actions_ = {}
                     for i, key in enumerate(self.flat_action_space.keys()):
@@ -460,12 +476,13 @@ class Agent(Specifiable):
                             actions_[key] = np.reshape(actions_[key], (1,))
                 else:
                     actions_ = np.asarray(self.actions_buffer[env_id])
+
                 self._observe_graph(
-                    preprocessed_states=np.asarray(self.states_buffer[env_id]),
+                    preprocessed_states=states_,
                     actions=actions_,
                     internals=np.asarray(self.internals_buffer[env_id]),
                     rewards=np.asarray(self.rewards_buffer[env_id]),
-                    next_states=np.asarray(self.next_states_buffer[env_id]),
+                    next_states=next_states_,
                     terminals=np.asarray(self.terminals_buffer[env_id])
                 )
                 self.reset_env_buffers(env_id)
