@@ -17,7 +17,6 @@ from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.distributions.normal import Normal
-from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
@@ -62,12 +61,13 @@ class VariationalAutoEncoder(NeuralNetwork):
         self.normal_distribution = Normal()
 
         # A concat layer to concat mean and stddev before passing it to the Normal distribution.
-        self.concat_layer = ConcatLayer(axis=-1)
+        # No longer needed: Pass Tuple (mean + stddev) into API-method instead of concat'd tensor.
+        #self.concat_layer = ConcatLayer(axis=-1)
 
         # Add all sub-Components.
         self.add_components(
             self.encoder_network, self.decoder_network, self.mean_layer, self.stddev_layer,
-            self.normal_distribution, self.concat_layer
+            self.normal_distribution#, self.concat_layer
         )
 
     @rlgraph_api
@@ -77,8 +77,7 @@ class VariationalAutoEncoder(NeuralNetwork):
         """
         encoder_out = self.encode(input_)
         decoder_out = self.decode(encoder_out["z_sample"])
-        # NeuralNetworks must always return a dict with at least the `output` key set.
-        return decoder_out["output"]
+        return decoder_out
 
     @rlgraph_api
     def encode(self, input_):
@@ -88,8 +87,8 @@ class VariationalAutoEncoder(NeuralNetwork):
         mean = self.mean_layer.call(encoder_output)
         log_stddev = self.stddev_layer.call(encoder_output)
         stddev = self._graph_fn_exp(log_stddev)
-        parameters = self.concat_layer.call(mean, stddev)
-        z_sample = self.normal_distribution.sample_stochastic(parameters)
+        # Generate a Tuple to be passed into `sample_stochastic` as parameters of a Normal distribution.
+        z_sample = self.normal_distribution.sample_stochastic(tuple([mean, stddev]))
         return dict(z_sample=z_sample, mean=mean, stddev=stddev)
 
     @rlgraph_api

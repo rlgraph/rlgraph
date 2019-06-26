@@ -18,7 +18,6 @@ from __future__ import absolute_import, division, print_function
 import unittest
 
 import numpy as np
-
 from rlgraph.components.neural_networks.variational_auto_encoder import VariationalAutoEncoder
 from rlgraph.spaces import FloatBox
 from rlgraph.tests.component_test import ComponentTest
@@ -65,7 +64,7 @@ class TestVariationalAutoEncoders(unittest.TestCase):
         )
         out = test.test(("encode", input_), expected_outputs=None)
         recursive_assert_almost_equal(out["mean"], expected_mean, decimals=5)
-        recursive_assert_almost_equal(out["stddev"], expected_stddev, decimals=5)
+        recursive_assert_almost_equal(out["stddev"], np.exp(expected_stddev), decimals=5)
         self.assertTrue(out["z_sample"].shape == (3, 1))
 
         test.terminate()
