@@ -23,7 +23,6 @@ from collections import OrderedDict
 
 import numpy as np
 from six.moves import xrange as range_
-
 from rlgraph import get_backend
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
@@ -895,8 +894,8 @@ class Component(Specifiable):
                         args_str_w_default += ak + ("="+str(api_method_rec.default_values[api_method_rec.default_args.index(ak)]) if ak in api_method_rec.default_args else "") + ", "
                     args_str += ("*"+api_method_rec.args_name+", " if api_method_rec.args_name else "")
                     args_str += ("**"+api_method_rec.kwargs_name+", " if api_method_rec.kwargs_name else "")
-                    args_str = args_str[:-2]  # cut last ', '
-                    code += args_str_w_default + "):\n"
+                    args_str = args_str[:-2]  # -2=cut last ', '
+                    code += args_str_w_default[:-2] + "):\n" # -2=cut last ', '
                     code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(component.name, api_method_name, args_str)
                     print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
                     exec(code, globals(), locals())
