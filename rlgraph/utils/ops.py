@@ -53,12 +53,12 @@ class DataOp(object):
         as well as ContainerDataOps to something else.
 
         Args:
-            mapping (callable): The mapping function taking a DataOp as arg and returning another DataOp.
+            mapping (callable): The mapping function taking a key and a DataOp as args and returning another DataOp.
 
         Returns:
             DataOp: The mapped DataOp (or ContainerDataOp).
         """
-        return self
+        return mapping("", self)
 
 
 class SingleDataOp(DataOp):

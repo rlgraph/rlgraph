@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from rlgraph import get_backend
@@ -437,22 +435,29 @@ class Policy(Component):
         if isinstance(action_space_component, IntBox) and \
                 (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
             return self._graph_fn_get_deterministic_action_wo_distribution(logits)
+        # Bernoulli: Sigmoid derived p must be larger 0.5.
         elif isinstance(action_space_component, BoolBox) and \
                 (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
+            # Note: Change 0.5 to 1.0, once parameters are logits, not probs anymore (so far, parameters for
+            # Bernoulli distributions are still probs).
             if get_backend() == "tf":
-                return tf.greater(logits, 0.5)
+                return tf.greater(parameters, 0.5)
             elif get_backend() == "pytorch":
-                return torch.gt(logits, 0.5)
+                return torch.gt(parameters, 0.5)
+        # Deterministic is tensor or False. Pass through graph.
         else:
             return self.distributions[flat_key].draw(parameters, deterministic)
 
     @graph_fn(returns=2, flatten_ops="flat_action_space", split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_get_action_and_log_likelihood(self, flat_key, parameters, deterministic):
+        # TODO: Utilize same logic in _graph_fn_get_action_components.
+        # TODO: Not working right now, because we would split twice (here and in _graph_fn_get_action_components).
         action = None
         log_prob_or_likelihood = None
 
         action_space_component = self.flat_action_space[flat_key]
 
+        # Categorical: Argmax over raw logits.
         if isinstance(action_space_component, IntBox) and \
                 (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
             action = self._graph_fn_get_deterministic_action_wo_distribution(parameters)
@@ -460,15 +465,18 @@ class Policy(Component):
                 log_prob_or_likelihood = tf.log(tf.reduce_max(tf.nn.softmax(parameters, axis=-1), axis=-1))
             elif get_backend() == "pytorch":
                 log_prob_or_likelihood = torch.log(torch.max(torch.softmax(parameters, dim=-1), dim=-1)[0])
+        # Bernoulli: Sigmoid derived p must be larger 0.5.
         elif isinstance(action_space_component, BoolBox) and \
                 (deterministic is True or (isinstance(deterministic, np.ndarray) and deterministic)):
+            # Note: Change 0.5 to 1.0, once parameters are logits, not probs anymore (so far, parameters for
+            # Bernoulli distributions are still probs).
             if get_backend() == "tf":
                 action = tf.greater(parameters, 0.5)
-                log_prob_or_likelihood = tf.log(parameters)
+                log_prob_or_likelihood = tf.log(tf.where(parameters > 0.5, parameters, 1.0 - parameters))
             elif get_backend() == "pytorch":
                 action = torch.gt(parameters, 0.5)
-                log_prob_or_likelihood = torch.log(parameters)
-
+                log_prob_or_likelihood = torch.log(torch.where(parameters > 0.5, parameters, 1.0 - parameters))
+        # Deterministic is tensor or False. Pass through graph.
         else:
             action, log_prob_or_likelihood = self.distributions[flat_key].sample_and_log_prob(
                 parameters, deterministic

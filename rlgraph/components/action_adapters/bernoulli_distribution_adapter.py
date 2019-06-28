@@ -53,4 +53,6 @@ class BernoulliDistributionAdapter(ActionAdapter):
             # Log probs.
             log_probs = torch.log(probs)
 
-        return parameters, probs, log_probs
+        # TODO: For Bernoulli, params are probs (not raw logits!). Therefore, must return here parameters==probs.
+        # TODO: Change like in Categorical such that parameters are raw logits.
+        return probs, probs, log_probs

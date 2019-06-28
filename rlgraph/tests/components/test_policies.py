@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
@@ -24,11 +22,95 @@ from rlgraph.components.policies import Policy, SharedValueFunctionPolicy, Dueli
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
-from rlgraph.utils import softmax, relu, MAX_LOG_STDDEV, MIN_LOG_STDDEV, SMALL_NUMBER
+from rlgraph.utils import sigmoid, softmax, relu, MAX_LOG_STDDEV, MIN_LOG_STDDEV, SMALL_NUMBER
 from scipy.stats import beta, norm
 
 
 class TestPolicies(unittest.TestCase):
+
+    def test_policy_for_boolean_action_space(self):
+        # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
+        state_space = FloatBox(shape=(4,), add_batch_rank=True)
+
+        # action_space (simple boolean).
+        action_space = BoolBox(add_batch_rank=True)
+
+        policy = Policy(network_spec=config_from_path("configs/test_simple_nn.json"), action_space=action_space)
+        test = ComponentTest(
+            component=policy,
+            input_spaces=dict(
+                nn_inputs=state_space,
+                actions=action_space,
+            ),
+            action_space=action_space
+        )
+        policy_params = test.read_variable_values(policy.variable_registry)
+
+        # Some NN inputs.
+        batch_size = 32
+        states = state_space.sample(batch_size)
+        # Raw NN-output.
+        expected_nn_output = np.matmul(
+            states, ComponentTest.read_params("policy/test-network/hidden-layer", policy_params)
+        )
+
+        test.test(("get_nn_outputs", states), expected_outputs=expected_nn_output, decimals=5)
+
+        # Raw action layer output; Expected shape=(): 2=batch
+        expected_action_layer_output = np.squeeze(np.matmul(
+            expected_nn_output,
+            ComponentTest.read_params("policy/action-adapter-0/action-network/action-layer", policy_params)
+        ), axis=-1)
+        test.test(
+            ("get_adapter_outputs", states), expected_outputs=dict(
+                adapter_outputs=expected_action_layer_output, nn_outputs=expected_nn_output
+            ), decimals=5
+        )
+
+        # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
+        expected_probs_output = sigmoid(expected_action_layer_output)
+        test.test(
+            ("get_adapter_outputs_and_parameters", states, ["adapter_outputs", "parameters", "log_probs"]),
+            expected_outputs=dict(
+                adapter_outputs=expected_action_layer_output,
+                parameters=expected_probs_output,
+                log_probs=np.log(expected_probs_output)
+            ), decimals=5
+        )
+
+        expected_actions = expected_action_layer_output > 0.0
+        test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
+
+        # Get action AND log-llh.
+        out = test.test(("get_action_and_log_likelihood", states))
+        action = out["action"]
+        llh = out["log_likelihood"]
+
+        # Action log-probs.
+        expected_action_log_llh_output = np.log(np.array([
+            expected_probs_output[i] if action[i] else 1.0 - expected_probs_output[i] for i in range(batch_size)
+        ]))
+        test.test(
+            ("get_log_likelihood", [states, action], "log_likelihood"),
+            expected_outputs=dict(log_likelihood=expected_action_log_llh_output),
+            decimals=5
+        )
+        recursive_assert_almost_equal(expected_action_log_llh_output, llh, decimals=5)
+
+        # Stochastic sample.
+        out = test.test(("get_stochastic_action", states), expected_outputs=None)
+        self.assertTrue(out["action"].dtype == np.bool_)
+        self.assertTrue(out["action"].shape == (batch_size,))
+
+        # Deterministic sample.
+        test.test(("get_deterministic_action", states), expected_outputs=None)
+        self.assertTrue(out["action"].dtype == np.bool_)
+        self.assertTrue(out["action"].shape == (batch_size,))
+
+        # Distribution's entropy.
+        out = test.test(("get_entropy", states), expected_outputs=None)
+        self.assertTrue(out["entropy"].dtype == np.float32)
+        self.assertTrue(out["entropy"].shape == (batch_size,))
 
     def test_policy_for_discrete_action_space(self):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
