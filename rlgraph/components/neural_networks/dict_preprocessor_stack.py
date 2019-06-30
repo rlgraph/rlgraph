@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing import PreprocessLayer
@@ -31,7 +29,7 @@ if get_backend() == "tf":
 
 class DictPreprocessorStack(PreprocessorStack):
     """
-    A generic PreprocessorStack that can handle Dict/Tuple Spaces and parallely preprocess different Spaces within
+    A generic PreprocessorStack that can handle Dict/Tuple Spaces and parallelly preprocess different Spaces within
     different (and separate) single PreprocessorStack components.
     The output is again a dict of preprocessed inputs.
     """
@@ -45,22 +43,22 @@ class DictPreprocessorStack(PreprocessorStack):
         """
         # Create one separate PreprocessorStack per given key.
         # All possibly other keys in an input will be pass through un-preprocessed.
-        self.preprocessors = flatten_op(preprocessors)
-        for i, (flat_key, spec) in enumerate(self.preprocessors.items()):
-            self.preprocessors[flat_key] = PreprocessorStack.from_spec(
+        self.flattened_preprocessors = flatten_op(preprocessors)
+        for i, (flat_key, spec) in enumerate(self.flattened_preprocessors.items()):
+            self.flattened_preprocessors[flat_key] = PreprocessorStack.from_spec(
                 spec, scope="preprocessor-stack-{}".format(i)
             )
 
         # NOTE: No automatic API-methods. Define them all ourselves.
         kwargs["api_methods"] = {}
         default_dict(kwargs, dict(scope=kwargs.pop("scope", "dict-preprocessor-stack")))
-        super(DictPreprocessorStack, self).__init__(*list(self.preprocessors.values()), **kwargs)
+        super(DictPreprocessorStack, self).__init__(*list(self.flattened_preprocessors.values()), **kwargs)
 
     @rlgraph_api(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_preprocess(self, key, inputs):
+    def _graph_fn_preprocess(self, flat_key, inputs):
         # Is a PreprocessorStack defined for this key?
-        if key in self.preprocessors:
-            return self.preprocessors[key].preprocess(inputs)
+        if flat_key in self.flattened_preprocessors:
+            return self.flattened_preprocessors[flat_key].preprocess(inputs)
         # Simple pass through, no preprocessing.
         else:
             return inputs
@@ -69,13 +67,13 @@ class DictPreprocessorStack(PreprocessorStack):
     def reset(self):
         # TODO: python-Components: For now, we call each preprocessor's graph_fn directly.
         if self.backend == "python" or get_backend() == "python":
-            for preprocessor in self.preprocessors.values():  # type: PreprocessLayer
+            for preprocessor in self.flattened_preprocessors.values():  # type: PreprocessLayer
                 preprocessor.reset()
 
         elif get_backend() == "tf":
             # Connect each pre-processor's "reset" output op via our graph_fn into one op.
             resets = list()
-            for preprocessor in self.preprocessors.values():  # type: PreprocessorStack
+            for preprocessor in self.flattened_preprocessors.values():  # type: PreprocessorStack
                 resets.append(preprocessor.reset())
             reset_op = self._graph_fn_reset(*resets)
             return reset_op
@@ -99,8 +97,8 @@ class DictPreprocessorStack(PreprocessorStack):
         assert isinstance(space, ContainerSpace)
         dict_spec = dict()
         for flat_key, sub_space in space.flatten().items():
-            if flat_key in self.preprocessors:
-                dict_spec[flat_key] = self.preprocessors[flat_key].get_preprocessed_space(sub_space)
+            if flat_key in self.flattened_preprocessors:
+                dict_spec[flat_key] = self.flattened_preprocessors[flat_key].get_preprocessed_space(sub_space)
             else:
                 dict_spec[flat_key] = sub_space
         dict_spec = unflatten_op(dict_spec)
