@@ -13,18 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
 import numpy as np
+
 from rlgraph.components.policies import Policy, SharedValueFunctionPolicy, DuelingPolicy
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
-from rlgraph.utils import softmax, relu, SMALL_NUMBER
+from rlgraph.utils import sigmoid, softmax, relu, SMALL_NUMBER
 
 
 class TestPoliciesOnContainerActions(unittest.TestCase):
@@ -36,14 +35,8 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
         # Container action space.
         action_space = dict(
             type="dict",
-            a=IntBox(2),
+            a=BoolBox(),
             b=IntBox(3),
-            add_batch_rank=True
-        )
-        flat_float_action_space = dict(
-            type="dict",
-            a=FloatBox(shape=(2,)),
-            b=FloatBox(shape=(3,)),
             add_batch_rank=True
         )
 
@@ -58,15 +51,16 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
         )
         policy_params = test.read_variable_values(policy.variable_registry)
 
-        # Some NN inputs (batch size=2).
-        states = state_space.sample(2)
+        # Some NN inputs (batch size=32).
+        batch_size = 32
+        states = state_space.sample(batch_size)
         # Raw NN-output.
         expected_nn_output = np.matmul(states, policy_params["policy/test-network/hidden-layer/dense/kernel"])
         test.test(("get_nn_outputs", states), expected_outputs=expected_nn_output, decimals=6)
 
         # Raw action layers' output.
         expected_action_layer_outputs = dict(
-            a=np.matmul(expected_nn_output, policy_params["policy/action-adapter-0/action-network/action-layer/dense/kernel"]),
+            a=np.squeeze(np.matmul(expected_nn_output, policy_params["policy/action-adapter-0/action-network/action-layer/dense/kernel"])),
             b=np.matmul(expected_nn_output, policy_params["policy/action-adapter-1/action-network/action-layer/dense/kernel"])
         )
         test.test(
@@ -77,20 +71,21 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
 
         # Logits, parameters (probs) and skip log-probs (numerically unstable for small probs).
         expected_probs_output = dict(
-            a=np.array(softmax(expected_action_layer_outputs["a"], axis=-1), dtype=np.float32),
+            a=np.array(sigmoid(expected_action_layer_outputs["a"]), dtype=np.float32),
             b=np.array(softmax(expected_action_layer_outputs["b"], axis=-1), dtype=np.float32)
         )
         test.test(
             ("get_adapter_outputs_and_parameters", states, ["adapter_outputs", "parameters"]),
-            expected_outputs=dict(adapter_outputs=expected_action_layer_outputs,
-                                  parameters=expected_action_layer_outputs),
-            decimals=5
+            expected_outputs=dict(
+                adapter_outputs=expected_action_layer_outputs,
+                parameters=dict(a=expected_probs_output["a"], b=expected_action_layer_outputs["b"])
+            ), decimals=5
         )
 
         print("Probs: {}".format(expected_probs_output))
 
         expected_actions = dict(
-            a=np.argmax(expected_action_layer_outputs["a"], axis=-1),
+            a=expected_probs_output["a"] > 0.5,
             b=np.argmax(expected_action_layer_outputs["b"], axis=-1)
         )
         test.test(("get_action", states, ["action"]), expected_outputs=dict(action=expected_actions))
@@ -100,10 +95,9 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
         llh = out["log_likelihood"]
 
         # Action log-likelihood (sum of the composite llhs).
-        expected_action_llh_output = np.log(np.array([expected_probs_output["a"][0][action["a"][0]],
-                                                      expected_probs_output["a"][1][action["a"][1]]])) + \
-                                     np.log(np.array([expected_probs_output["b"][0][action["b"][0]],
-                                                      expected_probs_output["b"][1][action["b"][1]]]))
+        expected_action_llh_output = \
+            np.log(np.array([expected_probs_output["a"][i] if action["a"][i] else 1.0 - expected_probs_output["a"][i] for i in range(batch_size)])) + \
+            np.log(np.array([expected_probs_output["b"][i][action["b"][i]] for i in range(batch_size)]))
         test.test(
             ("get_log_likelihood", [states, action]), expected_outputs=dict(
                 log_likelihood=expected_action_llh_output, adapter_outputs=expected_action_layer_outputs
@@ -113,24 +107,24 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
 
         # Stochastic sample.
         out = test.test(("get_stochastic_action", states), expected_outputs=None)  # dict(action=expected_actions))
-        self.assertTrue(out["action"]["a"].dtype == np.int32)
-        self.assertTrue(out["action"]["a"].shape == (2,))
+        self.assertTrue(out["action"]["a"].dtype == np.bool_)
+        self.assertTrue(out["action"]["a"].shape == (batch_size,))
         self.assertTrue(out["action"]["b"].dtype == np.int32)
-        self.assertTrue(out["action"]["b"].shape == (2,))
+        self.assertTrue(out["action"]["b"].shape == (batch_size,))
 
         # Deterministic sample.
         test.test(("get_deterministic_action", states), expected_outputs=None)  # dict(action=expected_actions))
-        self.assertTrue(out["action"]["a"].dtype == np.int32)
-        self.assertTrue(out["action"]["a"].shape == (2,))
+        self.assertTrue(out["action"]["a"].dtype == np.bool_)
+        self.assertTrue(out["action"]["a"].shape == (batch_size,))
         self.assertTrue(out["action"]["b"].dtype == np.int32)
-        self.assertTrue(out["action"]["b"].shape == (2,))
+        self.assertTrue(out["action"]["b"].shape == (batch_size,))
 
         # Distribution's entropy.
         out = test.test(("get_entropy", states), expected_outputs=None)  # dict(entropy=expected_h), decimals=3)
         self.assertTrue(out["entropy"]["a"].dtype == np.float32)
-        self.assertTrue(out["entropy"]["a"].shape == (2,))
+        self.assertTrue(out["entropy"]["a"].shape == (batch_size,))
         self.assertTrue(out["entropy"]["b"].dtype == np.float32)
-        self.assertTrue(out["entropy"]["b"].shape == (2,))
+        self.assertTrue(out["entropy"]["b"].shape == (batch_size,))
 
     def test_shared_value_function_policy_for_discrete_container_action_space(self):
         # state_space (NN is a simple single fc-layer relu network (2 units), random biases, random weights).
