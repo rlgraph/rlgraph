@@ -1,6 +1,17 @@
 ## Release notes
 Summarizes updates in recent releases.
 
+## RLgraph 0.5.5 - 2019/07/01
+- Added some new Components (MultiInputStreamNN, VariationalAutoEncoder, MultiLSTMLayer, JointCumulativeDistribution,
+  different supervised LossFunctions, Models, etc..), incl. test cases.
+- Added container Space support to all Agents (python buffers had to be expanded).
+- Bug fix in BernoulliDistributionAdapter and Policy (with bool actions): Was returning wrong 
+  parameters (must be probs, not raw NN output).
+- tf backend: Allow returning None now in graph_fn as valid DataOps.
+- Bug fix in LSTM tf backend: LSTMLayer would not compile on tf versions < 1.13.
+- Added possibility to flatten/split a graph_fn call "alongside" some given "(self.)property". This makes it easier to
+  split input args only to a certain extend (see e.g. distribution parameters in policy's API methods). 
+
 ## RLgraph 0.5.4 - 2019/06/07
 - Added a prototype for a debug visualization util that automatically
   builds sub-sections of the (meta-)graph and visualizes this sub-graph
