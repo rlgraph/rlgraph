@@ -598,7 +598,8 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
             num_graph_fn_return_values = util.get_num_return_values(wrapped_func)
             # Safety measure: If not explicitly declared, do not allow 0 return values.
             assert num_graph_fn_return_values > 0,\
-                "ERROR: GraphFn '{}/{}' does not seem to be returning any values!".\
+                "ERROR: GraphFn '{}/{}' does not seem to be returning any values! If a simple None/no_op should be " \
+                "returned from the function, it may help to explicitly write 'return None' at the bottom of it.".\
                 format(component.global_scope, wrapped_func.__name__)
 
         component.logger.debug("GraphFn has {} return values (inferred).".format(
