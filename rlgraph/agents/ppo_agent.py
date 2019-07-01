@@ -454,7 +454,9 @@ class PPOAgent(Agent):
                 else:
                     advantages = rewards
                 if self.standardize_advantages:
-                    advantages = (advantages - torch.mean(advantages)) / torch.std(advantages)
+                    std = torch.std(advantages)
+                    if not np.isnan(std):
+                        advantages = (advantages - torch.mean(advantages)) / std
 
                 for _ in range(agent.iterations):
                     start = int(torch.rand(1) * (batch_size - 1))
