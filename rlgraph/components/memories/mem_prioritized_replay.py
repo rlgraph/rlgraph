@@ -13,14 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
+
+import operator
 
 import numpy as np
-import operator
 from six.moves import xrange as range_
-
 from rlgraph import get_backend
 from rlgraph.utils import util, DataOpDict
 from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
@@ -102,6 +100,8 @@ class MemPrioritizedReplay(Memory):
         # Update indices
         self.index = (self.index + num_records) % self.capacity
         self.size = min(self.size + num_records, self.capacity)
+
+        return None
 
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
