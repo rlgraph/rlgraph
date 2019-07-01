@@ -346,7 +346,7 @@ class GraphBuilder(Specifiable):
                     )
                 except RLGraphSpaceError as e:
                     # Should we plot the subgraph that lead to this error?
-                    if get_config().get("BUILD_DEBUG_PLOTS", True) is True:
+                    if get_config().get("GRAPHVIZ_RENDER_BUILD_ERRORS", True) is True:
                         op_rec = e.space.op_rec_ref
                         assert op_rec is not None
                         draw_sub_meta_graph_from_op_rec(op_rec, meta_graph=self.meta_graph)

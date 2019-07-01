@@ -71,9 +71,12 @@ def draw_meta_graph(component, *, output=None, apis=True, graph_fns=False, rende
         component_filter (Optional[Set[Component]]): If provided, only Components in the filter set will be rendered.
             Set to "auto" for only allowing given `component` plus sub-components to be rendered.
 
-        column_filter (Optional[Set[int]]): If provided, only columns in the filter set will be rendered.
+        column_filter (Optional[Set[int]]): If provided, only columns (by their `id`) in the filter set will be
+            rendered.
 
         connection_filter (Optional[Set[str]]): If provided, only connections in the filter set will be rendered.
+            Connections are specified by the two connected DataOpRecord `id`s.
+
         render (bool): Whether to show the resulting graph as pdf in the browser.
         _graphviz_graph (Digraph): Whether this is a recursive (sub-component) call.
 

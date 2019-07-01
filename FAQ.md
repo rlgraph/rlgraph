@@ -11,6 +11,7 @@ Here we collect short answers to common questions and point to resources:
 
 [How can I use a more complex network structure?](#how-can-i-use-a-more-complex-network-structure)
 
+[How can I use GraphViz to quickly detect and render build problems (like shape and type errors)?](#how-can-i-use-graphviz-to-quickly-detect-and-render-build-problems-like-shape-and-type-errors)
 
 ### How can I execute a gym environment?
 
@@ -308,21 +309,21 @@ class MyCustomNetwork(NeuralNetwork):
 
 ### How can I use GraphViz to quickly detect and render build problems (like shape and type errors)?
 
-##### First, install the two requirements, pypi graphviz and the GraphViz backend engine:
+##### Install the two requirements: `pypi graphviz` and the GraphViz backend engine:
 
 ```
 pip install graphviz
 ```
 
-Then ownload the [GraphViz installer from here](https://graphviz.gitlab.io/download/),
-install GraphViz locally and then (very important!) add its `bin` directory to
+Then download the [GraphViz installer from here](https://graphviz.gitlab.io/download/),
+install GraphViz locally and (very important!) add its `bin` directory to
 your `PATH` env variable. You will have to restart your python-shell, IDE, etc. before
 this will work.
 
 ##### Test your GraphViz installation.
 
 ```
-python
+$ python
 > import graphviz
 > g = graphviz.Digraph("my Digraph")
 > g.render("[some pdf filename]", view=True)
@@ -330,5 +331,53 @@ python
 
 This should open a new browser tab showing an empty graph.
 
+**RLgraph will from here on render and display component- and computation graphs
+in your browser whenever there is a build error in your agents or models** (such
+as shape and type errors caught by the Components' `check_input_spaces` methods).
+In case you want to disable this automatic graph display in your browser,
+simply add the following setting to your `rlgraph.json` config file, located at:
+`~/.rlgraph/rlgraph.json` (on Windows: `C:\Users\[your user name]\.rlgraph\rlgraph.json`):
 
-#####
+```
+    "GRAPHVIZ_RENDER_BUILD_ERRORS": false
+```
+
+To create a quick sample GraphViz rendering for an actually faulty Agent-build,
+you can run this test case here:
+
+```
+cd tests  # <- from the rlgraph/rlgraph dir
+python -m unittest test_visualizations.TestVisualizations.test_ppo_agent_faulty_op_visualization
+```
+
+You should see this debug rendering:
+
+![Debug rendering PPO](https://raw.githubusercontent.com/rlgraph/rlgraph/master/docs/images/graphviz-debug-rendering-faulty-ppo.png)
+
+##### Meaning of the different colors and labels.
+
+![GraphViz legend](https://raw.githubusercontent.com/rlgraph/rlgraph/master/docs/images/graphviz-legend.png)
+
+##### Generating custom computation graph renderings.
+
+You can also creat custom graphviz renderings of your RLgraph computation graphs and meta-graphs
+by importing the visualization_util methods such as:
+
+```
+from rlgraph.utils.visualization_util import draw_meta_graph
+```
+
+The `draw_meta_graph` method takes a component as its first argument and then some optional
+filtering settings.
+
+For example, to draw only the component graph (e.g. to see what's inside a complex NN), do:
+
+```
+my_complex_nn_component = NeuralNetwork([some complex stuff])
+draw_meta_graph(my_complex_nn_component, apis=False, graph_fns=False)
+```
+
+See the docstring of `draw_meta_graph` on how to use each single filter.
+RLgraph uses these filters to display only the relevant data-path back from a faulty input
+Space to the leftmost placeholders.
+

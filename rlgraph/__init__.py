@@ -85,7 +85,7 @@ if not os.path.exists(config_file):
     CONFIG = {
         "BACKEND": BACKEND,
         "DISTRIBUTED_BACKEND": DISTRIBUTED_BACKEND,
-        "BUILD_DEBUG_PLOTS": True
+        "GRAPHVIZ_RENDER_BUILD_ERRORS": True
     }
     try:
         with open(config_file, 'w') as f:
