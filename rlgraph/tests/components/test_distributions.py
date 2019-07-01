@@ -19,7 +19,6 @@ import unittest
 
 import numpy as np
 from scipy.stats import norm, beta
-
 from rlgraph.components.distributions import *
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
@@ -29,6 +28,7 @@ from rlgraph.utils.numpy import softmax
 class TestDistributions(unittest.TestCase):
 
     # TODO also not portable to PyTorch due to batch shapes.
+    # TODO: test entropies.
 
     def test_bernoulli(self):
         # Create 5 bernoulli distributions (or a multiple thereof if we use batch-size > 1).
@@ -67,7 +67,14 @@ class TestDistributions(unittest.TestCase):
         test.test(("log_prob", [
             np.array([[0.1, 0.2, 0.3, 0.4, 0.5]]),
             np.array([[True, False, False, True, True]])
-        ]), expected_outputs=np.log(np.array([[0.1, 0.8, 0.7, 0.4, 0.5]])))  # probs that's the result is True
+            # probability that result is the given value
+        ]), expected_outputs=np.log(np.array([[0.1, 0.8, 0.7, 0.4, 0.5]])))
+
+        # Test entropy outputs.
+        input_ = np.array([[0.1, 0.2, 0.3, 0.4, 0.5]])
+        # Binary Entropy with natural log.
+        expected_entropy = -(input_ * np.log(input_)) - ((1.0 - input_) * np.log(1.0 - input_))
+        test.test(("entropy", input_), expected_outputs=expected_entropy)
 
     def test_categorical(self):
         # Create 5 categorical distributions of 3 categories each.
