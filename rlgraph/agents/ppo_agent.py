@@ -24,11 +24,12 @@ from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten
-from rlgraph.utils.ops import flatten_op, DataOpDict
+from rlgraph.utils.ops import flatten_op, DataOpDict, DataOp
 from rlgraph.utils.util import strip_list
 
 if get_backend() == "tf":
     import tensorflow as tf
+    setattr(tf.Tensor, "map", DataOp.map)
 if get_backend() == "pytorch":
     import torch
 
@@ -171,7 +172,8 @@ class PPOAgent(Agent):
             rewards=reward_space,
             terminals=terminal_space,
             sequence_indices=BoolBox(add_batch_rank=True),
-            apply_postprocessing=bool
+            apply_postprocessing=bool,
+            num_records=int
         ))
 
         self.memory = Memory.from_spec(memory_spec)
@@ -232,7 +234,7 @@ class PPOAgent(Agent):
         @rlgraph_api(component=self.root_component)
         def action_from_preprocessed_state(root, preprocessed_states, deterministic=False):
             out = agent.policy.get_action(preprocessed_states, deterministic=deterministic)
-            return out["action"], preprocessed_states
+            return out["action"], preprocessed_states  # , out["nn_outputs"], out["adapter_outputs"], out["parameters"], out["action_probabilities"], out["log_probs"]
 
         # State (from environment) to action with preprocessing.
         @rlgraph_api(component=self.root_component)
@@ -270,6 +272,10 @@ class PPOAgent(Agent):
                 sequence_indices, apply_postprocessing, time_percentage
             )
 
+        @rlgraph_api(component=self.root_component)
+        def get_records(root, num_records=1):
+            return agent.memory.get_records(num_records)
+
         # N.b. this is here because the iterative_optimization would need policy/losses as sub-components, but
         # multiple parents are not allowed currently.
         @rlgraph_api(component=self.root_component)
@@ -301,8 +307,10 @@ class PPOAgent(Agent):
 
                 # Log probs before update (stop-gradient as these are used in target term).
                 prev_log_probs = tf.stop_gradient(prev_log_probs)
+                #prev_log_probs = tf.Print(prev_log_probs, [prev_log_probs], "prev-log-probs: ", summarize=1000)
                 # State values before update (stop-gradient as these are used in target term).
                 prev_state_values = tf.stop_gradient(prev_state_values)
+                #prev_state_values = tf.Print(prev_state_values, [prev_state_values], "prev-state-values: ", summarize=1000)
 
                 # Advantages are based on previous state values.
                 advantages = tf.cond(
@@ -312,9 +320,11 @@ class PPOAgent(Agent):
                     ),
                     false_fn=lambda: rewards
                 )
+                #advantages = tf.Print(advantages, [advantages], "advantages before standardizing: ", summarize=1000)
                 if self.standardize_advantages:
                     mean, std = tf.nn.moments(x=advantages, axes=[0])
                     advantages = (advantages - mean) / std
+                #advantages = tf.Print(advantages, [advantages], "advantages after standardizing: ", summarize=1000)
 
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size, dtype=tf.int32)
@@ -323,6 +333,9 @@ class PPOAgent(Agent):
                     # Use `map` here in case we have container states/actions.
                     sample_states = preprocessed_states.map(lambda k, v: tf.gather(v, indices))
                     sample_actions = actions.map(lambda k, v: tf.gather(v, indices))
+                    #sample_actions["direction"] = tf.Print(sample_actions["direction"], [sample_actions["direction"]], "sample-actions['direction']: ", summarize=1000)
+                    #sample_actions["jump"] = tf.Print(sample_actions["jump"], [sample_actions["jump"]], "sample-actions['jump']: ", summarize=1000)
+                    #sample_actions["crouch"] = tf.Print(sample_actions["crouch"], [sample_actions["crouch"]], "sample-actions['crouch']: ", summarize=1000)
 
                     sample_prev_log_probs = tf.gather(params=prev_log_probs, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
@@ -370,8 +383,10 @@ class PPOAgent(Agent):
                             return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
 
                     sample_log_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
+                    #sample_log_probs = tf.Print(sample_log_probs, [sample_log_probs], "sample-log-probs:", summarize=1000)
 
                     entropy = policy.get_entropy(sample_states)["entropy"]
+                    #entropy["direction"] = tf.Print(entropy["direction"], [entropy["direction"]], "entropy['dir']: ", summarize=1000)
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
@@ -510,6 +525,8 @@ class PPOAgent(Agent):
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
+        #return_ops = [0, 1, 2, 3, 4, 5, 6] if "preprocessed_states" in extra_returns else [0, 2, 3, 4, 5,
+        # 6]  # 1=preprocessed_states, 0=action
         return_ops = [0, 1] if "preprocessed_states" in extra_returns else [0]  # 1=preprocessed_states, 0=action
         ret = self.graph_executor.execute((
             call_method,
@@ -517,11 +534,29 @@ class PPOAgent(Agent):
             # 0=preprocessed_states, 1=action
             return_ops
         ))
+
+        # Print out distribution parameters for the categorical `direction` distribution.
+        #print("-------")
+        #print("State: {}".format(states[0]["yz_location"]))
+        #print("Action: {}".format(ret[0]["direction"]))
+        #print("Direction paramsdsds:" + str(ret[3]["direction"]))
+        #print("Action probs direction:" + str(ret[4]["direction"]))
+        #print("Action log probs direction:" + str(ret[5]["direction"]))
+        #print("Crouch params:" sdsd+ str(ret[3]["crouch"]))
+        #print("Action probs crouch:" + str(ret[4]["crouch"]))
+        #print("Action log probs crouch:" + str(ret[5]["crouch"]))
+        #print("Jump params:" + str(ret[3]["jump"]))
+        #print("Action probs jump:" + str(ret[4]["jump"]))
+        #print("Action log probs jump:" + str(ret[5]["jump"]))
+        #print("-------")
+
         # If unbatched data came in, return unbatched data.
         if remove_batch_rank:
+            #return strip_list(ret[0])
             return strip_list(ret)
         # Return batched data.
         else:
+            #return ret[0]
             return ret
 
     # TODO make next states optional in observe API.
@@ -578,6 +613,9 @@ class PPOAgent(Agent):
 
         # [0] loss, [1] loss per item
         return ret[0], ret[1]
+
+    def get_records(self, num_records=1):
+        return self.graph_executor.execute(("get_records", num_records))
 
     def reset(self):
         """
