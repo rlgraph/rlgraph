@@ -179,13 +179,13 @@ class TestGridWorld(unittest.TestCase):
         # Simple test runs with fixed actions.
         # X=player's position
         s = env.reset()  # ["X                                              G"]
-        self.assertTrue(s == 0)
+        self.assertTrue(s == 33)
         s, r, t, _ = env.step(2)  # down: ["X                                              G"]
-        self.assertTrue(s == 0)
+        self.assertTrue(s == 33)
         recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
         s, r, t, _ = env.step(1)  # right: ["SX                                             G"]
-        self.assertTrue(s == 1)
+        self.assertTrue(s == 34)
         recursive_assert_almost_equal(r, -0.1)
         self.assertTrue(not t)
 
@@ -193,22 +193,22 @@ class TestGridWorld(unittest.TestCase):
         # Right, left, down, up, right -> Move one right each iteration.
         for x in range(20):
             s, r, t, _ = env.step(1)
-            self.assertTrue(s == x + 1)
+            self.assertTrue(s == x + 33 + 1)
             recursive_assert_almost_equal(r, -0.1)
             self.assertTrue(not t)
             s, r, t, _ = env.step(3)
-            self.assertTrue(s == x)
+            self.assertTrue(s == x + 33)
             recursive_assert_almost_equal(r, -0.1)
             self.assertTrue(not t)
             s, r, t, _ = env.step(2)
-            self.assertTrue(s == x)
+            self.assertTrue(s == x + 33)
             recursive_assert_almost_equal(r, -0.1)
             self.assertTrue(not t)
             s, r, t, _ = env.step(0)
-            self.assertTrue(s == x)
+            self.assertTrue(s == x + 33)
             recursive_assert_almost_equal(r, -0.1)
             self.assertTrue(not t)
             s, r, t, _ = env.step(1)
-            self.assertTrue(s == x + 1)
+            self.assertTrue(s == x + 33 + 1)
             recursive_assert_almost_equal(r, -0.1)
             self.assertTrue(not t)
