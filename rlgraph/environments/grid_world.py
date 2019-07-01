@@ -13,15 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-import math
 import os
 import random
 import time
 
+import math
 import numpy as np
 from six.moves import xrange as range_
 
@@ -39,7 +37,7 @@ except pygame.error:
     print("No display for PyGame available. No human rendering possible.")
     pygame = None
 
-import rlgraph.spaces as spaces
+from rlgraph.spaces import IntBox, FloatBox, BoolBox, Dict
 from rlgraph.environments import Environment
 
 
@@ -67,6 +65,9 @@ class GridWorld(Environment):
     MAPS = {
         "chain": [
             "G    S  F G"
+        ],
+        "long-chain": [
+            "                                 S                                 G"
         ],
         "2x2": [
             "SH",
@@ -134,9 +135,11 @@ class GridWorld(Environment):
     # Some useful class vars.
     grid_world_2x2_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=4)]
     grid_world_4x4_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=16)]
+    grid_world_long_chain_preprocessing_spec = [dict(type="reshape", flatten=True, flatten_categories=68)]
     # Preprocessed state spaces.
-    grid_world_2x2_flattened_state_space = spaces.FloatBox(shape=(4,), add_batch_rank=True)
-    grid_world_4x4_flattened_state_space = spaces.FloatBox(shape=(16,), add_batch_rank=True)
+    grid_world_2x2_flattened_state_space = FloatBox(shape=(4,), add_batch_rank=True)
+    grid_world_4x4_flattened_state_space = FloatBox(shape=(16,), add_batch_rank=True)
+    grid_world_long_chain_flattened_state_space = FloatBox(shape=(68,), add_batch_rank=True)
 
     def __init__(self, world="4x4", save_mode=False, action_type="udlr",
                  reward_function="sparse", state_representation="discrete"):
@@ -149,7 +152,7 @@ class GridWorld(Environment):
 
             action_type (str): Which action space to use. Chose between "udlr" (up, down, left, right), which is a
                 discrete action space and "ftj" (forward + turn + jump), which is a container multi-discrete
-                action space.
+                action space. "ftjb" is the same as "ftj", except that sub-action "jump" is a boolean.
 
             reward_function (str): One of
                 sparse: hole=-5, fire=-3, goal=1, all other steps=-0.1
@@ -196,16 +199,16 @@ class GridWorld(Environment):
         self.state_representation = state_representation
         # Discrete states (single int from 0 to n).
         if self.state_representation == "discrete":
-            state_space = spaces.IntBox(self.n_row * self.n_col)
+            state_space = IntBox(self.n_row * self.n_col)
         # x/y position (2 ints).
         elif self.state_representation == "xy":
-            state_space = spaces.IntBox(low=(0, 0), high=(self.n_col, self.n_row), shape=(2,))
+            state_space = IntBox(low=(0, 0), high=(self.n_col, self.n_row), shape=(2,))
         # x/y position + orientation (3 ints).
         elif self.state_representation == "xy+orientation":
-            state_space = spaces.IntBox(low=(0, 0, 0, 0), high=(self.n_col, self.n_row, 1, 1))
+            state_space = IntBox(low=(0, 0, 0, 0), high=(self.n_col, self.n_row, 1, 1))
         # Camera outputting a 2D color image of the world.
         else:
-            state_space = spaces.IntBox(0, 255, shape=(self.n_row, self.n_col, 3))
+            state_space = IntBox(0, 255, shape=(self.n_row, self.n_col, 3))
 
         self.default_start_pos = self.get_discrete_pos(start_x, start_y)
         self.discrete_pos = self.default_start_pos
@@ -218,8 +221,8 @@ class GridWorld(Environment):
 
         # Specify the actual action spaces.
         self.action_type = action_type
-        action_space = spaces.IntBox(4) if self.action_type == "udlr" else spaces.Dict(dict(
-            forward=spaces.IntBox(3), turn=spaces.IntBox(3), jump=spaces.IntBox(2)
+        action_space = IntBox(4) if self.action_type == "udlr" else Dict(dict(
+            forward=IntBox(3), turn=IntBox(3), jump=(IntBox(2) if self.action_type == "ftj" else BoolBox())
         ))
 
         # Call the super's constructor.
@@ -275,7 +278,7 @@ class GridWorld(Environment):
             actions (Optional[int,Dict[str,int]]):
                 For "udlr": An integer 0-3 that describes the next action.
                 For "ftj": A dict with keys: "turn" (0 (turn left), 1 (no turn), 2 (turn right)), "forward"
-                    (0 (backward), 1(stay), 2 (forward)) and "jump" (0 (no jump) and 1 (jump)).
+                    (0 (backward), 1(stay), 2 (forward)) and "jump" (0/False (no jump) and 1/True (jump)).
 
             set_discrete_pos (Optional[int]): An integer to set the current discrete position to before acting.
 
@@ -289,7 +292,10 @@ class GridWorld(Environment):
 
         # Forward, turn, jump container action.
         move = None
-        if self.action_type == "ftj":
+        # Up, down, left, right actions.
+        if self.action_type == "udlr":
+            move = actions
+        else:
             actions = self._translate_action(actions)
             # Turn around (0 (left turn), 1 (no turn), 2 (right turn)).
             if "turn" in actions:
@@ -310,9 +316,6 @@ class GridWorld(Environment):
                         move = 2  # down
                     else:
                         move = 3  # left
-            # Up, down, left, right actions.
-        else:
-            move = actions
 
         if move is not None:
             # determine the next state based on the transition function
@@ -323,8 +326,8 @@ class GridWorld(Environment):
 
         # Jump? -> Move two fields forward (over walls/fires/holes w/o any damage).
         if self.action_type == "ftj" and "jump" in actions:
-            assert actions["jump"] == 0 or actions["jump"] == 1
-            if actions["jump"] == 1:
+            assert actions["jump"] == 0 or actions["jump"] == 1 or actions["jump"] is True or actions["jump"] is False
+            if actions["jump"]:  # 1 or True
                 # Translate into "classic" grid world action (0=up, ..., 3=left) and execute that action twice.
                 action = int(self.orientation / 90)
                 for i in range(2):
@@ -334,8 +337,7 @@ class GridWorld(Environment):
                     # Update our pos.
                     self.discrete_pos = next_positions[next_state_idx][0]
 
-        next_x = self.discrete_pos // self.n_col
-        next_y = self.discrete_pos % self.n_col
+        next_x, next_y = self.get_x_y(self.discrete_pos)
 
         # determine reward and done flag
         next_state_type = self.world[next_y, next_x]
@@ -431,21 +433,20 @@ class GridWorld(Environment):
         Args:
             discrete_pos (int): The discrete position to return possible next states for.
             action (int): The action choice.
-            in_air (bool): Whether we are actually in the air right now (ignore if we come from "H" or "W").
+            in_air (bool): Whether we are actually in the air (jumping) right now (ignore if we come from "H" or "W").
 
         Returns:
             List[Tuple[int,float]]: A list of tuples (s', p(s'\|s,a)). Where s' is the next discrete position and
                 p(s'|s,a) is the probability of ending up in that position when in state s and taking action a.
         """
-        x = discrete_pos // self.n_col
-        y = discrete_pos % self.n_col
+        x, y = self.get_x_y(discrete_pos)
         coords = np.array([x, y])
 
         increments = np.array([[0, -1], [1, 0], [0, 1], [-1, 0]])
         next_coords = np.clip(
             coords + increments[action],
             [0, 0],
-            [self.n_row - 1, self.n_col - 1]
+            [self.n_col - 1, self.n_row - 1]
         )
         next_pos = self.get_discrete_pos(next_coords[0], next_coords[1])
         pos_type = self.world[y, x]
@@ -497,7 +498,7 @@ class GridWorld(Environment):
         Returns:
             int: The discrete pos value corresponding to the given x and y.
         """
-        return x * self.n_col + y
+        return x * self.n_row + y
 
     def get_x_y(self, discrete_pos):
         """
@@ -509,15 +510,15 @@ class GridWorld(Environment):
         Returns:
             Tuple[int,int]: x and y.
         """
-        return discrete_pos // self.n_col, discrete_pos % self.n_col
+        return discrete_pos // self.n_row, discrete_pos % self.n_row
 
     @property
     def x(self):
-        return self.discrete_pos // self.n_col
+        return self.get_x_y(self.discrete_pos)[0]
 
     @property
     def y(self):
-        return self.discrete_pos % self.n_col
+        return self.get_x_y(self.discrete_pos)[1]
 
     def _translate_action(self, actions):
         """
@@ -579,10 +580,11 @@ class GridWorld(Environment):
             elif actions in [4, 5, 10, 11, 16, 17]:
                 converted_actions["forward"] = 2
 
+            # Bool or int as "jump".
             if actions % 2 == 0:
-                converted_actions["jump"] = 0
+                converted_actions["jump"] = 0 if self.action_type == "ftj" else False
             else:
-                converted_actions["jump"] = 1
+                converted_actions["jump"] = 1 if self.action_type == "ftj" else True
             return converted_actions
 
     # png Render helper methods.
