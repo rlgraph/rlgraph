@@ -13,16 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from functools import partial
 import logging
-import numpy as np
 import inspect
 import re
 import sys
+
+import numpy as np
 from rlgraph import get_backend
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten
 from rlgraph.utils.rlgraph_errors import RLGraphError
@@ -238,7 +237,7 @@ def strip_list(elements):
 
 def default_dict(original, defaults):
     """
-    Updates the original dict with values from `defaults`, but only for those keys that
+    Updates the `original` dict with values from `defaults`, but only for those keys that
     do not exist yet in `original`.
     Changes `original` in place, but leaves `defaults` as is.
 
