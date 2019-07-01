@@ -13,7 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import numpy as np
 
@@ -390,7 +392,6 @@ class DQFDAgent(Agent):
             call_method = "action_from_preprocessed_state"
             batched_states = states
             remove_batch_rank = False
-        #remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
 
         # Increase timesteps by the batch size (number of states in batch).
         batch_size = len(batched_states)
