@@ -19,7 +19,6 @@ import re
 
 import numpy as np
 from six.moves import xrange as range_
-
 from rlgraph import get_backend
 from rlgraph.spaces.space import Space
 from rlgraph.utils.initializer import Initializer
@@ -146,11 +145,20 @@ class BoxSpace(Space):
     def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
                      time_major=None, is_python=False, local=False, **kwargs):
         add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
-        batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
+        if add_batch_rank is False:
+            batch_rank = ()
+        elif add_batch_rank is True:
+            batch_rank = (None,) if get_backend() == "tf" else (1,)
+        else:
+            batch_rank = (add_batch_rank,)
 
         add_time_rank = self.has_time_rank if add_time_rank is None else add_time_rank
-        time_rank = () if add_time_rank is False else (None,) if add_time_rank is True else (add_time_rank,)
-
+        if add_time_rank is False:
+            time_rank = ()
+        elif add_time_rank is True:
+            time_rank = (None,) if get_backend() == "tf" else (1,)
+        else:
+            time_rank = (add_time_rank,)
         time_major = self.time_major if time_major is None else time_major
 
         if time_major is False:
