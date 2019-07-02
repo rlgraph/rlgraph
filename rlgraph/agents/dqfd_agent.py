@@ -13,12 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, PrioritizedReplay, DQFDLossFunction
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
@@ -190,11 +187,11 @@ class DQFDAgent(Agent):
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
             call_method = "get_actions"
-            batched_states = self.state_space.force_batch(states)
+            batched_states, remove_batch_rank = self.state_space.force_batch(states)
         else:
             call_method = "get_actions_from_preprocessed_states"
             batched_states = states
-        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
+            remove_batch_rank = False
 
         # Increase timesteps by the batch size (number of states in batch).
         batch_size = len(batched_states)

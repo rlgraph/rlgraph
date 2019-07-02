@@ -13,15 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-from rlgraph.version import __version__
+from __future__ import absolute_import, division, print_function
 
 import json
-import os
 import logging
+import os
+
+from rlgraph.version import __version__
 
 # Libraries should add NullHandler() by default, as its the application code's
 # responsibility to configure log handlers.
@@ -36,11 +34,14 @@ except ImportError:
 logging.getLogger(__name__).addHandler(NullHandler())
 
 if "RLGRAPH_HOME" in os.environ:
-    rl_graph_dir = os.environ.get("RLGRAPH_HOME")
+    rlgraph_dir = os.environ.get("RLGRAPH_HOME")
 else:
-    rl_graph_dir = os.path.expanduser('~')
-    rl_graph_dir = os.path.join(rl_graph_dir, ".rlgraph")
+    rlgraph_dir = os.path.expanduser('~')
+    rlgraph_dir = os.path.join(rlgraph_dir, ".rlgraph")
 
+
+# RLgraph config (contents of .rlgraph file).
+CONFIG = dict()
 
 # TODO "tensorflow" for tensorflow?
 # Default backend ('tf' for tensorflow or 'pytorch' for PyTorch)
@@ -55,39 +56,40 @@ distributed_compatible_backends = dict(
 )
 
 
-config_path = os.path.expanduser(os.path.join(rl_graph_dir, 'rlgraph.json'))
-if os.path.exists(config_path):
+config_file = os.path.expanduser(os.path.join(rlgraph_dir, 'rlgraph.json'))
+if os.path.exists(config_file):
     try:
-        with open(config_path) as f:
-            config = json.load(f)
+        with open(config_file) as f:
+            CONFIG = json.load(f)
     except ValueError:
-        config = dict()
+        pass
 
     # Read from config or leave defaults.
-    backend = config.get("BACKEND", None)
+    backend = CONFIG.get("BACKEND", None)
     if backend is not None:
         BACKEND = backend
-    distributed_backend = config.get("DISTRIBUTED_BACKEND", None)
+    distributed_backend = CONFIG.get("DISTRIBUTED_BACKEND", None)
     if distributed_backend is not None:
         DISTRIBUTED_BACKEND = distributed_backend
 
 # Create dir if necessary:
-if not os.path.exists(rl_graph_dir):
+if not os.path.exists(rlgraph_dir):
     try:
-        os.makedirs(rl_graph_dir)
+        os.makedirs(rlgraph_dir)
     except OSError:
         pass
 
 
 # Write to file if there was none:
-if not os.path.exists(config_path):
-    _config = {
+if not os.path.exists(config_file):
+    CONFIG = {
         "BACKEND": BACKEND,
         "DISTRIBUTED_BACKEND": DISTRIBUTED_BACKEND,
+        "GRAPHVIZ_RENDER_BUILD_ERRORS": True
     }
     try:
-        with open(config_path, 'w') as f:
-            f.write(json.dumps(_config, indent=4))
+        with open(config_file, 'w') as f:
+            f.write(json.dumps(CONFIG, indent=4))
     except IOError:
         # Except permission denied.
         pass
@@ -148,6 +150,19 @@ def get_distributed_backend():
     return DISTRIBUTED_BACKEND
 
 
+def get_config():
+    return CONFIG
+
+
+# Import useful packages, such that "import rlgraph as rl" will enable one to do e.g. "agent = rl.agents.PPOAgent"
+import rlgraph.agents
+import rlgraph.components
+import rlgraph.environments
+import rlgraph.spaces
+import rlgraph.utils
+
+
 __all__ = [
-    "__version__",  "get_backend", "get_distributed_backend"
+    "__version__",  "get_backend", "get_distributed_backend", "rlgraph_dir",
+    "get_config"
 ]

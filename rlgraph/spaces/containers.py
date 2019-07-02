@@ -13,16 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import re
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph.spaces.space import Space
-from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op
+from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op, flat_key_lookup
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
@@ -30,7 +25,7 @@ class ContainerSpace(Space):
     """
     A simple placeholder class for Spaces that contain other Spaces.
     """
-    def sample(self, size=None, horizontal=False):
+    def sample(self, size=None, fill_value=None, horizontal=False):
         """
         Child classes must overwrite this one again with support for the `horizontal` parameter.
 
@@ -39,6 +34,9 @@ class ContainerSpace(Space):
                 True: Produce `size` single containers in an np.array of len `size`.
         """
         raise NotImplementedError
+
+    def flat_key_lookup(self, flat_key, custom_scope_separator=None):
+        return flat_key_lookup(self, flat_key, custom_scope_separator)
 
 
 class Dict(ContainerSpace, dict):
@@ -64,9 +62,9 @@ class Dict(ContainerSpace, dict):
             if not isinstance(key, str):
                 raise RLGraphError("ERROR: No non-str keys allowed in a Dict-Space!")
             # Prohibit reserved characters (for flattened syntax).
-            if re.search(r'/|{}\d+{}'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key):
-                raise RLGraphError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Is {}.".
-                                   format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
+            #if re.search(r'/|{}\d+{}'.format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE), key):
+            #    raise RLGraphError("ERROR: Key to Dict must not contain '/' or '{}\d+{}'! Key='{}'.".
+            #                       format(FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, key))
             value = spec[key]
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch/time-ranks.
             if isinstance(value, Space):
@@ -102,8 +100,28 @@ class Dict(ContainerSpace, dict):
         for v in self.values():
             v._add_time_rank(add_time_rank, time_major)
 
-    def force_batch(self, samples):
-        return dict([(key, self[key].force_batch(samples[key])) for key in sorted(self.keys())])
+    def force_batch(self, samples, horizontal=False):
+        # Return a batch of dicts.
+        if horizontal is True:
+            # Input is already batched.
+            if isinstance(samples, (np.ndarray, list, tuple)):
+                return samples, False  # False=batch rank was not added
+            # Input is a single dict, return batch=1 sample.
+            else:
+                return np.array([samples]), True  # True=batch rank was added
+        # Return a dict of batched data.
+        else:
+            # `samples` is already a batched structure (list, tuple, ndarray).
+            if isinstance(samples, (np.ndarray, list, tuple)):
+                return dict({key: self[key].force_batch([s[key] for s in samples], horizontal=horizontal)[0]
+                             for key in sorted(self.keys())}), False
+            # `samples` is already a container (underlying data could be batched or not).
+            else:
+                # Figure out, whether underlying data is already batched.
+                first_key = next(iter(samples))
+                batch_was_added = self[first_key].force_batch(samples[first_key], horizontal=horizontal)[1]
+                return dict({key: self[key].force_batch(samples[key], horizontal=horizontal)[0]
+                             for key in sorted(self.keys())}), batch_was_added
 
     @property
     def shape(self):
@@ -136,17 +154,21 @@ class Dict(ContainerSpace, dict):
             )) for key, subspace in self.items()]
         )
 
-    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space,
+                 scope_, list_):
         # Iterate through this Dict.
         scope_ += custom_scope_separator if len(scope_) > 0 or scope_separator_at_start else ""
         for key in sorted(self.keys()):
-            self[key].flatten(mapping, custom_scope_separator, scope_separator_at_start, scope_ + key, list_)
+            self[key].flatten(
+                mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space, scope_ + key, list_
+            )
 
-    def sample(self, size=None, horizontal=False):
+    def sample(self, size=None, fill_value=None, horizontal=False):
         if horizontal:
-            return np.array([{key: self[key].sample() for key in sorted(self.keys())}] * (size or 1))
+            return np.array([{key: self[key].sample(fill_value=fill_value) for key in sorted(self.keys())}] *
+                            (size or 1))
         else:
-            return {key: self[key].sample(size=size) for key in sorted(self.keys())}
+            return {key: self[key].sample(size=size, fill_value=fill_value) for key in sorted(self.keys())}
 
     def zeros(self, size=None):
         return DataOpDict([(key, subspace.zeros(size=size)) for key, subspace in self.items()])
@@ -228,8 +250,8 @@ class Tuple(ContainerSpace, tuple):
         for v in self:
             v._add_time_rank(add_time_rank, time_major)
 
-    def force_batch(self, samples):
-        return tuple([c.force_batch(samples[i]) for i, c in enumerate(self)])
+    def force_batch(self, samples, horizontal=False):
+        return tuple([c.force_batch(samples[i])[0] for i, c in enumerate(self)])
 
     @property
     def shape(self):
@@ -262,19 +284,20 @@ class Tuple(ContainerSpace, tuple):
             ) for i, subspace in enumerate(self)]
         )
 
-    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space, scope_, list_):
         # Iterate through this Tuple.
         scope_ += (custom_scope_separator if len(scope_) > 0 or scope_separator_at_start else "") + FLAT_TUPLE_OPEN
         for i, component in enumerate(self):
             component.flatten(
-                mapping, custom_scope_separator, scope_separator_at_start, scope_ + str(i) + FLAT_TUPLE_CLOSE, list_
+                mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space,
+                scope_ + str(i) + FLAT_TUPLE_CLOSE, list_
             )
 
-    def sample(self, size=None, horizontal=False):
+    def sample(self, size=None, fill_value=None, horizontal=False):
         if horizontal:
-            return np.array([tuple(subspace.sample() for subspace in self)] * (size or 1))
+            return np.array([tuple(subspace.sample(fill_value=fill_value) for subspace in self)] * (size or 1))
         else:
-            return tuple(x.sample(size=size) for x in self)
+            return tuple(x.sample(size=size, fill_value=fill_value) for x in self)
 
     def zeros(self, size=None):
         return tuple([c.zeros(size=size) for i, c in enumerate(self)])

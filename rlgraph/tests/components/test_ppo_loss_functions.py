@@ -13,15 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
+
 from math import log
-
 import numpy as np
-
 from rlgraph.components.loss_functions import PPOLossFunction
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -77,7 +74,7 @@ class TestPPOLossFunctions(unittest.TestCase):
 
         test.test(
             ("pg_loss_per_item", [log_probs, prev_log_probs, advantages, entropy]),
-            expected_outputs=expected_pg_loss_per_item, decimals=5
+            expected_outputs=expected_pg_loss_per_item, decimals=3
         )
 
         v_targets = advantages + np.squeeze(prev_state_values)  # Q-value targets
@@ -85,13 +82,13 @@ class TestPPOLossFunctions(unittest.TestCase):
 
         test.test(
             ("value_function_loss_per_item", [state_values, prev_state_values, advantages]),
-            expected_outputs=expected_value_loss_per_item, decimals=5
+            expected_outputs=expected_value_loss_per_item, decimals=3
         )
 
         # All together.
         test.test(
             ("loss_per_item", [log_probs, prev_log_probs, state_values, prev_state_values, advantages, entropy]),
-            expected_outputs=[expected_pg_loss_per_item, expected_value_loss_per_item], decimals=5
+            expected_outputs=[expected_pg_loss_per_item, expected_value_loss_per_item], decimals=3
         )
 
         # Expect the mean over the batch.
@@ -103,6 +100,6 @@ class TestPPOLossFunctions(unittest.TestCase):
             expected_outputs=[
                 expected_pg_loss_per_item.mean(), expected_pg_loss_per_item,
                 expected_value_loss_per_item.mean(), expected_value_loss_per_item
-            ], decimals=5
+            ], decimals=3
         )
 

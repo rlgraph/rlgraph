@@ -13,12 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import Synchronizable, Memory, PrioritizedReplay
@@ -196,12 +193,12 @@ class SACAgent(Agent):
         extra_returns = [extra_returns] if isinstance(extra_returns, str) else (extra_returns or list())
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
-            call_method = "get_actions"
-            batched_states = self.state_space.force_batch(states)
+            call_method = self.root_component.get_preprocessed_state_and_action
+            batched_states, remove_batch_rank = self.state_space.force_batch(states)
         else:
-            call_method = "get_actions_from_preprocessed_states"
+            call_method = self.root_component.action_from_preprocessed_state
             batched_states = states
-        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
+            remove_batch_rank = False
 
         # Increase timesteps by the batch size (number of states in batch).
         batch_size = len(batched_states)

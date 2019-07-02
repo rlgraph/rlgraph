@@ -13,12 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.layer import Layer
+from rlgraph.spaces import IntBox
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.initializer import Initializer
@@ -68,8 +67,8 @@ class EmbeddingLookup(Layer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         ids_space = input_spaces["ids"]
-        # Require a batch-rank.
-        sanity_check_space(ids_space, must_have_batch_rank=True)
+        # Require int with batch-rank.
+        sanity_check_space(ids_space, must_have_batch_rank=True, allowed_sub_types=[IntBox])
 
     def create_variables(self, input_spaces, action_space=None):
         # Create weights matrix and (maybe) biases vector.

@@ -13,11 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.component import Component
+from rlgraph.components.layers.layer import Layer
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.utils.decorators import rlgraph_api
 
@@ -35,12 +34,15 @@ class ValueFunction(Component):
         self.network_spec = network_spec
 
         # If first layer is conv, build image stack.
-        self.use_image_stack = self.network_spec[0]["type"] == "conv2d"
+        # TODO: This should not be checked in this way. What if network_spec if a NN Component, a dict, etc..?
+        self.use_image_stack = False
+        if isinstance(self.network_spec, (list, tuple)) and self.network_spec[0]["type"] == "conv2d":
+            self.use_image_stack = True
         self.image_stack = None
         self.dense_stack = None
 
         self.neural_network = None
-        self.value_layer = {
+        self.value_layer_spec = {
             "type": "dense",
             "units": 1,
             "activation": "linear",
@@ -50,8 +52,8 @@ class ValueFunction(Component):
 
     def build_value_function(self):
         # Attach VF output to hidden layers.
-        self.network_spec.append(self.value_layer)
         self.neural_network = NeuralNetwork.from_spec(self.network_spec)
+        self.neural_network.add_layer(Layer.from_spec(self.value_layer_spec))
         self.add_components(self.neural_network)
 
     @rlgraph_api

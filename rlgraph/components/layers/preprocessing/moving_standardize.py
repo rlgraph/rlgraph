@@ -13,12 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.utils.decorators import rlgraph_api
@@ -48,12 +45,12 @@ class MovingStandardize(PreprocessLayer):
 
         # Current estimate of sum of stds.
         self.std_sum_est = None
-        self.output_spaces = None
+        #self.output_spaces = None
         self.in_shape = None
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs"]
-        self.output_spaces = in_space
+        #self.output_spaces = in_space
         self.in_shape = (self.batch_size, ) + in_space.shape
 
         if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":

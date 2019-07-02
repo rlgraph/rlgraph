@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
 import numpy as np
-
 from rlgraph.components.explorations.exploration import Exploration
 from rlgraph.components.neural_networks.actor_component import ActorComponent
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
@@ -117,7 +114,7 @@ class TestActorComponents(unittest.TestCase):
             input_spaces=dict(
                 states=state_space,
                 other_nn_inputs=Tuple(internal_states_space, add_batch_rank=True),
-                time_step=time_percentages_space
+                time_percentage=time_percentages_space
             ),
             action_space=action_space
         )

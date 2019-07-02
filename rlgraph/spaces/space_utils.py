@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from rlgraph import get_backend
@@ -25,10 +23,12 @@ from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
 from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.text_box import TextBox
-from rlgraph.utils.util import RLGraphError, convert_dtype, get_shape, LARGE_INTEGER, force_tuple
-from six.moves import xrange as range_
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphSpaceError
+from rlgraph.utils.util import convert_dtype, get_shape, LARGE_INTEGER, force_tuple
 
-if get_backend() == "pytorch":
+if get_backend() == "tf":
+    import tensorflow as tf
+elif get_backend() == "pytorch":
     import torch
 
 
@@ -70,13 +70,15 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
     return var
 
 
-def get_space_from_op(op):
+def get_space_from_op(op, num_categories=None):
     """
     Tries to re-create a Space object given some DataOp (e.g. a tf op).
     This is useful for shape inference on returned ops after having run through a graph_fn.
 
     Args:
         op (DataOp): The op to create a corresponding Space for.
+        num_categories (Optional[int]): An optional indicator, what the `num_categories` property for
+            an IntBox should be.
 
     Returns:
         Space: The inferred Space object.
@@ -87,7 +89,12 @@ def get_space_from_op(op):
         add_batch_rank = False
         add_time_rank = False
         for key, value in op.items():
-            spec[key] = get_space_from_op(value)
+            # Special case for IntBoxes:
+            # If another key exists, with the name: `_num_[key]` -> take num_categories from that key's value.
+            if key[:5] == "_num_":
+                continue
+            num_categories = op.get("_num_{}".format(key))
+            spec[key] = get_space_from_op(value, num_categories=num_categories)
             # Return
             if spec[key] == 0:
                 return 0
@@ -113,14 +120,15 @@ def get_space_from_op(op):
         return Tuple(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
     # primitive Space -> infer from op dtype and shape
     else:
+        int_high = {"high": num_categories} if num_categories is not None else {}
         # Op itself is a single value, simple python type.
         if isinstance(op, (bool, int, float)):
-            return BoxSpace.from_spec(spec=type(op), shape=())
+            return BoxSpace.from_spec(spec=type(op), shape=(), **int_high)
         elif isinstance(op, str):
             raise RLGraphError("Cannot derive Space from non-allowed op ({})!".format(op))
         # A single numpy array.
         elif isinstance(op, np.ndarray):
-            return BoxSpace.from_spec(spec=convert_dtype(str(op.dtype), "np"), shape=op.shape)
+            return BoxSpace.from_spec(spec=convert_dtype(str(op.dtype), "np"), shape=op.shape, **int_high)
         elif isinstance(op, list):
             return try_space_inference_from_list(op)
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
@@ -183,7 +191,7 @@ def get_space_from_op(op):
                                 time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # IntBox
             elif "int" in base_dtype_str:
-                high = getattr(op, "_num_categories", None)
+                high = num_categories or getattr(op, "_num_categories", None)
                 return IntBox(high, shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                               time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # a BoolBox
@@ -245,34 +253,46 @@ def sanity_check_space(
         shape (Optional[tuple[int]]): A tuple of ints specifying the required shape. None if it doesn't matter.
 
     Raises:
-        RLGraphError: Various RLGraphErrors, if any of the conditions is not met.
+        RLGraphSpaceError: If any of the conditions is not met.
     """
     flattened_space = space.flatten()
 
     # Check the types.
     if allowed_types is not None:
         if not isinstance(space, force_tuple(allowed_types)):
-            raise RLGraphError("ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types))
+            raise RLGraphSpaceError(
+                space, "ERROR: Space ({}) is not an instance of {}!".format(space, allowed_types)
+            )
 
     if allowed_sub_types is not None:
         for flat_key, sub_space in flattened_space.items():
             if not isinstance(sub_space, force_tuple(allowed_sub_types)):
-                raise RLGraphError("ERROR: sub-Space '{}' ({}) is not an instance of "
-                                   "{}!".format(flat_key, sub_space, allowed_sub_types))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: sub-Space '{}' ({}) is not an instance of {}!".
+                    format(flat_key, sub_space, allowed_sub_types)
+                )
 
     if non_allowed_types is not None:
         if isinstance(space, force_tuple(non_allowed_types)):
-            raise RLGraphError("ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types))
+            raise RLGraphSpaceError(
+                space,
+                "ERROR: Space ({}) must not be an instance of {}!".format(space, non_allowed_types)
+            )
 
     if non_allowed_sub_types is not None:
         for flat_key, sub_space in flattened_space.items():
             if isinstance(sub_space, force_tuple(non_allowed_sub_types)):
-                raise RLGraphError("ERROR: sub-Space '{}' ({}) must not be an instance of "
-                                   "{}!".format(flat_key, sub_space, non_allowed_sub_types))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: sub-Space '{}' ({}) must not be an instance of {}!".
+                    format(flat_key, sub_space, non_allowed_sub_types)
+                )
 
     if must_have_batch_or_time_rank is True:
         if space.has_batch_rank is False and space.has_time_rank is False:
-            raise RLGraphError(
+            raise RLGraphSpaceError(
+                space,
                 "ERROR: Space ({}) does not have a batch- or a time-rank, but must have either one of "
                 "these!".format(space)
             )
@@ -285,9 +305,15 @@ def sanity_check_space(
                 pass
             # Something is wrong.
             elif space.has_batch_rank is not False:
-                raise RLGraphError("ERROR: Space ({}) has a batch rank, but is not allowed to!".format(space))
+                raise RLGraphSpaceError(
+                    space,
+                    "ERROR: Space ({}) has a batch rank, but is not allowed to!".format(space)
+                )
             else:
-                raise RLGraphError("ERROR: Space ({}) does not have a batch rank, but must have one!".format(space))
+                raise RLGraphSpaceError(
+                    space,
+                    "ERROR: Space ({}) does not have a batch rank, but must have one!".format(space)
+                )
 
     if must_have_time_rank is not None:
         if (space.has_time_rank is False and must_have_time_rank is True) or \
@@ -297,58 +323,87 @@ def sanity_check_space(
                 pass
             # Something is wrong.
             elif space.has_time_rank is not False:
-                raise RLGraphError("ERROR: Space ({}) has a time rank, but is not allowed to!".format(space))
+                raise RLGraphSpaceError(
+                    space,
+                    "ERROR: Space ({}) has a time rank, but is not allowed to!".format(space)
+                )
             else:
-                raise RLGraphError("ERROR: Space ({}) does not have a time rank, but must have one!".format(space))
+                raise RLGraphSpaceError(
+                    space,
+                    "ERROR: Space ({}) does not have a time rank, but must have one!".format(space)
+                )
 
     if must_have_categories is not None:
         for flat_key, sub_space in flattened_space.items():
             if not isinstance(sub_space, IntBox):
-                raise RLGraphError("ERROR: Space {}({}) is not an IntBox. Only IntBox Spaces can have categories!".
-                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: Space {}({}) is not an IntBox. Only IntBox Spaces can have categories!".
+                    format("" if flat_key == "" else "'{}' ".format(flat_key), space)
+                )
             elif sub_space.global_bounds is False:
-                raise RLGraphError("ERROR: Space {}({}) must have categories (globally valid value bounds)!".
-                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: Space {}({}) must have categories (globally valid value bounds)!".
+                    format("" if flat_key == "" else "'{}' ".format(flat_key), space)
+                )
 
     if must_have_lower_limit is not None:
         for flat_key, sub_space in flattened_space.items():
             low = sub_space.low
             if must_have_lower_limit is True and (low == -LARGE_INTEGER or low == float("-inf")):
-                raise RLGraphError("ERROR: Space {}({}) must have a lower limit, but has none!".
-                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: Space {}({}) must have a lower limit, but has none!".
+                    format("" if flat_key == "" else "'{}' ".format(flat_key), space)
+                )
             elif must_have_lower_limit is False and (low != -LARGE_INTEGER and low != float("-inf")):
-                raise RLGraphError("ERROR: Space {}({}) must not have a lower limit, but has one ({})!".
-                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space, low))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: Space {}({}) must not have a lower limit, but has one ({})!".
+                    format("" if flat_key == "" else "'{}' ".format(flat_key), space, low)
+                )
 
     if must_have_upper_limit is not None:
         for flat_key, sub_space in flattened_space.items():
             high = sub_space.high
             if must_have_upper_limit is True and (high != LARGE_INTEGER and high != float("inf")):
-                raise RLGraphError("ERROR: Space {}({}) must have an upper limit, but has none!".
-                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: Space {}({}) must have an upper limit, but has none!".
+                    format("" if flat_key == "" else "'{}' ".format(flat_key), space)
+                )
             elif must_have_upper_limit is False and (high == LARGE_INTEGER or high == float("inf")):
-                raise RLGraphError("ERROR: Space {}({}) must not have a upper limit, but has one ({})!".
-                                   format("" if flat_key == "" else "'{}' ".format(flat_key), space, high))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: Space {}({}) must not have a upper limit, but has one ({})!".
+                    format("" if flat_key == "" else "'{}' ".format(flat_key), space, high)
+                )
 
     if rank is not None:
         if isinstance(rank, int):
             for flat_key, sub_space in flattened_space.items():
                 if sub_space.rank != rank:
-                    raise RLGraphError(
+                    raise RLGraphSpaceError(
+                        sub_space,
                         "ERROR: A Space (flat-key={}) of '{}' has rank {}, but must have rank "
                         "{}!".format(flat_key, space, sub_space.rank, rank)
                     )
         else:
             for flat_key, sub_space in flattened_space.items():
                 if not ((rank[0] or 0) <= sub_space.rank <= (rank[1] or float("inf"))):
-                    raise RLGraphError(
+                    raise RLGraphSpaceError(
+
+                        sub_space,
                         "ERROR: A Space (flat-key={}) of '{}' has rank {}, but its rank must be between {} and "
-                        "{}!".format(flat_key, space, sub_space.rank, rank[0], rank[1]))
+                        "{}!".format(flat_key, space, sub_space.rank, rank[0], rank[1])
+                    )
 
     if shape is not None:
         for flat_key, sub_space in flattened_space.items():
             if sub_space.shape != shape:
-                raise RLGraphError(
+                raise RLGraphSpaceError(
+                    sub_space,
                     "ERROR: A Space (flat-key={}) of '{}' has shape {}, but its shape must be "
                     "{}!".format(flat_key, space, sub_space.get_shape(), shape)
                 )
@@ -356,16 +411,20 @@ def sanity_check_space(
     if num_categories is not None:
         for flat_key, sub_space in flattened_space.items():
             if not isinstance(sub_space, IntBox):
-                raise RLGraphError("ERROR: A Space (flat-key={}) of '{}' is not an IntBox. Only IntBox Spaces can have "
-                                   "categories!".format(flat_key, space))
+                raise RLGraphSpaceError(
+                    sub_space,
+                    "ERROR: A Space (flat-key={}) of '{}' is not an IntBox. Only IntBox Spaces can have "
+                    "categories!".format(flat_key, space)
+                )
             elif isinstance(num_categories, int):
                 if sub_space.num_categories != num_categories:
-                    raise RLGraphError(
+                    raise RLGraphSpaceError(
+                        sub_space,
                         "ERROR: A Space (flat-key={}) of '{}' has `num_categories` {}, but must have {}!".
                         format(flat_key, space, sub_space.num_categories, num_categories)
                     )
             elif not ((num_categories[0] or 0) <= sub_space.num_categories <= (num_categories[1] or float("inf"))):
-                raise RLGraphError(
+                raise RLGraphSpaceError(sub_space,
                     "ERROR: A Space (flat-key={}) of '{}' has `num_categories` {}, but this value must be between "
                     "{} and {}!".format(flat_key, space, sub_space.num_categories, num_categories[0], num_categories[1])
                 )
@@ -425,29 +484,33 @@ def try_space_inference_from_list(list_op):
     Returns:
         Space: Inferred Space object represented by list.
     """
-    if get_backend() == "pytorch":
-        batch_shape = len(list_op)
-        if batch_shape > 0:
-            # Try to infer more things by looking inside list.
-            elem = list_op[0]
-            if isinstance(elem, torch.Tensor):
-                list_type = elem.dtype
-                inner_shape = elem.shape
-                return BoxSpace.from_spec(spec=convert_dtype(list_type, "np"), shape=(batch_shape,) + inner_shape,
-                                          add_batch_rank=True)
-            elif isinstance(elem, list):
-                inner_shape = len(elem)
-                return BoxSpace.from_spec(spec=convert_dtype(float, "np"), shape=(batch_shape, inner_shape),
-                                          add_batch_rank=True)
-            elif isinstance(elem, int):
-                return IntBox.from_spec(spec=int, shape=(batch_shape,), add_batch_rank=True)
-            elif isinstance(elem, float):
-                return FloatBox.from_spec(spec=int, shape=(batch_shape,), add_batch_rank=True)
-        else:
-            # Most general guess is a Float box.
-            return FloatBox(shape=(batch_shape,))
+    shape = len(list_op)
+    if shape > 0:
+        # Try to infer more things by looking inside list.
+        elem = list_op[0]
+        if (get_backend() == "pytorch" and isinstance(elem, torch.Tensor)) or \
+                get_backend() == "tf" and isinstance(elem, tf.Tensor):
+            list_type = elem.dtype
+            inner_shape = elem.shape
+            return BoxSpace.from_spec(spec=convert_dtype(list_type, "np"), shape=(shape,) + inner_shape,
+                                      add_batch_rank=True)
+        elif isinstance(elem, list):
+            inner_shape = len(elem)
+            return BoxSpace.from_spec(spec=convert_dtype(float, "np"), shape=(shape, inner_shape),
+                                      add_batch_rank=True)
+        elif isinstance(elem, int):
+            # In case of missing comma values, check all other items in list for float.
+            # If one float in there -> FloatBox, otherwise -> IntBox.
+            has_floats = any(isinstance(el, float) for el in list_op)
+            if has_floats is False:
+                return IntBox.from_spec(shape=(shape,), add_batch_rank=True)
+            else:
+                return FloatBox.from_spec(shape=(shape,), add_batch_rank=True)
+        elif isinstance(elem, float):
+            return FloatBox.from_spec(shape=(shape,), add_batch_rank=True)
     else:
-        raise ValueError("List inference should only be attempted on the Python backend.")
+        # Most general guess is a Float box.
+        return FloatBox(shape=(shape,))
 
 
 def get_default_distribution_from_space(

@@ -13,17 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
+from collections import OrderedDict
 import inspect
 import logging
 import re
 import time
-from collections import OrderedDict
 
-from rlgraph import get_backend
+from rlgraph import get_backend, get_config
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
@@ -33,9 +31,10 @@ from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
 from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, unflatten_op, TraceContext
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError, RLGraphSpaceError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, force_tuple, get_shape
+from rlgraph.utils.visualization_util import draw_sub_meta_graph_from_op_rec
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -106,6 +105,8 @@ class GraphBuilder(Specifiable):
 
         # A register for all created placeholders by name.
         self.placeholders = {}
+        # Our meta-graph from which to build the graph.
+        self.meta_graph = None
 
     def build_graph_with_options(self, meta_graph, input_spaces, available_devices,
                                  device_strategy="default", default_device=None,
@@ -165,14 +166,16 @@ class GraphBuilder(Specifiable):
             default_device (Optional[str]): Default device identifier.
             device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.
         """
+        self.meta_graph = meta_graph
+
         # Time the build procedure.
         time_start = time.perf_counter()
-        assert meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
-        self.root_component = meta_graph.root_component
+        assert self.meta_graph.build_status, "ERROR: Meta graph must be built to build backend graph."
+        self.root_component = self.meta_graph.root_component
         self.graph_call_times = []
         self.var_call_times = []
-        self.api = meta_graph.api
-        self.num_meta_ops = meta_graph.num_ops
+        self.api = self.meta_graph.api
+        self.num_meta_ops = self.meta_graph.num_ops
 
         # Set the build phase to `building`.
         self.phase = "building"
@@ -188,7 +191,7 @@ class GraphBuilder(Specifiable):
         self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
-        components = self.root_component.get_all_sub_components()
+        components = self.root_component.get_all_sub_components(exclude_self=False)
         # Point to this GraphBuilder object.
         # Add those op-recs to the set that are constant.
         for component in components:
@@ -316,9 +319,7 @@ class GraphBuilder(Specifiable):
             with tf.device(device):
                 placeholder = space.get_variable(name=name, is_input_feed=True)
         elif get_backend() == "pytorch":
-                # Batch rank 1 because PyTorch does not allow None shapes.
-                placeholder = space.get_variable(name=name, add_batch_rank=1,
-                                                 is_input_feed=True, is_python=True)
+                placeholder = space.get_variable(name=name, is_input_feed=True, is_python=True)
         self.placeholders[name] = placeholder
         return placeholder
 
@@ -335,10 +336,22 @@ class GraphBuilder(Specifiable):
                 device = self.get_device(component, variables=True)
                 # This builds variables which would have to be done either way:
                 call_time = time.perf_counter()
-                component.when_input_complete(
-                    input_spaces=None, action_space=self.action_space, device=device,
-                    summary_regexp=self.summary_spec["summary_regexp"]
-                )
+                # If the Component throws a Space checking error, catch it here and perform the proper debugging
+                # routine.
+                try:
+                    component.when_input_complete(
+                        input_spaces=None, action_space=self.action_space, device=device,
+                        summary_regexp=self.summary_spec["summary_regexp"]
+                    )
+                except RLGraphSpaceError as e:
+                    # Should we plot the subgraph that lead to this error?
+                    if get_config().get("GRAPHVIZ_RENDER_BUILD_ERRORS", True) is True:
+                        op_rec = e.space.op_rec_ref
+                        assert op_rec is not None
+                        draw_sub_meta_graph_from_op_rec(op_rec, meta_graph=self.meta_graph)
+                    # Reraise e.
+                    raise e
+
                 self.var_call_times.append(time.perf_counter() - call_time)
                 # Call all no-input graph_fns of the new Component.
                 for no_in_col in component.no_input_graph_fn_columns:
@@ -589,7 +602,8 @@ class GraphBuilder(Specifiable):
                 self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
                 TraceContext.CONTEXT_START = None
                 TraceContext.ACTIVE_CALL_CONTEXT = False
-        # Make sure everything coming from a computation is always a tuple.
+
+        # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
 
         # Always un-flatten all return values. Otherwise, we would allow Dict Spaces
@@ -616,6 +630,11 @@ class GraphBuilder(Specifiable):
                 "ERROR: DataOpRecordColumnFromGraphFn for in-column {} is None!".format(op_rec_column)
             out_graph_fn_column = op_rec_column.out_graph_fn_column
 
+        # 0 return values or a single None as 1 return value?
+        if ops == ():
+            if len(out_graph_fn_column.op_records) == 1:
+                ops = (None,)
+
         # Make sure the number of returned ops matches the number of op-records in the next column.
         # TODO: instead of backend check, do a build mode check here.
         # Define-by-run may return Nothing or None which is not an Op.
@@ -626,6 +645,8 @@ class GraphBuilder(Specifiable):
                     op_rec_column.component.name, op_rec_column.graph_fn.__name__, len(ops),
                     len(out_graph_fn_column.op_records)
                 )
+            # Replace graph_fn-returned Nones with no_op().
+            ops = tuple([tf.no_op() if o is None else o for o in ops])
 
         # Determine the Spaces for each out op and then move it into the respective op and Space slot of the
         # out_graph_fn_column.
@@ -635,6 +656,10 @@ class GraphBuilder(Specifiable):
             assert out_graph_fn_column.op_records[i].op is None
             out_graph_fn_column.op_records[i].op = op
             out_graph_fn_column.op_records[i].space = space
+            # Assign op-rec property in Space so we have a backref in case the Space causes an error during
+            # sanity checking.
+            if space:  # could be 0
+                space.op_rec_ref = out_graph_fn_column.op_records[i]
 
         return out_graph_fn_column
 
@@ -678,6 +703,7 @@ class GraphBuilder(Specifiable):
                 for op_rec in out_op_column.op_records:
                     if op_rec.op is None:
                         try:
+                            #draw_sub_meta_graph_from_op_rec(op_rec, self.meta_graph)
                             self._analyze_none_op(op_rec)
                         except RLGraphBuildError as e:
                             if still_building:
@@ -687,7 +713,7 @@ class GraphBuilder(Specifiable):
     def _analyze_none_op(self, op_rec):
         """
         Args:
-            op_rec (DataOpRecord): The op-rec to analyze for errors (whose op property is None).
+            op_rec (DataOpRecord): The op-rec to analyze for errors (whose `op` property is None).
 
         Raises:
             RLGraphError: After the problem has been identified.
@@ -806,7 +832,7 @@ class GraphBuilder(Specifiable):
             RLGraphError: After the problem has been identified.
         """
         # Find the sub-component that's input-incomplete and further track that one.
-        for sub_component in component.get_all_sub_components():
+        for sub_component in component.get_all_sub_components(exclude_self=True):
             if sub_component.input_complete is False:
                 self._analyze_input_incomplete_component(sub_component)
 
@@ -1092,7 +1118,7 @@ class GraphBuilder(Specifiable):
         self.build_input_space_ops(input_spaces)
 
         # Collect all components and add those op-recs to the set that are constant.
-        components = self.root_component.get_all_sub_components()
+        components = self.root_component.get_all_sub_components(exclude_self=False)
         for component in components:
             component.graph_builder = self  # point to us.
             self.op_records_to_process.update(component.constant_op_records)
@@ -1159,53 +1185,56 @@ class GraphBuilder(Specifiable):
                         if next_op_rec.is_terminal_op is False:
                             assert next_op_rec.op is None or is_constant(next_op_rec.op) or next_op_rec.op is op_rec.op
                             self.op_records_to_process.add(next_op_rec)
-                        # Push op and Space into next op-record.
-                        # With op-instructions?
-                        if "key-lookup" in next_op_rec.op_instructions:
-                            lookup_key = next_op_rec.op_instructions["key-lookup"]
-                            if isinstance(lookup_key, str) and (not isinstance(op_rec.op, dict) or lookup_key
-                                                                not in op_rec.op):
-                                raise RLGraphError(
-                                    "op_rec.op ({}) is not a dict or does not contain the lookup key '{}'!". \
-                                    format(op_rec.op, lookup_key)
-                                )
-                            elif isinstance(lookup_key, int) and (not isinstance(op_rec.op, (list, tuple)) or
-                                                                  lookup_key >= len(op_rec.op)):
-                                raise RLGraphError(
-                                    "op_rec.op ({}) is not a list/tuple or contains not enough items for lookup "
-                                    "index '{}'!".format(op_rec.op, lookup_key)
-                                )
-                            next_op_rec.op = op_rec.op[lookup_key]
-                            next_op_rec.space = op_rec.space[lookup_key]
-                        # No instructions -> simply pass on.
-                        else:
-                            next_op_rec.op = op_rec.op
-                            next_op_rec.space = op_rec.space
+                        ## Push op and Space into next op-record.
+                        ## With op-instructions?
+                        #if "key-lookup" in next_op_rec.op_instructions:
+                        #    lookup_key = next_op_rec.op_instructions["key-lookup"]
+                        #    if isinstance(lookup_key, str) and (not isinstance(op_rec.op, dict) or lookup_key
+                        #                                        not in op_rec.op):
+                        #        raise RLGraphError(
+                        #            "op_rec.op ({}) is not a dict or does not contain the lookup key '{}'!". \
+                        #            format(op_rec.op, lookup_key)
+                        #        )
+                        #    elif isinstance(lookup_key, int) and (not isinstance(op_rec.op, (list, tuple)) or
+                        #                                          lookup_key >= len(op_rec.op)):
+                        #        raise RLGraphError(
+                        #            "op_rec.op ({}) is not a list/tuple or contains not enough items for lookup "
+                        #            "index '{}'!".format(op_rec.op, lookup_key)
+                        #        )
+                        #    next_op_rec.op = op_rec.op[lookup_key]
+                        #    next_op_rec.space = op_rec.space[lookup_key]
+                        ## No instructions -> simply pass on.
+                        #else:
+                        #    next_op_rec.op = op_rec.op
+                        #    next_op_rec.space = op_rec.space
+                        op_rec.connect_to(next_op_rec)
 
-                            # Also push Space into possible API-method record if slot's Space is still None.
-                            if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
-                                param_name = get_call_param_name(op_rec)
-                                component = op_rec.column.api_method_rec.component
+                        # Also push Space into possible API-method record if slot's Space is still None.
+                        if isinstance(op_rec.column, DataOpRecordColumnIntoAPIMethod):
+                            param_name = get_call_param_name(op_rec)
+                            component = op_rec.column.api_method_rec.component
 
-                                # Place Space for this input-param name (valid for all input params of same name even of
-                                # different API-method of the same Component).
-                                if component.api_method_inputs[param_name] is None or \
-                                        component.api_method_inputs[param_name] == "flex":
-                                    component.api_method_inputs[param_name] = next_op_rec.space
-                                # For non-space agnostic Components: Sanity check, whether Spaces are equivalent.
-                                elif component.space_agnostic is False:
-                                    generic_space = check_space_equivalence(
-                                        component.api_method_inputs[param_name], next_op_rec.space
-                                    )
-                                    # Spaces are not equivalent.
-                                    if generic_space is False:
-                                        raise RLGraphError(
-                                            "ERROR: op-rec '{}' has Space '{}', but input-param '{}' already has Space "
-                                            "'{}'!".format(next_op_rec, next_op_rec.space, param_name,
-                                                           component.api_method_inputs[param_name])
+                            # Place Space for this input-param name (valid for all input params of same name even of
+                            # different API-method of the same Component).
+                            if component.api_method_inputs[param_name] is None or \
+                                    component.api_method_inputs[param_name] == "flex":
+                                component.api_method_inputs[param_name] = next_op_rec.space
+                            # For non-space agnostic Components: Sanity check, whether Spaces are equivalent.
+                            elif component.space_agnostic is False:
+                                generic_space = check_space_equivalence(
+                                    component.api_method_inputs[param_name], next_op_rec.space
+                                )
+                                # Spaces are not equivalent.
+                                if generic_space is False:
+                                    raise RLGraphError(
+                                        "ERROR: op-rec '{}' going into API '{}' has Space '{}', but input-param "
+                                        "'{}' already has Space '{}'!".format(
+                                            next_op_rec, op_rec.column.api_method_rec.api_method_name,
+                                            next_op_rec.space, param_name, component.api_method_inputs[param_name]
                                         )
-                                    # Overwrite both entries with the more generic Space.
-                                    next_op_rec.space = component.api_method_inputs[param_name] = generic_space
+                                    )
+                                # Overwrite both entries with the more generic Space.
+                                next_op_rec.space = component.api_method_inputs[param_name] = generic_space
 
                         # Did we enter a new Component? If yes, check input-completeness and
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
@@ -1215,6 +1244,10 @@ class GraphBuilder(Specifiable):
                             self.build_component_when_input_complete(next_component)
                             if next_component.input_complete is False:
                                 non_complete_components.add(next_component.global_scope)
+
+                        # Update Space's op_rec ref (should always refer to the deepest-into-the-graph op-rec).
+                        if next_op_rec.space:  # space could be 0
+                            next_op_rec.space.op_rec_ref = next_op_rec
 
                 # No next records:
                 # - Op belongs to a column going into a graph_fn.
@@ -1291,6 +1324,7 @@ class GraphBuilder(Specifiable):
                                 component.get_variables(custom_scope_separator="-").items()
                             )})
                             op_rec.space = var_space
+                            var_space.op_rec_ref = op_rec  # store op-rec in Space for sanity-checking and debugging
                             placeholder_name = next(iter(op_rec.next)).column.api_method_rec.input_names[op_rec.position]
                             assert len(op_rec.next) == 1, \
                                 "ERROR: root_component API op-rec ('{}') expected to have only one `next` op-rec!". \

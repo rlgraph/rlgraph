@@ -23,7 +23,6 @@ from collections import OrderedDict
 
 import numpy as np
 from six.moves import xrange as range_
-
 from rlgraph import get_backend
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
@@ -351,8 +350,9 @@ class Component(Specifiable):
         input_spaces = input_spaces or self.api_method_inputs
         # print("Completing with input spaces after lookup = ", input_spaces)
 
-        # Allow the Component to check its input Space.
+        # Allow the Component to check its input Space and catch input-space errors.
         self.check_input_spaces(input_spaces, action_space)
+
         # Allow the Component to create all its variables.
         if get_backend() == "tf":
             # TODO: write custom scope generator for devices (in case None, etc..).
@@ -825,22 +825,20 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_summary(summary_key)
 
-    def add_components(self, *components, **kwargs):
+    def add_components(self, *components, expose_apis=None):
         """
         Adds sub-components to this one.
 
         Args:
             components (List[Component]): The list of Component objects to be added into this one.
 
-        Keyword Args:
-            expose_apis (Optional[Set[str]]): An optional set of strings with API-methods of the child component
-                that should be exposed as the parent's API via a simple wrapper API-method for the parent (that
-                calls the child's API-method).
-
-            #exposed_must_be_complete (bool): Whether the exposed API methods must be input-complete or not.
+            expose_apis (Optional[Set[str],Dict[str,str]]): An optional set of strings with API-methods of the child
+                component that should be exposed as the parent's API via a simple wrapper API-method for the parent
+                (that calls the child's API-method).
         """
-        expose_apis = kwargs.pop("expose_apis", set())
-        if isinstance(expose_apis, str):
+        if expose_apis is None:
+            expose_apis = {}
+        elif isinstance(expose_apis, str):
             expose_apis = {expose_apis}
 
         for component in components:
@@ -866,6 +864,7 @@ class Component(Specifiable):
                 raise RLGraphError("ERROR: Cannot add a Component ({}) as a sub-Component to itself!".format(self.name))
             component.parent_component = self
             component.nesting_level = (self.nesting_level or 0) + 1
+            component.graph_builder = self.graph_builder
             self.sub_components[component.name] = component
 
             # Fix the sub-component's (and sub-sub-component's etc..) scope(s).
@@ -880,13 +879,14 @@ class Component(Specifiable):
             # Should we expose some API-methods of the child?
             # Only if parent does not have that method yet (otherwise, use parent method).
             for api_method_name, api_method_rec in component.api_methods.items():
-                if expose_apis is not None and api_method_name in expose_apis and \
-                        api_method_name not in self.api_methods:
+                if api_method_name in expose_apis and api_method_name not in self.api_methods:
+                    exposed_api_method_name = api_method_name if isinstance(expose_apis, set) else \
+                        expose_apis[api_method_name]
                     # Build exposed method code per string, then eval it.
                     code = "@rlgraph_api(component=self, must_be_complete={}, ok_to_overwrite=False)\n".format(
                         api_method_rec.must_be_complete
                     )
-                    code += "def {}(self, ".format(api_method_name)
+                    code += "def {}(self, ".format(exposed_api_method_name)
                     args_str = ""
                     args_str_w_default = ""
                     for i, ak in enumerate(api_method_rec.non_args_kwargs):
@@ -894,11 +894,9 @@ class Component(Specifiable):
                         args_str_w_default += ak + ("="+str(api_method_rec.default_values[api_method_rec.default_args.index(ak)]) if ak in api_method_rec.default_args else "") + ", "
                     args_str += ("*"+api_method_rec.args_name+", " if api_method_rec.args_name else "")
                     args_str += ("**"+api_method_rec.kwargs_name+", " if api_method_rec.kwargs_name else "")
-                    args_str = args_str[:-2]  # cut last ', '
-                    code += args_str_w_default + "):\n"
-                    code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(
-                        component.name, api_method_name, args_str
-                    )
+                    args_str = args_str[:-2]  # -2=cut last ', '
+                    code += args_str_w_default[:-2] + "):\n" # -2=cut last ', '
+                    code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(component.name, api_method_name, args_str)
                     print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
                     exec(code, globals(), locals())
 
@@ -916,8 +914,8 @@ class Component(Specifiable):
         by the scope (name) of the Components.
 
         Args:
-            list\_ (Optional[List[Component]])): A list of already collected components to append to.
-            level\_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
+            list_ (Optional[List[Component]])): A list of already collected components to append to.
+            level_ (int): The slot indicating the Component level depth in `list_` at which we are currently.
             exclude_self (bool): Whether `self` should be returned as the last sub-Component in the list.
                 Default: True.
 
@@ -955,7 +953,7 @@ class Component(Specifiable):
             Component: The sub-Component with the given global scope if found, None if not found.
         """
         # TODO: make method more efficient.
-        components = self.get_all_sub_components()
+        components = self.get_all_sub_components(exclude_self=True)
         for component in components:
             if component.global_scope == scope:
                 return component

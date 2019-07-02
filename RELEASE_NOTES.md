@@ -5,6 +5,45 @@ Summarizes updates in recent releases.
 - TODO: return sequence_indeces from ring_buffer automatically (if set in c'tor as an option).
 True for records with terminal=True or for last record in ring-memory (no matter, what value terminal has).
 
+## RLgraph 0.5.5 - 2019/07/01
+- Added some new Components (MultiInputStreamNN, VariationalAutoEncoder, MultiLSTMLayer, JointCumulativeDistribution,
+  different supervised LossFunctions, Models, etc..), incl. test cases.
+- Added container Space support to all Agents (python buffers had to be expanded).
+- Bug fix in BernoulliDistributionAdapter and Policy (with bool actions): Was returning wrong 
+  parameters (must be probs, not raw NN output).
+- tf backend: Allow returning None now in graph_fn as valid DataOps.
+- Bug fix in LSTM tf backend: LSTMLayer would not compile on tf versions < 1.13.
+- Added possibility to flatten/split a graph_fn call "alongside" some given "(self.)property". This makes it easier to
+  split input args only to a certain extend (see e.g. distribution parameters in policy's API methods). 
+
+## RLgraph 0.5.4 - 2019/06/07
+- Added a prototype for a debug visualization util that automatically
+  builds sub-sections of the (meta-)graph and visualizes this sub-graph
+  in the browser (as pdf) using GraphViz.
+  See FAQs for details on how to activate this feature.
+  Installing the GraphViz engine (and pypi `graphviz`) is not a requirement.
+  In the visualized sub-graph, where only the fault-relevant parts of
+  the Agent are shown to reduce information overload, one can see
+  immediately where Space (shape/type) problems occurred.
+- Cleaner handling of exposing child API methods when calling:
+  `Component.add_components()`. The auto-generated (exposed) parent API
+  now has the same name and signature as the child's one (which makes it
+  more consistent when tracking incoming Spaces into API-input-args
+  (a Component's input-completeness is affected by this)).
+
+## RLgraph 0.5.3 - 2019/06/03
+- Fixed remaining issues with Keras-style NN assembly. This is now the
+  recommended method for complex/multi-stream `NeuralNetworks`.
+
+## RLgraph 0.5.2 - 2019/05/25
+- Fixed bug in Worker's reporting: `mean_episode_reward` was calculated
+  incorrectly as the return of the last episode (regardless of whether
+  this episode was completed or not).
+- Tuned learning tests for SAC and PPO.
+- Added visualization tools for GridWorld envs. Rendering is now done in
+  pygame (optional install and the env has additional heat-map and
+  rewards/states-paths visualizing methods (png output).
+
 ## RLgraph 0.5.1 - 2019/05/24
 - Fixed bug in PPOLossFunction affecting action spaces with shapes like
   (x, y, z, >1) and container action spaces.

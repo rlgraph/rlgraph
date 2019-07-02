@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import inspect
@@ -114,17 +112,6 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
             api_method_rec = self.api_methods[api_fn_name]
 
-            # TODO: Remove this code or make smarter: passing dicts is actually ok now.
-            # Sanity check input args for accidential dict-return values being passed into the next API as
-            # supposed DataOpRecord.
-            #dict_args = [next(iter(a.values())) for a in args if isinstance(a, dict)]
-            #if len(dict_args) > 0 and isinstance(dict_args[0], DataOpRecord):
-            #    raise RLGraphError(
-            #        "One of your input args to API-method '{}.{}()' is a dict of DataOpRecords! This is probably "
-            #        "coming from a previous call to an API-method (returning a dict) and the DataOpRecord should be "
-            #        "extracted by string-key and passed into '{}' "
-            #        "directly.".format(api_method_rec.component.global_scope, api_fn_name, api_fn_name)
-            #    )
             # Create op-record column to call API method with. Ignore None input params. These should not be sent
             # to the API-method.
             in_op_column = DataOpRecordColumnIntoAPIMethod(
@@ -564,7 +551,7 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
             Has no effect if `split_ops` is False.
             Default: False.
 
-        \*args (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.
+        args (Union[DataOpRecord,np.array,numeric]): The DataOpRecords to be used for calling the method.
     """
     flatten_ops = options.pop("flatten_ops", False)
     split_ops = options.pop("split_ops", False)
@@ -621,7 +608,13 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
             num_graph_fn_return_values = returns
         else:
             num_graph_fn_return_values = util.get_num_return_values(wrapped_func)
-        component.logger.debug("Graph_fn has {} return values (inferred).".format(
+            # Safety measure: If not explicitly declared, do not allow 0 return values.
+            assert num_graph_fn_return_values > 0,\
+                "ERROR: GraphFn '{}/{}' does not seem to be returning any values! If a simple None/no_op should be " \
+                "returned from the function, it may help to explicitly write 'return None' at the bottom of it.".\
+                format(component.global_scope, wrapped_func.__name__)
+
+        component.logger.debug("GraphFn has {} return values (inferred).".format(
             wrapped_func.__name__, num_graph_fn_return_values)
         )
         # If in-column is empty, add it to the "empty in-column" set.

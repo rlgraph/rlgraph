@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import operator
 
@@ -102,6 +100,8 @@ class MemPrioritizedReplay(Memory):
         # Update indices
         self.index = (self.index + num_records) % self.capacity
         self.size = min(self.size + num_records, self.capacity)
+
+        return None
 
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):

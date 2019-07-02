@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.components.component import Component
 from rlgraph.components.explorations.exploration import Exploration
-from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.policies.policy import Policy
 from rlgraph.utils.decorators import rlgraph_api
@@ -49,23 +46,26 @@ class ActorComponent(Component):
 
         self.preprocessor = PreprocessorStack.from_spec(preprocessor_spec)
         self.policy = Policy.from_spec(policy_spec)
-        self.num_nn_inputs = self.policy.neural_network.num_inputs
         self.exploration = Exploration.from_spec(exploration_spec)
 
         self.tuple_merger = ContainerMerger(is_tuple=True, merge_tuples_into_one=True)
-        self.tuple_splitter = ContainerSplitter(tuple_length=self.num_nn_inputs)
 
-        self.add_components(self.policy, self.exploration, self.preprocessor, self.tuple_merger, self.tuple_splitter)
+        self.add_components(self.policy, self.exploration, self.preprocessor, self.tuple_merger)
 
     @rlgraph_api
-    def get_preprocessed_state_and_action(self, states, other_nn_inputs=None, time_step=0, use_exploration=True):
+    def get_preprocessed_state_and_action(
+            self, states, other_nn_inputs=None, time_percentage=None, use_exploration=True
+    ):
         """
         API-method to get the preprocessed state and an action based on a raw state from an Env.
 
         Args:
             states (DataOp): The states coming directly from the environment.
             other_nn_inputs (Optional[DataOpTuple]): Inputs to the NN that don't have to be pushed through the preprocessor.
-            time_step (DataOp): The current time step(s).
+
+            time_percentage (SingleDataOp): The current consumed time (0.0 to 1.0) with respect to a max timestep
+                value.
+
             use_exploration (Optional[DataOp]): Whether to use exploration or not.
 
         Returns:
@@ -82,17 +82,16 @@ class ActorComponent(Component):
             # TODO: Do this automatically when using the `+` operator on DataOpRecords.
             nn_inputs = self.tuple_merger.merge(nn_inputs, other_nn_inputs)
 
-        #inputs = self.tuple_splitter.call(nn_inputs)
         out = self.policy.get_action(nn_inputs)
 
-        actions = self.exploration.get_action(out["action"], time_step, use_exploration)
+        actions = self.exploration.get_action(out["action"], time_percentage, use_exploration)
         return dict(
             preprocessed_state=preprocessed_states, action=actions, nn_outputs=out["nn_outputs"]
         )
 
     @rlgraph_api
     def get_preprocessed_state_action_and_action_probs(
-            self, states, other_nn_inputs=None, time_step=0, use_exploration=True
+            self, states, other_nn_inputs=None, time_percentage=None, use_exploration=True
     ):
         """
         API-method to get the preprocessed state, one action and all possible action's probabilities based on a
@@ -101,7 +100,10 @@ class ActorComponent(Component):
         Args:
             states (DataOp): The states coming directly from the environment.
             other_nn_inputs (DataOp): Inputs to the NN that don't have to be pushed through the preprocessor.
-            time_step (DataOp): The current time step(s).
+
+            time_percentage (SingleDataOp): The current consumed time (0.0 to 1.0) with respect to a max timestep
+                value.
+
             use_exploration (Optional[DataOp]): Whether to use exploration or not.
 
         Returns:
@@ -119,8 +121,6 @@ class ActorComponent(Component):
             # TODO: Do this automatically when using the `+` operator on DataOpRecords.
             nn_inputs = self.tuple_merger.merge(nn_inputs, other_nn_inputs)
 
-        #inputs = self.tuple_splitter.call(nn_inputs)
-
         # TODO: Dynamic Batching problem. State-value is not really needed, but dynamic batching will require us to
         # TODO: run through the exact same partial-graph as the learner (which does need the extra state-value output).
         # if isinstance(self.policy, SharedValueFunctionPolicy):
@@ -129,10 +129,11 @@ class ActorComponent(Component):
         # out = self.policy.get_logits_parameters_log_probs(preprocessed_states, internal_states)
         # action_sample = self.policy.get_action_from_logits_and_parameters(out["logits"], out["parameters"])
 
-        out = self.policy.get_action(nn_inputs)
+        out = self.policy.get_action_and_log_likelihood(nn_inputs)
 
-        actions = self.exploration.get_action(out["action"], time_step, use_exploration)
+        actions = self.exploration.get_action(out["action"], time_percentage, use_exploration)
+
         return dict(
-            preprocessed_state=preprocessed_states, action=actions, action_probs=out["parameters"],
+            preprocessed_state=preprocessed_states, action=actions, action_probs=out["action_probabilities"],
             nn_outputs=out["nn_outputs"]
         )

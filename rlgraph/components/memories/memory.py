@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.component import Component, rlgraph_api
 from rlgraph.utils import FlattenedDataOp
@@ -91,7 +89,7 @@ class Memory(Component):
         """
         raise NotImplementedError
 
-    @rlgraph_api
+    @rlgraph_api(returns=0)
     def _graph_fn_get_episodes(self, num_episodes=1):
         """
         Retrieves a given number of episodes.
@@ -101,14 +99,6 @@ class Memory(Component):
 
         Returns: The retrieved episodes.
         """
-        pass
-
-    @rlgraph_api
-    def _graph_fn_clear(self):
-        """
-        Removes all entries from memory.
-        """
-        # Optional?
         pass
 
     def _read_records(self, indices):

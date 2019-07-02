@@ -13,16 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 
 from rlgraph.graphs import MetaGraphBuilder
+from rlgraph.utils.input_parsing import parse_saver_spec, parse_execution_spec
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
-from rlgraph.utils.input_parsing import parse_saver_spec, parse_execution_spec
 
 
 class GraphExecutor(Specifiable):
@@ -239,7 +237,7 @@ class GraphExecutor(Specifiable):
               RLGraphError: If sanity of the init nesting setup could not be confirmed.
         """
         # Check whether every component (except root-component) has a parent.
-        components = root_component.get_all_sub_components()
+        components = root_component.get_all_sub_components(exclude_self=False)
 
         self.logger.info("Components created: {}".format(len(components)))
 

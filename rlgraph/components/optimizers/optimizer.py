@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.components.component import Component
@@ -34,7 +32,7 @@ class Optimizer(Component):
         """
         super(Optimizer, self).__init__(scope=kwargs.pop("scope", "optimizer"), **kwargs)
 
-        self.learning_rate = TimeDependentParameter.from_spec(learning_rate)
+        self.learning_rate = TimeDependentParameter.from_spec(learning_rate, scope="learning-rate")
 
         self.add_components(self.learning_rate)
 

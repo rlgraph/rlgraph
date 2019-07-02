@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from functools import partial
 
 import numpy as np
-
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
 from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
@@ -28,6 +25,7 @@ from rlgraph.spaces.float_box import FloatBox
 from rlgraph.spaces.int_box import IntBox
 from rlgraph.spaces.space import Space
 from rlgraph.spaces.text_box import TextBox
+import rlgraph.spaces.space_utils
 
 Space.__lookup_classes__ = dict({
     "bool": BoolBox,

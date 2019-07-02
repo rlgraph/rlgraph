@@ -16,7 +16,6 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
@@ -27,10 +26,11 @@ from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten
-from rlgraph.utils.ops import flatten_op, unflatten_op, DataOpDict, ContainerDataOp, FlattenedDataOp
+from rlgraph.utils.ops import flatten_op, DataOp, DataOpDict
 
 if get_backend() == "tf":
     import tensorflow as tf
+    setattr(tf.Tensor, "map", DataOp.map)
 if get_backend() == "pytorch":
     import torch
 
@@ -205,14 +205,19 @@ class PPOAgent(Agent):
         # States come in without preprocessing -> use state space.
         if apply_preprocessing:
             call_method = "get_actions"
-            batched_states = self.state_space.force_batch(states)
+            batched_states, remove_batch_rank = self.state_space.force_batch(states, horizontal=False)
         else:
             call_method = "get_actions_from_preprocessed_states"
             batched_states = states
-        remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
+            remove_batch_rank = False
 
         # Increase timesteps by the batch size (number of states in batch).
-        batch_size = len(batched_states)
+        if not isinstance(batched_states, (dict, tuple)):
+            batch_size = len(batched_states)
+        elif isinstance(batched_states, dict):
+            batch_size = len(batched_states[next(iter(batched_states))])
+        else:
+            batch_size = len(next(iter(batched_states)))
         self.timesteps += batch_size
 
         # Control, which return value to "pull" (depending on `additional_returns`).
@@ -279,6 +284,9 @@ class PPOAgent(Agent):
         assert ret["index"] == ret["step_op"] == self.root_component.num_iterations
 
         return ret["loss"] + ret["vf_loss"], ret["loss_per_item"] + ret["vf_loss_per_item"]
+
+    def get_records(self, num_records=1):
+        return self.graph_executor.execute(("get_records", num_records))
 
     def reset(self):
         """
@@ -397,7 +405,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
         prev_state_values = self.value_function.value_output(preprocessed_states)
 
         if get_backend() == "tf":
-            batch_size = tf.shape(preprocessed_states)[0]
+            batch_size = tf.shape(list(flatten_op(preprocessed_states).values())[0])[0]
 
             # Log probs before update (stop-gradient as these are used in target term).
             prev_log_probs = tf.stop_gradient(prev_log_probs)
@@ -419,14 +427,18 @@ class PPOAlgorithmComponent(AlgorithmComponent):
             def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                 start = tf.random_uniform(shape=(), minval=0, maxval=batch_size, dtype=tf.int32)
                 indices = tf.range(start=start, limit=start + self.sample_size) % batch_size
-                sample_states = tf.gather(params=preprocessed_states, indices=indices)
-                if isinstance(actions, ContainerDataOp):
-                    sample_actions = FlattenedDataOp()
-                    for name, action in flatten_op(actions).items():
-                        sample_actions[name] = tf.gather(params=action, indices=indices)
-                    sample_actions = unflatten_op(sample_actions)
-                else:
-                    sample_actions = tf.gather(params=actions, indices=indices)
+                # Use `map` here in case we have container states/actions.
+                sample_states = preprocessed_states.map(lambda k, v: tf.gather(v, indices))
+                sample_actions = actions.map(lambda k, v: tf.gather(v, indices))
+
+                #sample_states = tf.gather(params=preprocessed_states, indices=indices)
+                #if isinstance(actions, ContainerDataOp):
+                #    sample_actions = FlattenedDataOp()
+                #    for name, action in flatten_op(actions).items():
+                #        sample_actions[name] = tf.gather(params=action, indices=indices)
+                #    sample_actions = unflatten_op(sample_actions)
+                #else:
+                #    sample_actions = tf.gather(params=actions, indices=indices)
 
                 sample_prev_log_probs = tf.gather(params=prev_log_probs, indices=indices)
                 sample_rewards = tf.gather(params=rewards, indices=indices)
@@ -539,21 +551,28 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 )
 
         elif get_backend() == "pytorch":
-            batch_size = preprocessed_states.shape[0]
+            batch_size = list(flatten_op(preprocessed_states).values())[0].shape[0]
             sample_size = min(batch_size, self.sample_size)
 
+            # TODO: Add `map` support for pytorch tensors (like done for tf).
             if isinstance(prev_log_probs, dict):
                 for name in actions.keys():
                     prev_log_probs[name] = prev_log_probs[name].detach()
             else:
                 prev_log_probs = prev_log_probs.detach()
+            # TODO: Add support for container spaces (via `map).
             prev_state_values = self.value_function.value_output(preprocessed_states).detach()
+
             if apply_postprocessing:
                 advantages = self.gae_function.calc_gae_values(prev_state_values, rewards, terminals, sequence_indices)
             else:
                 advantages = rewards
+
             if self.standardize_advantages:
-                advantages = (advantages - torch.mean(advantages)) / torch.std(advantages)
+                std = torch.std(advantages)
+                # Std must not be 0.0 (would be the case for pytorch "test run" during build).
+                if not np.isnan(std):
+                    advantages = (advantages - torch.mean(advantages)) / std
 
             for _ in range(self.num_iterations):
                 start = int(torch.rand(1) * (batch_size - 1))

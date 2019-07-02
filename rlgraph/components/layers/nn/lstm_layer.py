@@ -13,10 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
+from packaging import version
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.spaces import Tuple
@@ -73,6 +72,7 @@ class LSTMLayer(NNLayer):
         )
 
         self.units = units
+        self.time_major = time_major
         self.use_peepholes = use_peepholes
         self.cell_clip = cell_clip
         self.static_loop = static_loop
@@ -118,20 +118,31 @@ class LSTMLayer(NNLayer):
 
         # Wrapper for backend.
         if get_backend() == "tf":
-            self.lstm = tf.contrib.rnn.LSTMBlockCell(  #tf.nn.rnn_cell.LSTMCell(
-                num_units=self.units,
-                use_peephole=self.use_peepholes,
-                cell_clip=self.cell_clip,
-                forget_bias=self.forget_bias,
-                name="lstm-cell",
-                reuse=tf.AUTO_REUSE
-                # TODO: self.trainable needs to be recognized somewhere here.
-
-                # These are all not supported yet for LSTMBlockCell (only for the slower LSTMCell)
-                # initializer=self.weights_init.initializer,
-                # activation=get_activation_function(self.activation, *self.activation_params),
-                # dtype=self.dtype,
-            )
+            # dtype arg is only supported from 1.13 on.
+            if version.parse(tf.__version__) >= version.parse("1.13.0"):
+                self.lstm = tf.contrib.rnn.LSTMBlockCell(
+                    num_units=self.units,
+                    use_peephole=self.use_peepholes,
+                    cell_clip=self.cell_clip,
+                    forget_bias=self.forget_bias,
+                    name="lstm-cell",
+                    dtype=tf.float32,
+                    reuse=tf.AUTO_REUSE
+                )
+            else:
+                self.lstm = tf.contrib.rnn.LSTMBlockCell(
+                    num_units=self.units,
+                    use_peephole=self.use_peepholes,
+                    cell_clip=self.cell_clip,
+                    forget_bias=self.forget_bias,
+                    name="lstm-cell",
+                    reuse=tf.AUTO_REUSE
+                    # TODO: self.trainable needs to be recognized somewhere here.
+                    # These are all not supported yet for LSTMBlockCell (only for the slower LSTMCell)
+                    # initializer=self.weights_init.initializer,
+                    # activation=get_activation_function(self.activation, *self.activation_params),
+                    # dtype=self.dtype,
+                )
 
             # Now build the layer so that its variables get created.
             in_space_without_time_rank = list(self.in_space.get_shape(with_batch_rank=True))
@@ -180,14 +191,14 @@ class LSTMLayer(NNLayer):
                     initial_state=initial_c_and_h_states,
                     parallel_iterations=self.parallel_iterations,
                     swap_memory=self.swap_memory,
-                    time_major=self.in_space.time_major,
-                    dtype="float"
+                    time_major=self.time_major ,
+                    dtype=tf.float32
                 )
             # We are running with a fixed number of time steps (static unroll).
             else:
                 # Set to zeros as tf lstm object does not handle None.
                 if initial_c_and_h_states is None:
-                    shape = (tf.shape(inputs)[0 if self.in_space.time_major is False else 1], self.units)
+                    shape = (tf.shape(inputs)[0 if self.time_major is False else 1], self.units)
                     initial_c_and_h_states = tf.nn.rnn_cell.LSTMStateTuple(
                         tf.zeros(shape=shape, dtype=tf.float32),
                         tf.zeros(shape=shape, dtype=tf.float32)
@@ -208,15 +219,15 @@ class LSTMLayer(NNLayer):
 
             # Only return last value.
             if self.return_sequences is False:
-                if self.in_space.time_major is True:
+                if self.time_major is True:
                     lstm_out = lstm_out[-1]
                 else:
                     lstm_out = lstm_out[:,-1]
                 lstm_out._batch_rank = 0
             # Return entire sequence.
             else:
-                lstm_out._batch_rank = 0 if self.in_space.time_major is False else 1
-                lstm_out._time_rank = 0 if self.in_space.time_major is True else 1
+                lstm_out._batch_rank = 0 if self.time_major is False else 1
+                lstm_out._time_rank = 0 if self.time_major is True else 1
 
             # Returns: Unrolled-outputs (time series of all encountered h-states), final c- and h-states.
             return lstm_out, DataOpTuple(lstm_state_tuple)

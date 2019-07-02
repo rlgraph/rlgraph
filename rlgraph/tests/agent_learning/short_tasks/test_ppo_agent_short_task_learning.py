@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import os
@@ -76,6 +74,38 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         # Assume we have learned something.
         self.assertGreater(results["mean_episode_reward_last_10_episodes"], 0.0)
 
+    def test_ppo_on_long_chain_grid_world(self):
+        """
+        Creates a PPO Agent and runs it via a Runner on the long-chain Grid World env.
+        NOTE: This is a negative learning test showing that if the buffer is too small (meaning we must add artificial
+        terminal signals in the middle of episodes) and the learning rate is large enough, the agent will get stuck
+        in very few (or even just one) states.
+        """
+        env = GridWorld(world="long-chain")
+        agent = PPOAgent.from_spec(
+            config_from_path("configs/ppo_agent_for_long_chain_gridworld.json"),
+            state_space=GridWorld.grid_world_long_chain_flattened_state_space,
+            action_space=env.action_space
+        )
+
+        time_steps = 3000
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env,
+            agent=agent,
+            render=False, #self.is_windows,
+            worker_executes_preprocessing=True,
+            preprocessing_spec=GridWorld.grid_world_long_chain_preprocessing_spec
+        )
+        results = worker.execute_timesteps(time_steps, use_exploration=True)
+
+        print(results)
+
+        self.assertEqual(results["timesteps_executed"], time_steps)
+        self.assertEqual(results["env_frames"], time_steps)
+        self.assertLessEqual(results["episodes_executed"], time_steps / 2)
+        # Assume we have NOT learned anything.
+        self.assertLess(results["mean_episode_reward_last_10_episodes"], -100.0)
+
     def test_ppo_on_2x2_grid_world_with_container_actions(self):
         """
         Creates a PPO agent and runs it via a Runner on a simple 2x2 GridWorld using container actions.
@@ -86,8 +116,8 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         # | |G|  ^=start, looking up
         # -----
 
-        # ftj = forward + turn + jump
-        env_spec = dict(world="2x2", action_type="ftj", state_representation="xy+orientation")
+        # ftjb = forward + turn + jump (bool!)
+        env_spec = dict(world="2x2", action_type="ftjb", state_representation="xy+orientation")
         dummy_env = GridWorld.from_spec(env_spec)
         agent_config = config_from_path("configs/ppo_agent_for_2x2_gridworld_with_container_actions.json")
         preprocessing_spec = agent_config.pop("preprocessing_spec")

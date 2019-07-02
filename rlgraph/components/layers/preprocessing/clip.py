@@ -13,12 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.utils.decorators import rlgraph_api
@@ -34,8 +31,8 @@ class Clip(PreprocessLayer):
     def __init__(self, min=0.0, max=1.0, scope="clip", **kwargs):
         """
         Args:
-            min\_ (float): The min value that any value in the input can have.
-            max\_ (float): The max value that any value in the input can have.
+            min (float): The min value that any value in the input can have.
+            max (float): The max value that any value in the input can have.
         """
         super(Clip, self).__init__(scope=scope, **kwargs)
         self.min = min

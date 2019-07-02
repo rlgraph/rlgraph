@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import re
 
@@ -34,10 +32,6 @@ class PreprocessorStack(Stack):
     A special Stack that only carries PreprocessLayer Components and bundles all their `reset` output ops
     into one exposed `reset` output op. Otherwise, behaves like a Stack in feeding the outputs
     of one sub-Component to the inputs of the next sub-Component, etc..
-
-    API:
-        preprocess(input\_): Outputs the preprocessed input after sending it through all sub-Components of this Stack.
-        reset(): An op to trigger all PreprocessorLayers of this Stack to be reset.
     """
     def __init__(self, *preprocessors, **kwargs):
         """

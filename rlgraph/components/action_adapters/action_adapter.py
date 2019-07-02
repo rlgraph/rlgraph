@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.layers.preprocessing.reshape import ReShape
@@ -135,14 +133,18 @@ class ActionAdapter(NeuralNetwork):
         Returns:
             Dict[str,SingleDataOp]:
                 - "adapter_outputs": The raw nn_input, only reshaped according to the action_space.
-                - "parameters": The softmaxed(logits) for the discrete case and the mean/std values for the continuous
-                    case.
-                - "log_probs": log([action probabilities]) iff discrete actions.
+                - "parameters": The raw parameters to pass into the distribution Component for generating an actual
+                    backend-distribution object.
+                - "probs": The action-probabilities iff discrete actions. None otherwise.
+                - "log_probs": log([action probabilities]) iff discrete actions. None otherwise.
         """
         #nn_outputs = self.get_action_adapter_outputs(nn_input, original_nn_input)
         adapter_outputs = self.call(*inputs)  #, original_nn_input)
         out = self.get_parameters_from_adapter_outputs(adapter_outputs)
-        return dict(adapter_outputs=adapter_outputs, parameters=out["parameters"], log_probs=out["log_probs"])
+        return dict(
+            adapter_outputs=adapter_outputs, parameters=out["parameters"],
+            probabilities=out["probabilities"], log_probs=out["log_probs"]
+        )
 
     @rlgraph_api(must_be_complete=False)
     def get_parameters_from_adapter_outputs(self, adapter_outputs):
@@ -150,10 +152,9 @@ class ActionAdapter(NeuralNetwork):
         Args:
             adapter_outputs (SingleDataOp): The (action-space reshaped) output of the action adapter's action layer.
         """
-        parameters, log_probs = self._graph_fn_get_parameters_from_adapter_outputs(adapter_outputs)
-        return dict(parameters=parameters, log_probs=log_probs)
+        parameters, probs, log_probs = self._graph_fn_get_parameters_from_adapter_outputs(adapter_outputs)
+        return dict(parameters=parameters, probabilities=probs, log_probs=log_probs)
 
-    # TODO: Use a SoftMax Component instead (uses the same code as the one below).
     @graph_fn
     def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
         """
@@ -167,22 +168,19 @@ class ActionAdapter(NeuralNetwork):
             tuple (2x SingleDataOp):
                 parameters (DataOp): The parameters, ready to be passed to a Distribution object's
                     get_distribution API-method (usually some probabilities or loc/scale pairs).
-                log_probs (DataOp): Simply the log(parameters).
+                log_probs (DataOp): log(probs) in categorical case. In all other cases: None.
         """
         raise NotImplementedError
 
+    # OBSOLETED API methods. Raise ERROR when called.
     def get_logits(self, nn_input, original_nn_input=None):
         raise RLGraphObsoletedError("API-method", "get_logits", "call")
 
     def get_logits_parameters_log_probs(self, nn_input, original_nn_input=None):
-        raise RLGraphObsoletedError(
-            "API method", "get_logits_parameters_log_probs", "get_parameters"
-        )
+        raise RLGraphObsoletedError("API method", "get_logits_parameters_log_probs", "get_parameters")
 
     def get_logits_probabilities_log_probs(self, nn_input, original_nn_input=None):
-        raise RLGraphObsoletedError(
-            "API method", "get_logits_probabilities_log_probs", "get_parameters"
-        )
+        raise RLGraphObsoletedError("API method", "get_logits_probabilities_log_probs", "get_parameters")
 
     def get_parameters_log_probs(self, logits):
         raise RLGraphObsoletedError("API-method", "get_parameters_log_probs", "get_parameters_from_adapter_outputs")

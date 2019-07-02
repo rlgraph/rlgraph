@@ -13,12 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
+from rlgraph.spaces import FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 
@@ -75,6 +75,8 @@ class TimeDependentParameter(Component):
             assert get_backend() == "tf", "ERROR: `time_percentage` can only be left out if using tf as backend!"
             assert self.max_time_steps is not None, \
                 "ERROR: `time_percentage` can only be left out if `self.max_time_steps` is not None!"
+        else:
+            sanity_check_space(time_pct_space, allowed_types=[FloatBox], rank=0)
 
     @rlgraph_api
     def get(self, time_percentage=None):

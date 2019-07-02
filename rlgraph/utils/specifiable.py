@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import importlib
 import json
@@ -34,13 +32,14 @@ class Specifiable(object):
     """
     Members of this class support the methods from_file, from_spec and from_mixed.
     """
-
     # An optional python dict with supported str-to-ctor mappings for this class.
     __lookup_classes__ = None
     # An optional default constructor to use without any arguments in case `spec` is None
     # and args/kwargs are both empty. This may be a functools.partial object.
     __default_constructor__ = None
 
+    # TODO: Remove from here. Only Specifyables that really need a Logger should have this. Creates problems when
+    # TODO: deepcopying.
     logger = logging.getLogger(__name__)
 
     # Analogous to: http://effbot.org/pyfaq/how-do-i-get-a-list-of-all-instances-of-a-given-class.htm
@@ -199,21 +198,3 @@ class Specifiable(object):
                 available_class_for_type = cls.__lookup_classes__[re.sub(r'[\W_]', '', lookup_type.lower())]
             return available_class_for_type
         return None
-
-
-    #@classmethod
-    #def get_instances(cls):
-    #    """
-    #    Generator that can be used to iterate over all instances of a particular class (if called with that class,
-    #    e.g. `Environment.get_instances()`).
-
-    #    From: http://effbot.org/pyfaq/how-do-i-get-a-list-of-all-instances-of-a-given-class.htm
-    #    """
-    #    #dead = set()
-    #    for ref in cls._instances:
-    #        obj = ref()
-    #        if obj is not None:
-    #            yield obj
-    #        #else:
-    #        #    dead.add(ref)
-    #    #cls._instances -= dead

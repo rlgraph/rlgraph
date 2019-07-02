@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import time
@@ -81,14 +79,16 @@ class MetaGraphBuilder(Specifiable):
                 if root_component.api_method_inputs[param_name] == "flex":
                     if param_name in input_spaces:
                         in_ops_records.append(
-                            DataOpRecord(position=i, kwarg=param_name if use_named else None)
+                            DataOpRecord(position=i, kwarg=param_name if use_named else None, placeholder=param_name)
                         )
                     else:
                         use_named = True
                 # Already defined (per default arg value (e.g. bool)).
                 elif isinstance(root_component.api_method_inputs[param_name], Space):
                     if param_name in input_spaces:
-                        in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
+                        in_ops_records.append(
+                            DataOpRecord(position=i, kwarg=param_name if use_named else None, placeholder=param_name)
+                        )
                     else:
                         use_named = True
                 # No default values -> Must be provided in `input_spaces`.
@@ -98,21 +98,28 @@ class MetaGraphBuilder(Specifiable):
                         assert use_named is False
                         if param_name in input_spaces:
                             for j in range(len(force_list(input_spaces[param_name]))):
-                                in_ops_records.append(DataOpRecord(position=i + j))
+                                in_ops_records.append(
+                                    DataOpRecord(position=i + j, placeholder=param_name + "[{}]".format(j))
+                                )
                     # A keyword param.
                     elif root_component.api_method_inputs[param_name] == "**flex":
                         if param_name in input_spaces:
                             assert use_named is False
                             for key in sorted(input_spaces[param_name].keys()):
-                                in_ops_records.append(DataOpRecord(kwarg=key))
+                                in_ops_records.append(
+                                    DataOpRecord(kwarg=key, placeholder=param_name + "[{}]".format(key))
+                                )
                         use_named = True
                     else:
                         # TODO: If space not provided in input_spaces -> Try to call this API method later (maybe another API-method).
                         assert param_name in input_spaces, \
-                            "ERROR: arg-name '{}' not defined in input_spaces!".format(param_name)
+                            "ERROR: arg-name '{}' not defined in input_spaces for root component '{}'!".\
+                            format(param_name, root_component.global_scope)
                         # Space is provided in input_spaces -> assign to api_method_inputs right here.
                         root_component.api_method_inputs[param_name] = input_spaces[param_name]
-                        in_ops_records.append(DataOpRecord(position=i, kwarg=param_name if use_named else None))
+                        in_ops_records.append(DataOpRecord(
+                            position=i, kwarg=param_name if use_named else None, placeholder=param_name
+                        ))
 
             # Do the actual core API-method call (thereby assembling the meta-graph).
             args = [op_rec for op_rec in in_ops_records if op_rec.kwarg is None]

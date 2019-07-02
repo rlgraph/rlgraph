@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from rlgraph import get_backend
@@ -43,7 +41,7 @@ class VTraceFunction(Component):
             rho_bar (float): The maximum values of the IS-weights for the temporal differences of V.
                 Use None for not applying any clipping.
             rho_bar_pg (float): The maximum values of the IS-weights for the policy-gradient loss:
-                \rho_s \delta log \pi(a|x) (r + \gamma v_{s+1} - V(x_s))
+                rho_s delta log pi(a|x) (r + gamma v_{s+1} - V(x_s))
                 Use None for not applying any clipping.
             c_bar (float): The maximum values of the IS-weights for the time trace.
                 Use None for not applying any clipping.

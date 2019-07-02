@@ -13,25 +13,26 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
 from rlgraph.components.layers.nn.conv2d_layer import Conv2DLayer
+from rlgraph.components.layers.nn.conv2d_transpose_layer import Conv2DTransposeLayer
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
-#from rlgraph.components.layers.nn.dueling_layer import DuelingLayer
+from rlgraph.components.layers.nn.local_response_normalization_layer import LocalResponseNormalizationLayer
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.layers.nn.maxpool2d_layer import MaxPool2DLayer
+from rlgraph.components.layers.nn.multi_lstm_layer import MultiLSTMLayer
+from rlgraph.components.layers.nn.nn_layer import NNLayer
 from rlgraph.components.layers.nn.residual_layer import ResidualLayer
-from rlgraph.components.layers.nn.local_response_normalization_layer import LocalResponseNormalizationLayer
 
 NNLayer.__lookup_classes__ = dict(
     concat=ConcatLayer,
     concatlayer=ConcatLayer,
     conv2d=Conv2DLayer,
     conv2dlayer=Conv2DLayer,
+    conv2dtranspose=Conv2DTransposeLayer,
+    conv2dtransposelayer=Conv2DTransposeLayer,
     dense=DenseLayer,
     denselayer=DenseLayer,
     fc=DenseLayer,
@@ -40,6 +41,8 @@ NNLayer.__lookup_classes__ = dict(
     lstmlayer=LSTMLayer,
     maxpool2d=MaxPool2DLayer,
     maxpool2dlayer=MaxPool2DLayer,
+    multilstm=MultiLSTMLayer,
+    multilstmlayer=MultiLSTMLayer,
     residual=ResidualLayer,
     residuallayer=ResidualLayer,
     localresponsenormalization=LocalResponseNormalizationLayer,

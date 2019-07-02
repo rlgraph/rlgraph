@@ -13,12 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph.utils.util import SMALL_NUMBER
 
 
@@ -45,9 +42,6 @@ def softmax(x, axis=-1):
     Returns the softmax values for x as:
     S(xi) = e^xi / SUMj(e^xj), where j goes over all elements in x.
 
-    #Thanks to alvas for the trick with the max for numerical stability:
-    #https://stackoverflow.com/questions/34968722/how-to-implement-the-softmax-function-in-python
-
     Args:
         x (np.ndarray): The input to the softmax function.
         axis (int): The axis along which to softmax.
@@ -55,9 +49,6 @@ def softmax(x, axis=-1):
     Returns:
         np.ndarray: The softmax over x.
     """
-    #e_x = np.exp(x - np.max(x, axis=axis, keepdims=True))
-    #return e_x / np.sum(e_x, axis=axis, keepdims=True)
-    # Below is more like what we do in RLgraph's tf implementations.
     x_exp = np.exp(x)
     return np.maximum(x_exp / np.sum(x_exp, axis, keepdims=True), SMALL_NUMBER)
 

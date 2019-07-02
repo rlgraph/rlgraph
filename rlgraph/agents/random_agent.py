@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.agents import Agent
 
@@ -26,13 +24,14 @@ class RandomAgent(Agent):
     """
     def __init__(self, state_space, action_space, name="random-agent", **kwargs):
         super(RandomAgent, self).__init__(
-            state_space=state_space, action_space=action_space, name=name, **kwargs
+            update_spec=dict(do_updates=False), state_space=state_space, action_space=action_space, name=name, **kwargs
         )
+        self.action_space_batched = self.action_space.with_batch_rank()
 
-    def get_action(self, states, internals=None, use_exploration=False,  apply_preprocessing=True, extra_returns=None,
+    def get_action(self, states, internals=None, use_exploration=False, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):
         self.timesteps += 1
-        a = self.action_space.sample(size=len(states[0]))
+        a = self.action_space_batched.sample(size=len(states[0]))
         if extra_returns is not None and "preprocessed_states" in extra_returns:
             return dict(actions=a, preprocessed_states=states)
         else:
@@ -40,6 +39,8 @@ class RandomAgent(Agent):
 
     def update(self, batch=None, time_percentage=None, **kwargs):
         self.num_updates += 1
+        # Return fake loss and loss-per-item.
+        return 0.0, 0.0
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
         pass
@@ -53,3 +54,6 @@ class RandomAgent(Agent):
 
     def call_api_method(self, op, inputs=None, return_ops=None):
         pass
+
+    def __repr__(self):
+        return "RandomAgent()"

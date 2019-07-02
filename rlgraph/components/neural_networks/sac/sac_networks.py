@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers import Layer, ConcatLayer
@@ -61,7 +59,7 @@ class SACValueNetwork(ValueFunction):
                                                       "stack but found spec: {}.".format(layer_spec)
                 dense_components.append(layer_spec)
 
-            dense_components.append(self.value_layer )
+            dense_components.append(self.value_layer_spec)
             self.dense_stack = Stack(dense_components, scope="dense-stack")
         else:
             # Assume dense network otherwise -> onyl a single stack.
@@ -70,7 +68,7 @@ class SACValueNetwork(ValueFunction):
                 assert layer_spec["type"] == "dense", "Only dense layers allowed if not using" \
                                                       " image stack in this network."
                 dense_components.append(Layer.from_spec(layer_spec))
-            dense_components.append(self.value_layer )
+            dense_components.append(self.value_layer_spec)
             self.dense_stack = Stack(dense_components, scope="dense-stack")
 
     @rlgraph_api

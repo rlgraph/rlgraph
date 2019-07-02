@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
@@ -29,9 +27,6 @@ class ResidualLayer(NNLayer):
 
     [1] Identity Mappings in Deep Residual Networks - He, Zhang, Ren and Sun (Microsoft) 2016
     (https://arxiv.org/pdf/1603.05027.pdf)
-
-    API:
-        call(input\_) ->
     """
     def __init__(self, residual_unit, repeats=2, scope="residual-layer", **kwargs):
         """

@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import re
@@ -29,6 +27,9 @@ class Space(Specifiable):
     Space class (based on and compatible with openAI Spaces).
     Provides a classification for state-, action-, reward- and other spaces.
     """
+    # Global unique Space ID.
+    _ID = -1
+
     def __init__(self, add_batch_rank=False, add_time_rank=False, time_major=False):
         """
         Args:
@@ -41,12 +42,20 @@ class Space(Specifiable):
         """
         super(Space, self).__init__()
 
+        self.id = self.get_id()
+
         self._shape = None
         self.parent = None  # For usage in nested ContainerSpace structures.
+
+        # Parent Space for usage in nested ContainerSpace structures.
+        self.parent = None
 
         self.has_batch_rank = None
         self.has_time_rank = None
         self.time_major = None
+
+        # Back-reference to an op-record that has this Space.
+        self.op_rec_ref = None
 
         self._add_batch_rank(add_batch_rank)
         self._add_time_rank(add_time_rank, time_major)
@@ -93,7 +102,23 @@ class Space(Specifiable):
         Returns:
             Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
         """
+        # Spare deepcopying the op_rec_ref and parent Space (keeping them would lead to infinite copy cycles).
+        if hasattr(self, "op_rec_ref"):
+            op_rec_ref_save = self.op_rec_ref
+            parent_safe = self.parent
+            # TODO: Remove logger from Specifyable. Only those children of Specifyable that really need logging (Workers and Agents)
+            # TODO: Should have their own logger object and then handle deepcopying properly.
+            #logger_safe = self.logger
+            self.parent = self.op_rec_ref = None
+
         ret = copy.deepcopy(self)
+
+        if hasattr(self, "op_rec_ref"):
+            self.op_rec_ref = op_rec_ref_save
+            self.parent = parent_safe
+            #self.logger = logger_safe
+
+        # Add the necessary special ranks.
         if add_batch_rank is not None:
             ret._add_batch_rank(add_batch_rank)
         if add_time_rank is not None:
@@ -126,17 +151,23 @@ class Space(Specifiable):
         """
         return self.with_extra_ranks(add_batch_rank=None, add_time_rank=add_time_rank)
 
-    def force_batch(self, samples):
+    def force_batch(self, samples, horizontal=False):
         """
         Makes sure that `samples` is always returned with a batch rank no matter whether
         it already has one or not (in which case this method returns a batch of 1) or
-        whether this Space has a batch rank or not.
+        whether this Space has a batch rank or not. Optionally horizontalizes the given sample.
 
         Args:
             samples (any): The samples to be batched. If already batched, return as-is.
 
+            horizontal (Optional[bool]): For containers, whether the output should be a batch of
+                containers (horizontal=True) or a container of batched data (horizontal=False).
+                Default: None (for non-BoxSpaces) or False (for ContainerSpaces).
+
         Returns:
-            any: The batched sample.
+            tuple
+                - any: The batched sample.
+                - bool: True, if batch rank of 1 had to be added, False if `samples` was already batched.
         """
         raise NotImplementedError
 
@@ -228,6 +259,7 @@ class Space(Specifiable):
         raise NotImplementedError
 
     def flatten(self, mapping=None, custom_scope_separator='/', scope_separator_at_start=True,
+                return_as_dict_space=False,
                 scope_=None, list_=None):
         """
         A mapping function to flatten this Space into an OrderedDict whose only values are
@@ -244,9 +276,12 @@ class Space(Specifiable):
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
                 Default: False.
 
-            scope\_ (Optional[str]): For recursive calls only. Used for automatic key generation.
+            return_as_dict_space (bool): Whether to return a Dict space or as OrderedDict.
+                Default: False.
 
-            list\_ (Optional[list]): For recursive calls only. The list so far.
+            scope_ (Optional[str]): For recursive calls only. Used for automatic key generation.
+
+            list_ (Optional[list]): For recursive calls only. The list so far.
 
         Returns:
             OrderedDict: The OrderedDict using auto-generated keys and containing only primitive Spaces
@@ -264,13 +299,22 @@ class Space(Specifiable):
             ret = True
             scope_ = ""
 
-        self._flatten(mapping, custom_scope_separator, scope_separator_at_start, scope_, list_)
+        self._flatten(
+            mapping, custom_scope_separator=custom_scope_separator,
+            scope_separator_at_start=scope_separator_at_start, return_as_dict_space=return_as_dict_space,
+            scope_=scope_, list_=list_
+        )
 
-        # Non recursive (first) call -> Return the final FlattenedDataOp.
+        # Non recursive (first) call -> Return the final flat OrderedDict or a Dict space.
         if ret:
-            return OrderedDict(list_)
+            ordered_dict = OrderedDict(list_)
+            if return_as_dict_space:
+                ordered_dict["type"] = dict
+                return Space.from_spec(ordered_dict)
+            else:
+                return ordered_dict
 
-    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, scope_, list_):
+    def _flatten(self, mapping, custom_scope_separator, scope_separator_at_start, return_as_dict_space, scope_, list_):
         """
         Base implementation. May be overridden by ContainerSpace classes.
         Simply sends `self` through the mapping function.
@@ -284,8 +328,8 @@ class Space(Specifiable):
             scope_separator_at_start (bool): Whether to add the scope-separator also at the beginning.
                 Default: False.
 
-            scope\_ (str): The flat-key to use to store the mapped result in list_.
-            list\_ (list): The list to append the mapped results to (under key=`scope_`).
+            scope_ (str): The flat-key to use to store the mapped result in list_.
+            list_ (list): The list to append the mapped results to (under key=`scope_`).
         """
         list_.append(tuple([scope_, mapping(scope_, self)]))
 
@@ -308,7 +352,7 @@ class Space(Specifiable):
     def __eq__(self, other):
         raise NotImplementedError
 
-    def sample(self, size=None, fill_value=None):
+    def sample(self, size=None, fill_value=None, **kwargs):
         """
         Uniformly randomly samples an element from this space. This is for testing purposes, e.g. to simulate
         a random environment.
@@ -390,3 +434,25 @@ class Space(Specifiable):
         if isinstance(spec, str) and re.search(r'^variables:', spec):
             return None
         return super(Space, cls).from_spec(spec, **kwargs)
+
+    # TODO: Same procedure as for DataOpRecords. Maybe unify somehow (common ancestor class: IDable).
+    @staticmethod
+    def get_id():
+        Space._ID += 1
+        return Space._ID
+
+    def get_top_level_container(self):
+        """
+        Returns:
+            Space: The top-most container containing this Space. This returned top-level container has no more
+                parents above it.
+        """
+        top_level = top_level_check = self
+        while top_level_check is not None:
+            top_level = top_level_check
+            top_level_check = top_level.parent
+        return top_level
+
+    def __hash__(self):
+        return hash(self.id)
+

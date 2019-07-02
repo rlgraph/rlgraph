@@ -13,15 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import re
 
 import numpy as np
 from six.moves import xrange as range_
-
 from rlgraph import get_backend
 from rlgraph.spaces.space import Space
 from rlgraph.utils.initializer import Initializer
@@ -97,16 +94,17 @@ class BoxSpace(Space):
         self.high = np.array(high)
         assert self.low.shape == self.high.shape
 
-    def force_batch(self, samples):
+    def force_batch(self, samples, horizontal=None):
         assert self.has_time_rank is False, "ERROR: Cannot force a batch rank if Space `has_time_rank` is True!"
         # 0D (means: certainly no batch rank) or no extra rank given (compared to this Space), add a batch rank.
         if np.asarray(samples).ndim == 0 or \
                 np.asarray(samples).ndim == len(self.get_shape(with_batch_rank=False, with_time_rank=False)):
-            return np.array([samples])  # batch size=1
+            return np.array([samples]), True  # batch size=1
         # Samples is a list (whose len is interpreted as the batch size) -> return as np.array.
         elif isinstance(samples, list):
-            return np.asarray(samples)
-        return samples
+            return np.asarray(samples), False
+        # Samples is already assumed to be batched. Return as is.
+        return samples, False
 
     def get_shape(self, with_batch_rank=False, with_time_rank=False, time_major=None, **kwargs):
         batch_rank = ()
@@ -147,11 +145,20 @@ class BoxSpace(Space):
     def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
                      time_major=None, is_python=False, local=False, **kwargs):
         add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
-        batch_rank = () if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)
+        if add_batch_rank is False:
+            batch_rank = ()
+        elif add_batch_rank is True:
+            batch_rank = (None,) if get_backend() == "tf" else (1,)
+        else:
+            batch_rank = (add_batch_rank,)
 
         add_time_rank = self.has_time_rank if add_time_rank is None else add_time_rank
-        time_rank = () if add_time_rank is False else (None,) if add_time_rank is True else (add_time_rank,)
-
+        if add_time_rank is False:
+            time_rank = ()
+        elif add_time_rank is True:
+            time_rank = (None,) if get_backend() == "tf" else (1,)
+        else:
+            time_rank = (add_time_rank,)
         time_major = self.time_major if time_major is None else time_major
 
         if time_major is False:

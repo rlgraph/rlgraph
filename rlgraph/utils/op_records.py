@@ -18,10 +18,9 @@ from __future__ import absolute_import, division, print_function
 import inspect
 
 import numpy as np
-
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import convert_dtype
-from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant
+from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant, DataOpDict
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError
 
 
@@ -35,7 +34,8 @@ class DataOpRecord(object):
     # build-prioritization).
     MAX_ID = 1e6
 
-    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_record=None):
+    def __init__(self, op=None, column=None, position=None, kwarg=None, space=None, previous=None, next_record=None,
+                 placeholder=None):
         """
         Args:
             op (Optional[DataOp]): The optional DataOp to already store in this op-rec.
@@ -48,8 +48,11 @@ class DataOpRecord(object):
             space (Optional[Space]): The Space of `op` if already known at construction time. Will be poulated
                 later (during build phase) if not.
 
-            next\_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
+            next_ (Optional(Set[DataOpRecord],DataOpRecord)): The next op-record or set of op-records.
             previous (Optional(DataOpRecord)): The previous op-record.
+
+            placeholder (Optional[str]): If this is a placeholder op-rec, what is the name of the placeholder arg
+                (root's API input-arg name).
         """
         self.id = self.get_id()
         self.op = op
@@ -72,6 +75,75 @@ class DataOpRecord(object):
         # The previous op that lead to this one.
         self.previous = previous
 
+        self.placeholder = placeholder
+
+    def connect_to(self, next_op_rec):
+        """
+        Connects this op-rec to a next one by passing on the `op` and `space` properties
+        and correctly setting the `next` and `previous` pointers in both op-recs.
+
+        Args:
+            next_op_rec (DataOpRecord): The next DataOpRecord to connect this one to.
+        """
+        # If already connected, make sure connection is the same as the already existing one.
+        if next_op_rec.previous is not None:
+            assert next_op_rec.previous is self
+        else:
+            # Set `previous` pointer.
+            next_op_rec.previous = self
+
+        # We do have an op -> Pass it (and its Space) on to the next op-rec.
+        if self.op is not None:
+            # Push op and Space into next op-record.
+            # With op-instructions?
+            #if "key-lookup" in next_op_rec.op_instructions:
+            if "key-lookup" in self.op_instructions:
+                lookup_key = self.op_instructions["key-lookup"]
+                if isinstance(lookup_key, str):
+                    found_op = None
+                    found_space = None
+                    if isinstance(self.op, dict):
+                        assert isinstance(self.op, DataOpDict)
+                        if lookup_key in self.op:
+                            found_op = self.op[lookup_key]
+                            found_space = self.space[lookup_key]
+                        # Lookup-key could also be a flat-key. -> Try to find entry in nested (dict) op.
+                        else:
+                            found_op = self.op.flat_key_lookup(lookup_key)
+                            if found_op is not None:
+                                found_space = self.space.flat_key_lookup(lookup_key)
+
+                    # Did we find anything? If not, error for invalid key-lookup.
+                    if found_op is None or found_space is None:
+                        raise RLGraphError(
+                            "Op ({}) is not a dict or does not contain the lookup key '{}'!". \
+                            format(self.op, lookup_key)
+                        )
+
+                    next_op_rec.op = found_op
+                    next_op_rec.space = found_space
+
+                elif isinstance(lookup_key, int) and \
+                        (not isinstance(self.op, (list, tuple)) or lookup_key >= len(self.op)):
+                    raise RLGraphError(
+                        "Op ({}) is not a list/tuple or contains not enough items for lookup "
+                        "index '{}'!".format(self.op, lookup_key)
+                    )
+
+                else:
+                    next_op_rec.op = self.op[lookup_key]
+                    next_op_rec.space = self.space[lookup_key]
+            # No instructions -> simply pass on.
+            else:
+                next_op_rec.op = self.op
+                next_op_rec.space = self.space
+
+            assert next_op_rec.space is not None
+            #next_op_rec.space = get_space_from_op(self.op)
+
+        # Add `next` connection.
+        self.next.add(next_op_rec)
+
     @staticmethod
     def get_id():
         DataOpRecord._ID += 1
@@ -87,15 +159,16 @@ class DataOpRecord(object):
         """
         Creates new DataOpRecordColumn with a single op-rec pointing via its `op_instruction` dict
         back to the previous column's op-rec (this one). This can be used to instruct the building process to
-        do tuple/dict lookups during the build process to implicitly use ContainerMerger/Splitter helper components
-        for a more intuitive handling of DataOpRecords within Component API methods.
+        do tuple/dict lookups during the build process for a more intuitive handling of DataOpRecords within Component
+        API methods.
 
         Args:
-            key (str): The lookup key
+            key (str): The lookup key.
 
         Returns:
             A new DataOpRecord with the op_instructions set to do a tuple (idx) or dict (key) lookup at build time.
         """
+        # TODO: This should be some specific type?
         column = DataOpRecordColumn(
             self.column.component, args=[self]
         )
@@ -113,6 +186,10 @@ class DataOpRecord(object):
 
 
 class DataOpRecordColumn(object):
+    """
+    A DataOpRecordColumn is a list of DataOpRecords that either go into (a call) or come from (return) a
+    Component's GraphFn or API method.
+    """
     _ID = -1
 
     def __init__(self, component, num_op_records=None, args=None, kwargs=None):
@@ -134,13 +211,14 @@ class DataOpRecordColumn(object):
                     # Dict instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
                     # ContainerMerger Component.
                     if isinstance(args[i], dict):
-                        keys = list(args[i].keys())
-                        first_element = args[i][keys[0]]
-                        if isinstance(first_element, DataOpRecord):
-                            merger_component = first_element.column.component.get_helper_component(
-                                "container-merger", _args=keys
+                        items = args[i].items()
+                        keys = [k for k, _ in items]
+                        values = [v for _, v in items]
+                        if isinstance(values[0], DataOpRecord):
+                            merger_component = values[0].column.component.get_helper_component(
+                                "container-merger", _args=list(keys)
                             )
-                            args[i] = merger_component.merge(*[args[i][k] for k in keys])
+                            args[i] = merger_component.merge(*list(values))
                     # Tuple instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
                     # ContainerMerger Component.
                     elif isinstance(args[i], tuple) and isinstance(args[i][0], DataOpRecord):
@@ -151,12 +229,7 @@ class DataOpRecordColumn(object):
 
                     # If incoming is an op-rec -> Link them.
                     if isinstance(args[i], DataOpRecord):
-                        op_rec.previous = args[i]
-                        op = args[i].op
-                        if op is not None:
-                            op_rec.op = op
-                            op_rec.space = get_space_from_op(op)
-                        args[i].next.add(op_rec)
+                        args[i].connect_to(op_rec)
                     # Do constant value assignment here.
                     elif args[i] is not None:
                         op = args[i]
@@ -165,6 +238,7 @@ class DataOpRecordColumn(object):
                         op_rec.op = op
                         op_rec.space = get_space_from_op(op)
                         component.constant_op_records.add(op_rec)
+
                     self.op_records.append(op_rec)
 
             if kwargs is not None:

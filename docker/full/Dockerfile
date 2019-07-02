@@ -1,8 +1,7 @@
-# Image for rlgraph/rlgraph:py3-tf-full
+# Image for rlgraph/rlgraph:full
 # Contains all RLgraph supported envs.
 
-# TODO: Change to ready-tf-based image.
-FROM ubuntu:artful
+FROM ubuntu:cosmic
 
 RUN apt-get update -y
 RUN apt-get upgrade -y
@@ -13,10 +12,11 @@ WORKDIR /usr/bin
 RUN rm -rf python && ln -s python3 python
 
 # Install all necessary packages to run any RLgraph experiment in any RLgraph supported environment.
-RUN apt-get install -y --no-install-recommends tzdata shared-mime-info sudo vim git python3.6-dev python3-pip \
-    python3-setuptools libopencv-dev cmake clang-5.0 clang-3.8 git build-essential ca-certificates \
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata shared-mime-info sudo vim git python3.6-dev python3-pip \
+    python3-setuptools libopencv-dev cmake clang-6.0 git build-essential ca-certificates \
     pkg-config bash-completion lua5.1 liblua5.1-0-dev libffi-dev gettext freeglut3-dev libsdl2-dev libjpeg-dev \
-    libosmesa6-dev python3-pil realpath python3-numpy jq
+    libosmesa6-dev python3-pil python3-numpy jq manpages-pl manpages-fr-extra
+    #realpath  # clang-3.8
 
 # Vizdoom stuff
 RUN apt-get install -y --no-install-recommends nasm tar libbz2-dev libgtk2.0-dev libfluidsynth-dev libgme-dev \
@@ -27,6 +27,7 @@ RUN apt-get install -y freeglut3-dev
 
 # Needed for Deepmind Lab.
 RUN apt-get install -y curl zip unzip g++ zlib1g-dev openjdk-8-jdk
+RUN apt-get install -y gnupg
 RUN echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list; curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 RUN sudo apt-get update -y && sudo apt-get install -y bazel
 WORKDIR /root/
@@ -37,8 +38,9 @@ RUN touch WORKSPACE
 # Upgrade pip before installing packages with it.
 RUN pip3 install --upgrade pip
 # Install necessary pip packages.
-RUN pip3 install numpy pydevd tensorflow tensorflow_probability cached-property gym scipy pyyaml gym[atari] ray opencv-python pytest six \
-    requests lz4 pyarrow wheel atari_py torch torchvision
+RUN pip3 install numpy pydevd tensorflow==1.13.1 tensorflow_probability cached-property gym scipy pyyaml gym[atari] ray opencv-python pytest six \
+    requests lz4 pyarrow wheel atari_py torch torchvision pygame
+RUN pip3 install graphviz
 
 # Write a correct bazel build config for python so that bazel finds the python and numpy headers.
 RUN echo 'cc_library(name = "python",hdrs = glob(["include/python3.6/**/*.h"]),' \

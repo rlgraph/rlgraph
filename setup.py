@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os
 
@@ -30,6 +28,7 @@ install_requires = [
     'absl-py',
     'numpy',
     'opencv-python',
+    'packaging',  # Needed for version string comparisons.
     'pyyaml',
     'pytest',
     'requests',
@@ -50,12 +49,20 @@ extras_require = {
     'gym': ['gym', 'atari-py'],  # To use openAI Gym Envs (e.g. Atari).
     'mlagents_env': ['mlagents'],  # To use MLAgents Envs (Unity3D).
     'pygame': ['pygame'],  # To use GridWorld Envs with visualization tools (not required).
+    'graphviz': ['graphviz']  # To use GraphViz
 }
 
 setup(
     name='rlgraph',
     version=version_vars['__version__'],
     description='A Framework for Modular Deep Reinforcement Learning',
+    long_description="""
+RLgraph is a framework to quickly prototype, define and execute reinforcement learning
+algorithms both in research and practice. RLgraph supports both
+TensorFlow (or static graphs in general) and Pytorch (eager/define-by run execution) through
+a single component based interface. An introductory blogpost can be found here: 
+https://rlgraph.github.io/rlgraph/2019/01/04/introducing-rlgraph.html
+""",
     url='https://rlgraph.org',
     author='The RLgraph development team',
     author_email='rlgraph@rlgraph.org',
