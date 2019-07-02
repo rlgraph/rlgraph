@@ -185,9 +185,8 @@ class PPOAgent(Agent):
             self.build(dict(vf_optimizer=self.root_component.value_function_optimizer))
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
-        sequence_indices = kwargs.pop("sequence_indices")
         self.graph_executor.execute(
-            ("insert_records", [preprocessed_states, actions, rewards, terminals, sequence_indices])
+            ("insert_records", [preprocessed_states, actions, rewards, terminals])
         )
 
     def update(self, batch=None, time_percentage=None, sequence_indices=None, apply_postprocessing=True):
