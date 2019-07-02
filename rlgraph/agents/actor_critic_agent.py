@@ -24,7 +24,6 @@ from rlgraph.components.loss_functions.actor_critic_loss_function import ActorCr
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.util import strip_list
 
 
 class ActorCriticAgent(Agent):
@@ -144,51 +143,6 @@ class ActorCriticAgent(Agent):
             build_options = dict(vf_optimizer=self.root_component.value_function_optimizer)
             self.build(build_options=build_options)
 
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
-                   time_percentage=None):
-        """
-        Args:
-            extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
-                values (besides the actions). Possible values are:
-                - 'preprocessed_states': The preprocessed states after passing the given states through the
-                preprocessor stack.
-                - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
-                - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
-
-        Returns:
-            tuple or single value depending on `extra_returns`:
-                - action
-                - the preprocessed states
-        """
-        #if time_percentage is None:
-        #    time_percentage = self.timesteps / (self.max_timesteps or 1e6)
-
-        extra_returns = [extra_returns] if isinstance(extra_returns, str) else (extra_returns or list())
-        # States come in without preprocessing -> use state space.
-        if apply_preprocessing:
-            call_method = "get_preprocessed_state_and_action"
-            batched_states, remove_batch_rank = self.state_space.force_batch(states)
-        else:
-            call_method = "action_from_preprocessed_state"
-            batched_states = states
-            remove_batch_rank = False
-        #remove_batch_rank = batched_states.ndim == np.asarray(states).ndim + 1
-
-        # Increase timesteps by the batch size (number of states in batch).
-        batch_size = len(batched_states)
-        self.timesteps += batch_size
-
-        ret = self.graph_executor.execute((
-            call_method,
-            [batched_states, not use_exploration],  # deterministic = not use_exploration
-            # Control, which return value to "pull" (depending on `extra_returns`).
-            ["actions"] + extra_returns
-        ))
-        if remove_batch_rank:
-            return strip_list(ret)
-        else:
-            return ret
-
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
@@ -276,7 +230,7 @@ class ActorCriticAlgorithmComponent(AlgorithmComponent):
         # Add all our sub-components to the core.
         self.add_components(self.memory, self.gae_function, self.loss_function)
 
-    ## Act from preprocessed states.
+    # Act from preprocessed states.
     #@rlgraph_api
     #def action_from_preprocessed_state(self, preprocessed_states, deterministic=False):
     #    out = self.policy.get_action(preprocessed_states, deterministic=deterministic)

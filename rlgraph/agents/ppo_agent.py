@@ -184,55 +184,6 @@ class PPOAgent(Agent):
         if auto_build is True:
             self.build(dict(vf_optimizer=self.root_component.value_function_optimizer))
 
-    # TODO: Move into Agent base class (it's always the same duplicate code).
-    def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
-                   time_percentage=None):
-        """
-        Args:
-            extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
-                values (besides the actions). Possible values are:
-                - 'preprocessed_states': The preprocessed states after passing the given states through the
-                preprocessor stack.
-                - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
-                - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
-
-        Returns:
-            tuple or single value depending on `extra_returns`:
-                - action
-                - the preprocessed states
-        """
-        extra_returns = {extra_returns} if isinstance(extra_returns, str) else (extra_returns or set())
-        # States come in without preprocessing -> use state space.
-        if apply_preprocessing:
-            call_method = "get_actions"
-            batched_states, remove_batch_rank = self.state_space.force_batch(states, horizontal=False)
-        else:
-            call_method = "get_actions_from_preprocessed_states"
-            batched_states = states
-            remove_batch_rank = False
-
-        # Increase timesteps by the batch size (number of states in batch).
-        if not isinstance(batched_states, (dict, tuple)):
-            batch_size = len(batched_states)
-        elif isinstance(batched_states, dict):
-            batch_size = len(batched_states[next(iter(batched_states))])
-        else:
-            batch_size = len(next(iter(batched_states)))
-        self.timesteps += batch_size
-
-        # Control, which return value to "pull" (depending on `additional_returns`).
-        return_ops = ["actions"] + list(extra_returns)
-        ret = self.graph_executor.execute((
-            call_method,
-            [batched_states, not use_exploration, time_percentage],  # deterministic = not use_exploration
-            # 0=preprocessed_states, 1=action
-            return_ops
-        ))
-        if remove_batch_rank:
-            return util.strip_list(ret)
-        else:
-            return ret
-
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
         sequence_indices = kwargs.pop("sequence_indices")
         self.graph_executor.execute(

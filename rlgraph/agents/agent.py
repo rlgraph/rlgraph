@@ -28,9 +28,11 @@ from rlgraph.utils.input_parsing import parse_execution_spec
 from rlgraph.utils.ops import flatten_op
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.specifiable import Specifiable
+from rlgraph.utils.util import strip_list
 
-if get_backend() == "tf":
-    pass
+
+#if get_backend() == "tf":
+#    pass
 
 
 class Agent(Specifiable):
@@ -317,14 +319,50 @@ class Agent(Specifiable):
             apply_preprocessing (bool): If True, apply any state preprocessors configured to the action. Set to
                 false if all pre-processing is handled externally both for acting and updating.
 
-            extra_returns (Optional[Set[str]]): Optional set of Agent-specific strings for additional return
-                values (besides the actions). All Agents must support "preprocessed_states".
+            extra_returns (Optional[List[str],str]): Optional string or list of strings for additional return
+                values (besides the actions). Possible values are:
+                - 'preprocessed_states': The preprocessed states after passing the given states through the
+                preprocessor stack.
+                - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
+                - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
 
         Returns:
-            any: Action(s) as dict/tuple/np.ndarray (depending on `self.action_space`).
-                Optional: The preprocessed states as a 2nd return value.
+            tuple or single value depending on `extra_returns`:
+                - Action(s) as dict/tuple/np.ndarray (depending on `self.action_space`).
+                - (Optional): The preprocessed states.
         """
-        raise NotImplementedError
+        if time_percentage is None:
+            time_percentage = self.timesteps / (self.max_timesteps or 1e6)
+
+        extra_returns = [extra_returns] if isinstance(extra_returns, str) else (extra_returns or [])
+        # States come in without preprocessing -> use state space.
+        if apply_preprocessing:
+            call_method = "get_actions"
+            batched_states, remove_batch_rank = self.state_space.force_batch(states, horizontal=False)
+        else:
+            call_method = "get_actions_from_preprocessed_states"
+            batched_states = states
+            remove_batch_rank = False
+
+        # Increase timesteps by the batch size (number of states in batch).
+        if not isinstance(batched_states, (dict, tuple)):
+            batch_size = len(batched_states)
+        elif isinstance(batched_states, dict):
+            batch_size = len(batched_states[next(iter(batched_states))])
+        else:
+            batch_size = len(next(iter(batched_states)))
+        self.timesteps += batch_size
+
+        ret = self.graph_executor.execute((
+            call_method,
+            [batched_states, not use_exploration, time_percentage],  # deterministic = not use_exploration
+            # Control, which return value to "pull" (depending on `extra_returns`).
+            ["actions"] + extra_returns
+        ))
+        if remove_batch_rank:
+            return strip_list(ret)
+        else:
+            return ret
 
     def observe(self, preprocessed_states, actions, internals, rewards, next_states, terminals,
                 env_id=None, batched=False, **other_data):
