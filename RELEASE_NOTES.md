@@ -1,7 +1,7 @@
 ## Release notes
 Summarizes updates in recent releases.
 
-## RLgraph 0.5.5 - 2019/07/01
+## RLgraph 0.5.5 - 2019/07/02
 - Added some new Components (MultiInputStreamNN, VariationalAutoEncoder, MultiLSTMLayer, JointCumulativeDistribution,
   different supervised LossFunctions, Models, etc..), incl. test cases.
 - Added container Space support to all Agents (python buffers had to be expanded).

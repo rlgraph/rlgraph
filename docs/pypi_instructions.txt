@@ -1,0 +1,50 @@
+# PyPI version update
+
+## One-time setup
+
+1. Register an account at [pypi.org](https://pypi.org) and [test.pypi.org](https://test.pypi.org)
+
+2. Install `twine`: `pip install twine`
+
+3. Create a `.pypirc` file in `~/.pypirc` (UNIX) or `C:\Users\YourName\.pypirc` (WINDOWS) with the following content:
+
+```
+[distutils]
+index-servers =
+  pypi
+  pypitest
+
+[pypi]
+repository=https://upload.pypi.org/legacy/
+username=PYPI_USERNAME
+
+[pypitest]
+repository=https://test.pypi.org/legacy/
+username=PYPI_USERNAME
+```
+
+## Version update
+
+1. Update `version.py` in RLgraph with the new version
+
+2. Update the release notes, README, etc if necessary
+
+3. Commit the changes: `git commit -a`
+
+4. Make sure that the version has been set `cat rlgraph/version.py`
+
+5. Create a new release tag: `git tag v0.x.y` (x and y being numbers). This will create a *release* at GitHub
+
+6. Push all changes and the tags: `git push && git push --tags`
+
+7. Make sure you're on the master branch and that there are no uncommitted changes: `git status` or `git checkout master` and `git stash`. During packaging, even uncommitted changes will be packed into the tarball.
+
+8. Build the tarballs: `python3 setup.py sdist bdist_wheel`. Explicitly use python3. `sdist` will build the `.tar.gz` release and `bdist_wheel` the python wheel.
+
+9. Upload the release to the PyPI __test__ repository: `twine upload dist/rlgraph-0.x.y.* -r pypitest`. Please only upload files from the new version number (e.g. `dist/*` would upload all files from any version again).
+
+10. Check at [test.pypi.org/project/rlgraph](https://test.pypi.org/project/rlgraph/) if everything is correct: The _release history_ should show a new release with the correct version number. _Download files_ should show both the tarball and the wheel, and the wheel should be built for python version 3.
+
+11. If everything is fine, upload the release to regular PyPI: `twine upload dist/rlgraph-0.x.y.*`
+
+12. Check at [pypi.org/project/rlgraph](https://pypi.org/project/rlgraph/) if everything is correct.
