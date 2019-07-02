@@ -5,9 +5,12 @@
   "clip_ratio": 0.2,
   "discount": 0.99,
   "gae_lambda": 1.0,
+  "num_iterations": 10,
+  "sample_size": 1000,
 
   "python_buffer_size": 1000,
 
+  "memory_batch_size": 10000,
   "memory_spec":
   {
     "type": "ring_buffer",
@@ -122,15 +125,6 @@
         "scope": "vf-dense1"
     }
   ],
-
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 10000,
-    "steps_before_update": 50000,
-    "batch_size": 10000,
-    "num_iterations": 10,
-    "sample_size": 1000
-  },
 
   "optimizer_spec": {
     "type": "adam",
