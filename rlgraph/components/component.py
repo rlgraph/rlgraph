@@ -23,6 +23,7 @@ from collections import OrderedDict
 
 import numpy as np
 from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
@@ -825,7 +826,7 @@ class Component(Specifiable):
         # Recurse up the container hierarchy.
         self.parent_component.propagate_summary(summary_key)
 
-    def add_components(self, *components, expose_apis=None):
+    def add_components(self, *components, expose_apis=None, check_for_redundancy=True):
         """
         Adds sub-components to this one.
 
@@ -835,6 +836,8 @@ class Component(Specifiable):
             expose_apis (Optional[Set[str],Dict[str,str]]): An optional set of strings with API-methods of the child
                 component that should be exposed as the parent's API via a simple wrapper API-method for the parent
                 (that calls the child's API-method).
+
+            check_for_redundancy (bool): Whether to throw an error, if a sub-Component is already a child of this one.
         """
         if expose_apis is None:
             expose_apis = {}
@@ -851,8 +854,15 @@ class Component(Specifiable):
                 component = Component.from_spec(component)
             # Make sure no two components with the same name are added to this one (own scope doesn't matter).
             if component.name in self.sub_components:
-                raise RLGraphError("ERROR: Sub-Component with name '{}' already exists in '{}'!".
-                                   format(component.name, self.global_scope))
+                # Sub-Component is already a child of this one -> Double check.
+                if check_for_redundancy is False:
+                    assert component in list(self.sub_components.values())
+                    continue
+                else:
+                    raise RLGraphError(
+                        "ERROR: Sub-Component with name '{}' already exists in '{}'!".
+                        format(component.name, self.global_scope)
+                    )
             # Make sure each Component can only be added once to a parent/container Component.
             elif component.parent_component is not None:
                 raise RLGraphError(

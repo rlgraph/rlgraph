@@ -20,6 +20,7 @@ import re
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing.container_splitter import ContainerSplitter
+from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.lstm_layer import LSTMLayer
 from rlgraph.components.neural_networks.stack import Stack
@@ -178,7 +179,14 @@ class NeuralNetwork(Stack):
             "ERROR: Layer to be added ({}) does not have an API-method called '{}'!".format(
                 layer_component.scope, self.map_api_to_sub_components_api["call_shadowed_"]
             )
-        self.add_components(layer_component)
+        # Keras style NN?
+        if len(self.keras_style_api_outputs) > 0:
+            # Pass on outputs into (new) last layer and use that as new keras-style output.
+            self.keras_style_api_outputs = force_list(layer_component(*self.keras_style_api_outputs))
+        # Classic: Add sub-component and re-build `call` method.
+        #else:
+        #    self.add_components(layer_component)
+
         self.build_auto_api_method("call_shadowed_", self.map_api_to_sub_components_api["call_shadowed_"],
                                    ok_to_overwrite=True)
 
@@ -241,6 +249,7 @@ class NeuralNetwork(Stack):
                     add ins to set
         Write `def call(self, ...)` from given Spaces.
         """
+        all_layer_call_outputs = set()
         output_set = set(layer_call_outputs)
         output_id = 0
         sub_components = set()
@@ -256,6 +265,7 @@ class NeuralNetwork(Stack):
         # Initialize var names for final outputs.
         for out in sorted(output_set):
             out.var_name = "out{}".format(output_id)
+            all_layer_call_outputs.add(out)
             output_id += 1
 
         # Write this NN's `call` API-method code dynamically, then execute it.
@@ -302,6 +312,7 @@ class NeuralNetwork(Stack):
                     # Given Space is in this NeuralNetwork's given inputs. Use its `*inputs`-index directly.
                     if in_.space.id in functional_api_input_ids:
                         in_.var_name = "inputs[{}]".format(functional_api_input_ids.index(in_.space.id))
+                        all_layer_call_outputs.add(in_)
                     # A child of an input container space. Add the necessary ContainerSplitter and `inputs`-index
                     # automatically.
                     else:
@@ -331,8 +342,10 @@ class NeuralNetwork(Stack):
                                 "(or in the auto-derived input)!".format(in_.space, self.global_scope)
                             )
                         in_.var_name = "inputs[{}]".format("][".join(index_chain))
+                        all_layer_call_outputs.add(in_)
                 elif in_.var_name is None:
                     in_.var_name = "out{}".format(output_id)
+                    all_layer_call_outputs.add(in_)
                     output_id += 1
                     output_set.add(in_)
 
@@ -351,12 +364,16 @@ class NeuralNetwork(Stack):
             call_code
 
         # Add all sub-components to this NN.
-        self.add_components(*list(sub_components))
+        self.add_components(*list(sub_components), check_for_redundancy=False)
 
         # Execute the code and assign self.call to it.
         print("`call_code` for NN:")
         print(call_code)
         exec(call_code, globals(), locals())
+
+        # Clear out all var-names in case this method is called again (e.g. when another layer is added to this NN).
+        for o in all_layer_call_outputs:
+            o.var_name = None
 
     def _build_auto_call_method(self, fold_time_rank, unfold_time_rank):
         @rlgraph_api(component=self, ok_to_overwrite=True)
@@ -390,7 +407,7 @@ class NeuralNetwork(Stack):
             # TODO: keep track of LSTMLayers that only return the last time-step (outputs after these Layers
             # TODO: can no longer be folded, their time-rank is gone for the rest of the NN.
             for i, sub_component in enumerate(self_.sub_components.values()):  # type: Component
-                if re.search(r'^\.helper-', sub_component.scope):
+                if re.search(r'^\.helper-', sub_component.scope) or isinstance(sub_component, Synchronizable):
                     continue
 
                 # Unfold before an LSTM.
