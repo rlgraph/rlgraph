@@ -2,9 +2,9 @@ import logging
 import unittest
 
 import numpy as np
+
 from rlgraph.agents.sac_agent import SACAlgorithmComponent, SACAgent
-from rlgraph.components import Policy, ReplayMemory, AdamOptimizer, Synchronizable, \
-    SACValueNetwork
+from rlgraph.components import Policy, ReplayMemory, AdamOptimizer, Synchronizable
 from rlgraph.environments import OpenAIGymEnv
 from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox
@@ -29,12 +29,12 @@ class TestSACAgentFunctionality(unittest.TestCase):
         rewards_space = FloatBox(add_batch_rank=True)
         policy = Policy.from_spec(config["policy"], action_space=continuous_action_space)
         policy.add_components(Synchronizable(), expose_apis="sync")
-        q_function = SACValueNetwork.from_spec(config["value_function"])
+        #q_function = Neual.from_spec(config["value_function"])
 
         agent_component = SACAlgorithmComponent(
             agent=None,
             policy_spec=policy,
-            q_function_spec=q_function,
+            q_function_spec=config["value_function"],
             preprocessing_spec=None,  # PreprocessorStack.from_spec([])
             memory_spec=ReplayMemory.from_spec(config["memory"]),
             discount=config["discount"],
@@ -62,7 +62,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 #batch_size=int,
                 importance_weights=FloatBox(add_batch_rank=True),
                 deterministic=bool,
-                weights="variables:{}".format(policy.scope),
+                policy_weights="variables:{}".format(policy.scope),
                 time_percentage=float
                 # TODO: how to provide the space for multiple component variables?
                 #q_weights=Dict(

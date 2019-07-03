@@ -243,11 +243,11 @@ class SACAlgorithmComponent(AlgorithmComponent):
 
         # If VF spec is a network spec, wrap with SAC vf type. The VF must concatenate actions and states,
         # which can require splitting the network in the case of e.g. conv-inputs.
-        if isinstance(q_function_spec, list):
-            q_function_spec = dict(type="sac_value_function", network_spec=q_function_spec)
-            self.logger.info("Using default SAC value function.")
-        elif isinstance(q_function_spec, ValueFunction):
-            self.logger.info("Using value function object {}".format(ValueFunction))
+        #if isinstance(q_function_spec, list):
+        #    q_function_spec = dict(type="neural-network", layers=q_function_spec)
+        #    #self.logger.info("Using default SAC value function.")
+        #elif isinstance(q_function_spec, NeuralNetwork):
+        #    #self.logger.info("Using value function object {}".format(ValueFunction))
 
         # Default Policy (non-deterministic):
         # Continuous action space: Use squashed normal.
@@ -268,7 +268,8 @@ class SACAlgorithmComponent(AlgorithmComponent):
         self.q_function_sync_rules = SyncRules.from_spec(q_function_sync_rules)
 
         self.memory = Memory.from_spec(memory_spec)
-        # Copy value function (q-function) n times to reach num_q_functions.
+        # Copy value function n times to reach num_q_functions.
+        # SAC usually (if num_q_functions==2) contains one state value function and one state-action (Q) value function.
         self.q_functions = [self.value_function] + [
             self.value_function.copy(scope="{}-{}".format(self.value_function.scope, i + 2), trainable=True)
             for i in range(num_q_functions - 1)
@@ -320,8 +321,8 @@ class SACAlgorithmComponent(AlgorithmComponent):
     #    return merged_weights
 
     @rlgraph_api(must_be_complete=False)
-    def set_policy_weights(self, weights):
-        return self.policy.sync(weights)
+    def set_policy_weights(self, policy_weights):
+        return self.policy.sync(policy_weights)
 
     """ TODO: need to define the input space
     @rlgraph_api(must_be_complete=False)
@@ -345,7 +346,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
     def update_from_memory(self, time_percentage=None):
         records, sample_indices, importance_weights = self.memory.get_records(self.memory_batch_size)
         result = self.update_from_external_batch(
-            records["states"], records["actions"], records["rewards"], records["terminals"],
+            records["states"], records["env_actions"], records["rewards"], records["terminals"],
             records["next_states"], importance_weights, time_percentage
         )
 
