@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
@@ -350,7 +351,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
         loss, loss_per_item, vf_loss, vf_loss_per_item = None, None, None, None
 
         prev_log_probs = self.policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
-        prev_state_values = self.value_function.value_output(preprocessed_states)
+        prev_state_values = self.value_function.call(preprocessed_states)
 
         if get_backend() == "tf":
             batch_size = tf.shape(list(flatten_op(preprocessed_states).values())[0])[0]
@@ -395,7 +396,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 sample_advantages = tf.gather(params=advantages, indices=indices)
                 sample_advantages.set_shape((self.sample_size,))
 
-                sample_state_values = self.value_function.value_output(sample_states)
+                sample_state_values = self.value_function.call(sample_states)
                 sample_prev_state_values = tf.gather(params=prev_state_values, indices=indices)
 
                 # If we are a multi-GPU root:
@@ -509,7 +510,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
             else:
                 prev_log_probs = prev_log_probs.detach()
             # TODO: Add support for container spaces (via `map).
-            prev_state_values = self.value_function.value_output(preprocessed_states).detach()
+            prev_state_values = self.value_function.call(preprocessed_states).detach()
 
             if apply_postprocessing:
                 advantages = self.gae_function.calc_gae_values(prev_state_values, rewards, terminals, sequence_indices)
@@ -541,7 +542,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
                 sample_prev_state_values = torch.index_select(prev_state_values, 0, indices)
 
                 sample_log_probs = self.policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-                sample_state_values = self.value_function.value_output(sample_states)
+                sample_state_values = self.value_function.call(sample_states)
 
                 entropy = self.policy.get_entropy(sample_states)["entropy"]
                 loss, loss_per_item, vf_loss, vf_loss_per_item = self.loss_function.loss(
@@ -565,7 +566,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
         Returns unstandardized(!) advantages for debugging purposes.
         """
         records = self.get_records(num_records)
-        prev_state_values = self.value_function.value_output(records["states"])
+        prev_state_values = self.value_function.call(records["states"])
 
         sequence_indices = records["terminals"]  # TODO: make ring-buffer return sequence indices automatically
 

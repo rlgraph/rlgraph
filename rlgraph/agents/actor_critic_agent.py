@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph.agents.agent import Agent
 from rlgraph.components import Memory, RingBuffer
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
@@ -250,7 +251,7 @@ class ActorCriticAlgorithmComponent(AlgorithmComponent):
 
     @rlgraph_api
     def post_process(self, preprocessed_states, rewards, terminals, sequence_indices):
-        state_values = self.value_function.value_output(preprocessed_states)
+        state_values = self.value_function.call(preprocessed_states)
         pg_advantages = self.gae_function.calc_gae_values(state_values, rewards, terminals, sequence_indices)
         return pg_advantages
 
@@ -277,7 +278,7 @@ class ActorCriticAlgorithmComponent(AlgorithmComponent):
     # Learn from an external batch.
     @rlgraph_api
     def update_from_external_batch(self, preprocessed_states, actions, advantages, terminals, time_percentage=None):
-        baseline_values = self.value_function.value_output(preprocessed_states)
+        baseline_values = self.value_function.call(preprocessed_states)
         log_probs = self.policy.get_log_likelihood(preprocessed_states, actions)["log_likelihood"]
         entropy = self.policy.get_entropy(preprocessed_states)["entropy"]
         loss, loss_per_item, vf_loss, vf_loss_per_item = self.loss_function.loss(
