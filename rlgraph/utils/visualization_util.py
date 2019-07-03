@@ -355,13 +355,18 @@ def _add_api_or_graph_fn_to_graph(
                         sg.node(str(in_col.id), label="in-" + str(call_id))
                     # Make all connections going into this column (all its op-recs).
                     for op_rec in in_col.op_records:
-                        # Possible filtering by Component/API/graph-fn.
-                        prev_type, prev_scope, prev_component = _get_column_type_scope_and_component(
-                            op_rec.previous.column
-                        )
-                        # Placeholder have component=None, do not filter placeholder connections because of that.
-                        if prev_component is None:
-                            prev_component = component
+                        # op is fixed (numpy array or value) -> no previous -> no incoming connection.
+                        if op_rec.previous is None:
+                            continue
+                        else:
+                            # Possible filtering by Component/API/graph-fn.
+                            prev_type, prev_scope, prev_component = _get_column_type_scope_and_component(
+                                op_rec.previous.column
+                            )
+                            # Placeholder have component=None, do not filter placeholder connections because of that.
+                            if prev_component is None:
+                                prev_component = component
+
                         if (component_filter is not None and prev_component not in component_filter) or \
                                 (prev_type == "GF" and
                                  (graph_fns is False or (graph_fns is not True and prev_scope not in graph_fns))) \
