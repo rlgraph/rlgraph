@@ -16,12 +16,12 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import Synchronizable, Memory, PrioritizedReplay
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
-from rlgraph.components.neural_networks.value_function import ValueFunction
 from rlgraph.components.policies.policy import Policy
 from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox, IntBox, ContainerSpace
@@ -428,7 +428,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
 
         # We do not concat states yet because we might pass states through a conv stack before merging it
         # with actions.
-        return tuple(q.state_action_value(preprocessed_states, actions) for q in q_funcs)
+        return tuple(q.call((preprocessed_states, actions)) for q in q_funcs)
 
     @rlgraph_api
     def get_losses(self, preprocessed_states, actions, rewards, terminals, next_states, importance_weights):

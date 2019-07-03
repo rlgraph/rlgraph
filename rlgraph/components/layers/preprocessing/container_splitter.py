@@ -13,12 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.spaces import Dict, Tuple
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
@@ -86,8 +85,7 @@ class ContainerSplitter(PreprocessLayer):
         self.type = type(in_space)
         if self.output_order is None or len(self.output_order) == 0:
             # Auto-ordering only valid for incoming Tuples.
-            assert self.type == Tuple, \
-                "ERROR: Cannot use auto-ordering in ContainerSplitter for input Dict spaces! Only ok for Tuples."
+            sanity_check_space(in_space, allowed_types=Tuple)
             self.output_order = list(range(len(in_space)))
 
         # Make sure input is a Dict (unsorted).

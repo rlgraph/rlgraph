@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
@@ -193,4 +191,5 @@ class TestNeuralNetworks(unittest.TestCase):
         test.terminate()
 
     def test_dictionary_input_nn(self):
-        pass
+        # OBSOLETE: Covered in multi-input-stream-nn tests.
+        return

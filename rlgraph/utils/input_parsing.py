@@ -13,15 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os.path
 
 from rlgraph import get_backend
-from rlgraph.components.common.synchronizable import Synchronizable
-from rlgraph.components.neural_networks.value_function import ValueFunction
 from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 from rlgraph.utils.util import default_dict
 
@@ -55,32 +51,32 @@ def parse_saver_spec(saver_spec):
     return default_dict(saver_spec, default_spec)
 
 
-def parse_value_function_spec(value_function_spec):
-    """
-    Creates value function from spec if needed.
-
-    Args:
-        value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
-            of ValueFunction.
-    Returns:
-        Optional(ValueFunction): None if Spec is None or instance of ValueFunction.
-    """
-    if value_function_spec is None:
-        return None
-    else:
-        vf_sync = Synchronizable()
-        # VF is already instantiated.
-        if isinstance(value_function_spec, ValueFunction):
-            value_function = value_function_spec
-            if vf_sync.name not in value_function.sub_components:
-                value_function.add_components(vf_sync, expose_apis="sync")
-        else:
-            if isinstance(value_function_spec, list):
-                # Use default type if given is layer-list.
-                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
-            value_function = ValueFunction.from_spec(value_function_spec)
-            value_function.add_components(vf_sync, expose_apis="sync")
-        return value_function
+#def parse_value_function_spec(value_function_spec):
+#    """
+#    Creates value function from spec if needed.
+#
+#    Args:
+#        value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
+#            of ValueFunction.
+#    Returns:
+#        Optional(ValueFunction): None if Spec is None or instance of ValueFunction.
+#    """
+#    if value_function_spec is None:
+#        return None
+#    else:
+#        vf_sync = Synchronizable()
+#        # VF is already instantiated.
+#        if isinstance(value_function_spec, ValueFunction):
+#            value_function = value_function_spec
+#            if vf_sync.name not in value_function.sub_components:
+#                value_function.add_components(vf_sync, expose_apis="sync")
+#        else:
+#            if isinstance(value_function_spec, list):
+#                # Use default type if given in layer-list.
+#                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
+#            value_function = ValueFunction.from_spec(value_function_spec)
+#            value_function.add_components(vf_sync, expose_apis="sync")
+#        return value_function
 
 
 def parse_summary_spec(summary_spec):

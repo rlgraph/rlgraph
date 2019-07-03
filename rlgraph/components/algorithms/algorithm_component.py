@@ -17,10 +17,9 @@ from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
-    ContainerMerger, ContainerSplitter
+    ContainerMerger, ContainerSplitter, ValueFunction
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.input_parsing import parse_value_function_spec
 from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 
 if get_backend() == "tf":
@@ -97,8 +96,9 @@ class AlgorithmComponent(Component):
             self.policy = policy_spec
             assert self.policy.get_sub_component_by_name("synchronizable")
 
-        # Create non-shared baseline network.
-        self.value_function = parse_value_function_spec(value_function_spec)
+        # Create non-shared baseline network (and add synchronization feature).
+        self.value_function = ValueFunction.from_spec(value_function_spec)
+        self.value_function.add_components(Synchronizable(), expose_apis="sync")
         # TODO move this to specific agents.
         if self.value_function is not None:
             self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
@@ -160,7 +160,7 @@ class AlgorithmComponent(Component):
             @rlgraph_api(component=self)
             def get_state_values(self_, preprocessed_states):
                 #vf = self_.get_sub_component_by_name(self_.value_function.scope)
-                return self_.value_function.value_output(preprocessed_states)
+                return self_.value_function.call(preprocessed_states)
 
         # Default getter and setter for policy/vf weights.
         if self.policy is not None:

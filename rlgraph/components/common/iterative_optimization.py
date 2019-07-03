@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
@@ -70,7 +68,7 @@ class IterativeOptimization(Component):
             sample_terminals = tf.gather(params=terminals, indices=sample_indices)
 
             action_log_probs = self.policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-            baseline_values = self.value_function.value_output(sample_states)
+            baseline_values = self.value_function.call(sample_states)
 
             loss, loss_per_item, vf_loss, vf_loss_per_item = self.loss.loss(
                 action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
@@ -92,7 +90,7 @@ class IterativeOptimization(Component):
                     sample_terminals = tf.gather(params=terminals, indices=sample_indices)
 
                     action_log_probs = self.policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-                    baseline_values = self.value_function.value_output(sample_states)
+                    baseline_values = self.value_function.call(sample_states)
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = self.loss.loss(
                         action_log_probs, baseline_values, actions, sample_rewards, sample_terminals
