@@ -258,9 +258,17 @@ class SACAlgorithmComponent(AlgorithmComponent):
                 gumbel_softmax_temperature=gumbel_softmax_temperature
             )
         )), False)
+
+        # Make sure our value function has two inputs (states and actions).
+        if isinstance(q_function_spec, dict):
+            q_function_spec["num_inputs"] = 2
+        elif isinstance(q_function_spec, (list, tuple)):
+            q_function_spec = dict(layers=q_function_spec, num_inputs=2)
+
         super(SACAlgorithmComponent, self).__init__(
             agent, policy_spec=policy_spec, value_function_spec=q_function_spec, scope=scope, **kwargs
         )
+
         # Make base value_function (template for all our q-functions) synchronizable.
         if "synchronizable" not in self.value_function.sub_components:
             self.value_function.add_components(Synchronizable(), expose_apis="sync")
