@@ -13,9 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
+
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
 class MetaGraph(object):
@@ -36,3 +36,30 @@ class MetaGraph(object):
     def build_status(self):
         return self._built
 
+    @staticmethod
+    def get_op_rec_from_space(component, space):
+        """
+        Retrieves an DataOpRecord given a Component and a Space.
+        Checks all input args of the Component for the given Space, then retrieves the first best op-rec
+        holding that exact Space.
+
+        Args:
+            component (Component): The Component whose input-args to check for the given `space`.
+            space (Space): The Space to use to find an op-rec.
+
+        Returns:
+            DataOpRecord: A DataOpRecord that uses the given `space`.
+        """
+        for api_input_name, s in component.api_method_inputs.items():
+            # Space found -> Use api_input_name to look for a matching op-rec.
+            if s is space:
+                assert s.id == space.id  # Just make sure.
+                for api_method_name, api_method_rec in component.api_methods.items():
+                    for i, arg_name in enumerate(api_method_rec.input_names):
+                        # Argument found in this API-method -> Return first best matching op-rec.
+                        if arg_name == api_input_name:
+                            # TODO: will not work if *flex or **flex.
+                            op_rec = api_method_rec.in_op_columns[0].op_records[i]
+                            return op_rec
+
+        raise RLGraphError("No op-rec found in '{}' for Space={}!".format(component.global_scope, space))

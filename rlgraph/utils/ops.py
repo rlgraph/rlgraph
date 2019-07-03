@@ -30,7 +30,6 @@ class TraceContext(object):
     Contains static trace context. Used to reconstruct data-flow in cases where normal
     stack-frame inspection fails, e.g. because when calling from within a lambda.
     """
-
     # Prior caller.
     PREV_CALLER = None
 

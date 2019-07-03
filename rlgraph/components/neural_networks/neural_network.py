@@ -183,9 +183,6 @@ class NeuralNetwork(Stack):
         if len(self.keras_style_api_outputs) > 0:
             # Pass on outputs into (new) last layer and use that as new keras-style output.
             self.keras_style_api_outputs = force_list(layer_component(*self.keras_style_api_outputs))
-        # Classic: Add sub-component and re-build `call` method.
-        #else:
-        #    self.add_components(layer_component)
 
         self.build_auto_api_method("call_shadowed_", self.map_api_to_sub_components_api["call_shadowed_"],
                                    ok_to_overwrite=True)

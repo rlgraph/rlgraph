@@ -54,9 +54,6 @@ class Space(Specifiable):
         self.has_time_rank = None
         self.time_major = None
 
-        # Back-reference to an op-record that has this Space.
-        self.op_rec_ref = None
-
         self._add_batch_rank(add_batch_rank)
         self._add_time_rank(add_time_rank, time_major)
 
@@ -102,21 +99,16 @@ class Space(Specifiable):
         Returns:
             Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
         """
-        # Spare deepcopying the op_rec_ref and parent Space (keeping them would lead to infinite copy cycles).
-        if hasattr(self, "op_rec_ref"):
-            op_rec_ref_save = self.op_rec_ref
-            parent_safe = self.parent
-            # TODO: Remove logger from Specifyable. Only those children of Specifyable that really need logging (Workers and Agents)
-            # TODO: Should have their own logger object and then handle deepcopying properly.
-            #logger_safe = self.logger
-            self.parent = self.op_rec_ref = None
+        parent_safe = self.parent
+        # TODO: Remove logger from Specifyable. Only those children of Specifyable that really need logging (Workers and Agents)
+        # TODO: Should have their own logger object and then handle deepcopying properly.
+        #logger_safe = self.logger
+        self.parent = None
 
         ret = copy.deepcopy(self)
 
-        if hasattr(self, "op_rec_ref"):
-            self.op_rec_ref = op_rec_ref_save
-            self.parent = parent_safe
-            #self.logger = logger_safe
+        self.parent = parent_safe
+        #self.logger = logger_safe
 
         # Add the necessary special ranks.
         if add_batch_rank is not None:

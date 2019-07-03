@@ -346,8 +346,7 @@ class GraphBuilder(Specifiable):
                 except RLGraphSpaceError as e:
                     # Should we plot the subgraph that lead to this error?
                     if get_config().get("GRAPHVIZ_RENDER_BUILD_ERRORS", True) is True:
-                        op_rec = e.space.op_rec_ref
-                        assert op_rec is not None
+                        op_rec = self.meta_graph.get_op_rec_from_space(component, e.space)
                         draw_sub_meta_graph_from_op_rec(op_rec, meta_graph=self.meta_graph)
                     # Reraise e.
                     raise e
@@ -656,10 +655,6 @@ class GraphBuilder(Specifiable):
             assert out_graph_fn_column.op_records[i].op is None
             out_graph_fn_column.op_records[i].op = op
             out_graph_fn_column.op_records[i].space = space
-            # Assign op-rec property in Space so we have a backref in case the Space causes an error during
-            # sanity checking.
-            if space:  # could be 0
-                space.op_rec_ref = out_graph_fn_column.op_records[i]
 
         return out_graph_fn_column
 
@@ -1245,10 +1240,6 @@ class GraphBuilder(Specifiable):
                             if next_component.input_complete is False:
                                 non_complete_components.add(next_component.global_scope)
 
-                        # Update Space's op_rec ref (should always refer to the deepest-into-the-graph op-rec).
-                        if next_op_rec.space:  # space could be 0
-                            next_op_rec.space.op_rec_ref = next_op_rec
-
                 # No next records:
                 # - Op belongs to a column going into a graph_fn.
                 elif isinstance(op_rec.column, DataOpRecordColumnIntoGraphFn):
@@ -1324,7 +1315,6 @@ class GraphBuilder(Specifiable):
                                 component.get_variables(custom_scope_separator="-").items()
                             )})
                             op_rec.space = var_space
-                            var_space.op_rec_ref = op_rec  # store op-rec in Space for sanity-checking and debugging
                             placeholder_name = next(iter(op_rec.next)).column.api_method_rec.input_names[op_rec.position]
                             assert len(op_rec.next) == 1, \
                                 "ERROR: root_component API op-rec ('{}') expected to have only one `next` op-rec!". \

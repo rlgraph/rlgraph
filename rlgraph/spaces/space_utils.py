@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
@@ -55,7 +56,7 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
         if capacity is not None:
             var = from_space.flatten(
                 custom_scope_separator="-", scope_separator_at_start=False,
-                mapping=lambda k, primitive: [initializer for _ in range_(capacity)]
+                mapping=lambda k, primitive: [initializer for _ in range(capacity)]
             )
         else:
             var = from_space.flatten(
@@ -64,7 +65,7 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
             )
     else:
         if capacity is not None:
-            var = [initializer for _ in range_(capacity)]
+            var = [initializer for _ in range(capacity)]
         else:
             var = []
     return var

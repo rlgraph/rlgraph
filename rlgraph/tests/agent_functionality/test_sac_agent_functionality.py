@@ -29,7 +29,6 @@ class TestSACAgentFunctionality(unittest.TestCase):
         rewards_space = FloatBox(add_batch_rank=True)
         policy = Policy.from_spec(config["policy"], action_space=continuous_action_space)
         policy.add_components(Synchronizable(), expose_apis="sync")
-        #q_function = Neual.from_spec(config["value_function"])
 
         agent_component = SACAlgorithmComponent(
             agent=None,
