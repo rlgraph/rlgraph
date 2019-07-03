@@ -15,63 +15,34 @@
 
 from __future__ import absolute_import, division, print_function
 
-# from rlgraph.components.component import Component
 from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
 class ValueFunction(NeuralNetwork):
     """
     A Value-function is a wrapper Component that contains a NeuralNetwork and adds a value-function output.
     """
-    def __init__(self, network_spec, scope="value-function", **kwargs):
+    def __init__(self, *layers, **kwargs):
         """
         Args:
-            network_spec (list): Layer specification for baseline network.
+            See `NeuralNetwork` Component.
+
+        Keyword Args:
+            See `NeuralNetwork` Component.
         """
-        super(ValueFunction, self).__init__(scope=scope, **kwargs)
-        self.neural_network = NeuralNetwork.from_spec(network_spec)
-        self.value_layer = DenseLayer(units=1, scope="value-function-output")
+        # Construct this NN.
+        super(ValueFunction, self).__init__(*layers, scope=kwargs.pop("scope", "value-function"), **kwargs)
+        # Add single-node value layer.
+        super(ValueFunction, self).add_layer(DenseLayer(units=1, scope="value-function-output"))
 
-        self.add_components(self.neural_network, self.value_layer)
+    def add_layer(self, layer_component):
+        raise RLGraphError("Cannot add a Layer to a completed ValueFunction object.")
 
-        # If first layer is conv, build image stack.
-        # TODO: This should not be checked in this way. What if network_spec if a NN Component, a dict, etc..?
-        #self.use_image_stack = False
-        #if isinstance(self.network_spec, (list, tuple)) and self.network_spec[0]["type"] == "conv2d":
-        #    self.use_image_stack = True
-        #self.image_stack = None
-        #self.dense_stack = None
-
-        #self.neural_network = None
-        #self.value_layer_spec = {
-        #    "type": "dense",
-        #    "units": 1,
-        #    "activation": "linear",
-        #    "scope": "value-function-output"
-        #}
-        #self.build_value_function()
-
-    #def build_value_function(self):
-    #    # Attach VF output to hidden layers.
-    #    self.neural_network = NeuralNetwork.from_spec(self.network_spec)
-    #    self.neural_network.add_layer(Layer.from_spec(self.value_layer_spec))
-    #    self.add_components(self.neural_network)
-
+    # OBSOLETED API method. Use `call` instead.
     @rlgraph_api
-    def call(self, nn_inputs):
-        """
-        Args:
-            nn_inputs (any): The inputs to our neural network.
-
-        Returns:
-            any: Value function estimate V(s) for inputs s.
-        """
-        nn_output = self.neural_network.call(nn_inputs)
-        value_output = self.value_layer.call(nn_output)
-        return value_output
-
-    def value_output(self, nn_inputs):
-        raise RLGraphObsoletedError("")
+    def value_output(self, *inputs):
+        self.logger.warning("In ValueFunction component: API `value_output` is obsoleted, use `call` instead!")
+        return self.call(*inputs)
