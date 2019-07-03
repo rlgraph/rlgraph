@@ -22,12 +22,12 @@ from rlgraph.components import Synchronizable, Memory, PrioritizedReplay
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
 from rlgraph.components.loss_functions.sac_loss_function import SACLossFunction
 from rlgraph.components.neural_networks.value_function import ValueFunction
+from rlgraph.components.policies.policy import Policy
 from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox, IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import flatten_op, DataOpTuple
-from rlgraph.utils.util import strip_list, force_list
+from rlgraph.utils.ops import flatten_op
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -65,7 +65,7 @@ class SACAgent(Agent):
         gumbel_softmax_temperature=1.0,
         target_entropy=None,
         memory_spec=None,
-        value_function_sync_spec=None
+        q_function_sync_rules=None
     ):
         """
         This is an implementation of the Soft-Actor Critic algorithm.
@@ -130,7 +130,7 @@ class SACAgent(Agent):
             agent=self,
             policy=policy_spec,
             network_spec=network_spec,
-            value_function_spec=value_function_spec,  # q-functions
+            q_function_spec=value_function_spec,  # q-functions
             preprocessing_spec=preprocessing_spec,
             memory_spec=memory_spec,
             discount=discount,
@@ -142,12 +142,13 @@ class SACAgent(Agent):
             optimizer_spec=optimizer_spec,
             value_function_optimizer_spec=value_function_optimizer_spec,
             #alpha_optimizer=self.alpha_optimizer,
-            q_sync_spec=value_function_sync_spec,
+            q_function_sync_rules=q_function_sync_rules,
             num_q_functions=2 if self.double_q is True else 1
         )
 
         # Extend input Space definitions to this Agent's specific API-methods.
-        preprocessed_state_space = self.root_component.preprocessed_state_space.with_batch_rank()
+        preprocessed_state_space = self.root_component.preprocessor.get_preprocessed_space(self.state_space).\
+            with_batch_rank()
         float_action_space = self.action_space.with_batch_rank().map(
             mapping=lambda flat_key, space: space.as_one_hot_float_space() if isinstance(space, IntBox) else space
         )
@@ -175,58 +176,25 @@ class SACAgent(Agent):
 
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):
-        # TODO: common pattern - move to Agent
-        """
-        Args:
-            extra_returns (Optional[Set[str],str]): Optional string or set of strings for additional return
-                values (besides the actions). Possible values are:
-                - 'preprocessed_states': The preprocessed states after passing the given states through the
-                preprocessor stack.
-                - 'internal_states': The internal states returned by the RNNs in the NN pipeline.
-                - 'used_exploration': Whether epsilon- or noise-based exploration was used or not.
-
-        Returns:
-            tuple or single value depending on `extra_returns`:
-                - action
-                - the preprocessed states
-        """
-        extra_returns = [extra_returns] if isinstance(extra_returns, str) else (extra_returns or list())
-        # States come in without preprocessing -> use state space.
-        if apply_preprocessing:
-            call_method = self.root_component.get_preprocessed_state_and_action
-            batched_states, remove_batch_rank = self.state_space.force_batch(states)
-        else:
-            call_method = self.root_component.action_from_preprocessed_state
-            batched_states = states
-            remove_batch_rank = False
-
-        # Increase timesteps by the batch size (number of states in batch).
-        batch_size = len(batched_states)
-        self.timesteps += batch_size
-
-        ret = force_list(self.graph_executor.execute((
-            call_method,
-            [batched_states, not use_exploration, time_percentage],  # deterministic = not use_exploration
-            # Control, which return value to "pull" (depending on `additional_returns`).
-            extra_returns
-        )))
+        # Call super.
+        ret = super(SACAgent, self).get_action(
+            states, internals, use_exploration, apply_preprocessing, extra_returns, time_percentage
+        )
+        actions = ret[0] if "preprocessed_states" in extra_returns else ret
 
         # Convert Gumble (relaxed one-hot) sample back into int type for all discrete composite actions.
         if isinstance(self.action_space, ContainerSpace):
-            ret[0] = ret[0].map(
+            actions = actions.map(
                 mapping=lambda key, action: np.argmax(action, axis=-1).astype(action.dtype)
                 if isinstance(self.flat_action_space[key], IntBox) else action
             )
         elif isinstance(self.action_space, IntBox):
-            ret[0] = np.argmax(ret[0], axis=-1).astype(self.action_space.dtype)
-
-        if remove_batch_rank:
-            ret[0] = strip_list(ret[0])
+            actions = np.argmax(actions, axis=-1).astype(self.action_space.dtype)
 
         if "preprocessed_states" in extra_returns:
-            return ret[0], ret[1]
+            return actions, ret[1]
         else:
-            return ret[0]
+            return actions
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
         next_states = kwargs.pop("next_states")
@@ -270,7 +238,7 @@ class SACAgent(Agent):
 
 class SACAlgorithmComponent(AlgorithmComponent):
     def __init__(self, agent, memory_spec, q_function_spec, initial_alpha=1.0, gumbel_softmax_temperature=1.0,
-                 target_entropy=None, q_sync_rules=None, num_q_functions=2,
+                 target_entropy=None, q_function_sync_rules=None, num_q_functions=2,
                  scope="sac-agent-component", **kwargs):
 
         # If VF spec is a network spec, wrap with SAC vf type. The VF must concatenate actions and states,
@@ -281,18 +249,15 @@ class SACAlgorithmComponent(AlgorithmComponent):
         elif isinstance(q_function_spec, ValueFunction):
             self.logger.info("Using value function object {}".format(ValueFunction))
 
-        policy_spec = kwargs.pop("policy_spec", None)
-        # Force set deterministic to False.
-        if policy_spec is not None:
-            policy_spec["deterministic"] = False
-        else:
-            # Continuous action space: Use squashed normal.
-            # Discrete: Gumbel-softmax.
-            policy_spec = dict(deterministic=False, distributions_spec=dict(
+        # Default Policy (non-deterministic):
+        # Continuous action space: Use squashed normal.
+        # Discrete: Gumbel-softmax.
+        policy_spec = Policy.set_policy_deterministic(kwargs.pop("policy_spec", dict(
+            deterministic=False, distributions_spec=dict(
                 bounded_distribution_type="squashed", discrete_distribution_type="gumbel_softmax",
                 gumbel_softmax_temperature=gumbel_softmax_temperature
-            ))
-
+            )
+        )), False)
         super(SACAlgorithmComponent, self).__init__(
             agent, policy_spec=policy_spec, value_function_spec=q_function_spec, scope=scope, **kwargs
         )
@@ -300,31 +265,21 @@ class SACAlgorithmComponent(AlgorithmComponent):
         if "synchronizable" not in self.value_function.sub_components:
             self.value_function.add_components(Synchronizable(), expose_apis="sync")
 
-        self.q_sync_rules = SyncRules.from_spec(q_sync_rules)
-        #if q_sync_rules is None:
-        #    q_sync_rules = SyncRules(
-        #        sync_every_n_updates=self.agent.update_spec["sync_interval"] // self.agent.update_spec["update_interval"],
-        #        sync_tau=self.agent.update_spec["sync_tau"] if "sync_tau" in self.agent.update_spec else 5e-3
-        #    )
+        self.q_function_sync_rules = SyncRules.from_spec(q_function_sync_rules)
 
         self.memory = Memory.from_spec(memory_spec)
+        # Copy value function (q-function) n times to reach num_q_functions.
         self.q_functions = [self.value_function] + [
-            self.value_function.copy(scope="{}-{}".format(self.value_function.scope, i + 1), trainable=True)
+            self.value_function.copy(scope="{}-{}".format(self.value_function.scope, i + 2), trainable=True)
             for i in range(num_q_functions - 1)
         ]
 
         # Set number of return values for get_q_values graph_fn.
         self.graph_fn_num_outputs["_graph_fn_get_q_values"] = num_q_functions
 
-        #for q in self.q_functions:
-        #    # TODO: is there a better way to do this?
-        #    if "synchronizable" not in q.sub_components:
-        #        q.add_components(Synchronizable(), expose_apis="sync")
-        self.target_q_functions = [q.copy(scope="target-" + q.scope, trainable=True) for q in self.q_functions]
-        #for target_q in self.target_q_functions:
-        #    # TODO: is there a better way to do this?
-        #    if "synchronizable" not in target_q.sub_components:
-        #        target_q.add_components(Synchronizable(), expose_apis="sync")
+        # Produce target q-functions from respective base q-functions (which now also contain
+        # the Synchronizable component).
+        self.target_q_functions = [q.copy(scope="target-" + q.scope, trainable=False) for q in self.q_functions]
 
         self.target_entropy = target_entropy
         self.alpha_optimizer = self.optimizer.copy(scope="alpha-" + self.optimizer.scope) if self.target_entropy is not None else None
@@ -336,14 +291,10 @@ class SACAlgorithmComponent(AlgorithmComponent):
         )
 
         self.steps_since_last_sync = None
-        self.q_sync_rules = q_sync_rules
         self.env_action_space = None
 
-        #q_names = ["q_{}".format(i) for i in range(len(self.q_functions))]
-        #self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
-
-        self.add_components(self.memory, self.loss_function, self.alpha_optimizer)  # self._merger, self._q_vars_merger)
-        self.add_components(*self.q_functions)
+        self.add_components(self.memory, self.loss_function, self.alpha_optimizer)
+        self.add_components(*self.q_functions[1:])  # Skip the 1st value-function (already added via super-call)
         self.add_components(*self.target_q_functions)
 
     def check_input_spaces(self, input_spaces, action_space=None):
@@ -413,15 +364,17 @@ class SACAlgorithmComponent(AlgorithmComponent):
             self.get_losses(preprocessed_states, actions, rewards, terminals, next_states, importance_weights)
 
         policy_vars = self.policy.variables()
-        merged_q_vars = {"q_{}".format(i): q.variables() for i, q in enumerate(self.q_functions)}  #self._q_vars_merger.merge(*q_vars)
-        critic_step_op, critic_loss, critic_loss_per_item = \
-            self.value_function_optimizer.step(merged_q_vars, critic_loss, critic_loss_per_item)
+        merged_q_vars = {"q_{}".format(i): q.variables() for i, q in enumerate(self.q_functions)}
+        critic_step_op = self.value_function_optimizer.step(
+            merged_q_vars, critic_loss, critic_loss_per_item, time_percentage
+        )
 
-        actor_step_op, actor_loss, actor_loss_per_item = \
-            self.optimizer.step(policy_vars, actor_loss, actor_loss_per_item)
+        actor_step_op = self.optimizer.step(
+            policy_vars, actor_loss, actor_loss_per_item, time_percentage
+        )
 
         if self.target_entropy is not None:
-            alpha_step_op = self._graph_fn_update_alpha(alpha_loss, alpha_loss_per_item)
+            alpha_step_op = self._graph_fn_update_alpha(alpha_loss, alpha_loss_per_item, time_percentage)
         else:
             alpha_step_op = self._graph_fn_no_op()
         # TODO: optimizer for alpha
@@ -450,9 +403,11 @@ class SACAlgorithmComponent(AlgorithmComponent):
         return env_actions
 
     @graph_fn(requires_variable_completeness=True)
-    def _graph_fn_update_alpha(self, alpha_loss, alpha_loss_per_item):
-        alpha_step_op, _, _ = self.alpha_optimizer.step(
-            DataOpTuple([self.log_alpha]), alpha_loss, alpha_loss_per_item)
+    def _graph_fn_update_alpha(self, alpha_loss, alpha_loss_per_item, time_percentage):
+        alpha_step_op = self.alpha_optimizer.step(
+            #DataOpTuple([self.log_alpha]), alpha_loss, alpha_loss_per_item, time_percentage)
+            (self.log_alpha,), alpha_loss, alpha_loss_per_item, time_percentage
+        )
         return alpha_step_op
 
     @rlgraph_api  # `returns` are determined in ctor
@@ -541,7 +496,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
     def _graph_fn_get_should_sync(self):
         if get_backend() == "tf":
             inc_op = tf.assign_add(self.steps_since_last_sync, 1)
-            should_sync = inc_op >= self.q_sync_spec.sync_interval
+            should_sync = inc_op >= self.q_function_sync_rules.sync_interval
 
             def reset_op():
                 op = tf.assign(self.steps_since_last_sync, 0)
@@ -549,7 +504,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
                     return tf.no_op()
 
             sync_op = tf.cond(
-                pred=inc_op >= self.q_sync_spec.sync_interval,
+                pred=inc_op >= self.q_function_sync_rules.sync_interval,
                 true_fn=reset_op,
                 false_fn=tf.no_op
             )
@@ -562,7 +517,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
     @graph_fn(returns=1, requires_variable_completeness=True)
     def _graph_fn_sync(self, should_sync):
         assign_ops = []
-        tau = self.q_sync_spec.sync_tau
+        tau = self.q_function_sync_rules.sync_tau
         if tau != 1.0:
             all_source_vars = [source.get_variables(collections=None, custom_scope_separator="-") for source in self.q_functions]
             all_dest_vars = [destination.get_variables(collections=None, custom_scope_separator="-") for destination in self.target_q_functions]

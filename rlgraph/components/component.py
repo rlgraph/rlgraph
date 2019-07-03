@@ -1011,7 +1011,7 @@ class Component(Specifiable):
             component = component.parent_component
         return ret
 
-    def propagate_scope(self, sub_component):
+    def propagate_scope(self, sub_component=None):
         """
         Fixes all the sub-Component's (and its sub-Component's) global_scopes.
 

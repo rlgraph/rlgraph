@@ -15,13 +15,14 @@
 
 from __future__ import absolute_import, division, print_function
 
-from rlgraph.components.component import Component
-from rlgraph.components.layers.layer import Layer
+# from rlgraph.components.component import Component
+from rlgraph.components.layers.nn.dense_layer import DenseLayer
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
 
 
-class ValueFunction(Component):
+class ValueFunction(NeuralNetwork):
     """
     A Value-function is a wrapper Component that contains a NeuralNetwork and adds a value-function output.
     """
@@ -31,33 +32,36 @@ class ValueFunction(Component):
             network_spec (list): Layer specification for baseline network.
         """
         super(ValueFunction, self).__init__(scope=scope, **kwargs)
-        self.network_spec = network_spec
+        self.neural_network = NeuralNetwork.from_spec(network_spec)
+        self.value_layer = DenseLayer(units=1, scope="value-function-output")
+
+        self.add_components(self.neural_network, self.value_layer)
 
         # If first layer is conv, build image stack.
         # TODO: This should not be checked in this way. What if network_spec if a NN Component, a dict, etc..?
-        self.use_image_stack = False
-        if isinstance(self.network_spec, (list, tuple)) and self.network_spec[0]["type"] == "conv2d":
-            self.use_image_stack = True
-        self.image_stack = None
-        self.dense_stack = None
+        #self.use_image_stack = False
+        #if isinstance(self.network_spec, (list, tuple)) and self.network_spec[0]["type"] == "conv2d":
+        #    self.use_image_stack = True
+        #self.image_stack = None
+        #self.dense_stack = None
 
-        self.neural_network = None
-        self.value_layer_spec = {
-            "type": "dense",
-            "units": 1,
-            "activation": "linear",
-            "scope": "value-function-output"
-        }
-        self.build_value_function()
+        #self.neural_network = None
+        #self.value_layer_spec = {
+        #    "type": "dense",
+        #    "units": 1,
+        #    "activation": "linear",
+        #    "scope": "value-function-output"
+        #}
+        #self.build_value_function()
 
-    def build_value_function(self):
-        # Attach VF output to hidden layers.
-        self.neural_network = NeuralNetwork.from_spec(self.network_spec)
-        self.neural_network.add_layer(Layer.from_spec(self.value_layer_spec))
-        self.add_components(self.neural_network)
+    #def build_value_function(self):
+    #    # Attach VF output to hidden layers.
+    #    self.neural_network = NeuralNetwork.from_spec(self.network_spec)
+    #    self.neural_network.add_layer(Layer.from_spec(self.value_layer_spec))
+    #    self.add_components(self.neural_network)
 
     @rlgraph_api
-    def value_output(self, nn_inputs):
+    def call(self, nn_inputs):
         """
         Args:
             nn_inputs (any): The inputs to our neural network.
@@ -65,4 +69,9 @@ class ValueFunction(Component):
         Returns:
             any: Value function estimate V(s) for inputs s.
         """
-        return self.neural_network.call(nn_inputs)
+        nn_output = self.neural_network.call(nn_inputs)
+        value_output = self.value_layer.call(nn_output)
+        return value_output
+
+    def value_output(self, nn_inputs):
+        raise RLGraphObsoletedError("")

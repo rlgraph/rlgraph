@@ -2,11 +2,11 @@ import logging
 import unittest
 
 import numpy as np
-
-from rlgraph.agents.sac_agent import SACAgentComponent, SyncSpecification, SACAgent
-from rlgraph.components import Policy, PreprocessorStack, ReplayMemory, AdamOptimizer, Synchronizable, \
+from rlgraph.agents.sac_agent import SACAlgorithmComponent, SACAgent
+from rlgraph.components import Policy, ReplayMemory, AdamOptimizer, Synchronizable, \
     SACValueNetwork
 from rlgraph.environments import OpenAIGymEnv
+from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
@@ -31,19 +31,21 @@ class TestSACAgentFunctionality(unittest.TestCase):
         policy.add_components(Synchronizable(), expose_apis="sync")
         q_function = SACValueNetwork.from_spec(config["value_function"])
 
-        agent_component = SACAgentComponent(
+        agent_component = SACAlgorithmComponent(
             agent=None,
-            policy=policy,
-            q_function=q_function,
-            preprocessor=PreprocessorStack.from_spec([]),
-            memory=ReplayMemory.from_spec(config["memory"]),
+            policy_spec=policy,
+            q_function_spec=q_function,
+            preprocessing_spec=None,  # PreprocessorStack.from_spec([])
+            memory_spec=ReplayMemory.from_spec(config["memory"]),
             discount=config["discount"],
             initial_alpha=config["initial_alpha"],
             target_entropy=None,
-            optimizer=AdamOptimizer.from_spec(config["optimizer"]),
-            vf_optimizer=AdamOptimizer.from_spec(config["value_function_optimizer"], scope="vf-optimizer"),
-            alpha_optimizer=None,
-            q_sync_spec=SyncSpecification(sync_interval=10, sync_tau=1.0),
+            optimizer_spec=AdamOptimizer.from_spec(config["optimizer"]),
+            value_function_optimizer_spec=AdamOptimizer.from_spec(
+                config["value_function_optimizer"], scope="vf-optimizer"
+            ),
+            #alpha_optimizer=None,
+            q_function_sync_rules=SyncRules(sync_every_n_updates=10, sync_tau=1.0),
             num_q_functions=2
         )
 
@@ -57,7 +59,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 rewards=rewards_space,
                 next_states=state_space.with_batch_rank(),
                 terminals=terminal_space,
-                batch_size=int,
+                #batch_size=int,
                 importance_weights=FloatBox(add_batch_rank=True),
                 deterministic=bool,
                 weights="variables:{}".format(policy.scope),
@@ -70,9 +72,9 @@ class TestSACAgentFunctionality(unittest.TestCase):
             ),
             action_space=continuous_action_space,
             build_kwargs=dict(
-                optimizer=agent_component._optimizer,
+                optimizer=agent_component.optimizer,
                 build_options=dict(
-                    vf_optimizer=agent_component.vf_optimizer,
+                    vf_optimizer=agent_component.value_function_optimizer,
                 ),
             )
         )
