@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 
@@ -173,8 +171,8 @@ class IMPALAAgent(Agent):
             policy_spec=self.policy_spec,
             exploration_spec=self.exploration_spec,
             optimizer_spec=optimizer_spec,
-            observe_spec=observe_spec,
-            update_spec=update_spec,
+            #observe_spec=observe_spec,
+            #update_spec=update_spec,
             execution_spec=execution_spec,
             name=kwargs.pop("name", "impala-{}-agent".format(self.type)),
             **kwargs
@@ -521,7 +519,7 @@ class IMPALAAgent(Agent):
 
 class SingleIMPALAAgent(IMPALAAgent):
     """
-    An single IMPALAAgent, performing both experience collection and learning updates via multi-threading
+    A single IMPALAAgent, performing both experience collection and learning updates via multi-threading
     (queue runners).
     """
     def __init__(self, discount=0.99, fifo_queue_spec=None, architecture="large", environment_spec=None,
