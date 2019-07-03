@@ -138,6 +138,16 @@ class Policy(Component):
                     dist_spec, scope="{}-{}".format(dist_spec["type"], i)
                 )
 
+    @staticmethod
+    def set_policy_deterministic(policy_spec, deterministic=False):
+        if isinstance(policy_spec, Policy):
+            policy_spec.deterministic = deterministic
+        elif isinstance(policy_spec, dict):
+            policy_spec["deterministic"] = False
+        else:
+            policy_spec = dict(deterministic=False)
+        return policy_spec
+
     # Define our interface.
     @rlgraph_api
     def get_nn_outputs(self, nn_inputs):

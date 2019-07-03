@@ -99,7 +99,7 @@ class ActorCriticAgent(Agent):
             weight_vf (float): The coefficient used for the state value function loss term (L[V]).
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use. Should typically be
-            a ring-buffer.
+                a ring-buffer.
         """
         super(ActorCriticAgent, self).__init__(
             state_space=state_space,

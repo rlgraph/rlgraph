@@ -39,7 +39,7 @@ class AlgorithmComponent(Component):
         Args:
             discount (float): The discount factor (gamma).
 
-            memory_batch_size (int): The batch size to use when pulling data from memory.
+            memory_batch_size (Optional[int]): The batch size to use when pulling data from memory.
 
             preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
                 preprocessing steps or a PreprocessorStack object itself.
@@ -70,24 +70,20 @@ class AlgorithmComponent(Component):
 
         # Some generic properties that all Agents have.
         self.discount = discount
-
-        #assert isinstance(memory_batch_size, int)  # Make sure everything is defined.
         self.memory_batch_size = memory_batch_size
 
         # Construct the Preprocessor.
         self.preprocessor = PreprocessorStack.from_spec(preprocessing_spec)
-        self.preprocessed_state_space = self.preprocessor.get_preprocessed_space(self.agent.state_space)
         self.preprocessing_required = preprocessing_spec is not None and len(preprocessing_spec) > 0
         if self.preprocessing_required:
             self.logger.info("Preprocessing required.")
-            self.logger.info("Parsed preprocessed-state space definition: {}".format(self.preprocessed_state_space))
         else:
             self.logger.info("No preprocessing required.")
 
         # Construct the Policy and its NeuralNetwork (if policy-spec or network given).
         if policy_spec is None and network_spec is None:
             self.policy = None
-        else:
+        elif isinstance(policy_spec, dict):
             # Adjust/auto-generate a policy_spec so it always contains a network spec and action_space.
             policy_spec = policy_spec or {}
             if "network_spec" not in policy_spec:
@@ -96,6 +92,10 @@ class AlgorithmComponent(Component):
                 policy_spec["action_space"] = self.agent.action_space
             self.policy = Policy.from_spec(policy_spec)
             self.policy.add_components(Synchronizable(), expose_apis="sync")
+        else:
+            # Make sure policy is Synchronizable (will raise ERROR otherwise).
+            self.policy = policy_spec
+            assert self.policy.get_sub_component_by_name("synchronizable")
 
         # Create non-shared baseline network.
         self.value_function = parse_value_function_spec(value_function_spec)
@@ -132,7 +132,14 @@ class AlgorithmComponent(Component):
                 vf_optimizer_spec = optimizer_spec
             else:
                 vf_optimizer_spec = value_function_optimizer_spec
-            vf_optimizer_spec["scope"] = "value-function-optimizer"
+
+            # Change name to avoid scope-collision.
+            if isinstance(vf_optimizer_spec, dict):
+                vf_optimizer_spec["scope"] = "value-function-optimizer"
+            else:
+                vf_optimizer_spec.scope = "value-function-optimizer"
+                vf_optimizer_spec.propagate_scope()
+
             self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
             self.all_optimizers.append(self.value_function_optimizer)
 

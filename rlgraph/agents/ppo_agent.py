@@ -22,6 +22,7 @@ from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.components.loss_functions.ppo_loss_function import PPOLossFunction
 from rlgraph.components.memories import Memory, RingBuffer
+from rlgraph.components.policies.policy import Policy
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api
@@ -61,9 +62,9 @@ class PPOAgent(Agent):
         execution_spec=None,
         optimizer_spec=None,
         value_function_optimizer_spec=None,
-        observe_spec=None,
+        observe_spec=None,  # Obsoleted.
         max_timesteps=None,
-        update_spec=None,
+        update_spec=None,  # Obsoleted.
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
@@ -145,7 +146,7 @@ class PPOAgent(Agent):
             custom_python_buffers=custom_python_buffers,
             internal_states_space=internal_states_space,
             execution_spec=execution_spec,
-            observe_spec=observe_spec,
+            observe_spec=observe_spec,  # Obsoleted.
             max_timesteps=max_timesteps,
             update_spec=update_spec,  # Obsoleted.
             summary_spec=summary_spec,
@@ -167,12 +168,14 @@ class PPOAgent(Agent):
         )
 
         # Extend input Space definitions to this Agent's specific API-methods.
+        self.preprocessed_state_space = self.root_component.preprocessor.get_preprocessed_space(self.state_space).\
+            with_batch_rank()
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             policy_weights="variables:policy",
             value_function_weights="variables:value-function",
             deterministic=bool,
-            preprocessed_states=self.root_component.preprocessed_state_space.with_batch_rank(),
+            preprocessed_states=self.preprocessed_state_space,
             rewards=FloatBox(add_batch_rank=True),
             terminals=BoolBox(add_batch_rank=True),
             sequence_indices=BoolBox(add_batch_rank=True),
@@ -207,7 +210,6 @@ class PPOAgent(Agent):
                 been applied. The purpose of internal versus external post-processing is to be able to off-load
                 post-processing in large scale distributed scenarios.
         """
-        # TODO: Move update_spec to Worker. Agent should not hold these execution details.
         if time_percentage is None:
             time_percentage = self.timesteps / (self.max_timesteps or 1e6)
 
@@ -220,7 +222,7 @@ class PPOAgent(Agent):
             if sequence_indices is None:
                 sequence_indices = batch["terminals"]
 
-            pps_dtype = self.root_component.preprocessed_state_space.dtype
+            pps_dtype = self.preprocessed_state_space.dtype
             batch["states"] = np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np'))
 
             ret = self.graph_executor.execute(
@@ -270,11 +272,7 @@ class PPOAlgorithmComponent(AlgorithmComponent):
 
             standardize_advantages (bool): If true, standardize advantage values in update.
         """
-        policy_spec = kwargs.pop("policy_spec", None)
-        if policy_spec is not None:
-            policy_spec["deterministic"] = False
-        else:
-            policy_spec = dict(deterministic=False)
+        policy_spec = Policy.set_policy_deterministic(kwargs.pop("policy_spec", None), False)
 
         super(PPOAlgorithmComponent, self).__init__(agent, policy_spec=policy_spec, scope=scope, **kwargs)
 
