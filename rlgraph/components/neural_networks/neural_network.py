@@ -184,6 +184,9 @@ class NeuralNetwork(Stack):
             # Pass on outputs into (new) last layer and use that as new keras-style output.
             self.keras_style_api_outputs = force_list(layer_component(*self.keras_style_api_outputs))
 
+        # Add the layer to this NN.
+        self.add_components(layer_component)
+
         self.build_auto_api_method("call_shadowed_", self.map_api_to_sub_components_api["call_shadowed_"],
                                    ok_to_overwrite=True)
 
@@ -347,7 +350,7 @@ class NeuralNetwork(Stack):
                     output_set.add(in_)
 
             inputs_str = ", ".join([k + i.var_name for i, k in zip(output.inputs, output.kwarg_strings)])
-            call_code = "\t{} = self.get_sub_component_by_name('{}').call({})\n".format(
+            call_code = "\t{} = self_.get_sub_component_by_name('{}').call({})\n".format(
                 siblings_str, output.component.scope, inputs_str) + call_code
             sub_components.add(output.component)
 
@@ -357,7 +360,7 @@ class NeuralNetwork(Stack):
         # Prepend inputs from left-over Space objects in set.
         call_code = \
             "@rlgraph_api(component=self, ok_to_overwrite=True)\n" + \
-            "def call(self, *inputs):\n" + \
+            "def call(self_, *inputs):\n" + \
             call_code
 
         # Add all sub-components to this NN.
@@ -376,17 +379,17 @@ class NeuralNetwork(Stack):
         @rlgraph_api(component=self, ok_to_overwrite=True)
         def call(self_, *inputs):
             # Everything is lumped together in inputs[0] but is supposed to be split -> Do this here.
-            if len(inputs) == 1 and self.num_inputs > 1:
-                inputs = self.inputs_splitter.call(inputs[0])
+            if len(inputs) == 1 and self_.num_inputs > 1:
+                inputs = self_.inputs_splitter.call(inputs[0])
 
             inputs = list(inputs)
             original_input = inputs[0]
 
             # Keep track of the folding status.
-            fold_status = "unfolded" if self.has_rnn() else None
+            fold_status = "unfolded" if self_.has_rnn() else None
             # Fold time rank? For now only support 1st arg folding/unfolding.
             if fold_time_rank is True:
-                args_ = tuple([self.folder.call(original_input)] + list(inputs[1:]))
+                args_ = tuple([self_.folder.call(original_input)] + list(inputs[1:]))
                 fold_status = "folded"
             else:
                 # TODO: If only unfolding: Assume for now that 2nd input is the original one (so we can infer
@@ -409,11 +412,11 @@ class NeuralNetwork(Stack):
 
                 # Unfold before an LSTM.
                 if isinstance(sub_component, LSTMLayer) and fold_status != "unfolded":
-                    args_, kwargs_ = self._unfold(original_input, *args_, **kwargs_)
+                    args_, kwargs_ = self_._unfold(original_input, *args_, **kwargs_)
                     fold_status = "unfolded"
                 # Fold before a non-LSTM if not already done so.
                 elif not isinstance(sub_component, LSTMLayer) and fold_status == "unfolded":
-                    args_, kwargs_ = self._fold(*args_, **kwargs_)
+                    args_, kwargs_ = self_._fold(*args_, **kwargs_)
                     fold_status = "folded"
 
                 results = sub_component.call(*args_, **kwargs_)
@@ -427,13 +430,13 @@ class NeuralNetwork(Stack):
                     kwargs_ = {}
 
             if unfold_time_rank:
-                args_, kwargs_ = self._unfold(original_input, *args_, **kwargs_)
+                args_, kwargs_ = self_._unfold(original_input, *args_, **kwargs_)
             if args_ == ():
                 return kwargs_
             elif len(args_) == 1:
                 return args_[0]
             else:
-                self.num_outputs = len(args_)
+                self_.num_outputs = len(args_)
                 return args_
 
     @staticmethod
