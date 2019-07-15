@@ -101,7 +101,7 @@ class NNLayer(Layer):
                 output = activation_function(*inputs)
                 # TODO: Move into util function.
                 # Add batch-/time-rank flags.
-                output._batch_rank = 0 if self.time_major is False else 1
+                output._batch_rank = 0 if self.time_major is not True else 1
                 if self.in_space_0 and self.in_space_0.has_time_rank:
                     output._time_rank = 0 if self.in_space_0.time_major is True else 1
                 return output
@@ -110,7 +110,7 @@ class NNLayer(Layer):
             if get_backend() == "tf":
                 output = self.layer.call(*inputs)
                 # Add batch-/time-rank flags.
-                output._batch_rank = 0 if self.time_major is False else 1
+                output._batch_rank = 0 if self.time_major is not True else 1
                 if self.in_space_0 and self.in_space_0.has_time_rank:
                     output._time_rank = 0 if self.in_space_0.time_major is True else 1
                 return output
