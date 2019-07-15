@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.common.time_dependent_parameters import Constant
@@ -83,6 +81,8 @@ class LocalOptimizer(Optimizer):
         Args:
             variables (DataOpTuple): A list of variables to calculate gradients for.
             loss (SingeDataOp): The total loss over a batch to be minimized.
+            time_percentage (SingleDataOp): The time percentage (0.0 to 1.0) that has already passed with respect to
+                some max. time step value for the training run.
         """
         if get_backend() == "tf":
             var_list = list(variables.values()) if isinstance(variables, dict) else force_list(variables)

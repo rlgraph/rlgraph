@@ -45,7 +45,6 @@ class Space(Specifiable):
         self.id = self.get_id()
 
         self._shape = None
-        self.parent = None  # For usage in nested ContainerSpace structures.
 
         # Parent Space for usage in nested ContainerSpace structures.
         self.parent = None
@@ -99,16 +98,19 @@ class Space(Specifiable):
         Returns:
             Space: The deepcopy of this Space, but with `has_batch_rank` set to True.
         """
-        parent_safe = self.parent
-        # TODO: Remove logger from Specifyable. Only those children of Specifyable that really need logging (Workers and Agents)
-        # TODO: Should have their own logger object and then handle deepcopying properly.
-        #logger_safe = self.logger
-        self.parent = None
+        parent_safe = None
+        if hasattr(self, "parent"):
+            parent_safe = self.parent
+            # TODO: Remove logger from Specifyable. Only those children of Specifyable that really need logging (Workers and Agents)
+            # TODO: Should have their own logger object and then handle deepcopying properly.
+            #logger_safe = self.logger
+            self.parent = None
 
         ret = copy.deepcopy(self)
 
-        self.parent = parent_safe
-        #self.logger = logger_safe
+        if hasattr(self, "parent"):
+            self.parent = parent_safe
+            #self.logger = logger_safe
 
         # Add the necessary special ranks.
         if add_batch_rank is not None:
