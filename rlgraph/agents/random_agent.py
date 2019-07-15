@@ -27,6 +27,7 @@ class RandomAgent(Agent):
             update_spec=dict(do_updates=False), state_space=state_space, action_space=action_space, name=name, **kwargs
         )
         self.action_space_batched = self.action_space.with_batch_rank()
+        self.preprocessed_state_space = self.state_space
 
     def get_action(self, states, internals=None, use_exploration=False, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):

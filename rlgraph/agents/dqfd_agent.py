@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, PrioritizedReplay, DQFDLossFunction
 from rlgraph.components.algorithms.algorithm_component import AlgorithmComponent
@@ -144,7 +145,9 @@ class DQFDAgent(Agent):
         self.demo_margins = np.asarray([self.expert_margin] * self.demo_batch_size)
 
         # Extend input Space definitions to this Agent's specific API-methods.
-        preprocessed_state_space = self.root_component.preprocessed_state_space.with_batch_rank()
+        self.preprocessed_state_space = self.preprocessed_state_space = self.root_component.preprocessor.\
+            get_preprocessed_space(self.state_space).with_batch_rank()
+
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             policy_weights="variables:{}".format(self.root_component.policy.scope),
@@ -152,12 +155,12 @@ class DQFDAgent(Agent):
             use_exploration=bool,
             demo_batch_size=int,
             apply_demo_loss=bool,
-            preprocessed_states=preprocessed_state_space,
+            preprocessed_states=self.preprocessed_state_space,
             rewards=FloatBox(add_batch_rank=True),
             terminals=BoolBox(add_batch_rank=True),
             expert_margins=FloatBox(add_batch_rank=True),
-            next_states=preprocessed_state_space,
-            preprocessed_next_states=preprocessed_state_space,
+            next_states=self.preprocessed_state_space,
+            preprocessed_next_states=self.preprocessed_state_space,
             importance_weights=FloatBox(add_batch_rank=True)
         ))
 

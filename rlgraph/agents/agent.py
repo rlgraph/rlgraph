@@ -20,6 +20,7 @@ from collections import defaultdict
 from functools import partial
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
@@ -92,6 +93,8 @@ class Agent(Specifiable):
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
+        self.preprocessed_state_space = None  # type: Space
+
         self.flat_state_space = self.state_space.flatten(scope_separator_at_start=False)\
             if isinstance(self.state_space, ContainerSpace) else None
         self.logger.info("Parsed state space definition: {}".format(self.state_space))
@@ -527,8 +530,8 @@ class Agent(Specifiable):
                 self.reset_env_buffers(env_id)
         else:
             if not batched:
-                preprocessed_states, _ = self.root_component.preprocessed_state_space.force_batch(preprocessed_states)
-                next_states, _ = self.root_component.preprocessed_state_space.force_batch(next_states)
+                preprocessed_states, _ = self.preprocessed_state_space.force_batch(preprocessed_states)
+                next_states, _ = self.preprocessed_state_space.force_batch(next_states)
                 actions, _ = self.action_space.force_batch(actions)
                 rewards = [rewards]
                 terminals = [terminals]

@@ -20,6 +20,7 @@ from copy import deepcopy
 
 import numpy as np
 from six.moves import xrange as range_
+
 from rlgraph.components import PreprocessorStack
 from rlgraph.execution.rules.update_rules import UpdateRules
 from rlgraph.execution.worker import Worker
@@ -52,8 +53,8 @@ class SingleThreadedWorker(Worker):
 
         self.apply_preprocessing = not self.worker_executes_preprocessing
         self.preprocessed_states_buffer = np.zeros(
-            shape=(self.num_environments,) + self.agent.root_component.preprocessed_state_space.shape,
-            dtype=self.agent.root_component.preprocessed_state_space.dtype
+            shape=(self.num_environments,) + self.agent.preprocessed_state_space.shape,
+            dtype=self.agent.preprocessed_state_space.dtype
         )
 
         # Global statistics.

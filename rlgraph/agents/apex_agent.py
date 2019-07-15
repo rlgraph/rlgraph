@@ -140,7 +140,7 @@ class ApexAgent(DQNAgent):
             return ret[1]
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
-            pps_dtype = self.root_component.preprocessed_state_space.dtype
+            pps_dtype = self.preprocessed_state_space.dtype
             batch_input = [np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
                            batch["actions"],
                            batch["rewards"], batch["terminals"],

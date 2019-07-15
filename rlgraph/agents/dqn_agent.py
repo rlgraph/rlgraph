@@ -134,16 +134,18 @@ class DQNAgent(Agent):
         )
 
         # Extend input Space definitions to this Agent's specific API-methods.
-        preprocessed_state_space = self.root_component.preprocessed_state_space.with_batch_rank()
+        self.preprocessed_state_space = self.preprocessed_state_space = self.root_component.preprocessor.\
+            get_preprocessed_space(self.state_space).with_batch_rank()
+
         self.input_spaces.update(dict(
             actions=self.action_space.with_batch_rank(),
             # Weights will have a Space derived from the vars of policy.
             policy_weights="variables:{}".format(self.root_component.policy.scope),
-            preprocessed_states=preprocessed_state_space,
+            preprocessed_states=self.preprocessed_state_space,
             rewards=FloatBox(add_batch_rank=True),
             terminals=BoolBox(add_batch_rank=True),
-            next_states=preprocessed_state_space,
-            preprocessed_next_states=preprocessed_state_space,
+            next_states=self.preprocessed_state_space,
+            preprocessed_next_states=self.preprocessed_state_space,
             importance_weights=FloatBox(add_batch_rank=True),
             apply_postprocessing=bool,
             deterministic=bool
