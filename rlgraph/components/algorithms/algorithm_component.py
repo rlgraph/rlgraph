@@ -17,7 +17,7 @@ from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components import Exploration, PreprocessorStack, Synchronizable, Policy, Optimizer, \
-    ContainerMerger, ContainerSplitter, ValueFunction
+    ValueFunction
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
@@ -100,12 +100,12 @@ class AlgorithmComponent(Component):
         self.value_function = ValueFunction.from_spec(value_function_spec)
         self.value_function.add_components(Synchronizable(), expose_apis="sync")
         # TODO move this to specific agents.
-        if self.value_function is not None:
-            self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
-            self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
-        else:
-            self.vars_merger = ContainerMerger("policy", scope="variable-dict-merger")
-            self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
+        #if self.value_function is not None:
+        #    self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
+        #    self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
+        #else:
+        #    self.vars_merger = ContainerMerger("policy", scope="variable-dict-merger")
+        #    self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
 
         # Optional exploration object. None if no exploration needed (usually None for PG algos, as they use
         # stochastic policies, not epsilon greedy Q).
@@ -143,7 +143,7 @@ class AlgorithmComponent(Component):
             self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
             self.all_optimizers.append(self.value_function_optimizer)
 
-        self.add_components(self.preprocessor, self.policy, self.value_function, self.vars_merger, self.vars_splitter,
+        self.add_components(self.preprocessor, self.policy, self.value_function, #self.vars_merger, self.vars_splitter,
                             self.exploration, self.optimizer, self.value_function_optimizer)
 
         # Add reset-preprocessor API, if necessary.

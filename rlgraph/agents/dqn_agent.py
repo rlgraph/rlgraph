@@ -360,15 +360,15 @@ class DQNAlgorithmComponent(AlgorithmComponent):
         # If we are a multi-GPU root:
         # Simply feeds everything into the multi-GPU sync optimizer's method and return.
         if "multi-gpu-synchronizer" in self.sub_components:
-            main_policy_vars = self.policy.variables()
-            all_vars = self.vars_merger.merge(main_policy_vars)
+            #main_policy_vars = self.policy.variables()
+            all_vars = dict(policy=self.policy.variables())  #self.vars_merger.merge(main_policy_vars)
             out = self.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                 all_vars, preprocessed_states, actions, rewards, terminals,
                 preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing,
                 time_percentage=time_percentage
             )
-            avg_grads_and_vars = self.vars_splitter.call(out["grads_and_vars_by_component"])
-            step_op = self.optimizer.apply_gradients(avg_grads_and_vars)
+            #avg_grads_and_vars = self.vars_splitter.call(out["grads_and_vars_by_component"])
+            step_op = self.optimizer.apply_gradients(out["grads_and_vars_by_component"]["policy"])
             # Increase the global training step counter.
             step_op = self._graph_fn_training_step(step_op)
             step_and_sync_op = self.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
@@ -376,13 +376,6 @@ class DQNAlgorithmComponent(AlgorithmComponent):
             )
             #q_values_s = out["additional_return_0"]
             return dict(step_op=step_and_sync_op, loss=out["loss"], loss_per_item=out["loss_per_item"]) #, q_values_s
-
-        # Get sub-components relative to the root (could be multi-GPU setup where root=some-tower).
-        #policy = root.get_sub_component_by_name(agent.policy.scope)
-        #target_policy = root.get_sub_component_by_name(agent.target_policy.scope)
-        #loss_function = root.get_sub_component_by_name(agent.loss_function.scope)
-        #optimizer = root.get_sub_component_by_name(agent.optimizer.scope)
-        #vars_merger = root.get_sub_component_by_name(agent.vars_merger.scope)
 
         # Get the different Q-values.
         q_values_s = self.policy.get_adapter_outputs_and_parameters(preprocessed_states)["adapter_outputs"]
@@ -404,7 +397,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
         # TODO: - this if check is somehow automated and not necessary anymore (local optimizer must be called with different API-method, not step)
         if hasattr(self, "is_multi_gpu_tower") and self.is_multi_gpu_tower is True:
             grads_and_vars = self.optimizer.calculate_gradients(policy_vars, loss, time_percentage)
-            grads_and_vars_by_component = self.vars_merger.merge(grads_and_vars)
+            grads_and_vars_by_component = dict(policy=grads_and_vars) # self.vars_merger.merge(grads_and_vars)
             return dict(grads_and_vars_by_component=grads_and_vars_by_component, loss=loss, loss_per_item=loss_per_item)
         else:
             step_op = self.optimizer.step(policy_vars, loss, loss_per_item, time_percentage)
