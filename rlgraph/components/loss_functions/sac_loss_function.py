@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.loss_functions.loss_function import LossFunction
@@ -93,7 +91,7 @@ class SACLossFunction(LossFunction):
         terminals = tf.expand_dims(terminals, axis=-1)
 
         q_min_next = tf.reduce_min(tf.concat(q_values_next_sampled, axis=1), axis=1, keepdims=True)
-        assert q_min_next.shape.as_list() == [None, 1]
+        assert q_min_next.shape.as_list()[1] == 1
         soft_state_value = q_min_next - alpha * log_probs_next_sampled
         q_target = rewards + self.discount * (1.0 - tf.cast(terminals, tf.float32)) * soft_state_value
         total_loss = 0.0
@@ -112,7 +110,7 @@ class SACLossFunction(LossFunction):
         log_probs_sampled = tf.reduce_sum(log_probs_sampled, axis=1, keepdims=True)
 
         q_min = tf.reduce_min(tf.concat(q_values_sampled, axis=1), axis=1, keepdims=True)
-        assert q_min.shape.as_list() == [None, 1]
+        assert q_min.shape.as_list()[1] == 1
         loss = alpha * log_probs_sampled - q_min
         loss = tf.identity(loss, "actor_loss_per_item")
         return tf.squeeze(loss, axis=1)
