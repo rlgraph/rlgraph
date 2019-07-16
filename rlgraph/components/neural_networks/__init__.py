@@ -20,6 +20,7 @@ from rlgraph.components.neural_networks.dict_preprocessor_stack import DictPrepr
 from rlgraph.components.neural_networks.preprocessor_stack import PreprocessorStack
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
 from rlgraph.components.neural_networks.multi_input_stream_neural_network import MultiInputStreamNeuralNetwork
+from rlgraph.components.neural_networks.q_function import QFunction
 from rlgraph.components.neural_networks.variational_auto_encoder import VariationalAutoEncoder
 from rlgraph.components.neural_networks.value_function import ValueFunction
 from rlgraph.components.neural_networks.sac.sac_networks import SACValueNetwork
@@ -29,6 +30,8 @@ NeuralNetwork.__lookup_classes__ = dict(
     neuralnetwork=NeuralNetwork,
     multiinputstreamneuralnetwork=MultiInputStreamNeuralNetwork,
     multiinputstreamnn=MultiInputStreamNeuralNetwork,
+    qfunction=QFunction,
+    valuefunction=ValueFunction,
     variationalautoencoder=VariationalAutoEncoder
 )
 
@@ -38,17 +41,16 @@ Stack.__lookup_classes__ = dict(
     preprocessorstack=PreprocessorStack
 )
 
-ValueFunction.__lookup_classes__ = dict(
-    sacvaluefunction=SACValueNetwork,
-    valuefunction=ValueFunction,
-)
-ValueFunction.__default_constructor__ = ValueFunction
+#ValueFunction.__lookup_classes__ = dict(
+#    sacvaluefunction=SACValueNetwork,
+#    valuefunction=ValueFunction,
+#)
+#ValueFunction.__default_constructor__ = ValueFunction
 
 
-__all__ = ["NeuralNetwork", "ValueFunction"] + \
-          ["Stack"] + \
+__all__ = ["NeuralNetwork", "Stack"] + \
           list(set(map(lambda x: x.__name__, NeuralNetwork.__lookup_classes__.values()))) + \
-          list(set(map(lambda x: x.__name__, Stack.__lookup_classes__.values()))) + \
-          list(set(map(lambda x: x.__name__, ValueFunction.__lookup_classes__.values())))
+          list(set(map(lambda x: x.__name__, Stack.__lookup_classes__.values())))
+          #list(set(map(lambda x: x.__name__, ValueFunction.__lookup_classes__.values())))
 
 
