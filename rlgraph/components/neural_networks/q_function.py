@@ -15,13 +15,12 @@
 
 from __future__ import absolute_import, division, print_function
 
-from rlgraph.components.layers import ConcatLayer
+from rlgraph.components.layers import ConcatLayer, DenseLayer
 from rlgraph.components.neural_networks.neural_network import NeuralNetwork
-from rlgraph.components.neural_networks.value_function import ValueFunction
 from rlgraph.utils.decorators import rlgraph_api
 
 
-class QFunction(ValueFunction):
+class QFunction(NeuralNetwork):
     """
     A Q-function network taking state and action inputs and concatenating them either at the very beginning OR -
     if an extra image_stack_spec is given - only after passing the states through this image_stack.
@@ -30,12 +29,15 @@ class QFunction(ValueFunction):
         self.image_stack = None
         image_stack_spec = kwargs.pop("image_stack_spec", None)
         if image_stack_spec is not None:
-            self.image_stack = NeuralNetwork.from_spec(image_stack_spec)
+            self.image_stack = NeuralNetwork.from_spec(image_stack_spec, scope="image-stack")
         main_nn_spec = kwargs.pop("network_spec", None)
         if main_nn_spec is not None:
-            self.main_nn = NeuralNetwork.from_spec(main_nn_spec)
+            self.main_nn = NeuralNetwork.from_spec(main_nn_spec, scope="main-nn")
         else:
             self.main_nn = NeuralNetwork(*layers, scope="main-nn", **kwargs)
+
+        # Add single-node q-value layer.
+        self.main_nn.add_layer(DenseLayer(units=1, scope="q-value-output"))
 
         self.concat_layer = ConcatLayer()
         sub_components = ([self.image_stack] if self.image_stack is not None else []) + \
@@ -50,10 +52,10 @@ class QFunction(ValueFunction):
         # Send states through separate stack, only then concat.
         if self.image_stack is not None:
             image_processing_output = self.image_stack.call(states)
-            concat_input = (image_processing_output, actions)
+            concat_input = [image_processing_output, actions]
         # Concat states and actions, then pass through.
         else:
-            concat_input = (states, actions)
+            concat_input = [states, actions]
 
-        states_and_actions = self.concat_layer.call(concat_input)
+        states_and_actions = self.concat_layer.call(*concat_input)
         return self.main_nn.call(states_and_actions)
