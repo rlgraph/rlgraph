@@ -698,7 +698,10 @@ class GraphBuilder(Specifiable):
                 for op_rec in out_op_column.op_records:
                     if op_rec.op is None:
                         try:
-                            #draw_sub_meta_graph_from_op_rec(op_rec, self.meta_graph)
+                            # Try everything to save situation.
+                            op_rec.column.component.check_input_completeness()
+                            op_rec.column.component.check_variable_completeness()
+                            draw_sub_meta_graph_from_op_recs(op_rec, self.meta_graph)
                             self._analyze_none_op(op_rec)
                         except RLGraphBuildError as e:
                             if still_building:
@@ -902,8 +905,9 @@ class GraphBuilder(Specifiable):
             for i, param in enumerate(params):
                 if param is None:
                     assert len(self.api[api_method_name][0]) == i, \
-                        "ERROR: More input params given ({}) than expected ({}) for call to '{}'!". \
-                        format(len(params), len(self.api[api_method_name][0]), api_method_name)
+                        "ERROR: {} input params given ({}) than expected ({}) for call to '{}'!". \
+                        format("More" if len(self.api[api_method_name][0]) < i else "Less", len(params),
+                               len(self.api[api_method_name][0]), api_method_name)
                     break
 
                 # TODO: What if len(params) < len(self.api[api_method][0])?
@@ -1180,28 +1184,6 @@ class GraphBuilder(Specifiable):
                         if next_op_rec.is_terminal_op is False:
                             assert next_op_rec.op is None or is_constant(next_op_rec.op) or next_op_rec.op is op_rec.op
                             self.op_records_to_process.add(next_op_rec)
-                        ## Push op and Space into next op-record.
-                        ## With op-instructions?
-                        #if "key-lookup" in next_op_rec.op_instructions:
-                        #    lookup_key = next_op_rec.op_instructions["key-lookup"]
-                        #    if isinstance(lookup_key, str) and (not isinstance(op_rec.op, dict) or lookup_key
-                        #                                        not in op_rec.op):
-                        #        raise RLGraphError(
-                        #            "op_rec.op ({}) is not a dict or does not contain the lookup key '{}'!". \
-                        #            format(op_rec.op, lookup_key)
-                        #        )
-                        #    elif isinstance(lookup_key, int) and (not isinstance(op_rec.op, (list, tuple)) or
-                        #                                          lookup_key >= len(op_rec.op)):
-                        #        raise RLGraphError(
-                        #            "op_rec.op ({}) is not a list/tuple or contains not enough items for lookup "
-                        #            "index '{}'!".format(op_rec.op, lookup_key)
-                        #        )
-                        #    next_op_rec.op = op_rec.op[lookup_key]
-                        #    next_op_rec.space = op_rec.space[lookup_key]
-                        ## No instructions -> simply pass on.
-                        #else:
-                        #    next_op_rec.op = op_rec.op
-                        #    next_op_rec.space = op_rec.space
                         op_rec.connect_to(next_op_rec)
 
                         # Also push Space into possible API-method record if slot's Space is still None.

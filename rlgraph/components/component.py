@@ -25,6 +25,7 @@ import numpy as np
 from six.moves import xrange as range_
 
 from rlgraph import get_backend
+# from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
     define_api_method, define_graph_fn
@@ -127,7 +128,7 @@ class Component(Specifiable):
         self.sub_components = OrderedDict()
 
         # Link to the GraphBuilder object.
-        self.graph_builder = None
+        self.graph_builder = None  # type: GraphBuilder
 
         # `self.api_methods`: Dict holding information about which op-record-tuples go via which API
         # methods into this Component and come out of it.
@@ -300,12 +301,18 @@ class Component(Specifiable):
                                 "Found incomplete kwargs key {} for method {}.".format(key, method_name))
                             self.input_complete = False
                             return False
+
+        # TEST: Now that we are input complete: Check all parents for variable completeness.
+        for p in self.get_parents():
+            p.check_variable_completeness()
+        # END TEST:
+
         return True
 
     def check_variable_completeness(self):
         """
         Checks, whether this Component is input-complete AND all our sub-Components are input-complete.
-        At that point, all variables are defined and we can run the `variables` graph_fn.
+        At that point, all variables are defined and we can run all variables-dependent graph_fns.
 
         Returns:
             bool: Whether this Component is "variables-complete".
@@ -315,7 +322,12 @@ class Component(Specifiable):
             return True
         # We are not input-complete yet (our own variables have not been created) -> return False.
         elif self.input_complete is False:
-            return False
+            # Check again, just in case something has changed.
+            if self.check_input_completeness() is False:
+                return False
+            # If we are currently building -> Build component as well.
+            elif self.graph_builder is not None and self.graph_builder.phase == "building":
+                self.graph_builder.build_component_when_input_complete(self)
 
         # Simply check all direct sub-Components for variable-completeness.
         for direct_child in self.sub_components.values():
