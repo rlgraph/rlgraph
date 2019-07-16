@@ -97,15 +97,10 @@ class AlgorithmComponent(Component):
             assert self.policy.get_sub_component_by_name("synchronizable")
 
         # Create non-shared baseline network (and add synchronization feature).
-        self.value_function = ValueFunction.from_spec(value_function_spec)
-        self.value_function.add_components(Synchronizable(), expose_apis="sync")
-        # TODO move this to specific agents.
-        #if self.value_function is not None:
-        #    self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
-        #    self.vars_splitter = ContainerSplitter("policy", "vf", scope="variable-container-splitter")
-        #else:
-        #    self.vars_merger = ContainerMerger("policy", scope="variable-dict-merger")
-        #    self.vars_splitter = ContainerSplitter("policy", scope="variable-container-splitter")
+        self.value_function = None
+        if value_function_spec is not None:
+            self.value_function = ValueFunction.from_spec(value_function_spec)
+            self.value_function.add_components(Synchronizable(), expose_apis="sync")
 
         # Optional exploration object. None if no exploration needed (usually None for PG algos, as they use
         # stochastic policies, not epsilon greedy Q).
