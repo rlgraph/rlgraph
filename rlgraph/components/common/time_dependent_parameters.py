@@ -60,11 +60,11 @@ class TimeDependentParameter(Component):
 
         self.variable_complete = True
 
-    def check_input_completeness(self):
-        # If max_time_steps is not given, we will rely on time_percentage input, therefore, it must be given.
-        if self.max_time_steps is None and self.api_method_inputs["time_percentage"] is "flex":
-            return False
-        return super(TimeDependentParameter, self).check_input_completeness()
+    #def check_input_completeness(self):
+    #    # If max_time_steps is not given, we will rely on time_percentage input, therefore, it must be given.
+    #    if self.max_time_steps is None and self.api_method_inputs["time_percentage"] is "flex":
+    #        return False
+    #    return super(TimeDependentParameter, self).check_input_completeness()
 
     def check_input_spaces(self, input_spaces, action_space=None):
         time_pct_space = input_spaces["time_percentage"]
@@ -73,8 +73,8 @@ class TimeDependentParameter(Component):
         # can derive the percentage from the tf GLOBAL_TIMESTEP variable.
         if time_pct_space == "flex":
             assert get_backend() == "tf", "ERROR: `time_percentage` can only be left out if using tf as backend!"
-            assert self.max_time_steps is not None, \
-                "ERROR: `time_percentage` can only be left out if `self.max_time_steps` is not None!"
+            if self.max_time_steps is None:
+                self.api_method_inputs["time_percentage"] = FloatBox()
         else:
             sanity_check_space(time_pct_space, allowed_types=[FloatBox], rank=0)
 
@@ -177,7 +177,8 @@ class PolynomialDecay(TimeDependentParameter):
         if time_percentage is None:
             assert get_backend() == "tf"  # once more, just in case
             return tf.train.polynomial_decay(
-                learning_rate=self.from_, global_step=tf.train.get_global_step(),
+                learning_rate=self.from_,
+                global_step=tf.train.get_global_step(),
                 decay_steps=self.max_time_steps,
                 end_learning_rate=self.to_,
                 power=self.power
@@ -239,7 +240,8 @@ class ExponentialDecay(TimeDependentParameter):
         if time_percentage is None:
             assert get_backend() == "tf"  # once more, just in case
             return tf.train.exponential_decay(
-                learning_rate=self.from_ - self.to_, global_step=tf.train.get_global_step(),
+                learning_rate=self.from_ - self.to_,
+                global_step=tf.train.get_global_step(),
                 decay_steps=self.max_time_steps,
                 decay_rate=self.decay_rate
             ) + self.to_

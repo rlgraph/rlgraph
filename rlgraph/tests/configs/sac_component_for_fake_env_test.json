@@ -27,7 +27,7 @@
     "type": "replay-memory",
     "capacity": 1000
   },
-  "value_function": [
+  "q_function": [
     {
       "type": "dense",
       "units": 8,
@@ -51,7 +51,7 @@
     "type": "adam",
     "learning_rate": 1e-3
   },
-  "value_function_optimizer": {
+  "q_function_optimizer": {
     "type": "adam",
     "learning_rate": 1e-3
   },

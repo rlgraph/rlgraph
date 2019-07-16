@@ -1,19 +1,20 @@
-
 {
   "type": "sac",
   "discount": 0.99,
   "initial_alpha": 0.2,
   "gumbel_softmax_temperature": 1.0,
   "double_q": false,
-
-  "memory_spec":
-  {
+  "sync_rules": {
+    "sync_every_n_updates": 1,
+    "sync_tau": 0.005
+  },
+  "python_buffer_size": 200,
+  "memory_batch_size": 32,
+  "memory_spec": {
     "type": "replay",
     "capacity": 64
   },
-
-  "preprocessing_spec":
-  [
+  "preprocessing_spec": [
     {
       "type": "image_crop",
       "x": 0,
@@ -46,96 +47,85 @@
       "scope": "sequence"
     }
   ],
-
-  "network_spec":
-  [
+  "network_spec": [
     {
-        "type": "conv2d",
-        "filters": 32,
-        "kernel_size": 8,
-        "strides": 4,
-        "activation": "relu",
-        "scope": "conv1"
+      "type": "conv2d",
+      "filters": 32,
+      "kernel_size": 8,
+      "strides": 4,
+      "activation": "relu",
+      "scope": "conv1"
     },
     {
-        "type": "conv2d",
-        "filters": 64,
-        "kernel_size": 4,
-        "strides": 2,
-        "activation": "relu",
-        "scope": "conv2"
+      "type": "conv2d",
+      "filters": 64,
+      "kernel_size": 4,
+      "strides": 2,
+      "activation": "relu",
+      "scope": "conv2"
     },
     {
-        "type": "conv2d",
-        "filters": 64,
-        "kernel_size": 3,
-        "strides": 1,
-        "activation": "relu",
-        "scope": "conv3"
+      "type": "conv2d",
+      "filters": 64,
+      "kernel_size": 3,
+      "strides": 1,
+      "activation": "relu",
+      "scope": "conv3"
     },
     {
-        "type": "reshape",
-        "flatten": true
+      "type": "reshape",
+      "flatten": true
     },
-     {
-        "type": "dense",
-        "units": 256,
-        "scope": "dense1"
+    {
+      "type": "dense",
+      "units": 256,
+      "scope": "dense1"
     }
   ],
-
-    "value_function_spec":
-  [
-    {
+  "q_function_spec": {
+    "image_stack_spec": [
+      {
         "type": "conv2d",
         "filters": 32,
         "kernel_size": 8,
         "strides": 4,
         "activation": "relu",
         "scope": "vf-conv1"
-    },
-    {
+      },
+      {
         "type": "conv2d",
         "filters": 64,
         "kernel_size": 4,
         "strides": 2,
         "activation": "relu",
         "scope": "vf-conv2"
-    },
-    {
+      },
+      {
         "type": "conv2d",
         "filters": 64,
         "kernel_size": 3,
         "strides": 1,
         "activation": "relu",
         "scope": "vf-conv3"
-    },
-    {
+      },
+      {
         "type": "reshape",
         "flatten": true
-    },
-   {
+      }
+    ],
+    "network_spec": [
+      {
         "type": "dense",
         "units": 256,
         "scope": "vf-dense1"
-    }
-  ],
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 1,
-    "sync_interval": 1,
-    "sync_tau": 0.005,
-    "batch_size": 32,
-    "num_iterations": 1
+      }
+    ]
   },
-
   "optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0002
   },
-  "value_function_optimizer_spec": {
+  "q_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0004
   }
