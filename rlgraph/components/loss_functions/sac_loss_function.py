@@ -82,11 +82,11 @@ class SACLossFunction(LossFunction):
 
     @graph_fn(flatten_ops={0}, split_ops=True)
     def _graph_fn_critic_loss(self, log_probs_next_sampled, q_values_next_sampled, q_values, rewards, terminals, alpha):
-        # In case log_probs come in as shape=(), expand last rank to 1.
-        if log_probs_next_sampled.shape.as_list()[-1] is None:
+        # We only have 1 rank (batch-rank) -> expand.
+        if len(log_probs_next_sampled.shape.as_list()) == 1:
             log_probs_next_sampled = tf.expand_dims(log_probs_next_sampled, axis=-1)
 
-        log_probs_next_sampled = tf.reduce_sum(log_probs_next_sampled, axis=1, keepdims=True)
+        log_probs_next_sampled = tf.reduce_sum(log_probs_next_sampled, axis=-1, keepdims=True)
         rewards = tf.expand_dims(rewards, axis=-1)
         terminals = tf.expand_dims(terminals, axis=-1)
 
@@ -105,7 +105,8 @@ class SACLossFunction(LossFunction):
 
     @graph_fn(flatten_ops={0}, split_ops=True)
     def _graph_fn_actor_loss(self, log_probs_sampled, q_values_sampled, alpha):
-        if log_probs_sampled.shape.as_list()[-1] is None:
+        # We only have 1 rank (batch-rank) -> expand.
+        if len(log_probs_sampled.shape.as_list()) == 1:
             log_probs_sampled = tf.expand_dims(log_probs_sampled, axis=-1)
         log_probs_sampled = tf.reduce_sum(log_probs_sampled, axis=1, keepdims=True)
 
