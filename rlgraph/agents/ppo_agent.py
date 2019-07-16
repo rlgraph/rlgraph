@@ -307,10 +307,8 @@ class PPOAgent(Agent):
 
                 # Log probs before update (stop-gradient as these are used in target term).
                 prev_log_probs = tf.stop_gradient(prev_log_probs)
-                #prev_log_probs = tf.Print(prev_log_probs, [prev_log_probs], "prev-log-probs: ", summarize=1000)
                 # State values before update (stop-gradient as these are used in target term).
                 prev_state_values = tf.stop_gradient(prev_state_values)
-                #prev_state_values = tf.Print(prev_state_values, [prev_state_values], "prev-state-values: ", summarize=1000)
 
                 # Advantages are based on previous state values.
                 advantages = tf.cond(
@@ -320,11 +318,9 @@ class PPOAgent(Agent):
                     ),
                     false_fn=lambda: rewards
                 )
-                #advantages = tf.Print(advantages, [advantages], "advantages before standardizing: ", summarize=1000)
                 if self.standardize_advantages:
                     mean, std = tf.nn.moments(x=advantages, axes=[0])
                     advantages = (advantages - mean) / std
-                #advantages = tf.Print(advantages, [advantages], "advantages after standardizing: ", summarize=1000)
 
                 def opt_body(index_, loss_, loss_per_item_, vf_loss_, vf_loss_per_item_):
                     start = tf.random_uniform(shape=(), minval=0, maxval=batch_size, dtype=tf.int32)
@@ -333,10 +329,6 @@ class PPOAgent(Agent):
                     # Use `map` here in case we have container states/actions.
                     sample_states = preprocessed_states.map(lambda k, v: tf.gather(v, indices))
                     sample_actions = actions.map(lambda k, v: tf.gather(v, indices))
-                    #sample_actions["direction"] = tf.Print(sample_actions["direction"], [sample_actions["direction"]], "sample-actions['direction']: ", summarize=1000)
-                    #sample_actions["jump"] = tf.Print(sample_actions["jump"], [sample_actions["jump"]], "sample-actions['jump']: ", summarize=1000)
-                    #sample_actions["crouch"] = tf.Print(sample_actions["crouch"], [sample_actions["crouch"]], "sample-actions['crouch']: ", summarize=1000)
-
                     sample_prev_log_probs = tf.gather(params=prev_log_probs, indices=indices)
                     sample_rewards = tf.gather(params=rewards, indices=indices)
                     sample_terminals = tf.gather(params=terminals, indices=indices)
@@ -383,10 +375,7 @@ class PPOAgent(Agent):
                             return index_ + 1, out["loss"], out["loss_per_item"], loss_vf, loss_per_item_vf
 
                     sample_log_probs = policy.get_log_likelihood(sample_states, sample_actions)["log_likelihood"]
-                    #sample_log_probs = tf.Print(sample_log_probs, [sample_log_probs], "sample-log-probs:", summarize=1000)
-
                     entropy = policy.get_entropy(sample_states)["entropy"]
-                    #entropy["direction"] = tf.Print(entropy["direction"], [entropy["direction"]], "entropy['dir']: ", summarize=1000)
 
                     loss, loss_per_item, vf_loss, vf_loss_per_item = \
                         loss_function.loss(
@@ -537,28 +526,11 @@ class PPOAgent(Agent):
             return_ops
         ))
 
-        # Print out distribution parameters for the categorical `direction` distribution.
-        #print("-------")
-        #print("State: {}".format(states[0]["yz_location"]))
-        #print("Action: {}".format(ret[0]["direction"]))
-        #print("Direction paramsdsds:" + str(ret[3]["direction"]))
-        #print("Action probs direction:" + str(ret[4]["direction"]))
-        #print("Action log probs direction:" + str(ret[5]["direction"]))
-        #print("Crouch params:" sdsd+ str(ret[3]["crouch"]))
-        #print("Action probs crouch:" + str(ret[4]["crouch"]))
-        #print("Action log probs crouch:" + str(ret[5]["crouch"]))
-        #print("Jump params:" + str(ret[3]["jump"]))
-        #print("Action probs jump:" + str(ret[4]["jump"]))
-        #print("Action log probs jump:" + str(ret[5]["jump"]))
-        #print("-------")
-
         # If unbatched data came in, return unbatched data.
         if remove_batch_rank:
-            #return strip_list(ret[0])
             return strip_list(ret)
         # Return batched data.
         else:
-            #return ret[0]
             return ret
 
     # TODO make next states optional in observe API.
