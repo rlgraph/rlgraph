@@ -42,9 +42,9 @@ class TestSACAgentFunctionality(unittest.TestCase):
             discount=config["discount"],
             initial_alpha=config["initial_alpha"],
             target_entropy=None,
-            optimizer_spec=AdamOptimizer.from_spec(config["optimizer"]),
+            optimizer_spec=AdamOptimizer.from_spec(config["optimizer_spec"]),
             q_function_optimizer_spec=AdamOptimizer.from_spec(
-                config["q_function_optimizer"]
+                config["q_function_optimizer_spec"]
             ),
             #alpha_optimizer=None,
             q_function_sync_rules=SyncRules(sync_every_n_updates=10, sync_tau=1.0),
@@ -59,7 +59,6 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 states=state_space.with_batch_rank(),
                 preprocessed_states=state_space.with_batch_rank(),
                 env_actions=action_space.with_batch_rank(),
-                actions=float_action_space.with_batch_rank(),
                 rewards=rewards_space,
                 next_states=state_space.with_batch_rank(),
                 terminals=terminal_space,

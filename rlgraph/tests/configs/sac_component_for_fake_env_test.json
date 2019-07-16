@@ -47,11 +47,11 @@
     }
   ],
 
-  "optimizer": {
+  "optimizer_spec": {
     "type": "adam",
     "learning_rate": 1e-3
   },
-  "q_function_optimizer": {
+  "q_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 1e-3
   },

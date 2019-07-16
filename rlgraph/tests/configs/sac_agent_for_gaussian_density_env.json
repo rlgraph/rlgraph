@@ -1,19 +1,19 @@
 {
   "type": "sac-agent",
   "discount": 0.99,
+  "initial_alpha": 0.01,
+
+  "sync_rules": {
+    "sync_every_n_updates": 1,
+    "sync_tau": 0.05
+  },
+
+  "memory_batch_size": 100,
   "memory_spec": {
     "type": "replay-memory",
     "capacity": 1000
   },
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 1,
-    "sync_interval": 1,
-    "sync_tau": 0.05,
-    "batch_size": 100,
-    "num_iterations": 1
-  },
+
   "network_spec": [
     {
       "type": "dense",
@@ -28,7 +28,7 @@
       "scope": "hidden2"
     }
   ],
-  "value_function_spec": [
+  "q_function_spec": [
     {
       "type": "dense",
       "units": 8,
@@ -46,9 +46,8 @@
     "type": "adam",
     "learning_rate": 3e-3
   },
-  "value_function_optimizer_spec": {
+  "q_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 3e-3
-  },
-  "initial_alpha": 0.01
+  }
 }
