@@ -26,6 +26,7 @@ except ImportError:
 from rlgraph import rlgraph_dir
 from rlgraph.components.component import Component
 from rlgraph.spaces import IntBox, BoolBox, FloatBox, TextBox
+from rlgraph.utils.util import force_list
 from rlgraph.utils.op_records import DataOpRecord, DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromAPIMethod, \
     DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
 
@@ -155,13 +156,13 @@ def draw_meta_graph(component, *, output=None, apis=True, graph_fns=False, rende
         # Do all connections between nodes on the top-level graph.
         # Connections are encoded as tuples: (from, to, label?, color?, style?)
         for connection in _all_connections:
-            attributed_dict = dict(color=(connection[3] if len(connection) > 3 else None), penwidth="3")
+            attributes_dict = dict(color=(connection[3] if len(connection) > 3 else None), penwidth="3")
             if len(connection) > 4:
-                attributed_dict["style"] = connection[4]
+                attributes_dict["style"] = connection[4]
             _graphviz_graph.edge(
                 connection[0], connection[1],
                 label=(connection[2] if len(connection) > 2 else ""),
-                _attributes=attributed_dict
+                _attributes=attributes_dict
             )
 
         # Render the graph as pdf (in browser).
@@ -171,24 +172,43 @@ def draw_meta_graph(component, *, output=None, apis=True, graph_fns=False, rende
             _render(_graphviz_graph, output, view=True)
 
 
-def draw_sub_meta_graph_from_op_rec(op_rec, meta_graph):
+def draw_sub_meta_graph_from_op_recs(op_recs, meta_graph):
     """
-    Traces back an op-rec through the meta-graph drawing everything on the path til reaching the leftmost placeholders.
+    Traces back a op-rec(s) through the meta-graph drawing everything on the path til reaching the leftmost placeholders.
 
     Args:
-        op_rec (DataOpRecord): The DataOpRecord object to trace back to the beginning of the graph.
+        op_recs (Union[DataOpRecord,List[DataOpRecord]]): The DataOpRecord object(s) to trace back to the beginning of
+            the graph.
+
         meta_graph (MetaGraph): The Meta-graph, of which `op_rec` is a part.
 
     Returns:
         str: Meta-graph markup string.
     """
-    components, api_methods, graph_fns, columns, connections, highlighted_connection = _backtrace_op_rec(op_rec)
+    # Accumulate from all ops.
+    components = set()
+    api_methods = set()
+    graph_fns = set()
+    columns = set()
+    connections = set()
+    highlighted_connections = set()
+    op_recs = force_list(op_recs)
+    for op_rec in op_recs:
+        comps, apis, gr_fns, cols, conns, highlighted_con = _backtrace_op_rec(op_rec)
+        for c in comps: components.add(c)
+        for a in apis: api_methods.add(a)
+        for g in gr_fns: graph_fns.add(g)
+        for c in cols: columns.add(c)
+        for c in conns: connections.add(c)
+        highlighted_connections.add(highlighted_con)
+
+    # Then draw.
     draw_meta_graph(
         meta_graph.root_component,
         apis=api_methods, graph_fns=graph_fns,
         component_filter=components,
         column_filter=columns, connection_filter=connections,
-        highlighted_connections={highlighted_connection}
+        highlighted_connections=highlighted_connections
     )
 
 
@@ -241,7 +261,8 @@ def _backtrace_op_rec(op_rec, _components=None, _api_methods=None, _graph_fns=No
             _api_methods.add(column_scope)
         else:
             assert column_type == "GF" or column_type == ""  # could be a non-specific key-lookup column as well.
-            _graph_fns.add(column_scope)
+            if column_type != "":
+                _graph_fns.add(column_scope)
 
         if op_rec.previous is None:
             # Graph_fn.
@@ -382,7 +403,12 @@ def _add_api_or_graph_fn_to_graph(
                             label = str(op_rec.previous.position)
                         # API no kwarg -> Use input arg's name.
                         elif op_rec.kwarg is None:
-                            label = op_rec.column.api_method_rec.input_names[op_rec.position]
+                            # *flex and beyond `input_names` -> use args name.
+                            if op_rec.position >= len(op_rec.column.api_method_rec.input_names):
+                                label = op_rec.column.api_method_rec.args_name
+                            # Use arg at exact pos.
+                            else:
+                                label = op_rec.column.api_method_rec.input_names[op_rec.position]
                         # API kwarg -> Use kwarg.
                         else:
                             label = op_rec.kwarg
@@ -436,7 +462,16 @@ def _init_meta_graph(component, *, apis, graph_fns, component_filter, column_fil
                         continue
                     # Make all connections going into this column (all its op-recs).
                     for incoming_op_rec in in_col.op_records:
-                        if incoming_op_rec.previous.placeholder is not None:
+                        # No previous record: Could be a fixed-value op-rec.
+                        if incoming_op_rec.previous is None:
+                            color, shape = _get_color_and_shape_from_space(incoming_op_rec.space)
+                            # TODO: Make connections from here into other nodes below.
+                            graphviz_graph.node(
+                                "Const_" + str(incoming_op_rec.id),
+                                label="Const ("+str(incoming_op_rec.op)+")",
+                                _attributes=dict(color=color, style="filled")
+                            )
+                        elif incoming_op_rec.previous.placeholder is not None:
                             placeholder = incoming_op_rec.previous.placeholder
                             # Filter by placeholder.
                             if placeholder not in placeholders and \
@@ -528,7 +563,7 @@ def _get_api_subgraph_color(nesting_level, max_nesting_level):
     # Get the ratio of nesting_level with respect to max_nesting_level and make lighter (towards 255)
     # the higher this ratio.
     # -> Higher level components are then darker than lower level ones.
-    r = int(255 - 64 * min(nesting_level / max_nesting_level, 1.0))
+    r = int(255 - 64 * min(nesting_level / (max_nesting_level if max_nesting_level > 0 else 1), 1.0))
     color = "#{:02X}{:02X}{:02X}".format(
         int(r * _COMPONENT_SUBGRAPH_FACTORS_RGB[0]),
         int(r * _COMPONENT_SUBGRAPH_FACTORS_RGB[1]),

@@ -34,7 +34,7 @@ from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError, RLGraphSpaceError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, force_tuple, get_shape
-from rlgraph.utils.visualization_util import draw_sub_meta_graph_from_op_rec
+from rlgraph.utils.visualization_util import draw_sub_meta_graph_from_op_recs
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -347,7 +347,7 @@ class GraphBuilder(Specifiable):
                     # Should we plot the subgraph that lead to this error?
                     if get_config().get("GRAPHVIZ_RENDER_BUILD_ERRORS", True) is True:
                         op_rec = self.meta_graph.get_op_rec_from_space(component, e.space)
-                        draw_sub_meta_graph_from_op_rec(op_rec, meta_graph=self.meta_graph)
+                        draw_sub_meta_graph_from_op_recs(op_rec, meta_graph=self.meta_graph)
                     # Reraise e.
                     raise e
 
@@ -413,44 +413,52 @@ class GraphBuilder(Specifiable):
         # Get the device for the ops generated in the graph_fn (None for custom device-definitions within the graph_fn).
         device = self.get_device(op_rec_column.component, variables=False)
 
-        if get_backend() == "tf":
-            # TODO: Write custom scope generator for devices (in case None, etc..).
-            if device is not None:
-                # Assign proper device to all ops created in this context manager.
-                with tf.device(device):
+        try:
+            if get_backend() == "tf":
+                # TODO: Write custom scope generator for devices (in case None, etc..).
+                if device is not None:
+                    # Assign proper device to all ops created in this context manager.
+                    with tf.device(device):
+                        # Name ops correctly according to our Component hierarchy.
+                        with tf.name_scope(op_rec_column.component.global_scope +
+                                           ('/' if op_rec_column.component.global_scope else "")):
+                            self.logger.info(
+                                "Assigning device '{}' to graph_fn '{}' (scope '{}').".
+                                format(device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
+                            )
+                            out_op_rec_column = self.run_through_graph_fn(
+                                op_rec_column, create_new_out_column=create_new_out_column
+                            )
+                            op_rec_column.out_graph_fn_column = out_op_rec_column
+                else:
                     # Name ops correctly according to our Component hierarchy.
                     with tf.name_scope(op_rec_column.component.global_scope +
                                        ('/' if op_rec_column.component.global_scope else "")):
-                        self.logger.info(
-                            "Assigning device '{}' to graph_fn '{}' (scope '{}').".
-                            format(device, op_rec_column.graph_fn.__name__, op_rec_column.component.global_scope)
-                        )
                         out_op_rec_column = self.run_through_graph_fn(
                             op_rec_column, create_new_out_column=create_new_out_column
                         )
                         op_rec_column.out_graph_fn_column = out_op_rec_column
-            else:
-                # Name ops correctly according to our Component hierarchy.
-                with tf.name_scope(op_rec_column.component.global_scope +
-                                   ('/' if op_rec_column.component.global_scope else "")):
-                    out_op_rec_column = self.run_through_graph_fn(
-                        op_rec_column, create_new_out_column=create_new_out_column
-                    )
-                    op_rec_column.out_graph_fn_column = out_op_rec_column
 
-            # Store assigned names for debugging.
-            if device is not None:
-                if device not in self.device_component_assignments:
-                    self.device_component_assignments[device] = [str(op_rec_column.graph_fn.__name__)]
-                else:
-                    self.device_component_assignments[device].append(str(op_rec_column.graph_fn.__name__))
+                # Store assigned names for debugging.
+                if device is not None:
+                    if device not in self.device_component_assignments:
+                        self.device_component_assignments[device] = [str(op_rec_column.graph_fn.__name__)]
+                    else:
+                        self.device_component_assignments[device].append(str(op_rec_column.graph_fn.__name__))
 
-        elif get_backend() == "pytorch":
-            # No device handling via decorators.
-            out_op_rec_column = self.run_through_graph_fn(
-                op_rec_column, create_new_out_column=create_new_out_column
-            )
-            op_rec_column.out_graph_fn_column = out_op_rec_column
+            elif get_backend() == "pytorch":
+                # No device handling via decorators.
+                out_op_rec_column = self.run_through_graph_fn(
+                    op_rec_column, create_new_out_column=create_new_out_column
+                )
+                op_rec_column.out_graph_fn_column = out_op_rec_column
+
+        # Catch errors and print out everything leading to the input column of this call.
+        except RLGraphSpaceError:
+            pass
+        except Exception as e:
+            draw_sub_meta_graph_from_op_recs(op_rec_column.op_records, self.meta_graph)
+            raise e
 
         # Tag column as already sent through graph_fn.
         op_rec_column.already_sent = True
