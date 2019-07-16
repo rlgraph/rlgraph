@@ -29,7 +29,7 @@ from rlgraph.execution.rules.sync_rules import SyncRules
 from rlgraph.spaces import FloatBox, BoolBox, IntBox, ContainerSpace
 from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import flatten_op
+from rlgraph.utils.ops import FlattenedDataOp
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -148,12 +148,8 @@ class SACAgent(Agent):
         # Extend input Space definitions to this Agent's specific API-methods.
         self.preprocessed_state_space = self.root_component.preprocessor.get_preprocessed_space(self.state_space).\
             with_batch_rank()
-        float_action_space = self.action_space.with_batch_rank().map(
-            mapping=lambda flat_key, space: space.as_one_hot_float_space() if isinstance(space, IntBox) else space
-        )
         self.input_spaces.update(dict(
             env_actions=self.action_space.with_batch_rank(),
-            actions=float_action_space,
             preprocessed_states=self.preprocessed_state_space,
             rewards=FloatBox(add_batch_rank=True),
             terminals=BoolBox(add_batch_rank=True),
@@ -179,7 +175,7 @@ class SACAgent(Agent):
         ret = super(SACAgent, self).get_action(
             states, internals, use_exploration, apply_preprocessing, extra_returns, time_percentage
         )
-        actions = ret[0] if "preprocessed_states" in extra_returns else ret
+        actions = ret["actions"]
 
         # Convert Gumble (relaxed one-hot) sample back into int type for all discrete composite actions.
         if isinstance(self.action_space, ContainerSpace):
@@ -191,9 +187,9 @@ class SACAgent(Agent):
             actions = np.argmax(actions, axis=-1).astype(self.action_space.dtype)
 
         if "preprocessed_states" in extra_returns:
-            return actions, ret[1]
+            return dict(actions=actions, preprocessed_states=ret["preprocessed_states"])
         else:
-            return actions
+            return dict(actions=actions)
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
         next_states = kwargs.pop("next_states")
@@ -325,7 +321,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
         self.add_components(*self.target_q_functions)
 
     def check_input_spaces(self, input_spaces, action_space=None):
-        for s in ["states", "actions", "env_actions", "preprocessed_states", "rewards", "terminals"]:
+        for s in ["states", "env_actions", "preprocessed_states", "rewards", "terminals"]:
             sanity_check_space(input_spaces[s], must_have_batch_rank=True)
 
         self.env_action_space = input_spaces["env_actions"].flatten()
@@ -386,9 +382,8 @@ class SACAlgorithmComponent(AlgorithmComponent):
     def update_from_external_batch(self, preprocessed_states, env_actions, rewards, terminals, next_states,
                                    importance_weights, time_percentage=None
     ):
-        actions = self._graph_fn_one_hot(env_actions)
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
-            self.get_losses(preprocessed_states, actions, rewards, terminals, next_states, importance_weights)
+            self.get_losses(preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights)
 
         policy_vars = self.policy.variables()
         merged_q_vars = {"q_{}".format(i): q.variables() for i, q in enumerate(self.q_functions)}
@@ -425,8 +420,12 @@ class SACAlgorithmComponent(AlgorithmComponent):
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_one_hot(self, key, env_actions):
+        # If int-box, ont-hot flatten.
         if isinstance(self.env_action_space[key], IntBox):
             env_actions = tf.one_hot(env_actions, depth=self.env_action_space[key].num_categories, axis=-1)
+        # Force a shape of (1,) rather than 0D.
+        elif self.env_action_space[key].shape == ():
+            env_actions = tf.expand_dims(env_actions, axis=-1)
         return env_actions
 
     @graph_fn(requires_variable_completeness=True)
@@ -437,19 +436,14 @@ class SACAlgorithmComponent(AlgorithmComponent):
         )
         return alpha_step_op
 
-    @rlgraph_api  # `returns` are determined in ctor
-    def _graph_fn_get_q_values(self, preprocessed_states, actions, target=False):
-        backend = get_backend()
-
-        flat_actions = flatten_op(actions)
-        actions = []
-        for flat_key, action_component in self.policy.action_space.flatten().items():
-            actions.append(flat_actions[flat_key])
-
-        if backend == "tf":
-            actions = tf.concat(actions, axis=-1)
-        elif backend == "pytorch":
-            actions = torch.cat(actions, dim=-1)
+    @rlgraph_api(flatten_ops={1})  # `returns` are determined in ctor
+    def _graph_fn_get_q_values(self, preprocessed_states, env_actions, target=False):
+        actions = env_actions.map(lambda flat_key, action_component: self._graph_fn_one_hot(action_component))
+        if isinstance(actions, FlattenedDataOp):
+            if get_backend() == "tf":
+                actions = tf.concat(list(actions.values()), axis=-1)
+            elif get_backend() == "pytorch":
+                actions = torch.cat(list(actions.values()), dim=-1)
 
         q_funcs = self.q_functions if target is False else self.target_q_functions
 
@@ -458,20 +452,18 @@ class SACAlgorithmComponent(AlgorithmComponent):
         return tuple(q.call(preprocessed_states, actions) for q in q_funcs)
 
     @rlgraph_api
-    def get_losses(self, preprocessed_states, actions, rewards, terminals, next_states, importance_weights):
+    def get_losses(self, preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights):
         # TODO: internal states
         samples_next = self.policy.get_action_and_log_likelihood(next_states, deterministic=False)
         next_sampled_actions = samples_next["action"]
-        next_sampled_actions = self._graph_fn_one_hot(next_sampled_actions)
         log_probs_next_sampled = samples_next["log_likelihood"]
 
         q_values_next_sampled = self.get_q_values(
             next_states, next_sampled_actions, target=True
         )
-        q_values = self.get_q_values(preprocessed_states, actions)
+        q_values = self.get_q_values(preprocessed_states, env_actions)
         samples = self.policy.get_action_and_log_likelihood(preprocessed_states, deterministic=False)
         sampled_actions = samples["action"]
-        sampled_actions = self._graph_fn_one_hot(sampled_actions)
         log_probs_sampled = samples["log_likelihood"]
         q_values_sampled = self.get_q_values(preprocessed_states, sampled_actions)
 
@@ -543,6 +535,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
             raise NotImplementedError("TODO")
 
     # TODO: Move `should_sync` logic into Agent (python side?).
+    # TODO: Move `sync_tau`-logic into Synchronizable Component.
     @graph_fn(returns=1, requires_variable_completeness=True)
     def _graph_fn_sync(self, should_sync):
         assign_ops = []

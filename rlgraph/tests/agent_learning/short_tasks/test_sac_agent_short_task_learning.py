@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import os
@@ -24,8 +22,8 @@ import unittest
 import numpy as np
 from scipy import stats
 
-from rlgraph.agents.sac_agent import SACAgentComponent, SACAgent, SyncSpecification
-from rlgraph.components import Policy, ValueFunction, PreprocessorStack, ReplayMemory, AdamOptimizer, \
+from rlgraph.agents.sac_agent import SACAlgorithmComponent, SACAgent
+from rlgraph.components import Policy, QFunction, ReplayMemory, AdamOptimizer, \
     Synchronizable
 from rlgraph.environments import GaussianDensityAsRewardEnv, OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
@@ -52,21 +50,19 @@ class TestSACShortTaskLearning(unittest.TestCase):
         terminal_space = BoolBox(add_batch_rank=True)
         policy = Policy.from_spec(config["policy"], action_space=continuous_action_space)
         policy.add_components(Synchronizable(), expose_apis="sync")
-        q_function = ValueFunction.from_spec(config["value_function"])
+        q_function = QFunction.from_spec(config["q_function"])
 
-        agent_component = SACAgentComponent(
+        agent_component = SACAlgorithmComponent(
             agent=None,
-            policy=policy,
-            q_function=q_function,
-            preprocessor=PreprocessorStack.from_spec([]),
-            memory=ReplayMemory.from_spec(config["memory"]),
+            policy_spec=policy,
+            q_function_spec=q_function,
+            preprocessing_spec=None,
+            memory_spec=ReplayMemory.from_spec(config["memory"]),
             discount=config["discount"],
             initial_alpha=config["initial_alpha"],
             target_entropy=None,
-            optimizer=AdamOptimizer.from_spec(config["optimizer"]),
-            vf_optimizer=AdamOptimizer.from_spec(config["value_function_optimizer"], scope="vf-optimizer"),
-            alpha_optimizer=None,
-            q_sync_spec=SyncSpecification(sync_interval=10, sync_tau=1.0),
+            optimizer_spec=AdamOptimizer.from_spec(config["optimizer_spec"]),
+            q_function_optimizer_spec=AdamOptimizer.from_spec(config["q_function_optimizer_spec"]),
             num_q_functions=2
         )
 
@@ -75,16 +71,14 @@ class TestSACShortTaskLearning(unittest.TestCase):
             input_spaces=dict(
                 states=state_space.with_batch_rank(),
                 preprocessed_states=state_space.with_batch_rank(),
-                actions=continuous_action_space.with_batch_rank(),
+                env_actions=continuous_action_space.with_batch_rank(),
                 rewards=FloatBox(add_batch_rank=True),
                 next_states=state_space.with_batch_rank(),
                 terminals=terminal_space,
-                batch_size=int,
-                preprocessed_s_prime=state_space.with_batch_rank(),
                 importance_weights=FloatBox(add_batch_rank=True),
-                preprocessed_next_states=state_space.with_batch_rank(),
                 deterministic=bool,
-                weights="variables:{}".format(policy.scope),
+                policy_weights="variables:{}".format(policy.scope),
+                time_percentage=float,
                 # TODO: how to provide the space for multiple component variables?
                 # q_weights=Dict(
                 #    q_0="variables:{}".format(q_function.scope),
@@ -93,9 +87,9 @@ class TestSACShortTaskLearning(unittest.TestCase):
             ),
             action_space=continuous_action_space,
             build_kwargs=dict(
-                optimizer=agent_component._optimizer,
+                optimizer=agent_component.optimizer,
                 build_options=dict(
-                    vf_optimizer=agent_component.vf_optimizer,
+                    vf_optimizer=agent_component.q_function_optimizer,
                 ),
             )
         )
@@ -132,7 +126,9 @@ class TestSACShortTaskLearning(unittest.TestCase):
             q_val = q_val.flatten()
             np.testing.assert_allclose(q_val, target_dist.pdf(action_sample), atol=0.2)
 
-        action_sample, _ = test.test(("action_from_preprocessed_state", [state_space.sample(batch_size), False]))
+        action_sample = test.test(
+            ("get_actions_from_preprocessed_states", [state_space.sample(batch_size), False])
+        )["actions"]
         action_sample = action_sample.flatten()
         np.testing.assert_allclose(np.mean(action_sample), true_mean, atol=0.1)
 
@@ -147,12 +143,12 @@ class TestSACShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent)
+        worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, update_rules=dict(update_every_n_units=1))
         worker.execute_episodes(num_episodes=500)
         rewards = worker.finished_episode_returns[0]  # 0=1st env in vector-env
         self.assertTrue(np.mean(rewards[:100]) < np.mean(rewards[-100:]))
 
-        worker.execute_episodes(num_episodes=100, use_exploration=False, update_spec=None)
+        worker.execute_episodes(num_episodes=100, use_exploration=False)
         rewards = worker.finished_episode_returns[0]
         self.assertTrue(len(rewards) == 100)
         evaluation_score = np.mean(rewards)
@@ -162,23 +158,25 @@ class TestSACShortTaskLearning(unittest.TestCase):
         """
         Creates an SAC-Agent and runs it on Pendulum.
         """
-        env = OpenAIGymEnv("Pendulum-v0")
+        env_spec = dict(type="openai-gym", gym_env="Pendulum-v0")
+        dummy_env = OpenAIGymEnv.from_spec(env_spec)
         agent = SACAgent.from_spec(
             config_from_path("configs/sac_agent_for_pendulum.json"),
-            state_space=env.state_space,
-            action_space=env.action_space
+            state_space=dummy_env.state_space,
+            action_space=dummy_env.action_space
         )
 
         worker = SingleThreadedWorker(
-            env_spec=lambda: env,
+            env_spec=env_spec,
             agent=agent,
             worker_executes_preprocessing=False,
             render=False,  # self.is_windows
             episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs:
-            print("episode: return={} ts={}".format(episode_return, timesteps))
+            print("episode: return={} ts={}".format(episode_return, timesteps)),
+            update_rules=dict(unit="time_steps", update_every_n_units=1)
         )
         # Note: SAC is more computationally expensive.
-        episodes = 50
+        episodes = 100
         results = worker.execute_episodes(episodes)
 
         print(results)

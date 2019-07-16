@@ -233,18 +233,6 @@ class ActorCriticAlgorithmComponent(AlgorithmComponent):
         # Add all our sub-components to the core.
         self.add_components(self.memory, self.gae_function, self.loss_function)
 
-    # Act from preprocessed states.
-    #@rlgraph_api
-    #def action_from_preprocessed_state(self, preprocessed_states, deterministic=False):
-    #    out = self.policy.get_action(preprocessed_states, deterministic=deterministic)
-    #    return dict(actions=out["action"], preprocessed_states=preprocessed_states)
-
-    ## State (from environment) to action with preprocessing.
-    #@rlgraph_api
-    #def get_preprocessed_state_and_action(self, states, deterministic=False):
-    #    preprocessed_states = self.preprocessor.preprocess(states)
-    #    return self.action_from_preprocessed_state(preprocessed_states, deterministic)
-
     # Insert into memory.
     @rlgraph_api
     def insert_records(self, preprocessed_states, actions, rewards, terminals):
