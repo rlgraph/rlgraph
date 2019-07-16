@@ -13,13 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.nn_layer import NNLayer
+from rlgraph.spaces import Tuple, Dict
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils.decorators import rlgraph_api
+from rlgraph.utils.rlgraph_errors import RLGraphSpaceError
 from rlgraph.utils.util import force_list
 
 if get_backend() == "tf":
@@ -53,6 +54,7 @@ class ConcatLayer(NNLayer):
 
     def check_input_spaces(self, input_spaces, action_space=None):
         super(ConcatLayer, self).check_input_spaces(input_spaces, action_space)
+
         # Make sure all inputs have the same shape except for the last rank.
         if self.dict_keys:
             self.in_space_0 = input_spaces["inputs[0]"][self.dict_keys[0]]
@@ -70,11 +72,16 @@ class ConcatLayer(NNLayer):
             else:
                 in_space = input_spaces["inputs[0]"][self.dict_keys[idx]]
 
+            sanity_check_space(in_space, non_allowed_types=[Tuple, Dict])
+
             # Make sure the shapes match (except for last rank).
-            assert self.in_space_0.shape[:-1] == in_space.shape[:-1], \
-                "ERROR: Input spaces to ConcatLayer must have same shape except for last rank! " \
-                "0th input's shape is {}, but {}st input's shape is {} (all shapes here are without " \
-                "batch/time-ranks).".format(self.in_space_0.shape, idx, in_space.shape)
+            if self.in_space_0.shape[:-1] != in_space.shape[:-1]:
+                raise RLGraphSpaceError(
+                    in_space,
+                    "ERROR: Input spaces to ConcatLayer must have same shape except for last rank! " \
+                    "0th input's shape is {}, but {}st input's shape is {} (all shapes here are without " \
+                    "batch/time-ranks).".format(self.in_space_0.shape, idx, in_space.shape)
+                )
             idx += 1
 
     @rlgraph_api
