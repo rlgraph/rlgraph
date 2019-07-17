@@ -176,8 +176,8 @@ class TestSACShortTaskLearning(unittest.TestCase):
             update_rules=dict(unit="time_steps", update_every_n_units=1)
         )
         # Note: SAC is more computationally expensive.
-        episodes = 100
-        results = worker.execute_episodes(episodes)
+        episodes = 35
+        results = worker.execute_episodes(episodes, max_timesteps_per_episode=200)
 
         print(results)
 

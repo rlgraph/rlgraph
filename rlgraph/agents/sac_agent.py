@@ -66,8 +66,7 @@ class SACAgent(Agent):
         initial_alpha=1.0,
         gumbel_softmax_temperature=1.0,
         target_entropy=None,
-        memory_spec=None,
-        q_function_sync_rules=None
+        memory_spec=None
     ):
         """
         This is an implementation of the Soft-Actor Critic algorithm.
@@ -141,7 +140,7 @@ class SACAgent(Agent):
             optimizer_spec=optimizer_spec,
             q_function_optimizer_spec=q_function_optimizer_spec,
             #alpha_optimizer=self.alpha_optimizer,
-            q_function_sync_rules=q_function_sync_rules,
+            q_function_sync_rules=self.sync_rules,
             num_q_functions=2 if self.double_q is True else 1
         )
 
@@ -223,6 +222,8 @@ class SACAgent(Agent):
         """
         Resets our preprocessor, but only if it contains stateful PreprocessLayer Components (meaning
         the PreprocessorStack has at least one variable defined).
+
+        Also syncs all target-q-nets to their corresponding q-net weights, using tau=1.0.
         """
         if self.root_component.preprocessing_required and len(self.root_component.preprocessor.variables) > 0:
             self.graph_executor.execute("reset_preprocessor")
@@ -272,12 +273,9 @@ class SACAlgorithmComponent(AlgorithmComponent):
             agent, policy_spec=policy_spec, scope=scope, **kwargs
         )
 
-        self.q_function = QFunction.from_spec(q_function_spec)
-        # Make base q_function (template for all our q-functions) synchronizable.
-        if "synchronizable" not in self.q_function.sub_components:
-            self.q_function.add_components(Synchronizable(), expose_apis="sync")
-
+        # Create a sync-rules object.
         self.q_function_sync_rules = SyncRules.from_spec(q_function_sync_rules)
+        self.q_function = QFunction.from_spec(q_function_spec)
 
         self.memory = Memory.from_spec(memory_spec)
         # Copy value function n times to reach num_q_functions.
@@ -293,6 +291,10 @@ class SACAlgorithmComponent(AlgorithmComponent):
         # Produce target q-functions from respective base q-functions (which now also contain
         # the Synchronizable component).
         self.target_q_functions = [q.copy(scope="target-" + q.scope, trainable=False) for q in self.q_functions]
+        # Make all target q_functions synchronizable if not done yet.
+        if "synchronizable" not in self.target_q_functions[0].sub_components:
+            for t in self.target_q_functions:
+                t.add_components(Synchronizable(sync_tau=self.q_function_sync_rules.sync_tau), expose_apis="sync")
 
         # Change name to avoid scope-collision.
         if isinstance(_q_optimizer_spec, dict):
@@ -334,15 +336,14 @@ class SACAlgorithmComponent(AlgorithmComponent):
     def get_policy_weights(self):
         return self.policy.variables()
 
-    #@rlgraph_api
-    #def get_q_weights(self):
-    #    #merged_weights = self._q_vars_merger.merge(*[q.variables() for q in self.q_functions])
-    #    #q_names = ["q_{}".format(i) for i in range(len(self.q_functions))]
-    #    #self._q_vars_merger = ContainerMerger(*q_names, scope="q_vars_merger")
-    #    merged_weights = {"q_{}".format(i): q.variables() for i, q in enumerate(self.q_functions)}
-    #    return merged_weights
+    @rlgraph_api
+    def get_q_weights(self):
+        merged_weights = {"q_{}".format(i): q.variables() for i, q in enumerate(self.q_functions)}
+        for i, tq in enumerate(self.target_q_functions):
+            merged_weights["target_q_{}".format(i)] = tq.variables()
+        return merged_weights
 
-    @rlgraph_api(must_be_complete=False)
+    @rlgraph_api
     def set_policy_weights(self, policy_weights):
         return self.policy.sync(policy_weights)
 
@@ -480,12 +481,15 @@ class SACAlgorithmComponent(AlgorithmComponent):
             terminals
         )
 
-    @rlgraph_api(requires_variable_completeness=True)
+    @rlgraph_api
     def reset_targets(self):
-        ops = (target_q.sync(q.variables()) for q, target_q in zip(self.q_functions, self.target_q_functions))
+        """
+        Resets all targets to the exact source values (tau=1.0).
+        """
+        ops = (target_q.sync(q.variables(), tau=1.0) for q, target_q in zip(self.q_functions, self.target_q_functions))
         return tuple(ops)
 
-    @rlgraph_api(requires_variable_completeness=True)
+    @rlgraph_api
     def sync_targets(self):
         should_sync = self._graph_fn_get_should_sync()
         return self._graph_fn_sync(should_sync)
@@ -535,32 +539,13 @@ class SACAlgorithmComponent(AlgorithmComponent):
             raise NotImplementedError("TODO")
 
     # TODO: Move `should_sync` logic into Agent (python side?).
-    # TODO: Move `sync_tau`-logic into Synchronizable Component.
     @graph_fn(returns=1, requires_variable_completeness=True)
     def _graph_fn_sync(self, should_sync):
-        assign_ops = []
-        tau = self.q_function_sync_rules.sync_tau
-        if tau != 1.0:
-            all_source_vars = [source.get_variables(collections=None, custom_scope_separator="-") for source in self.q_functions]
-            all_dest_vars = [destination.get_variables(collections=None, custom_scope_separator="-") for destination in self.target_q_functions]
-            for source_vars, dest_vars in zip(all_source_vars, all_dest_vars):
-                for (source_key, source_var), (dest_key, dest_var) in zip(sorted(source_vars.items()), sorted(dest_vars.items())):
-                    assign_ops.append(tf.assign(dest_var, tau * source_var + (1.0 - tau) * dest_var))
-        else:
-            all_source_vars = [source.variables() for source in self.q_functions]
-            for source_vars, destination in zip(all_source_vars, self.target_q_functions):
-                assign_ops.append(destination.sync(source_vars))
-        assert len(assign_ops) > 0
-        grouped_op = tf.group(assign_ops)
-
-        def assign_op():
-            # Make sure we are returning no_op as opposed to reference
-            with tf.control_dependencies([grouped_op]):
-                return tf.no_op()
-
-        cond_assign_op = tf.cond(should_sync, true_fn=assign_op, false_fn=tf.no_op)
-        with tf.control_dependencies([cond_assign_op]):
-            return tf.no_op()
+        sync_op = self._graph_fn_group(
+            [target.sync(source.variables()) for source, target in zip(self.q_functions, self.target_q_functions)]
+        )
+        cond_sync_op = tf.cond(should_sync, true_fn=lambda: sync_op, false_fn=tf.no_op)
+        return cond_sync_op
 
     @graph_fn
     def _graph_fn_no_op(self):
