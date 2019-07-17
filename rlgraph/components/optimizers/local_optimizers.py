@@ -49,7 +49,7 @@ class LocalOptimizer(Optimizer):
         # For define-by-run instances.
         self.optimizer_obj = None
 
-    @rlgraph_api(must_be_complete=False)
+    @rlgraph_api
     def _graph_fn_step(self, variables, loss, loss_per_item, time_percentage, *inputs):
         # TODO n.b. PyTorch does not call api functions because other optimization semantics.
         if get_backend() == "tf":
@@ -75,7 +75,7 @@ class LocalOptimizer(Optimizer):
             # Do the optimizer step.
             return self.optimizer_obj.step()
 
-    @rlgraph_api(must_be_complete=False)
+    @rlgraph_api
     def _graph_fn_calculate_gradients(self, variables, loss, time_percentage):
         """
         Args:
