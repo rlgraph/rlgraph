@@ -166,6 +166,8 @@ class Component(Specifiable):
 
         # Whether all our sub-Components are input-complete. Only after that point, we can run our _variables graph_fn.
         self.variable_complete = False
+        # Have inputs been checked and own vars been created?
+        self.inputs_checked_and_vars_created = False
         # Has this component been built yet by the graph builder?
         self.built = False
 
@@ -302,14 +304,13 @@ class Component(Specifiable):
                             self.input_complete = False
                             return False
 
-        # TEST: Now that we are input complete: Check all parents for variable completeness.
+        # Now that we are input complete: Check all parents for variable completeness.
         for p in self.get_parents():
-            p.check_variable_completeness()
-        # END TEST:
+            p.check_variable_completeness(build_when_complete=False)
 
         return True
 
-    def check_variable_completeness(self):
+    def check_variable_completeness(self, build_when_complete=True):
         """
         Checks, whether this Component is input-complete AND all our sub-Components are input-complete.
         At that point, all variables are defined and we can run all variables-dependent graph_fns.
@@ -325,8 +326,8 @@ class Component(Specifiable):
             # Check again, just in case something has changed.
             if self.check_input_completeness() is False:
                 return False
-            # If we are currently building -> Build component as well.
-            elif self.graph_builder is not None and self.graph_builder.phase == "building":
+            # Input complete now -> Try to build.
+            if build_when_complete is True:
                 self.graph_builder.build_component_when_input_complete(self)
 
         # Simply check all direct sub-Components for variable-completeness.
@@ -391,7 +392,7 @@ class Component(Specifiable):
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
-        self.built = True
+        self.inputs_checked_and_vars_created = True
 
     def check_input_spaces(self, input_spaces, action_space=None):
         """
@@ -661,12 +662,16 @@ class Component(Specifiable):
         Keyword Args:
             collections (set): A set of collections to which the variables have to belong in order to be returned here.
                 Default: tf.GraphKeys.TRAINABLE_VARIABLES
+
             custom_scope_separator (str): The separator to use in the returned dict for scopes.
                 Default: '/'.
+
             global_scope (bool): Whether to use keys in the returned dict that include the global-scopes of the
                 Variables. Default: False.
+
             get_ref (bool): Whether to return the ref or the value when using PyTorch. Default: False (return
                 values).
+
         Returns:
             dict: A dict mapping variable names to their get_backend variables.
         """
@@ -1205,7 +1210,7 @@ class Component(Specifiable):
     @staticmethod
     def assign_variable(ref, value):
         """
-        Assigns a variable to a value.
+        Assigns a variable (ref) to a value.
 
         Args:
             ref (any): The variable to assign to.

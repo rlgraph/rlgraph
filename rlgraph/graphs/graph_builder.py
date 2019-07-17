@@ -326,10 +326,12 @@ class GraphBuilder(Specifiable):
     def build_component_when_input_complete(self, component, check_sub_components=True):
         graph_fn_requiring_var_completeness = [gf.name for gf in component.graph_fns.values() if
                                                gf.requires_variable_completeness is True]
-        # Not input complete yet -> Check now.
-        if component.input_complete is False or component.built is False:
+
+        # Not input complete yet.
+        if component.input_complete is False or component.inputs_checked_and_vars_created is False:
+            # Check once more.
             component.check_input_completeness()
-            # Call `when_input_complete` once on that Component.
+            # Now good to build -> Call `when_input_complete` once on that Component.
             if component.input_complete is True:
                 self.logger.debug("Component {} is input-complete; Spaces per API-method input parameter are: {}".
                                   format(component.name, component.api_method_inputs))
@@ -360,20 +362,29 @@ class GraphBuilder(Specifiable):
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
 
-        if component.input_complete is True and component.check_variable_completeness():
+        # Do the rest: graph_fns that require variable-completeness.
+        if component.built is False and component.input_complete is True and component.check_variable_completeness():
+            built_completely = True
             # The graph_fn _variables has some in-op-columns that need to be run through the function.
             for graph_fn_name in graph_fn_requiring_var_completeness:
                 graph_fn_rec = component.graph_fns[graph_fn_name]
                 # TODO: Think about only running through no-input-graph-fn once, no matter how many in-op-columns it has.
                 # TODO: Then link the first in-op-column (empty) to all out-op-columns.
                 for i, in_op_col in enumerate(graph_fn_rec.in_op_columns):
-                    if in_op_col.already_sent is False and in_op_col.is_complete():
-                        self.run_through_graph_fn_with_device_and_scope(in_op_col)
-                        # If graph_fn_rec doesn't know about the out-op-col yet, add it.
-                        if len(graph_fn_rec.out_op_columns) <= i:
-                            assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
-                            graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
-                        self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+                    if in_op_col.already_sent is False:
+                        if in_op_col.is_complete():
+                            self.run_through_graph_fn_with_device_and_scope(in_op_col)
+                            # If graph_fn_rec doesn't know about the out-op-col yet, add it.
+                            if len(graph_fn_rec.out_op_columns) <= i:
+                                assert len(graph_fn_rec.out_op_columns) == i  # make sure, it's really just one col missing
+                                graph_fn_rec.out_op_columns.append(in_op_col.out_graph_fn_column)
+                            self.op_records_to_process.update(graph_fn_rec.out_op_columns[i].op_records)
+                        else:
+                            built_completely = False
+
+            # Now that we have gone through all graph_fns -> set built = True.
+            if built_completely:
+                component.built = True
 
             if check_sub_components is True:
                 # Check variable-completeness and actually call the _variable graph_fn if not already done so.
@@ -460,8 +471,6 @@ class GraphBuilder(Specifiable):
             draw_sub_meta_graph_from_op_recs(op_rec_column.op_records, self.meta_graph)
             raise e
 
-        # Tag column as already sent through graph_fn.
-        op_rec_column.already_sent = True
         return op_rec_column.out_graph_fn_column
 
     def get_device(self, component, variables=False):
@@ -531,6 +540,9 @@ class GraphBuilder(Specifiable):
 
         call_time = None
         is_build_time = self.phase == "building"
+
+        # Tag column as already sent through graph_fn.
+        op_rec_column.already_sent = True
 
         # Build the ops from this input-combination.
         # Flatten input items.
@@ -709,8 +721,13 @@ class GraphBuilder(Specifiable):
                             # Try everything to save situation.
                             op_rec.column.component.check_input_completeness()
                             op_rec.column.component.check_variable_completeness()
-                            draw_sub_meta_graph_from_op_recs(op_rec, self.meta_graph)
-                            self._analyze_none_op(op_rec)
+                            none_op_recs = GraphBuilder.backtrace_empty_op_recs(op_rec)
+                            # Try to further build this op.
+                            self._build(none_op_recs)
+                            # If still None.
+                            if op_rec.op is None:
+                                draw_sub_meta_graph_from_op_recs(op_rec, self.meta_graph)
+                                self._analyze_none_op(op_rec)
                         except RLGraphBuildError as e:
                             if still_building:
                                 print("Found problem in build process (causing a build-deadlock):")
@@ -724,6 +741,7 @@ class GraphBuilder(Specifiable):
         Raises:
             RLGraphError: After the problem has been identified.
         """
+        none_op_recs = {op_rec}
         initial_op_rec = op_rec  # For debugging purposes.
         # Step via `previous` through the graph backwards.
         while True:
@@ -759,6 +777,10 @@ class GraphBuilder(Specifiable):
                         # All op-recs have actual ops -> .
                         else:
                             pass  # TODO: complete logic
+            else:
+                if previous_op_rec.op is None:
+                    none_op_recs.add(previous_op_rec)
+
             # Continue with new op-record.
             op_rec = previous_op_rec
 
@@ -841,6 +863,38 @@ class GraphBuilder(Specifiable):
         for sub_component in component.get_all_sub_components(exclude_self=True):
             if sub_component.input_complete is False:
                 self._analyze_input_incomplete_component(sub_component)
+
+    @staticmethod
+    def backtrace_empty_op_recs(op_rec):
+        """
+        Returns all component/API-method/graph_fn strings in a set that lie on the way back of the given op-rec till
+        the beginning of the meta-graph (placeholders).
+
+        Args:
+            op_rec (DataOpRecord): The DataOpRecord to backtrace.
+
+        Returns:
+            List[DataOpRecord]: A list of all DataOpRecords, whose ops are None.
+        """
+        none_op_recs = set()
+
+        # If column is None, we have reached the leftmost (placeholder) op-recs.
+        while op_rec is not None and op_rec.column is not None:
+            if op_rec.op is None:
+                none_op_recs.add(op_rec)
+
+            if op_rec.previous is None:
+                # Graph_fn.
+                if isinstance(op_rec.column, DataOpRecordColumnFromGraphFn):
+                    # Add all inputs recursively to our sets.
+                    for in_op_rec in op_rec.column.in_graph_fn_column.op_records:
+                        _none_op_recs = GraphBuilder.backtrace_empty_op_recs(in_op_rec)
+                        none_op_recs = none_op_recs.union(_none_op_recs)
+
+            # Process next op-rec on left side.
+            op_rec = op_rec.previous
+
+        return none_op_recs
 
     def get_execution_inputs(self, *api_method_calls):
         """
@@ -1225,7 +1279,7 @@ class GraphBuilder(Specifiable):
                         # - If op_rec.column is None -> We are at the very beginning of the graph (op_rec.op is a
                         # placeholder).
                         next_component = next_op_rec.column.component
-                        if op_rec.column is None or op_rec.column.component is not next_component:
+                        if op_rec.column is None or next_component.built is False:  # op_rec.column.component is not next_component:
                             self.build_component_when_input_complete(next_component)
                             if next_component.input_complete is False:
                                 non_complete_components.add(next_component.global_scope)
