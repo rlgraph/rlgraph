@@ -13,13 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
 import numpy as np
+
 from rlgraph.components.common.synchronizable import Synchronizable
 from rlgraph.components.component import Component
 from rlgraph.spaces import FloatBox
@@ -33,7 +32,7 @@ class MyCompWithVars(Component):
     """
     The Component with variables to test. Synchronizable can be added later as a drop-in via add_component.
     """
-    def __init__(self, initializer1=0.0, initializer2=1.0, synchronizable=False, **kwargs):
+    def __init__(self, initializer1=0.0, initializer2=1.0, synchronizable=False, tau=1.0, **kwargs):
         super(MyCompWithVars, self).__init__(**kwargs)
         self.space = FloatBox(shape=(4, 5))
         self.initializer1 = initializer1
@@ -42,7 +41,7 @@ class MyCompWithVars(Component):
         self.dummy_var_2 = None
 
         if synchronizable is True:
-            self.add_components(Synchronizable(), expose_apis="sync")
+            self.add_components(Synchronizable(sync_tau=tau), expose_apis="sync")
 
     def create_variables(self, input_spaces, action_space=None):
         # create some dummy var to sync from/to.
@@ -153,6 +152,56 @@ class TestSynchronizableComponent(unittest.TestCase):
             "container/B/sub-of-B-with-vars/variable_to_sync2": np.ones(shape=comp1.space.shape, dtype=np.float32)
         })
 
+    def test_sync_functionality_with_tau(self):
+        # Two Components, one with Synchronizable dropped in:
+        # A: Can only push out values.
+        # B: To be synced by A's values.
+        tau = 0.8
+        sync_from = MyCompWithVars(scope="sync-from", initializer1=3.0, initializer2=5.0)
+        sync_to = MyCompWithVars(initializer1=8.5, initializer2=7.5, scope="sync-to", synchronizable=True, tau=tau)
 
+        # Create a dummy test component that contains our two Synchronizables.
+        container = Component(name="container")
+        container.add_components(sync_from, sync_to)
 
+        @rlgraph_api(component=container)
+        def execute_sync(self):
+            return sync_to.sync(sync_from.variables())
 
+        @rlgraph_api(component=container)
+        def reset(self):
+            return sync_to.sync(sync_from.variables(), tau=1.0)
+
+        test = ComponentTest(component=container)
+
+        # Test syncing the variable from->to and check them before and after the sync.
+        # Before the sync.
+        test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+            "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=8.5),
+            "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=7.5)
+        }, decimals=5)
+
+        # Now sync and re-check.
+        test.test("execute_sync", expected_outputs=None)
+
+        # After the sync (using tau-soft-synching):
+        # new-value = tau * source + (1.0-tau) * old-value
+        expected_value_1 = tau * 3.0 + (1.0 - tau) * 8.5
+        expected_value_2 = tau * 5.0 + (1.0 - tau) * 7.5
+        test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+            "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=expected_value_1),
+            "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=expected_value_2)
+        }, decimals=5)
+
+        # Now reset (should be the same afterwards).
+        test.test("reset", expected_outputs=None)
+
+        test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+            "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=3.0),
+            "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=5.0)
+        }, decimals=5)
+
+        test.variable_test(sync_from.get_variables(VARIABLE_NAMES), {
+            "sync-from/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=3.0),
+            "sync-from/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=5.0)
+        }, decimals=5)
