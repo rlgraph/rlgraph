@@ -13,13 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import random
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.graphs import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
@@ -150,7 +149,7 @@ class ComponentTest(object):
 
         return outs
 
-    def variable_test(self, variables, expected_values):
+    def variable_test(self, variables, expected_values, **kwargs):
         """
         Asserts that all given `variables` have the `expected_values`.
         Variables can be given in an arbitrary structure including nested ones.
@@ -158,9 +157,12 @@ class ComponentTest(object):
         Args:
             variables (any): Any structure that contains variables.
             expected_values (any): Matching structure with the expected values for the given variables.
+
+        Keyword Args:
+            kwargs: To be passed to the call to `self.assert_equal()`.
         """
         values = self.read_variable_values(variables)
-        self.assert_equal(values, expected_values)
+        self.assert_equal(values, expected_values, **kwargs)
 
     def read_variable_values(self, *variables):
         """
@@ -255,11 +257,11 @@ class ComponentTest(object):
         raise ValueError("No value found for key = {}. Keys are: {}".format(name, params.keys()))
 
     @staticmethod
-    def assert_equal(outs, expected_outputs, decimals=7):
+    def assert_equal(outs, expected_outputs, **kwargs):
         """
         Convenience wrapper: See implementation of `recursive_assert_almost_equal` for details.
         """
-        recursive_assert_almost_equal(outs, expected_outputs, decimals=decimals)
+        recursive_assert_almost_equal(outs, expected_outputs, **kwargs)
 
     def terminate(self):
         """
