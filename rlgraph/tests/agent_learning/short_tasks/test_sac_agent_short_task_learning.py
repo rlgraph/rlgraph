@@ -206,7 +206,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             print("episode: return={} ts={}".format(episode_return, timesteps))
         )
 
-        time_steps = 5000
+        time_steps = 3000
         results = worker.execute_timesteps(time_steps)
 
         print(results)

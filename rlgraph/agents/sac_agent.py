@@ -134,7 +134,6 @@ class SACAgent(Agent):
             discount=discount,
             initial_alpha=initial_alpha,
             target_entropy=target_entropy,
-            #num_iterations=num_iterations,
             memory_batch_size=memory_batch_size,
             gumbel_softmax_temperature=gumbel_softmax_temperature,
             optimizer_spec=optimizer_spec,
@@ -147,8 +146,12 @@ class SACAgent(Agent):
         # Extend input Space definitions to this Agent's specific API-methods.
         self.preprocessed_state_space = self.root_component.preprocessor.get_preprocessed_space(self.state_space).\
             with_batch_rank()
+        float_action_space = self.action_space.with_batch_rank().map(
+            mapping=lambda flat_key, space: space.as_one_hot_float_space() if isinstance(space, IntBox) else space
+        )
         self.input_spaces.update(dict(
             env_actions=self.action_space.with_batch_rank(),
+            actions=float_action_space,
             preprocessed_states=self.preprocessed_state_space,
             rewards=FloatBox(add_batch_rank=True),
             terminals=BoolBox(add_batch_rank=True),
@@ -176,7 +179,7 @@ class SACAgent(Agent):
         )
         actions = ret["actions"]
 
-        # Convert Gumble (relaxed one-hot) sample back into int type for all discrete composite actions.
+        # Convert Gumbel (relaxed one-hot) sample back into int type for all discrete composite actions.
         if isinstance(self.action_space, ContainerSpace):
             actions = actions.map(
                 mapping=lambda key, action: np.argmax(action, axis=-1).astype(action.dtype)
@@ -240,29 +243,19 @@ class SACAlgorithmComponent(AlgorithmComponent):
                  target_entropy=None, q_function_sync_rules=None, num_q_functions=2, q_function_optimizer_spec=None,
                  scope="sac-agent-component", **kwargs):
 
-        # If VF spec is a network spec, wrap with SAC vf type. The VF must concatenate actions and states,
-        # which can require splitting the network in the case of e.g. conv-inputs.
-        #if isinstance(q_function_spec, list):
-        #    q_function_spec = dict(type="neural-network", layers=q_function_spec)
-        #    #self.logger.info("Using default SAC value function.")
-        #elif isinstance(q_function_spec, NeuralNetwork):
-        #    #self.logger.info("Using value function object {}".format(ValueFunction))
-
-        # Default Policy (non-deterministic):
-        # Continuous action space: Use squashed normal.
-        # Discrete: Gumbel-softmax.
-        policy_spec = Policy.set_policy_deterministic(kwargs.pop("policy_spec", dict(
-            deterministic=False, distributions_spec=dict(
-                bounded_distribution_type="squashed", discrete_distribution_type="gumbel_softmax",
-                gumbel_softmax_temperature=gumbel_softmax_temperature
+        # Setup our policy
+        # - non-deterministic
+        # - Continuous actions: Use squashed normal.
+        # - Discrete actions: Use Gumbel-softmax.
+        policy_spec = kwargs.pop("policy_spec", None)
+        if policy_spec is None:
+            policy_spec = dict(
+                deterministic=False, distributions_spec=dict(
+                    bounded_distribution_type="squashed", discrete_distribution_type="gumbel_softmax",
+                    gumbel_softmax_temperature=gumbel_softmax_temperature
+                )
             )
-        )), False)
-
-        # Make sure our value function has two inputs (states and actions).
-        #if isinstance(q_function_spec, dict):
-        #    q_function_spec["num_inputs"] = 2
-        #elif isinstance(q_function_spec, (list, tuple)):
-        #    q_function_spec = dict(layers=q_function_spec, num_inputs=2)
+        policy_spec = Policy.set_policy_deterministic(policy_spec, deterministic=False)
 
         if q_function_optimizer_spec is None:
             _q_optimizer_spec = kwargs.get("optimizer_spec")
@@ -436,8 +429,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
         return env_actions
 
     @rlgraph_api(flatten_ops={1})  # `returns` are determined in ctor
-    def _graph_fn_get_q_values(self, preprocessed_states, env_actions, target=False):
-        actions = env_actions.map(lambda flat_key, action_component: self._graph_fn_one_hot(action_component))
+    def _graph_fn_get_q_values(self, preprocessed_states, actions, target=False):
         if isinstance(actions, FlattenedDataOp):
             if get_backend() == "tf":
                 actions = tf.concat(list(actions.values()), axis=-1)
@@ -456,11 +448,10 @@ class SACAlgorithmComponent(AlgorithmComponent):
         samples_next = self.policy.get_action_and_log_likelihood(next_states, deterministic=False)
         next_sampled_actions = samples_next["action"]
         log_probs_next_sampled = samples_next["log_likelihood"]
+        q_values_next_sampled = self.get_q_values(next_states, next_sampled_actions, target=True)
+        actions = self._graph_fn_one_hot(env_actions)
+        q_values = self.get_q_values(preprocessed_states, actions)
 
-        q_values_next_sampled = self.get_q_values(
-            next_states, next_sampled_actions, target=True
-        )
-        q_values = self.get_q_values(preprocessed_states, env_actions)
         samples = self.policy.get_action_and_log_likelihood(preprocessed_states, deterministic=False)
         sampled_actions = samples["action"]
         log_probs_sampled = samples["log_likelihood"]

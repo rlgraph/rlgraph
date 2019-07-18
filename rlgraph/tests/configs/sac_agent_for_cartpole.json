@@ -6,8 +6,8 @@
   "double_q": false,
 
   "sync_rules": {
-    "sync_every_n_updates": 8,
-    "sync_tau": 0.08
+    "sync_every_n_updates": 1,
+    "sync_tau": 0.005
   },
 
   "python_buffer_size": 200,
@@ -40,11 +40,11 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": [0.001, 0.00001]
+    "learning_rate": [0.005, 0.00001]
   },
 
   "q_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": [0.01, 0.0001]
+    "learning_rate": [0.005, 0.00001]
   }
 }
