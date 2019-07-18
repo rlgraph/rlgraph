@@ -82,6 +82,8 @@ class GraphBuilder(Specifiable):
         # Build status/phase. Can take values
         # None: Build has not started yet.
         # "building": actual graph is being built from meta-graph.
+        # "post-building": we are done with an exhaustive iteration, but there could still be incomplete
+        #    sub-graphs -> Throw out all Components whose APIs are never called.
         self.phase = None
 
         # Some build stats:
@@ -215,7 +217,10 @@ class GraphBuilder(Specifiable):
         self.num_trainable_parameters = self.count_trainable_parameters()
         self.logger.info("Number of trainable parameters: {}".format(self.num_trainable_parameters))
 
-        # Sanity check the build.
+        # Switch to post-building phase and sanity check the build.
+        # NOTE: The build may not be over yet, we may still encounter incomplete pieces of the graph,
+        # which we will have to deal with.
+        self.phase = "post-building"
         self.sanity_check_build()
 
         # The build here is the actual build overhead, so build time minus the tensorflow calls and variable
@@ -361,6 +366,10 @@ class GraphBuilder(Specifiable):
                         self.run_through_graph_fn_with_device_and_scope(no_in_col)
                         # Keep working with the generated output ops.
                         self.op_records_to_process.update(no_in_col.out_graph_fn_column.op_records)
+
+                # Now that we are input complete: Check all parents for variable completeness.
+                for p in component.get_parents():
+                    p.check_variable_completeness()
 
         # Do the rest: graph_fns that require variable-completeness.
         if component.built is False and component.input_complete is True and component.check_variable_completeness():
@@ -539,7 +548,7 @@ class GraphBuilder(Specifiable):
         assert all(op is not None for op in args)  # just make sure
 
         call_time = None
-        is_build_time = self.phase == "building"
+        is_build_time = self.phase == "building" or self.phase == "post-building"
 
         # Tag column as already sent through graph_fn.
         op_rec_column.already_sent = True

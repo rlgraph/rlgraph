@@ -252,7 +252,17 @@ class Component(Specifiable):
         if self.input_complete is True:
             return True
 
-        self.input_complete = True
+        # If post-building, ignore all Components that are not used and remove them completely from the Component graph.
+        if self.graph_builder.phase == "post-building" and \
+                all(len(rec.in_op_columns) == 0 for rec in self.api_methods.values()):
+            assert self.parent_component is not None
+            self.logger.warn(
+                "Component '{}' is never used and causes build-deadlock! Will be removed from graph.".
+                format(self.global_scope)
+            )
+            self.parent_component.remove_sub_component_by_name(self.name)
+            return False
+
         # Loop through all API methods.
         for method_name, api_method_rec in self.api_methods.items():
             # This API method doesn't have to be completed, ignore and don't add it to space_dict.
@@ -304,13 +314,10 @@ class Component(Specifiable):
                             self.input_complete = False
                             return False
 
-        # Now that we are input complete: Check all parents for variable completeness.
-        for p in self.get_parents():
-            p.check_variable_completeness(build_when_complete=False)
-
+        self.input_complete = True
         return True
 
-    def check_variable_completeness(self, build_when_complete=True):
+    def check_variable_completeness(self):
         """
         Checks, whether this Component is input-complete AND all our sub-Components are input-complete.
         At that point, all variables are defined and we can run all variables-dependent graph_fns.
@@ -327,8 +334,7 @@ class Component(Specifiable):
             if self.check_input_completeness() is False:
                 return False
             # Input complete now -> Try to build.
-            if build_when_complete is True:
-                self.graph_builder.build_component_when_input_complete(self)
+            self.graph_builder.build_component_when_input_complete(self)
 
         # Simply check all direct sub-Components for variable-completeness.
         for direct_child in self.sub_components.values():
@@ -584,8 +590,8 @@ class Component(Specifiable):
                 collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES]
             )
 
+        # Register the new variable with this Component.
         # TODO: what about python variables?
-        # Registers the new variable with this Component.
         key = ((self.reuse_variable_scope + "/") if self.reuse_variable_scope else
                (self.global_scope + "/") if self.global_scope else "") + name
         # Container-var: Save individual Variables.

@@ -160,7 +160,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     param_name = api_method_rec.kwargs_name + "[{}]".format(param_name)
 
                 # We are already in building phase (params may be coming from inside graph_fn).
-                if self.graph_builder is not None and self.graph_builder.phase == "building":
+                if self.graph_builder is not None and (self.graph_builder.phase == "building" or
+                                                       self.graph_builder.phase == "post-building"):
                     # If Space not stored yet, determine it from op.
                     assert in_op_column.op_records[i].op is not None
                     if in_op_column.op_records[i].space is None:
@@ -211,7 +212,8 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
             # If we already have actual op(s) and Space(s), push them already into the
             # DataOpRecordColumnFromAPIMethod's records.
-            if self.graph_builder is not None and self.graph_builder.phase == "building":
+            if self.graph_builder is not None and (self.graph_builder.phase == "building" or
+                                                   self.graph_builder.phase == "post-building"):
                 # Link the returned ops to that new out-column.
                 for i, rec in enumerate(out_op_column.op_records):
                     out_op_column.op_records[i].op = rec.op
@@ -577,7 +579,8 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
     component.graph_fns[wrapped_func.__name__].in_op_columns.append(in_graph_fn_column)
 
     # We are already building: Actually call the graph_fn after asserting that its Component is input-complete.
-    if component.graph_builder and component.graph_builder.phase == "building":
+    if component.graph_builder and (component.graph_builder.phase == "building" or
+                                    component.graph_builder.phase == "post-building"):
         # Assert input-completeness of Component (if not already, then after this graph_fn/Space update).
         # if self.input_complete is False:
         # Check Spaces and create variables.

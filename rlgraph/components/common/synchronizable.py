@@ -59,7 +59,7 @@ class Synchronizable(Component):
             "steps-since-last-sync", dtype="int", initializer=0, trainable=False  #, private=True
         )
 
-    def check_variable_completeness(self, build_when_complete=True):
+    def check_variable_completeness(self):
         # Overwrites this method as any Synchronizable should only be variable-complete once the parent
         # component is variable-complete (not counting this component!).
 
@@ -69,30 +69,21 @@ class Synchronizable(Component):
 
         # If this component is not used at all (no calls to API-method: `sync` are made), return True.
         if len(self.api_methods["sync"].in_op_columns) == 0:
-            return super(Synchronizable, self).check_variable_completeness(build_when_complete=build_when_complete)
+            return super(Synchronizable, self).check_variable_completeness()
 
         # Recheck input-completeness of parent.
         if self.parent_component.input_complete is False:
             self.graph_builder.build_component_when_input_complete(self.parent_component)
-            #self.parent_component.check_input_completeness()
-                #self.parent_component.when_input_complete()
 
         # Pretend we are input- and variable-complete (which we may not be) and then check parent's variable
         # completeness under this condition.
-        #parent_was_variable_complete = True
         if self.parent_component.variable_complete is False:
-            #parent_was_variable_complete = False
             self.variable_complete = True
-            self.parent_component.check_variable_completeness()  #build_when_complete=False)
+            self.graph_builder.build_component_when_input_complete(self.parent_component)  #.check_variable_completeness()  #build_when_complete=False)
             self.variable_complete = False
 
         if self.parent_component.variable_complete is True:
-            ## Set back parent's variable completeness to where it was before, no matter what.
-            ## To not interfere with variable complete checking logic of graph-builder after this
-            ## Synchronizable Component becomes input-complete.
-            #if parent_was_variable_complete is False:
-            #    self.parent_component.variable_complete = False
-            return super(Synchronizable, self).check_variable_completeness(build_when_complete=build_when_complete)
+            return super(Synchronizable, self).check_variable_completeness()
 
         return False
 
