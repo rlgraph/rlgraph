@@ -400,7 +400,10 @@ class SACAlgorithmComponent(AlgorithmComponent):
         )
 
         if self.target_entropy is not None:
-            alpha_step_op = self._graph_fn_update_alpha(alpha_loss, alpha_loss_per_item, time_percentage)
+            #self.update_alpha(alpha_loss, alpha_loss_per_item, time_percentage)
+            alpha_step_op = self.alpha_optimizer.step(
+                (self.log_alpha,), alpha_loss, alpha_loss_per_item, time_percentage
+            )
         else:
             alpha_step_op = self._graph_fn_no_op()
         # TODO: optimizer for alpha
@@ -431,14 +434,6 @@ class SACAlgorithmComponent(AlgorithmComponent):
         elif self.env_action_space[key].shape == ():
             env_actions = tf.expand_dims(env_actions, axis=-1)
         return env_actions
-
-    @graph_fn(requires_variable_completeness=True)
-    def _graph_fn_update_alpha(self, alpha_loss, alpha_loss_per_item, time_percentage):
-        alpha_step_op = self.alpha_optimizer.step(
-            #DataOpTuple([self.log_alpha]), alpha_loss, alpha_loss_per_item, time_percentage)
-            (self.log_alpha,), alpha_loss, alpha_loss_per_item, time_percentage
-        )
-        return alpha_step_op
 
     @rlgraph_api(flatten_ops={1})  # `returns` are determined in ctor
     def _graph_fn_get_q_values(self, preprocessed_states, env_actions, target=False):
@@ -510,7 +505,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
         elif backend == "pytorch":
             return torch.exp(self.log_alpha)
 
-    # TODO: Move this into generic AgentRootComponent.
+    # TODO: Move this into generic AlgorithmComponent.
     @graph_fn
     def _graph_fn_training_step(self, other_step_op=None):
         if self.agent is not None:
@@ -521,6 +516,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
         else:
             return tf.no_op() if other_step_op is None else other_step_op
 
+    # TODO: Move this into generic AlgorithmComponent.
     @graph_fn
     def _graph_fn_no_op(self):
         return tf.no_op()
