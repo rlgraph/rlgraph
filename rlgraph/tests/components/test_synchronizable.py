@@ -32,7 +32,7 @@ class MyCompWithVars(Component):
     """
     The Component with variables to test. Synchronizable can be added later as a drop-in via add_component.
     """
-    def __init__(self, initializer1=0.0, initializer2=1.0, synchronizable=False, tau=1.0, **kwargs):
+    def __init__(self, initializer1=0.0, initializer2=1.0, synchronizable=False, tau=1.0, freq=1, **kwargs):
         super(MyCompWithVars, self).__init__(**kwargs)
         self.space = FloatBox(shape=(4, 5))
         self.initializer1 = initializer1
@@ -41,7 +41,7 @@ class MyCompWithVars(Component):
         self.dummy_var_2 = None
 
         if synchronizable is True:
-            self.add_components(Synchronizable(sync_tau=tau), expose_apis="sync")
+            self.add_components(Synchronizable(sync_tau=tau, sync_every_n_times=freq), expose_apis="sync")
 
     def create_variables(self, input_spaces, action_space=None):
         # create some dummy var to sync from/to.
@@ -205,3 +205,54 @@ class TestSynchronizableComponent(unittest.TestCase):
             "sync-from/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=3.0),
             "sync-from/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=5.0)
         }, decimals=5)
+
+    def test_sync_functionality_with_interval_setup(self):
+        # Two Components, one with Synchronizable dropped in:
+        # A: Can only push out values.
+        # B: To be synced by A's values.
+        tau = 0.005
+        sync_from = MyCompWithVars(scope="sync-from", initializer1=3.0, initializer2=5.0)
+        # Sync only every 3 `sync` calls.
+        sync_to = MyCompWithVars(
+            initializer1=8.5, initializer2=7.5, scope="sync-to",
+            # Synchronizable setup.
+            synchronizable=True, tau=tau, freq=3
+        )
+
+        # Create a dummy test component that contains our two Synchronizables.
+        container = Component(name="container")
+        container.add_components(sync_from, sync_to)
+
+        @rlgraph_api(component=container)
+        def execute_sync(self):
+            return sync_to.sync(sync_from.variables())
+
+        test = ComponentTest(component=container)
+
+        # Test syncing the variable from->to and check them before and after the sync.
+        # Before the sync.
+        expected_value_1 = 8.5
+        expected_value_2 = 7.5
+        test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+            "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=expected_value_1),
+            "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=expected_value_2)
+        }, decimals=5)
+
+        for _ in range(10):
+            # Sync 2x and re-check (should still be the same).
+            for _ in range(2):
+                ret = test.test("execute_sync", expected_outputs=None)
+                test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+                    "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=expected_value_1),
+                    "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=expected_value_2)
+                }, decimals=5)
+
+            # After the 3rd sync (using tau-soft-synching):
+            # new-value = tau * source + (1.0-tau) * old-value
+            test.test("execute_sync", expected_outputs=None)
+            expected_value_1 = tau * 3.0 + (1.0 - tau) * expected_value_1
+            expected_value_2 = tau * 5.0 + (1.0 - tau) * expected_value_2
+            test.variable_test(sync_to.get_variables(VARIABLE_NAMES), {
+                "sync-to/"+VARIABLE_NAMES[0]: np.full(shape=sync_from.space.shape, fill_value=expected_value_1),
+                "sync-to/"+VARIABLE_NAMES[1]: np.full(shape=sync_from.space.shape, fill_value=expected_value_2)
+            }, decimals=5)
