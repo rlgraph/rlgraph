@@ -341,7 +341,7 @@ def flat_key_lookup(container, flat_key, default=None, custom_scope_separator=No
         # Tuple.
         if mo is not None:
             slot = int(mo.group(1))
-            if len(result) > slot and default is not None:
+            if slot >= len(result) and default is not None:
                 return default
             result = result[slot]
         # Dict.
