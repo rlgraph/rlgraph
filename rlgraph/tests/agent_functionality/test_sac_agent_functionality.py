@@ -109,7 +109,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         self.assertTrue(action_sample.dtype == np.float32)
         self.assertTrue(action_sample.shape == (batch_size, 1))
 
-    def test_policy_sync(self):
+    def test_policy_get_set_weights(self):
         """
         Tests weight syncing of policy (and only policy, not Q-functions).
         """
@@ -123,7 +123,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
         # update every n == 4
 
         weights = agent.get_weights()
-        print("weights =", weights.keys())
+        print("weights = ", weights.keys())
 
         new_weights = {}
         for key, value in weights["policy_weights"].items():

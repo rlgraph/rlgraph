@@ -494,7 +494,9 @@ class SACAlgorithmComponent(AlgorithmComponent):
 
     @rlgraph_api
     def sync_targets(self):
-        return self._graph_fn_sync()
+        return self._graph_fn_group(
+            *[target.sync(source.variables()) for source, target in zip(self.q_functions, self.target_q_functions)]
+        )
 
     @rlgraph_api
     def get_memory_size(self):
@@ -518,12 +520,6 @@ class SACAlgorithmComponent(AlgorithmComponent):
                 return tf.no_op() if other_step_op is None else other_step_op
         else:
             return tf.no_op() if other_step_op is None else other_step_op
-
-    @graph_fn(returns=1, requires_variable_completeness=True)
-    def _graph_fn_sync(self):
-        return self._graph_fn_group(
-            [target.sync(source.variables()) for source, target in zip(self.q_functions, self.target_q_functions)]
-        )
 
     @graph_fn
     def _graph_fn_no_op(self):
