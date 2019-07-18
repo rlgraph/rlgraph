@@ -294,7 +294,10 @@ class SACAlgorithmComponent(AlgorithmComponent):
         # Make all target q_functions synchronizable if not done yet.
         if "synchronizable" not in self.target_q_functions[0].sub_components:
             for t in self.target_q_functions:
-                t.add_components(Synchronizable(sync_tau=self.q_function_sync_rules.sync_tau), expose_apis="sync")
+                t.add_components(Synchronizable(
+                    sync_tau=self.q_function_sync_rules.sync_tau,
+                    sync_every_n_times=self.q_function_sync_rules.sync_every_n_updates
+                ), expose_apis="sync")
 
         # Change name to avoid scope-collision.
         if isinstance(_q_optimizer_spec, dict):
@@ -491,8 +494,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
 
     @rlgraph_api
     def sync_targets(self):
-        should_sync = self._graph_fn_get_should_sync()
-        return self._graph_fn_sync(should_sync)
+        return self._graph_fn_sync()
 
     @rlgraph_api
     def get_memory_size(self):
@@ -518,34 +520,10 @@ class SACAlgorithmComponent(AlgorithmComponent):
             return tf.no_op() if other_step_op is None else other_step_op
 
     @graph_fn(returns=1, requires_variable_completeness=True)
-    def _graph_fn_get_should_sync(self):
-        if get_backend() == "tf":
-            inc_op = tf.assign_add(self.steps_since_last_sync, 1)
-            should_sync = inc_op >= self.q_function_sync_rules.sync_every_n_updates
-
-            def reset_op():
-                op = tf.assign(self.steps_since_last_sync, 0)
-                with tf.control_dependencies([op]):
-                    return tf.no_op()
-
-            sync_op = tf.cond(
-                pred=inc_op >= self.q_function_sync_rules.sync_every_n_updates,
-                true_fn=reset_op,
-                false_fn=tf.no_op
-            )
-            with tf.control_dependencies([sync_op]):
-                return tf.identity(should_sync)
-        else:
-            raise NotImplementedError("TODO")
-
-    # TODO: Move `should_sync` logic into Agent (python side?).
-    @graph_fn(returns=1, requires_variable_completeness=True)
-    def _graph_fn_sync(self, should_sync):
-        sync_op = self._graph_fn_group(
+    def _graph_fn_sync(self):
+        return self._graph_fn_group(
             [target.sync(source.variables()) for source, target in zip(self.q_functions, self.target_q_functions)]
         )
-        cond_sync_op = tf.cond(should_sync, true_fn=lambda: sync_op, false_fn=tf.no_op)
-        return cond_sync_op
 
     @graph_fn
     def _graph_fn_no_op(self):
