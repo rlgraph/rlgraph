@@ -100,7 +100,6 @@ class AlgorithmComponent(Component):
         self.value_function = None
         if value_function_spec is not None:
             self.value_function = ValueFunction.from_spec(value_function_spec)
-            self.value_function.add_components(Synchronizable(), expose_apis="sync")
 
         # Optional exploration object. None if no exploration needed (usually None for PG algos, as they use
         # stochastic policies, not epsilon greedy Q).
