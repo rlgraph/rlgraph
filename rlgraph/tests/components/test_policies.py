@@ -18,12 +18,13 @@ from __future__ import absolute_import, division, print_function
 import unittest
 
 import numpy as np
+from scipy.stats import beta, norm
+
 from rlgraph.components.policies import Policy, SharedValueFunctionPolicy, DuelingPolicy
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.utils import sigmoid, softmax, relu, MAX_LOG_STDDEV, MIN_LOG_STDDEV, SMALL_NUMBER
-from scipy.stats import beta, norm
 
 
 class TestPolicies(unittest.TestCase):
@@ -433,11 +434,9 @@ class TestPolicies(unittest.TestCase):
         # Policy with dueling logic.
         policy = DuelingPolicy(
             network_spec=config_from_path("configs/test_lrelu_nn.json"),
-            action_adapter_spec=dict(
-                pre_network_spec=[
-                    dict(type="dense", units=10, activation="lrelu", activation_params=[0.1])
-                ]
-            ),
+            action_adapter_spec=dict(pre_network_spec=[
+                dict(type="dense", units=10, activation="lrelu", activation_params=[0.1])
+            ]),
             units_state_value_stream=10,
             action_space=action_space
         )
@@ -464,12 +463,12 @@ class TestPolicies(unittest.TestCase):
         expected_state_values = np.matmul(relu(np.matmul(
             expected_nn_output,
             ComponentTest.read_params("dueling-policy/dense-layer-state-value-stream", policy_params)
-        ), 0.1),
+        )),
             ComponentTest.read_params("dueling-policy/state-value-node", policy_params))
         test.test(
             ("get_state_values", nn_input, ["state_values", "nn_outputs"]),
             expected_outputs=dict(state_values=expected_state_values, nn_outputs=expected_nn_output),
-            decimals=5
+            decimals=4
         )
 
         # Raw action layer output.
@@ -485,7 +484,7 @@ class TestPolicies(unittest.TestCase):
         test.test(
             ("get_adapter_outputs", nn_input, ["adapter_outputs", "advantages"]),
             expected_outputs=dict(adapter_outputs=expected_q_values_output, advantages=expected_raw_advantages),
-            decimals=5
+            decimals=4
         )
 
         # Parameter (probabilities). Softmaxed q_values.
@@ -493,7 +492,7 @@ class TestPolicies(unittest.TestCase):
         test.test(
             ("get_adapter_outputs_and_parameters", nn_input, ["adapter_outputs", "parameters"]),
             expected_outputs=dict(adapter_outputs=expected_q_values_output, parameters=expected_q_values_output),
-            decimals=5
+            decimals=4
         )
 
         print("Probs: {}".format(expected_probs_output))
@@ -516,7 +515,7 @@ class TestPolicies(unittest.TestCase):
             expected_outputs=dict(
                 log_likelihood=expected_action_log_llh_output, adapter_outputs=expected_q_values_output
             ),
-            decimals=5
+            decimals=4
         )
         recursive_assert_almost_equal(expected_action_log_llh_output, llh, decimals=5)
 

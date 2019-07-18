@@ -15,7 +15,10 @@
 
 from __future__ import absolute_import, division, print_function
 
+import copy
+
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.action_adapters.action_adapter import ActionAdapter
 from rlgraph.components.action_adapters.action_adapter_utils import get_action_adapter_type_from_distribution_type, \
@@ -96,10 +99,20 @@ class Policy(Component):
 
         self.flat_action_space = self.action_space.flatten()
 
+        # Find out whether we have a generic AA-spec (one for all action components).
+        generic_aa_spec_for_all_action_components = None
+        if isinstance(action_adapter_spec, dict) and \
+                not any(flat_key_lookup(action_adapter_spec, flat_key, False) for flat_key in self.flat_action_space):
+            generic_aa_spec_for_all_action_components = action_adapter_spec
+
         # Figure out our Distributions.
         for i, (flat_key, action_component) in enumerate(self.flat_action_space.items()):
+            # Generic spec -> Use it.
+            if generic_aa_spec_for_all_action_components:
+                aa_spec = copy.deepcopy(generic_aa_spec_for_all_action_components)
+                aa_spec["action_space"] = action_component
             # Spec dict.
-            if isinstance(action_adapter_spec, dict):
+            elif isinstance(action_adapter_spec, dict):
                 # If not specified in dict -> auto-generate AA-spec.
                 aa_spec = flat_key_lookup(action_adapter_spec, flat_key, False)
                 if aa_spec is False:
@@ -125,7 +138,7 @@ class Policy(Component):
                 if self.distributions[flat_key] is None:
                     raise RLGraphError(
                         "ERROR: `action_component` is of type {} and not allowed in {} Component!".
-                            format(type(action_space).__name__, self.name)
+                        format(type(action_space).__name__, self.name)
                     )
                 aa_spec["type"] = get_action_adapter_type_from_distribution_type(
                     type(self.distributions[flat_key]).__name__

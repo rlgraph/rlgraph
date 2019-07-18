@@ -18,6 +18,7 @@ from __future__ import absolute_import, division, print_function
 import unittest
 
 import numpy as np
+
 from rlgraph.components.policies import Policy, SharedValueFunctionPolicy, DuelingPolicy
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -469,19 +470,13 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             a=Tuple(IntBox(2), IntBox(3)),
             b=Dict(dict(ba=IntBox(4)))
         ), add_batch_rank=True)
-        #flat_float_action_space = Dict(dict(
-        #    a=Tuple(FloatBox(shape=(2,)), FloatBox(shape=(3,))),
-        #    b=Dict(dict(ba=FloatBox(shape=(4,))))
-        #), add_batch_rank=True)
 
         # Policy with dueling logic.
         policy = DuelingPolicy(
             network_spec=config_from_path("configs/test_lrelu_nn.json"),
             # Make all sub action adapters the same.
             action_adapter_spec=dict(
-                pre_network_spec=[
-                    dict(type="dense", units=5, activation="lrelu", activation_params=[0.2])
-                ]
+                pre_network_spec=[dict(type="dense", units=5, activation="lrelu", activation_params=[0.2])]
             ),
             units_state_value_stream=2,
             action_space=action_space
@@ -491,8 +486,6 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             input_spaces=dict(
                 nn_inputs=nn_input_space,
                 actions=action_space,
-                #logits=flat_float_action_space,
-                #parameters=flat_float_action_space
             ),
             action_space=action_space
         )
