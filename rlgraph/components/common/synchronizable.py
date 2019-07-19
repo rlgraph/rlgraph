@@ -33,20 +33,20 @@ class Synchronizable(Component):
     This is useful for constructions like a target network in DQN or for distributed setups where e.g.
     local policies need to be sync'd from a global model from time to time.
     """
-    def __init__(self, sync_tau=1.0, sync_every_n_times=1, collections=None, scope="synchronizable", **kwargs):
+    def __init__(self, sync_tau=1.0, sync_every_n_calls=1, collections=None, scope="synchronizable", **kwargs):
         """
         Args:
             sync_tau (float): Factor for soft synching:
                 [new values] = tau * [sync source] + (1.0 - tau) * [old values]
                 Default: 1.0 (complete synching).
 
-            sync_every_n_times (int): If >1, only sync every n times the `sync` API is called.
+            sync_every_n_calls (int): If >1, only sync every n times the `sync` API is called.
 
             collections (set): A set of specifiers (currently only tf), that determine which Variables
                 of the parent Component to synchronize.
         """
         self.sync_tau = sync_tau
-        self.sync_every_n_times = sync_every_n_times
+        self.sync_every_n_calls = sync_every_n_calls
         self.collections = collections
 
         # Variable.
@@ -88,7 +88,7 @@ class Synchronizable(Component):
         return False
 
     @rlgraph_api(returns=1, requires_variable_completeness=True)
-    def _graph_fn_sync(self, values_, tau=None):
+    def _graph_fn_sync(self, values_, tau=None, force_sync=False):
         """
         Generates the op that syncs this Synchronizable's parent's variable values from another Synchronizable
         Component.
@@ -100,8 +100,11 @@ class Synchronizable(Component):
 
             tau (Optional[float]): An optional tau parameter which - when given - will override `self.sync_tau`.
 
+            force_sync (Optional[bool]): An optional force flag which - when given - will ignore the sync_every_n_steps
+                setting. Default: False (don't force the sync).
+
         Returns:
-            DataOp: The op that executes the syncing (or no_op if sync_every_n_times-condition not fulfilled).
+            DataOp: The op that executes the syncing (or no_op if sync_every_n_calls-condition not fulfilled).
         """
         if tau is None:
             tau = self.sync_tau
@@ -119,7 +122,7 @@ class Synchronizable(Component):
 
             with tf.control_dependencies([inc_op]):
                 sync_counter_op = tf.cond(
-                    self.steps_since_last_sync >= self.sync_every_n_times,
+                    tf.logical_or(self.steps_since_last_sync >= self.sync_every_n_calls, force_sync),
                     true_fn=reset_op,
                     false_fn=tf.no_op
                 )
@@ -170,7 +173,7 @@ class Synchronizable(Component):
             self.steps_since_last_sync += 1
 
             # Synchronize and reset our counter.
-            if self.steps_since_last_sync >= self.sync_every_n_times:
+            if self.steps_since_last_sync >= self.sync_every_n_calls or force_sync:
                 self.steps_since_last_sync = 0
 
                 # Get refs(!)

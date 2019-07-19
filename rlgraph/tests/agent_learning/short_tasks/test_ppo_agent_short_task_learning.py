@@ -20,12 +20,13 @@ import os
 import unittest
 
 import numpy as np
+
 from rlgraph.agents import PPOAgent
 from rlgraph.environments import OpenAIGymEnv, GridWorld
 from rlgraph.execution import SingleThreadedWorker
 from rlgraph.spaces import FloatBox
 from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
-from rlgraph.utils import root_logger
+from rlgraph.utils import root_logger, one_hot
 
 
 class TestPPOShortTaskLearning(unittest.TestCase):

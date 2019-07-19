@@ -41,7 +41,7 @@ class MyCompWithVars(Component):
         self.dummy_var_2 = None
 
         if synchronizable is True:
-            self.add_components(Synchronizable(sync_tau=tau, sync_every_n_times=freq), expose_apis="sync")
+            self.add_components(Synchronizable(sync_tau=tau, sync_every_n_calls=freq), expose_apis="sync")
 
     def create_variables(self, input_spaces, action_space=None):
         # create some dummy var to sync from/to.

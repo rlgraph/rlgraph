@@ -289,7 +289,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
             for t in self.target_q_functions:
                 t.add_components(Synchronizable(
                     sync_tau=self.q_function_sync_rules.sync_tau,
-                    sync_every_n_times=self.q_function_sync_rules.sync_every_n_updates
+                    sync_every_n_calls=self.q_function_sync_rules.sync_every_n_updates
                 ), expose_apis="sync")
 
         # Change name to avoid scope-collision.

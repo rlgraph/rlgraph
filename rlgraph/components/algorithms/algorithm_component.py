@@ -100,6 +100,7 @@ class AlgorithmComponent(Component):
         self.value_function = None
         if value_function_spec is not None:
             self.value_function = ValueFunction.from_spec(value_function_spec)
+            self.value_function.add_components(Synchronizable(), expose_apis="sync")
 
         # Optional exploration object. None if no exploration needed (usually None for PG algos, as they use
         # stochastic policies, not epsilon greedy Q).
@@ -170,12 +171,12 @@ class AlgorithmComponent(Component):
 
             @rlgraph_api(component=self, must_be_complete=False)
             def set_weights(self, policy_weights, value_function_weights=None):
-                # policy = self.get_sub_component_by_name(self.agent.policy.scope)
-                policy_sync_op = self.policy.sync(policy_weights)
-                if value_function_weights is not None:
+                policy_sync_op = self.policy.sync(policy_weights, tau=1.0, force_sync=True)
+                # Only call vf `sync` if it has a Synchronizable.
+                if value_function_weights is not None and \
+                        (self.agent is None or "value_function_weights" in self.agent.input_spaces):
                     assert self.value_function is not None
-                    # vf = self.get_sub_component_by_name(self.agent.value_function.scope)
-                    vf_sync_op = self.value_function.sync(value_function_weights)
+                    vf_sync_op = self.value_function.sync(value_function_weights, tau=1.0, force_sync=True)
                     return self._graph_fn_group(policy_sync_op, vf_sync_op)
                 else:
                     return policy_sync_op
