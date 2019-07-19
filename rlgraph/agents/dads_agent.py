@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import, division, print_function
-
 import numpy as np
 
 from rlgraph import get_backend
@@ -33,17 +31,19 @@ from rlgraph.utils.ops import FlattenedDataOp
 
 if get_backend() == "tf":
     import tensorflow as tf
-elif get_backend() == "pytorch":
-    import torch
+#elif get_backend() == "pytorch":
+#    import torch
 
 
-class SACAgent(Agent):
+class DADSAgent(Agent):
     """
-    This is an implementation of the Soft-Actor Critic algorithm [1].
+    "Dynamics Aware Discovery of Skills" Agent implementation [1]
+    Learns in two phases:
+    1) Learns continuous skills in unsupervised fashion (without rewards).
+    2) Uses a planner to apply these skills to a given optimization problem (with reward function).
 
-    [1]: Soft Actor-Critic Algorithms and Applications - Haarnoja, Zhou, Hartikainen et al -
-    UC Berkeley & Google Brain - 2018
-    http://arxiv.org/abs/1801.01290
+    [1]: Dynamics-Aware Unsupervised Discovery of Skills - Sharma et al - Google Brain - 2019
+    https://arxiv.org/pdf/1907.01657.pdf
     """
     def __init__(
         self,
@@ -58,28 +58,29 @@ class SACAgent(Agent):
         network_spec=None,
         internal_states_space=None,
         policy_spec=None,
-        q_function_spec=None,
+
+        #q_function_spec=None,
+
         execution_spec=None,
         optimizer_spec=None,
-        q_function_optimizer_spec=None,
+
+        #q_function_optimizer_spec=None,
+
         observe_spec=None,
         update_spec=None,
         sync_rules=None,
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
-        name="sac-agent",
-        double_q=True,
-        initial_alpha=1.0,
-        gumbel_softmax_temperature=1.0,
-        target_entropy=None,
+        name="dads-agent",
+
+        #double_q=True,
+        #initial_alpha=1.0,
+        #gumbel_softmax_temperature=1.0,
+        #target_entropy=None,
         memory_spec=None
     ):
         """
-        This is an implementation of the Soft-Actor Critic algorithm.
-
-        Paper: http://arxiv.org/abs/1801.01290
-
         Args:
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
             action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
@@ -110,44 +111,35 @@ class SACAgent(Agent):
                 for discrete actions.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
         """
-        super(SACAgent, self).__init__(
+        super(DADSAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
             python_buffer_size=python_buffer_size,
             custom_python_buffers=custom_python_buffers,
             internal_states_space=internal_states_space,
             execution_spec=execution_spec,
-            observe_spec=observe_spec,  # Obsolete.
-            update_spec=update_spec,  # Obsolete.
             summary_spec=summary_spec,
             saver_spec=saver_spec,
             name=name
         )
 
-        self.double_q = double_q
-        # Keep track of when to sync the target network (every n updates).
-        if isinstance(sync_rules, dict) and "sync_tau" not in sync_rules:
-            sync_rules["sync_tau"] = 0.005  # The value mentioned in the paper
-        self.sync_rules = SyncRules.from_spec(sync_rules)
-        self.steps_since_target_net_sync = 0
+        #self.double_q = double_q
+        ## Keep track of when to sync the target network (every n updates).
+        #if isinstance(sync_rules, dict) and "sync_tau" not in sync_rules:
+        #    sync_rules["sync_tau"] = 0.005  # The value mentioned in the paper
+        #self.sync_rules = SyncRules.from_spec(sync_rules)
+        #self.steps_since_target_net_sync = 0
 
-        self.root_component = SACAlgorithmComponent(
+        self.root_component = DADSAlgorithmComponent(
             agent=self,
             policy_spec=policy_spec,
             network_spec=network_spec,
-            q_function_spec=q_function_spec,  # q-functions
+            #q_function_spec=q_function_spec,  # q-functions
             preprocessing_spec=preprocessing_spec,
             memory_spec=memory_spec,
             discount=discount,
-            initial_alpha=initial_alpha,
-            target_entropy=target_entropy,
             memory_batch_size=memory_batch_size,
-            gumbel_softmax_temperature=gumbel_softmax_temperature,
             optimizer_spec=optimizer_spec,
-            q_function_optimizer_spec=q_function_optimizer_spec,
-            #alpha_optimizer=self.alpha_optimizer,
-            q_function_sync_rules=self.sync_rules,
-            num_q_functions=2 if self.double_q is True else 1
         )
 
         # Extend input Space definitions to this Agent's specific API-methods.
@@ -181,7 +173,7 @@ class SACAgent(Agent):
     def get_action(self, states, internals=None, use_exploration=True, apply_preprocessing=True, extra_returns=None,
                    time_percentage=None):
         # Call super.
-        ret = super(SACAgent, self).get_action(
+        ret = super(DADSAgent, self).get_action(
             states, internals, use_exploration, apply_preprocessing, extra_returns, time_percentage
         )
         actions = ret["actions"]
@@ -245,11 +237,8 @@ class SACAgent(Agent):
         )
 
 
-class SACAlgorithmComponent(AlgorithmComponent):
-    def __init__(self, agent, memory_spec, q_function_spec, initial_alpha=1.0, gumbel_softmax_temperature=1.0,
-                 target_entropy=None, q_function_sync_rules=None, num_q_functions=2, q_function_optimizer_spec=None,
-                 scope="sac-agent-component", **kwargs):
-
+class DADSAlgorithmComponent(AlgorithmComponent):
+    def __init__(self, agent, memory_spec, scope="sac-agent-component", **kwargs):
         # Setup our policy
         # - non-deterministic
         # - Continuous actions: Use squashed normal.
@@ -269,7 +258,7 @@ class SACAlgorithmComponent(AlgorithmComponent):
         else:
             _q_optimizer_spec = q_function_optimizer_spec
 
-        super(SACAlgorithmComponent, self).__init__(
+        super(DADSAlgorithmComponent, self).__init__(
             agent, policy_spec=policy_spec, scope=scope, **kwargs
         )
 
