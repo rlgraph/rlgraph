@@ -18,6 +18,7 @@ from __future__ import absolute_import, division, print_function
 import inspect
 
 import numpy as np
+
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import convert_dtype
 from rlgraph.utils.ops import FlattenedDataOp, flatten_op, unflatten_op, is_constant, DataOpDict
@@ -202,11 +203,20 @@ class DataOpRecordColumn(object):
         if num_op_records is None:
             self.op_records = []
             if args is not None:
+                use_keyword_for_args = False
                 args = list(args)
                 for i in range(len(args)):
+                    # Arg not provided -> If other args follow this one -> Translate those to kwargs.
                     if args[i] is None:
+                        use_keyword_for_args = True
                         continue
-                    op_rec = DataOpRecord(op=None, column=self, position=i)
+
+                    # Use position or kwarg (if necessary).
+                    if use_keyword_for_args is False:
+                        op_rec = DataOpRecord(op=None, column=self, position=i)
+                    else:
+                        assert hasattr(self, "api_method_rec")
+                        op_rec = DataOpRecord(op=None, column=self, kwarg=getattr(self, "api_method_rec").input_names[i])
 
                     # Dict instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
                     # ContainerMerger Component.
