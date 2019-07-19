@@ -13,13 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from collections import defaultdict
 from functools import partial
 import logging
+
 import numpy as np
 
 from rlgraph import get_backend
@@ -238,13 +237,18 @@ class Agent(Specifiable):
                 vf = root.get_sub_component_by_name(agent.value_function.scope)
                 return vf.value_output(preprocessed_states)
 
+        # Variable that stores episode rewards.
         self.root_component.episode_reward = None
 
-        def _create_variables(input_spaces, action_space):
-            agent.root_component.episode_reward = agent.root_component.get_variable(
-                "episode_reward", shape=(), initializer=0.0)
-
-        self.root_component.create_variables = _create_variables
+        # Assign `create_variables` method to root.
+        def _create_variables(self, input_spaces, action_space):
+            # Skip this for multi-GPU towers.
+            if not hasattr(self, "is_multi_gpu_tower") or self.is_multi_gpu_tower is False:
+                agent.root_component.episode_reward = agent.root_component.get_variable(
+                    "episode-reward", shape=(), initializer=0.0
+                )
+        # Bind `_create_variables` method (as "create_variables") to this Component object.
+        setattr(self.root_component, "create_variables", _create_variables.__get__(self.root_component, None))
 
         # Add API methods for syncing.
         @rlgraph_api(component=self.root_component)
