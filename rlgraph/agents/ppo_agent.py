@@ -16,13 +16,14 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.agents import Agent
 from rlgraph.components import Memory, RingBuffer, PPOLossFunction
 from rlgraph.components.helpers import GeneralizedAdvantageEstimation
 from rlgraph.spaces import BoolBox, FloatBox
 from rlgraph.utils import util
-from rlgraph.utils.decorators import rlgraph_api, graph_fn
+from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten
 from rlgraph.utils.ops import flatten_op, DataOpDict, DataOp
 from rlgraph.utils.util import strip_list

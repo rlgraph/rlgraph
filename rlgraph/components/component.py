@@ -23,6 +23,7 @@ from collections import OrderedDict
 
 import numpy as np
 from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
