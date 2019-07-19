@@ -288,15 +288,6 @@ class TestPoliciesOnContainerActions(unittest.TestCase):
             add_batch_rank=True,
             add_time_rank=True
         )
-        #flat_float_action_space = Tuple(
-        #    FloatBox(shape=(2,)),
-        #    FloatBox(shape=(3,)),
-        #    Dict(
-        #        a=FloatBox(shape=(4,)),
-        #    ),
-        #    add_batch_rank=True,
-        #    add_time_rank=True
-        #)
 
         # Policy with baseline action adapter AND batch-apply over the entire policy (NN + ActionAdapter + distr.).
         network_spec = config_from_path("configs/test_lrelu_nn.json")

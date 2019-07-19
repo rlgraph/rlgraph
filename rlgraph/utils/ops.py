@@ -341,12 +341,12 @@ def flat_key_lookup(container, flat_key, default=None, custom_scope_separator=No
         # Tuple.
         if mo is not None:
             slot = int(mo.group(1))
-            if slot >= len(result) and default is not None:
+            if (slot >= len(result) or not isinstance(result, (tuple, list))) and default is not None:
                 return default
             result = result[slot]
         # Dict.
         else:
-            if key not in result and default is not None:
+            if (key not in result or not isinstance(result, dict)) and default is not None:
                 return default
             result = result[key]
     return result
