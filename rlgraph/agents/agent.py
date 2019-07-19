@@ -321,8 +321,10 @@ class Agent(Specifiable):
                 add_op = tf.assign_add(self.graph_executor.global_timestep, increment)
                 return add_op
             elif get_backend() == "pytorch":
-                self.graph_executor.global_timestep += increment
-                return self.graph_executor.global_timestep
+                # If we are in build phase, don't do anything here.
+                if self.graph_executor.global_timestep is not None:
+                    self.graph_executor.global_timestep += increment
+                return None
 
         @rlgraph_api(component=self.root_component)
         def _graph_fn_get_episode_reward(root):
@@ -570,10 +572,11 @@ class Agent(Specifiable):
     def _write_rewards_summary(self, rewards, terminals, env_id):
         """
         Writes summary for the observed rewards.
-        :param rewards: The observed rewards
-        :param terminals: The observed episode terminal states
-        :param env_id: The id of the environment
-        :return:
+
+        Args:
+            rewards (float): The observed rewards.
+            terminals (bool): The observed episode terminal states.
+            env_id (str): The id of the environment.
         """
         # TODO: 1. handle env_id
         # TODO: 2. control the level of verbosity

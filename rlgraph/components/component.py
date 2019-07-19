@@ -901,7 +901,7 @@ class Component(Specifiable):
                     args_str = args_str[:-2]  # -2=cut last ', '
                     code += args_str_w_default[:-2] + "):\n" # -2=cut last ', '
                     code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(component.name, api_method_name, args_str)
-                    print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
+                    #print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
                     exec(code, globals(), locals())
 
         # Add own reusable scope to front of all sub-components' reusable scope.
