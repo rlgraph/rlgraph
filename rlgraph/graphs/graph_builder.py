@@ -320,7 +320,7 @@ class GraphBuilder(Specifiable):
             with tf.device(device):
                 placeholder = space.get_variable(name=name, is_input_feed=True)
         elif get_backend() == "pytorch":
-                placeholder = space.get_variable(name=name, is_input_feed=True, is_python=True)
+            placeholder = space.get_variable(name=name, is_input_feed=True, is_python=True)
         self.placeholders[name] = placeholder
         return placeholder
 
@@ -497,6 +497,23 @@ class GraphBuilder(Specifiable):
 
         return device
 
+    def _run_in_context(self, graph_fn, component, *args, **kwargs):
+        is_build_time = self.phase == "building"
+        if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
+            call_time = time.perf_counter()
+            TraceContext.ACTIVE_CALL_CONTEXT = True
+            TraceContext.CONTEXT_START = call_time
+
+        component.start_summary_ops_buffer()
+        ops = graph_fn(component, *args, **kwargs)
+        summary_ops = component.pop_summary_ops_buffer()
+        if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
+            self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
+            TraceContext.CONTEXT_START = None
+            TraceContext.ACTIVE_CALL_CONTEXT = False
+
+        return ops, summary_ops
+
     def run_through_graph_fn(self, op_rec_column, create_new_out_column=None):
         """
         Pushes all ops in the column through the respective graph_fn (graph_fn-spec and call-options are part of
@@ -511,7 +528,7 @@ class GraphBuilder(Specifiable):
             create_new_out_column (Optional[bool]): If given, whether to produce the out op-record column
                 (or use the one already in the meta-graph). If True and the `op_rec_column` already links to an out
                 op-rec column, raises an error.
-                Default: None, meaning only create a new column if one dies not exist.
+                Default: None, meaning only create a new column if one does not exist.
 
         Returns:
             DataOpRecordColumnFromGraphFn: The op-record column coming out of the graph_fn. This column may have
@@ -522,8 +539,8 @@ class GraphBuilder(Specifiable):
         kwargs = {r.kwarg: r.op for r in op_rec_column.op_records if r.kwarg is not None}
         assert all(op is not None for op in args)  # just make sure
 
-        call_time = None
-        is_build_time = self.phase == "building"
+        #call_time = None
+        #is_build_time = self.phase == "building"
 
         # Build the ops from this input-combination.
         # Flatten input items.
@@ -538,20 +555,16 @@ class GraphBuilder(Specifiable):
                 # There is some splitting to do. Call graph_fn many times (one for each split).
                 if isinstance(split_args_and_kwargs, FlattenedDataOp):
                     ops = {}
+                    summary_ops = []
                     num_return_values = -1
                     for key, params in split_args_and_kwargs.items():
                         params_args = params[0]
                         params_kwargs = params[1]
-                        if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
-                            TraceContext.ACTIVE_CALL_CONTEXT = True
-                            TraceContext.CONTEXT_START = time.perf_counter()
 
-                        ops[key] = force_tuple(op_rec_column.graph_fn(op_rec_column.component,
-                                                                      *params_args, **params_kwargs))
-                        if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
-                            self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
-                            TraceContext.CONTEXT_START = None
-                            TraceContext.ACTIVE_CALL_CONTEXT = False
+                        ret_ops, ret_summary_ops = self._run_in_context(
+                            op_rec_column.graph_fn, op_rec_column.component, *params_args, **params_kwargs)
+                        summary_ops.extend(ret_summary_ops)
+                        ops[key] = force_tuple(ret_ops)
 
                         if num_return_values >= 0 and num_return_values != len(ops[key]):
                             raise RLGraphError(
@@ -572,37 +585,14 @@ class GraphBuilder(Specifiable):
                 # No splitting to do: Pass everything as-is.
                 else:
                     split_args, split_kwargs = split_args_and_kwargs[0], split_args_and_kwargs[1]
-                    if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
-                        TraceContext.ACTIVE_CALL_CONTEXT = True
-                        TraceContext.CONTEXT_START = time.perf_counter()
-                    ops = op_rec_column.graph_fn(op_rec_column.component, *split_args, **split_kwargs)
-                    if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
-                        self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
-                        TraceContext.CONTEXT_START = None
-                        TraceContext.ACTIVE_CALL_CONTEXT = False
+                    ops, summary_ops = self._run_in_context(
+                        op_rec_column.graph_fn, op_rec_column.component, *split_args, **split_kwargs
+                    )
             else:
-                if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
-                    TraceContext.ACTIVE_CALL_CONTEXT = True
-                    TraceContext.CONTEXT_START = time.perf_counter()
-
-                ops = op_rec_column.graph_fn(op_rec_column.component, *flattened_args, **flattened_kwargs)
-                if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
-                    self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
-                    TraceContext.CONTEXT_START = None
-                    TraceContext.ACTIVE_CALL_CONTEXT = False
+                ops, summary_ops = self._run_in_context(op_rec_column.graph_fn, op_rec_column.component, *flattened_args, **flattened_kwargs)
         # Just pass in everything as-is.
         else:
-            if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is False:
-                call_time = time.perf_counter()
-                TraceContext.ACTIVE_CALL_CONTEXT = True
-                TraceContext.CONTEXT_START = call_time
-
-            ops = op_rec_column.graph_fn(op_rec_column.component, *args, **kwargs)
-            if is_build_time and TraceContext.ACTIVE_CALL_CONTEXT is True:
-                self.graph_call_times.append(time.perf_counter() - TraceContext.CONTEXT_START)
-                TraceContext.CONTEXT_START = None
-                TraceContext.ACTIVE_CALL_CONTEXT = False
-
+            ops, summary_ops = self._run_in_context(op_rec_column.graph_fn, op_rec_column.component, *args, **kwargs)
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
 
@@ -621,7 +611,7 @@ class GraphBuilder(Specifiable):
             if op_rec_column.out_graph_fn_column is None:
                 out_graph_fn_column = DataOpRecordColumnFromGraphFn(
                     len(ops), component=op_rec_column.component, graph_fn_name=op_rec_column.graph_fn.__name__,
-                    in_graph_fn_column=op_rec_column
+                    in_graph_fn_column=op_rec_column, summary_ops=summary_ops
                 )
             else:
                 out_graph_fn_column = op_rec_column.out_graph_fn_column
@@ -660,6 +650,7 @@ class GraphBuilder(Specifiable):
             # sanity checking.
             if space:  # could be 0
                 space.op_rec_ref = out_graph_fn_column.op_records[i]
+        out_graph_fn_column.summary_ops = summary_ops
 
         return out_graph_fn_column
 

@@ -20,6 +20,7 @@ from __future__ import print_function
 import json
 import numpy as np
 import os
+import re
 
 from rlgraph import get_backend
 
@@ -141,3 +142,20 @@ def recursive_assert_almost_equal(x, y, decimals=7, atol=None, rtol=None):
             if rtol is None:
                 rtol = 1e-7
             np.testing.assert_allclose(x, y, atol=atol, rtol=rtol)
+
+
+class regex_pattern(object):
+    def __init__(self, pattern):
+        self.pattern = pattern
+
+    def __eq__(self, other):
+        return re.match(self.pattern, other) is not None
+
+    def __ne__(self, other):
+        return not re.match(self.pattern, other)
+
+    def __str__(self):
+        return "~ {}".format(self.pattern)
+
+    def __repr__(self):
+        return "~ r\"{}\"".format(self.pattern)

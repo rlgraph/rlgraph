@@ -179,6 +179,9 @@ class Component(Specifiable):
         # This will be set by the GraphBuilder at build time.
         self.summary_regexp = None
 
+        # This is a stack of summaries to be filled by the graph_fn calls
+        self._summary_ops_buffer_stack = []
+
         # Now add all sub-Components (also support all sub-Components being given in a single list).
         sub_components = sub_components[0] if len(sub_components) == 1 and \
             isinstance(sub_components[0], (list, tuple)) else sub_components
@@ -1337,6 +1340,28 @@ class Component(Specifiable):
         # '/' could collide with a FlattenedDataOp's keys and mess up the un-flatten process.
         variables_dict = self.get_variables(custom_scope_separator="-")
         return DataOpDict(variables_dict)
+
+    def register_summary_op(self, summary_op):
+        """
+        Registers a summary operation with the current graph function.
+        :param summary_op:
+        :return:
+        """
+        self._summary_ops_buffer_stack[-1].append(summary_op)
+
+    def pop_summary_ops_buffer(self):
+        """
+        *Internal use only!* Pops the last frame of the summary ops buffer stack.
+        :return: The accumulated summary ops.
+        """
+        return self._summary_ops_buffer_stack.pop()
+
+    def start_summary_ops_buffer(self):
+        """
+        *Internal use only!* Starts a new frame in the summary ops buffer stack.
+        :return:
+        """
+        self._summary_ops_buffer_stack.append([])
 
     def _variables(self):
         """

@@ -24,7 +24,7 @@ import time
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import util
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
-    DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
+    DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, gather_summaries
 from rlgraph.utils.ops import TraceContext
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError, RLGraphVariableIncompleteError, \
     RLGraphInputIncompleteError
@@ -269,6 +269,12 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
                     break
 
             if return_ops is True:
+                assert len(caller_component._summary_ops_buffer_stack) > 0,\
+                    "Called by other graph_fn, there should be summary_ops buffer started"
+                # Propagate the summaries to the parent now as this breaks the meta-graph chain.
+                summaries = gather_summaries(out_op_column.op_records)
+                for summary_op in summaries:
+                    caller_component.register_summary_op(summary_op)
                 if type(return_values) == dict:
                     return {key: value.op for key, value in out_op_column.get_args_and_kwargs()[1].items()}
                 else:
@@ -614,7 +620,8 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
         out_graph_fn_column = DataOpRecordColumnFromGraphFn(
             num_op_records=num_graph_fn_return_values,
             component=component, graph_fn_name=wrapped_func.__name__,
-            in_graph_fn_column=in_graph_fn_column
+            in_graph_fn_column=in_graph_fn_column,
+            summary_ops=[]
         )
 
         in_graph_fn_column.out_graph_fn_column = out_graph_fn_column
@@ -634,6 +641,13 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
     if return_ops is True:  #re.match(r'^_graph_fn_.+|<lambda>$', stack[2][3]) and out_graph_fn_column.op_records[0].op is not None:
         assert out_graph_fn_column.op_records[0].op is not None,\
             "ERROR: Cannot return ops (instead of op-recs) if ops are still None!"
+        # By contract the graph functions are "private" to the component.
+        caller_component = out_graph_fn_column.component
+        assert len(caller_component._summary_ops_buffer_stack) > 0, \
+            "Called by other graph_fn, there should be summary_ops buffer started"
+        # Propagate the summaries to the parent now as this breaks the meta-graph chain.
+        for summary_op in out_graph_fn_column.summary_ops:
+            caller_component.register_summary_op(summary_op)
         if len(out_graph_fn_column.op_records) == 1:
             return out_graph_fn_column.op_records[0].op
         else:

@@ -71,5 +71,10 @@
   "value_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0025
+  },
+  "summary_spec": {
+    "summary_regexp": ".*",
+    "save_steps": 1,
+    "save_secs": null
   }
 }
