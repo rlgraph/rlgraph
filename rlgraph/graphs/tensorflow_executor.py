@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os
 import time
@@ -362,12 +360,18 @@ class TensorFlowExecutor(GraphExecutor):
         self.graph_default_context = self.graph.as_default()
         self.graph_default_context.__enter__()
 
+        # Create global training (update) timestep. Gets increased once per update.
+        # Do not include this in GLOBAL_STEP collection as only one variable (`global_timestep`) should be in there.
         self.global_training_timestep = tf.get_variable(
             name="global-training-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,
-            collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
+            collections=["global-training-timestep"]
+        )
+        # Create global (env-stepping) timestep. Gets increased once per environment step.
+        # For vector-envs, gets increased each action by the number of parallel environments.
         self.global_timestep = tf.get_variable(
             name="global-timestep", dtype=util.convert_dtype("int"), trainable=False, initializer=0,
-            collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP])
+            collections=["global-timestep", tf.GraphKeys.GLOBAL_STEP]
+        )
 
         # Set the random seed graph-wide.
         if self.seed is not None:
