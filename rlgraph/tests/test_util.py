@@ -13,14 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import json
-import numpy as np
 import os
 import re
+
+import numpy as np
 
 from rlgraph import get_backend
 
@@ -104,10 +103,10 @@ def recursive_assert_almost_equal(x, y, decimals=7, atol=None, rtol=None):
         assert isinstance(y, dict), "ERROR: If x is dict, y needs to be a dict as well!"
         y_keys = set(x.keys())
         for key, value in x.items():
-            assert key in y, "ERROR: y does not have x's key='{}'!".format(key)
+            assert key in y, "ERROR: y does not have x's key='{}'! y={}".format(key, y)
             recursive_assert_almost_equal(value, y[key], decimals=decimals, atol=atol, rtol=rtol)
             y_keys.remove(key)
-        assert not y_keys, "ERROR: y contains keys ({}) that are not in x!".format(list(y_keys))
+        assert not y_keys, "ERROR: y contains keys ({}) that are not in x! y={}".format(list(y_keys), y)
     # A tuple type.
     elif isinstance(x, (tuple, list)):
         assert isinstance(y, (tuple, list)), "ERROR: If x is tuple, y needs to be a tuple as well!"

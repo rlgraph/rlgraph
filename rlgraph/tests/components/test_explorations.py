@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
@@ -71,30 +69,33 @@ class TestExplorations(unittest.TestCase):
 
         # With exploration: Check, whether actions are equally distributed.
         nn_outputs = nn_output_space.sample(2)
-        time_percentages = time_percentage_space.sample(30)
+        sample_size = 100
+        time_percentages = time_percentage_space.sample(sample_size)
         # Collect action-batch-of-2 for each of our various random time steps.
         # Each action is an int box of shape=(2,2)
-        actions = np.ndarray(shape=(30, 2, 2, 2), dtype=np.int)
+        actions = np.ndarray(shape=(sample_size, 2, 2, 2), dtype=np.int)
+        actions_wo_exploration = np.mean(test.test(("get_action", [nn_outputs, 1.0])))
         for i, time_percentage in enumerate(time_percentages):
             actions[i] = test.test(("get_action", [nn_outputs, time_percentage]), expected_outputs=None)
 
         # Assert some distribution of the actions.
         mean_action = actions.mean()
         stddev_action = actions.std()
-        self.assertAlmostEqual(mean_action, 2.0, places=0)
+        self.assertAlmostEqual(mean_action, 0.5 * 2.0 + 0.5 * actions_wo_exploration, places=1)
         self.assertAlmostEqual(stddev_action, 1.0, places=0)
 
         # Without exploration (epsilon is force-set to 0.0): Check, whether actions are always the same
         # (given same nn_output all the time).
         nn_outputs = nn_output_space.sample(2)
-        time_percentages = time_percentage_space.sample(30) + 0.95
+        # +1.0: Use high time-percentage (>100%) to force no exploration.
+        time_percentages = time_percentage_space.sample(sample_size) + 1.0
         # Collect action-batch-of-2 for each of our various random time steps.
         # Each action is an int box of shape=(2,2)
-        actions = np.ndarray(shape=(30, 2, 2, 2), dtype=np.int)
+        actions = np.ndarray(shape=(sample_size, 2, 2, 2), dtype=np.int)
         for i, time_percentage in enumerate(time_percentages):
             actions[i] = test.test(("get_action", [nn_outputs, time_percentage]), expected_outputs=None)
 
-        # Assert zero stddev of the single action components.
+        # Assert almost zero stddev of the single action components.
         stddev_action_a = actions[:, 0, 0, 0].std()  # batch item 0, action-component (0,0)
         self.assertAlmostEqual(stddev_action_a, 0.0, places=1)
         stddev_action_b = actions[:, 1, 1, 0].std()  # batch item 1, action-component (1,0)
