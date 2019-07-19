@@ -328,9 +328,25 @@ class GraphBuilder(Specifiable):
         self.placeholders[name] = placeholder
         return placeholder
 
-    def build_component_when_input_complete(self, component, check_sub_components=True):
-        graph_fn_requiring_var_completeness = [gf.name for gf in component.graph_fns.values() if
-                                               gf.requires_variable_completeness is True]
+    def build_component_when_input_complete(self, component, build_sub_components=True):
+        """
+        Builds a Component once it's input-complete.
+        Building includes a) checking a Component's input spaces,
+        b) creating its variables and c) setting the proper "built"-flags.
+        While building, may check all of the Component's child and parent Components for completeness as well
+        (e.g. once a Component becomes input-complete and thus has its variables created, its parent
+        Component might become variable-complete because of that).
+
+        Args:
+            component (Component): The Component to check.
+
+            build_sub_components (bool): Whether to check as well on all the Component's (direct) children
+                and build these as well if input-complete.
+        """
+        # Collect all graph_fn records whose call requires the Component to be variable-complete.
+        graph_fn_requiring_var_completeness = [
+            gf.name for gf in component.graph_fns.values() if gf.requires_variable_completeness is True
+        ]
 
         # Not input complete yet.
         if component.input_complete is False or component.inputs_checked_and_vars_created is False:
@@ -395,21 +411,21 @@ class GraphBuilder(Specifiable):
             if built_completely:
                 component.built = True
 
-            if check_sub_components is True:
+            # Collect direct sub-components and try to build them as well.
+            if build_sub_components is True:
                 # Check variable-completeness and actually call the _variable graph_fn if not already done so.
-                # Collect sub-components and build them as well if they just became variable-complete.
-                sub_components = component.sub_components.values()
-                sub_components_not_var_complete = set()
-                for sub_component in sub_components:
-                    if sub_component.variable_complete is False:
-                        sub_components_not_var_complete.add(sub_component)
+                #sub_components = component.sub_components.values()
+                #sub_components_not_var_complete = set()
+                #for sub_component in sub_components:
+                #    if sub_component.variable_complete is False:
+                #        sub_components_not_var_complete.add(sub_component)
 
-                for sub_component in sub_components_not_var_complete:
-                    self.build_component_when_input_complete(sub_component)
+                for sub_component in component.sub_components.values():  #sub_components_not_var_complete:
+                    self.build_component_when_input_complete(sub_component, build_sub_components=build_sub_components)
 
             # Now that the component is variable-complete, the parent may have become variable-complete as well.
             if component.parent_component is not None and component.parent_component.variable_complete is False:
-                self.build_component_when_input_complete(component.parent_component, check_sub_components=False)
+                self.build_component_when_input_complete(component.parent_component, build_sub_components=False)
 
     def run_through_graph_fn_with_device_and_scope(self, op_rec_column, create_new_out_column=None):
         """
