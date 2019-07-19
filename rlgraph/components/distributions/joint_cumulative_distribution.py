@@ -13,15 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.distributions.distribution import Distribution
 from rlgraph.components.layers.preprocessing.reshape import ReShape
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.ops import flatten_op
+from rlgraph.utils.ops import flatten_op, FlattenedDataOp
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -56,32 +54,79 @@ class JointCumulativeDistribution(Distribution):
         self.add_components(self.flattener, *list(self.flattened_sub_distributions.values()))
 
     @rlgraph_api
+    def sample_deterministic(self, parameters):
+        return self._graph_fn_sample_deterministic(parameters)
+
+    @rlgraph_api
+    def sample_stochastic(self, parameters):
+        return self._graph_fn_sample_stochastic(parameters)
+
+    @rlgraph_api
+    def draw(self, parameters, deterministic=True):
+        return self._graph_fn_draw(parameters, deterministic)
+
+    @rlgraph_api
+    def sample_and_log_prob(self, parameters, deterministic=True):
+        #distribution = self.get_distribution(parameters)
+        actions = self._graph_fn_draw(parameters, deterministic)
+        log_probs = self._graph_fn_log_prob(parameters, actions)
+        return actions, log_probs
+
+    #@rlgraph_api
+    #def entropy(self, parameters):
+    #    return self._graph_fn_entropy(parameters)
+
+    @rlgraph_api
     def log_prob(self, parameters, values):
         """
         Override log_prob API as we have to add all the resulting log-probs together
         (joint log-prob of individual ones).
         """
-        distributions = self.get_distribution(parameters)
-        all_log_probs = self._graph_fn_log_prob(distributions, values)
+        #distributions = self.get_distribution(parameters)
+        all_log_probs = self._graph_fn_log_prob(parameters, values)
         return self._graph_fn_reduce_over_sub_distributions(all_log_probs)
+
+    #@rlgraph_api(must_be_complete=False)
+    #def kl_divergence(self, parameters, other_parameters):
+    #    distribution = self.get_distribution(parameters)
+    #    other_distribution = self.get_distribution(other_parameters)
+    #    return self._graph_fn_kl_divergence(distribution, other_distribution)
 
     # Flatten only alongside `self.flattened_sub_distributions`, not any further.
     @rlgraph_api(flatten_ops="flattened_sub_distributions", split_ops=True, add_auto_key_as_first_param=True, ok_to_overwrite=True)
     def _graph_fn_get_distribution(self, key, parameters):
         return self.flattened_sub_distributions[key].get_distribution(parameters)
 
-    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_sample_deterministic(self, key, distribution):
-        return self.flattened_sub_distributions[key]._graph_fn_sample_deterministic(distribution)
+    @graph_fn(flatten_ops="flattened_sub_distributions")
+    def _graph_fn_sample_deterministic(self, parameters):
+        ret = {}
+        for key in parameters:
+            ret[key] = self.flattened_sub_distributions[key].sample_deterministic(parameters[key])
+        return FlattenedDataOp(ret)
 
-    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_sample_stochastic(self, key, distribution):
-        return self.flattened_sub_distributions[key]._graph_fn_sample_stochastic(distribution)
+    @graph_fn(flatten_ops="flattened_sub_distributions")
+    def _graph_fn_sample_stochastic(self, parameters):
+        ret = {}
+        for key in parameters:
+            ret[key] = self.flattened_sub_distributions[key].sample_stochastic(parameters[key])
+        return FlattenedDataOp(ret)
+
+    @graph_fn(flatten_ops="flattened_sub_distributions")
+    def _graph_fn_draw(self, parameters, deterministic):
+        ret = {}
+        for key in parameters:
+            ret[key] = self.flattened_sub_distributions[key].draw(parameters[key], deterministic)
+        return FlattenedDataOp(ret)
 
     # Flatten only alongside `self.flattened_sub_distributions`, not any further.
-    @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_log_prob(self, key, distribution, values):
-        return self.flattened_sub_distributions[key]._graph_fn_log_prob(distribution, values)
+    @graph_fn(flatten_ops="flattened_sub_distributions")
+    def _graph_fn_log_prob(self, parameters, values):
+        ret = {}
+        for key in parameters:
+            #d = self.flattened_sub_distributions[key].get_distribution(parameters[key])
+            #return self.flattened_sub_distributions[key]._graph_fn_log_prob(distribution, values)
+            ret[key] = self.flattened_sub_distributions[key].log_prob(parameters[key], values[key])
+        return FlattenedDataOp(ret)
 
     @graph_fn(flatten_ops=True)
     def _graph_fn_reduce_over_sub_distributions(self, log_probs):
@@ -112,7 +157,7 @@ class JointCumulativeDistribution(Distribution):
         if get_backend() == "tf":
             for key, distr in distribution.items():
                 entropy = distr.entropy()
-                # Reduce sum over all ranks to get the joint log llh.
+                # Reduce sum over all ranks to get the joint entropy.
                 entropy = tf.reduce_sum(entropy, axis=list(range(len(entropy.shape) - 1, num_ranks_to_keep - 1, -1)))
                 all_entropies.append(entropy)
             return tf.reduce_sum(tf.stack(all_entropies, axis=0), axis=0)

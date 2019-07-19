@@ -1344,23 +1344,25 @@ class Component(Specifiable):
 
     def register_summary_op(self, summary_op):
         """
-        Registers a summary operation with the current graph function.
-        :param summary_op:
-        :return:
+        Registers a summary operation with the current graph function (position -1 on the stack).
+
+        Args:
+            summary_op (DataOp): The summary op to add to the last registry item in the stack.
         """
         self._summary_ops_buffer_stack[-1].append(summary_op)
 
     def pop_summary_ops_buffer(self):
         """
         *Internal use only!* Pops the last frame of the summary ops buffer stack.
-        :return: The accumulated summary ops.
+
+        Returns:
+            The accumulated summary ops.
         """
         return self._summary_ops_buffer_stack.pop()
 
     def start_summary_ops_buffer(self):
         """
         *Internal use only!* Starts a new frame in the summary ops buffer stack.
-        :return:
         """
         self._summary_ops_buffer_stack.append([])
 

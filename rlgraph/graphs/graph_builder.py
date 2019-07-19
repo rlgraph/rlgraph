@@ -560,9 +560,9 @@ class GraphBuilder(Specifiable):
                     for key, params in split_args_and_kwargs.items():
                         params_args = params[0]
                         params_kwargs = params[1]
-
                         ret_ops, ret_summary_ops = self._run_in_context(
-                            op_rec_column.graph_fn, op_rec_column.component, *params_args, **params_kwargs)
+                            op_rec_column.graph_fn, op_rec_column.component, *params_args, **params_kwargs
+                        )
                         summary_ops.extend(ret_summary_ops)
                         ops[key] = force_tuple(ret_ops)
 
@@ -589,10 +589,14 @@ class GraphBuilder(Specifiable):
                         op_rec_column.graph_fn, op_rec_column.component, *split_args, **split_kwargs
                     )
             else:
-                ops, summary_ops = self._run_in_context(op_rec_column.graph_fn, op_rec_column.component, *flattened_args, **flattened_kwargs)
+                ops, summary_ops = self._run_in_context(
+                    op_rec_column.graph_fn, op_rec_column.component, *flattened_args, **flattened_kwargs
+                )
         # Just pass in everything as-is.
         else:
-            ops, summary_ops = self._run_in_context(op_rec_column.graph_fn, op_rec_column.component, *args, **kwargs)
+            ops, summary_ops = self._run_in_context(
+                op_rec_column.graph_fn, op_rec_column.component, *args, **kwargs
+            )
         # Make sure everything coming from a computation is always a tuple (for out-Socket indexing).
         ops = force_tuple(ops)
 
