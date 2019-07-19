@@ -320,7 +320,7 @@ class Agent(Specifiable):
             if get_backend() == "tf":
                 add_op = tf.assign_add(self.graph_executor.global_timestep, increment)
                 return add_op
-            elif get_backend == "pytorch":
+            elif get_backend() == "pytorch":
                 self.graph_executor.global_timestep += increment
                 return self.graph_executor.global_timestep
 
@@ -330,7 +330,11 @@ class Agent(Specifiable):
 
         @rlgraph_api(component=self.root_component)
         def _graph_fn_set_episode_reward(root, episode_reward):
-            return tf.assign(root.episode_reward, episode_reward)
+            if get_backend() == "tf":
+                return tf.assign(root.episode_reward, episode_reward)
+            elif get_backend() == "pytorch":
+                root.episode_reward = episode_reward
+                return None
 
     def _build_graph(self, root_components, input_spaces, **kwargs):
         """
