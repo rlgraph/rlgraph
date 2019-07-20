@@ -364,10 +364,13 @@ def execute_define_by_run_graph_fn(component, graph_fn, options, *args, **kwargs
                     # Args did not contain deep nested structure so
                     flattened_ret = graph_fn(component, *split_args, **split_kwargs)
 
+            if flattened_ret is None:
+                return None
             # If result is a raw tensor, return as is.
             if get_backend() == "pytorch":
                 if isinstance(flattened_ret, torch.Tensor):
                     return flattened_ret
+
             unflattened_ret = []
             for i, op in enumerate(flattened_ret):
                 # Try to re-nest ordered-dict it.
@@ -385,4 +388,7 @@ def execute_define_by_run_graph_fn(component, graph_fn, options, *args, **kwargs
                 ret = graph_fn(component, "", *args, **kwargs)
             else:
                 ret = graph_fn(component, *args, **kwargs)
-            return define_by_run_unpack(ret)
+            if ret is not None:
+                return define_by_run_unpack(ret)
+            else:
+                return None
