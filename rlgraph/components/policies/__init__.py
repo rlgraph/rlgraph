@@ -13,20 +13,18 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.policies.policy import Policy
 from rlgraph.components.policies.shared_value_function_policy import SharedValueFunctionPolicy
 from rlgraph.components.policies.dueling_policy import DuelingPolicy
+from rlgraph.components.policies.supervised_predictor import SupervisedPredictor
 
-# The Stacks.
 Policy.__lookup_classes__ = dict(
     policy=Policy,
     sharedvaluefunctionpolicy=SharedValueFunctionPolicy,
     duelingpolicy=DuelingPolicy
 )
 
-__all__ = ["Policy"] + \
+__all__ = ["Policy", "SupervisedPredictor"] + \
           list(set(map(lambda x: x.__name__, Policy.__lookup_classes__.values())))
