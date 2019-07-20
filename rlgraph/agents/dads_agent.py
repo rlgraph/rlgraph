@@ -42,6 +42,10 @@ class DADSAgent(Agent):
     1) Learns continuous skills in unsupervised fashion (without rewards).
     2) Uses a planner to apply these skills to a given optimization problem (with reward function).
 
+    dads is a simple wrapper around any RL-algorithm (SAC is used in the paper), only adding an extra skill-vector
+    input to the state space. Skills are selected during training time at (uniform) random and then fed  as continuous
+    or one-hot vectors into the chosen algorithm's policy.
+
     [1]: Dynamics-Aware Unsupervised Discovery of Skills - Sharma et al - Google Brain - 2019
     https://arxiv.org/pdf/1907.01657.pdf
     """
@@ -50,78 +54,53 @@ class DADSAgent(Agent):
         state_space,
         action_space,
         *,
-        discount=0.98,
-        python_buffer_size=0,
-        custom_python_buffers=None,
-        memory_batch_size=None,
-        preprocessing_spec=None,
-        network_spec=None,
-        internal_states_space=None,
-        policy_spec=None,
-
-        #q_function_spec=None,
-
+        rl_algorithm_spec=None,
+        num_skill_dimensions=10,
+        use_discrete_skills=False,
         execution_spec=None,
-        optimizer_spec=None,
-
-        #q_function_optimizer_spec=None,
-
-        observe_spec=None,
-        update_spec=None,
-        sync_rules=None,
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
-        name="dads-agent",
-
-        #double_q=True,
-        #initial_alpha=1.0,
-        #gumbel_softmax_temperature=1.0,
-        #target_entropy=None,
-        memory_spec=None
+        name="dads-agent"
     ):
         """
         Args:
             state_space (Union[dict,Space]): Spec dict for the state Space or a direct Space object.
             action_space (Union[dict,Space]): Spec dict for the action Space or a direct Space object.
-            preprocessing_spec (Optional[list,PreprocessorStack]): The spec list for the different necessary states
-                preprocessing steps or a PreprocessorStack object itself.
-            discount (float): The discount factor (gamma).
-            network_spec (Optional[list,NeuralNetwork]): Spec list for a NeuralNetwork Component or the NeuralNetwork
-                object itself.
-            internal_states_space (Optional[Union[dict,Space]]): Spec dict for the internal-states Space or a direct
-                Space object for the Space(s) of the internal (RNN) states.
-            policy_spec (Optional[dict]): An optional dict for further kwargs passing into the Policy c'tor.
-            q_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
-                of ValueFunction.
+
+            rl_algorithm_spec (Union[dict,AlgorithmComponent]): Spec dict for the underlying learning RL algorithm
+                Component.
+            num_skill_dimensions (int): The size of the skills vector.
+
+            use_discrete_skills (bool): Whether to use discrete skills (one-hot vectors of size `num_skill_dimensions`).
+                Default: False (continuous skills).
+
             execution_spec (Optional[dict,Execution]): The spec-dict specifying execution settings.
-            optimizer_spec (Optional[dict,Optimizer]): The spec-dict to create the Optimizer for this Agent.
-            q_function_optimizer_spec (dict): Optimizer config for value function optimizer. If None, the optimizer
-                spec for the policy is used (same learning rate and optimizer type).
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
+
             auto_build (Optional[bool]): If True (default), immediately builds the graph using the agent's
                 graph builder. If false, users must separately call agent.build(). Useful for debugging or analyzing
                 components before building.
+
             name (str): Some name for this Agent object.
-            double_q (bool): Whether to train two q networks independently.
-            initial_alpha (float): "The temperature parameter α determines the
-                relative importance of the entropy term against the reward".
-            gumbel_softmax_temperature (float): Temperature parameter for the Gumbel-Softmax distribution used
-                for discrete actions.
-            memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
         """
         super(DADSAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
-            python_buffer_size=python_buffer_size,
-            custom_python_buffers=custom_python_buffers,
-            internal_states_space=internal_states_space,
             execution_spec=execution_spec,
             summary_spec=summary_spec,
             saver_spec=saver_spec,
             name=name
         )
+
+        self.num_skill_dimensions = num_skill_dimensions
+        self.use_discrete_skills = use_discrete_skills
+
+        self.underlying_state_space = None
+
+        # Build the actual underlying AlgorithmComponent that will do the RL-learning from instrinsic rewards.
+        self.rl_algorithm = AlgorithmComponent.from_spec(rl_algorithm_spec)
 
         #self.double_q = double_q
         ## Keep track of when to sync the target network (every n updates).
@@ -232,9 +211,7 @@ class DADSAgent(Agent):
         self.graph_executor.execute("reset_targets")
 
     def __repr__(self):
-        return "SACAgent(double-q={}, initial-alpha={}, target-entropy={})".format(
-            self.double_q, self.root_component.initial_alpha, self.root_component.target_entropy
-        )
+        return "DADSAgent(skill-dims={} rl-algo={})".format(self.rl_algorithm.__repr__(), self.num_skill_dimensions)
 
 
 class DADSAlgorithmComponent(AlgorithmComponent):
