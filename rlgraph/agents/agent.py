@@ -578,29 +578,30 @@ class Agent(Specifiable):
             terminals (bool): The observed episode terminal states.
             env_id (str): The id of the environment.
         """
-        # TODO: 1. handle env_id
-        # TODO: 2. control the level of verbosity
-        # TODO: 3. can we reduce the graph interactions?
-        ret = self.graph_executor.execute(
-            "get_episode_reward", "get_global_timestep"
-        )
-        episode_reward = ret["get_episode_reward"]
-        timestep = ret["get_global_timestep"]
-        for i in range(len(rewards)):
-            summary = tf.Summary(value=[
-                tf.Summary.Value(tag="reward/raw_reward", simple_value=rewards[i])])
-            self.graph_executor.summary_writer.add_summary(summary, timestep)
-            episode_reward += rewards[i]
-            if terminals[i]:
+        if get_backend() == "tf":
+            # TODO: 1. handle env_id
+            # TODO: 2. control the level of verbosity
+            # TODO: 3. can we reduce the graph interactions?
+            ret = self.graph_executor.execute(
+                "get_episode_reward", "get_global_timestep"
+            )
+            episode_reward = ret["get_episode_reward"]
+            timestep = ret["get_global_timestep"]
+            for i in range(len(rewards)):
                 summary = tf.Summary(value=[
-                    tf.Summary.Value(tag="reward/episode_reward", simple_value=episode_reward)])
+                    tf.Summary.Value(tag="reward/raw_reward", simple_value=rewards[i])])
                 self.graph_executor.summary_writer.add_summary(summary, timestep)
-                episode_reward = 0
-        timestep += 1
-        self.graph_executor.execute(
-            ("set_episode_reward", [episode_reward]),
-            ("update_global_timestep", [len(rewards)])
-        )
+                episode_reward += rewards[i]
+                if terminals[i]:
+                    summary = tf.Summary(value=[
+                        tf.Summary.Value(tag="reward/episode_reward", simple_value=episode_reward)])
+                    self.graph_executor.summary_writer.add_summary(summary, timestep)
+                    episode_reward = 0
+            timestep += 1
+            self.graph_executor.execute(
+                ("set_episode_reward", [episode_reward]),
+                ("update_global_timestep", [len(rewards)])
+            )
 
     def update(self, batch=None, time_percentage=None, **kwargs):
         """
