@@ -230,12 +230,12 @@ class IntrinsicCuriosityWorldOptionModel(SupervisedModel):
 
         """
         nn_inputs = self.get_phis_from_nn_inputs(nn_inputs, deterministic)
-        return self.predictor.predict(nn_inputs, deterministic=deterministic)
+        return self.supervised_predictor.predict(nn_inputs, deterministic=deterministic)
 
     @rlgraph_api
     def get_distribution_parameters(self, nn_inputs, deterministic=None):
         nn_inputs = self.get_phis_from_nn_inputs(nn_inputs, deterministic=deterministic)
-        return self.predictor.get_distribution_parameters(nn_inputs)
+        return self.supervised_predictor.get_distribution_parameters(nn_inputs)
 
     @rlgraph_api
     def update(self, nn_inputs, labels=None, time_percentage=None):
@@ -248,7 +248,7 @@ class IntrinsicCuriosityWorldOptionModel(SupervisedModel):
         # Update the model (w/o labels b/c labels are already included in the nn_inputs).
         assert labels is None, "ERROR: `labels` arg not needed for {}.`update()`!".format(type(self).__name__)
         nn_inputs = self.get_phis_from_nn_inputs(nn_inputs, deterministic=False)
-        parameters = self.predictor.get_distribution_parameters(nn_inputs)
+        parameters = self.supervised_predictor.get_distribution_parameters(nn_inputs)
         # Construct labels from nn_inputs.
         labels = dict(predicted_actions=nn_inputs["actions"], predicted_phi_=nn_inputs["phi_"])
 

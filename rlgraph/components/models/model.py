@@ -24,7 +24,6 @@ class Model(Component):
     A Model is an abstract Component class that must implement the APIs `predict`, `get_distribution_parameters`, and
     `update`.
     """
-
     @rlgraph_api
     def predict(self, nn_inputs, deterministic=None):
         """
