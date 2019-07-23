@@ -258,14 +258,6 @@ class AlgorithmComponent(Component):
         """
         raise NotImplementedError
 
-    # TODO: Replace this with future on-the-fly-API-components.
-    @graph_fn
-    def _graph_fn_group(root, *ops):
-        if get_backend() == "tf":
-            return tf.group(*ops)
-        # For pytorch (define-by-run), ops don't matter.
-        return ops[0]
-
     @graph_fn
     def _graph_fn_training_step(self, other_step_op=None):
         """

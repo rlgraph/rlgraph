@@ -27,7 +27,7 @@ from six.moves import xrange as range_
 from rlgraph import get_backend
 # from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.utils import util
-from rlgraph.utils.decorators import rlgraph_api, component_api_registry, component_graph_fn_registry, \
+from rlgraph.utils.decorators import rlgraph_api, graph_fn, component_api_registry, component_graph_fn_registry, \
     define_api_method, define_graph_fn
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, TraceContext
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
@@ -930,7 +930,7 @@ class Component(Specifiable):
                     args_str = args_str[:-2]  # -2=cut last ', '
                     code += args_str_w_default[:-2] + "):\n" # -2=cut last ', '
                     code += "\treturn getattr(self.sub_components['{}'], '{}')({})\n".format(component.name, api_method_name, args_str)
-                    print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
+                    #print("Expose API {} from {} to {} code:\n".format(api_method_name, component.name, self.name) + code)
                     exec(code, globals(), locals())
 
         # Add own reusable scope to front of all sub-components' reusable scope.
@@ -1376,6 +1376,23 @@ class Component(Specifiable):
         OBSOLETED API method. New "variables()" should be used.
         """
         raise RLGraphObsoletedError("API-method", "_variables()", "variables()")
+
+    # TODO: Replace this with future on-the-fly-API-components.
+    @graph_fn
+    def _graph_fn_group(self, *ops):
+        """
+        Convenience method to group ops on the fly in any Component.
+
+        Args:
+            *ops (SingleDataOp): The tf-ops to be grouped.
+
+        Returns:
+            SingleDataOp: The resulting grouped tf-op.
+        """
+        if get_backend() == "tf":
+            return tf.group(*ops)
+        # For pytorch (define-by-run), ops don't matter.
+        return ops[0]
 
     @staticmethod
     def reset_profile():
