@@ -1,4 +1,4 @@
-# Copyright 2018/2019 The RLgraph authors. All Rights Reserved.
+# Copyright 2018/2019 ducandu GmbH. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,18 +15,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-from rlgraph.execution.environment_sample import EnvironmentSample
-from rlgraph.execution.rules.update_rules import UpdateRules
-from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
-from rlgraph.execution.worker import Worker
 from rlgraph.execution.dads.dads_worker import DADSWorker
 
-__all__ = ["Worker", "SingleThreadedWorker", "DADSWorker", "EnvironmentSample", "UpdateRules"]
-
-Worker.__lookup_classes__ = dict(
-   dads=DADSWorker,
-   dadsworker=DADSWorker,
-   single=SingleThreadedWorker,
-   singlethreadedworker=SingleThreadedWorker,
-   singlethreaded=SingleThreadedWorker
-)
+__all__ = ["DADSWorker"]
