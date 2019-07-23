@@ -383,8 +383,9 @@ class SACAlgorithmComponent(AlgorithmComponent):
         return result
 
     @rlgraph_api
-    def update_from_external_batch(self, preprocessed_states, env_actions, rewards, terminals, next_states,
-                                   importance_weights, time_percentage=None
+    def update_from_external_batch(
+            self, preprocessed_states, env_actions, rewards, terminals, next_states,
+            importance_weights, time_percentage=None
     ):
         actor_loss, actor_loss_per_item, critic_loss, critic_loss_per_item, alpha_loss, alpha_loss_per_item = \
             self.get_losses(preprocessed_states, env_actions, rewards, terminals, next_states, importance_weights)
@@ -400,10 +401,10 @@ class SACAlgorithmComponent(AlgorithmComponent):
         )
 
         if self.target_entropy is not None:
-            #self.update_alpha(alpha_loss, alpha_loss_per_item, time_percentage)
-            alpha_step_op = self.alpha_optimizer.step(
-                (self.log_alpha,), alpha_loss, alpha_loss_per_item, time_percentage
-            )
+            alpha_step_op = self._graph_fn_update_alpha(alpha_loss, alpha_loss_per_item, time_percentage)
+            #alpha_step_op = self.alpha_optimizer.step(
+            #    (self.log_alpha,), alpha_loss, alpha_loss_per_item, time_percentage
+            #)
         else:
             alpha_step_op = self._graph_fn_no_op()
         # TODO: optimizer for alpha
@@ -424,6 +425,13 @@ class SACAlgorithmComponent(AlgorithmComponent):
             alpha_loss=alpha_loss,
             alpha_loss_per_item=alpha_loss_per_item
         )
+
+    @graph_fn(requires_variable_completeness=True)
+    def _graph_fn_update_alpha(self, alpha_loss, alpha_loss_per_item, time_percentage=None):
+        alpha_step_op = self.alpha_optimizer.step(
+            (self.log_alpha,), alpha_loss, alpha_loss_per_item, time_percentage
+        )
+        return alpha_step_op
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
     def _graph_fn_one_hot(self, key, env_actions):
