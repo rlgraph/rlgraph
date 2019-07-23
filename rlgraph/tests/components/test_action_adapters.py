@@ -18,17 +18,19 @@ from __future__ import absolute_import, division, print_function
 import unittest
 
 import numpy as np
-from rlgraph.components.action_adapters import BernoulliDistributionAdapter, CategoricalDistributionAdapter
+
+from rlgraph.components.action_adapters import BernoulliDistributionAdapter, CategoricalDistributionAdapter, \
+    NormalMixtureDistributionAdapter
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
-from rlgraph.utils.numpy import softmax, sigmoid, relu
+from rlgraph.utils.numpy import softmax, sigmoid, relu, dense_layer
 
 
 class TestActionAdapters(unittest.TestCase):
     """
     Tests for the different ActionAdapter setups.
     """
-    def test_bernoulli_action_adapter(self):
+    def test_bernoulli_distribution_adapter(self):
         # Last NN layer.
         previous_nn_layer_space = FloatBox(shape=(16,), add_batch_rank=True)
         adapter_outputs_space = FloatBox(shape=(2,), add_batch_rank=True)
@@ -59,7 +61,7 @@ class TestActionAdapters(unittest.TestCase):
             log_probs=expected_log_probs
         ), decimals=5)
 
-    def test_simple_action_adapter(self):
+    def test_categorical_distribution_adapter(self):
         # Last NN layer.
         previous_nn_layer_space = FloatBox(shape=(16,), add_batch_rank=True)
         adapter_outputs_space = FloatBox(shape=(3, 2, 2), add_batch_rank=True)
@@ -168,3 +170,64 @@ class TestActionAdapters(unittest.TestCase):
             log_probs=expected_log_probs
         ), decimals=5)
 
+    def test_normal_mixture_distribution_adapter(self):
+        # Some output space (4-variate Gaussian).
+        num_events = 4
+        output_space = FloatBox(shape=(num_events,), add_batch_rank=True)
+        # How many sub-Distributions (each one a multivariate Gaussian) do we want to categorically sample from?
+        num_mixtures = 3
+
+        # Some arbitrary last layer of the preceding network.
+        previous_nn_layer_space = FloatBox(shape=(50,), add_batch_rank=True)
+        input_spaces = dict(
+            inputs=[previous_nn_layer_space],
+            adapter_outputs=FloatBox(shape=(num_mixtures + num_mixtures * 2 * num_events,), add_batch_rank=True)
+        )
+
+        distribution_adapter = NormalMixtureDistributionAdapter(
+            action_space=output_space,
+            num_mixtures=num_mixtures
+        )
+
+        test = ComponentTest(component=distribution_adapter, input_spaces=input_spaces)
+
+        # Batch of size=n.
+        input_ = input_spaces["inputs"][0].sample(10)
+
+        global_scope = "normal-mixture-adapter/"
+        # Calculate output manually.
+        var_dict = test.read_variable_values(distribution_adapter.variable_registry)
+
+        adapter_network_out = dense_layer(
+            input_, var_dict[global_scope+"action-network/action-layer/dense/kernel"],
+            var_dict[global_scope+"action-network/action-layer/dense/bias"]
+        )
+        test.test(("call", input_), expected_outputs=adapter_network_out, decimals=5)
+
+        expected_parameters = dict(
+            categorical=adapter_network_out[:, :num_mixtures],  # raw logits
+            parameters0=tuple([
+                adapter_network_out[:, num_mixtures:num_mixtures + num_events],  # mean
+                np.exp(adapter_network_out[:, num_mixtures + num_events * 3:num_mixtures + num_events * 4]),  # sd
+            ]),
+            parameters1=tuple([
+                adapter_network_out[:, num_mixtures + num_events:num_mixtures + num_events * 2],  # mean
+                np.exp(adapter_network_out[:, num_mixtures + num_events * 4:num_mixtures + num_events * 5]),  # sd
+            ]),
+            parameters2=tuple([
+                adapter_network_out[:, num_mixtures + num_events * 2:num_mixtures + num_events * 3],  # mean
+                np.exp(adapter_network_out[:, num_mixtures + num_events * 5:num_mixtures + num_events * 6]),  # sd
+            ]),
+        )
+        # Probs: Only for Categorical (softmax the logits).
+        expected_probabilities = dict(categorical=softmax(expected_parameters["categorical"]))
+        expected_log_probabilities = dict(categorical=np.log(expected_probabilities["categorical"]))
+
+        test.test(
+            ("get_parameters_from_adapter_outputs", adapter_network_out),
+            expected_outputs=dict(parameters=expected_parameters, probabilities=expected_probabilities,
+                                  log_probs=expected_log_probabilities),
+            decimals=5
+        )
+
+        test.terminate()

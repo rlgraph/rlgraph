@@ -66,6 +66,8 @@ class NormalMixtureDistributionAdapter(NormalDistributionAdapter):
             )
 
         parameters = None
+        # For the categorical part,  we need probs and log-probs.
+        probs = None
         log_probs = None
 
         if get_backend() == "tf":
@@ -74,11 +76,12 @@ class NormalMixtureDistributionAdapter(NormalDistributionAdapter):
             assert isinstance(self.action_space, FloatBox) and self.action_space.unbounded
 
             parameters = DataOpDict()
+            probs = DataOpDict()
             log_probs = DataOpDict()
 
             # Nodes encode the following:
             # - [num_mixtures] (for categorical)
-            # - []
+            # - [num_mixtures * 2 * last-action-dim] (for each item in the mix: 1 mean node, 1 log-std node)
 
             # Unbounded -> Mixture Multivariate Normal distribution.
             last_dim = self.action_space.get_shape()[-1]
@@ -87,21 +90,19 @@ class NormalMixtureDistributionAdapter(NormalDistributionAdapter):
             ], axis=-1)
 
             # Parameterize the categorical distribution, which will pick one of the mixture ones.
-            parameters["categorical"] = tf.maximum(x=tf.nn.softmax(logits=categorical, axis=-1), y=SMALL_NUMBER)
+            parameters["categorical"] = categorical
             parameters["categorical"]._batch_rank = 0
             # Log probs.
-            log_probs["categorical"] = tf.log(x=parameters["categorical"])
+            probs["categorical"] = tf.maximum(x=tf.nn.softmax(logits=categorical, axis=-1), y=SMALL_NUMBER)
+            probs["categorical"]._batch_rank = 0
+            # Log probs.
+            log_probs["categorical"] = tf.log(x=probs["categorical"])
             log_probs["categorical"]._batch_rank = 0
-
-            # Turn log sd into sd to ascertain always positive stddev values.
-            sds = tf.exp(log_sds)
-            log_means = tf.log(means)
 
             # Split into one for each item in the Mixture.
             means = tf.split(means, num_or_size_splits=self.num_mixtures, axis=-1)
-            log_means = tf.split(log_means, num_or_size_splits=self.num_mixtures, axis=-1)
-            sds = tf.split(sds, num_or_size_splits=self.num_mixtures, axis=-1)
-            log_sds = tf.split(log_sds, num_or_size_splits=self.num_mixtures, axis=-1)
+            # Turn log sd into sd to ascertain always positive stddev values.
+            sds = tf.split(tf.exp(log_sds), num_or_size_splits=self.num_mixtures, axis=-1)
 
             # Store each mixture item's parameters in DataOpDict.
             for i in range(self.num_mixtures):
@@ -110,12 +111,9 @@ class NormalMixtureDistributionAdapter(NormalDistributionAdapter):
                 sd = sds[i]
                 sd._batch_rank = 0
 
-                log_mean = log_means[i]
-                log_mean._batch_rank = 0
-                log_sd = log_sds[i]
-                log_sd._batch_rank = 0
-
                 parameters["parameters{}".format(i)] = DataOpTuple([mean, sd])
-                log_probs["parameters{}".format(i)] = DataOpTuple([log_mean, log_sd])
 
-        return parameters, log_probs
+        elif get_backend() == "pytorch":
+            pass  # TODO
+
+        return parameters, probs, log_probs
