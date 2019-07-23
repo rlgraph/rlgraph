@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import time
@@ -320,7 +318,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
             num_workers=4
         )
         # Count items in the queue.
-        print("Items in queue: {}".format(agent.call_api_method("get_queue_size")))
+        print("Items in queue: {}".format(agent.graph_executor.execute("get_queue_size")))
 
         updates = 5
         update_times = list()
@@ -373,7 +371,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         time_start = time.perf_counter()
         steps = 5
         for _ in range(steps):
-            agent.call_api_method("perform_n_steps_and_insert_into_fifo")
+            agent.graph_executor.execute("perform_n_steps_and_insert_into_fifo")
         time_total = time.perf_counter() - time_start
         print("Done running {}x{} steps in Deepmind Lab env using IMPALA network in {}sec ({} actions/sec).".format(
             steps, agent.worker_sample_size, time_total , agent.worker_sample_size * steps / time_total)
@@ -421,7 +419,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
     #    time_start = time.perf_counter()
     #    steps = 50
     #    for _ in range(steps):
-    #        agent.call_api_method("perform_n_steps_and_insert_into_fifo")
+    #        agent.graph_executor.execute("perform_n_steps_and_insert_into_fifo")
     #    time_total = time.perf_counter() - time_start
     #    print("Done running {}x{} steps in Deepmind Lab env using IMPALAAgent in {}sec ({} actions/sec).".format(
     #        steps, agent.worker_sample_size, time_total, agent.worker_sample_size * steps / time_total)
@@ -448,5 +446,5 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
     #        # TODO: automate this (by lookup from NN).
     #        internal_states_space=IMPALAAgent.standard_internal_states_space,
     #    )
-    #    agent.call_api_method("insert_dummy_records")
-    #    agent.call_api_method("update_from_memory")
+    #    agent.graph_executor.execute("insert_dummy_records")
+    #    agent.graph_executor.execute("update_from_memory")

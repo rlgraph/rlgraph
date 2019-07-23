@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
@@ -194,7 +192,7 @@ class TestAllCompile(unittest.TestCase):
         #update_steps = 10
         #time_start = time.perf_counter()
         #for _ in range(update_steps):
-        #    agent.call_api_method("update_from_memory")
+        #    agent.graph_executor.execute("update_from_memory")
         #time_total = time.perf_counter() - time_start
         #print("Done learning {}xbatch-of-{} in {}sec ({} updates/sec).".format(
         #    update_steps, agent.update_spec["batch_size"], time_total , update_steps / time_total)

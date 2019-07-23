@@ -53,8 +53,5 @@ class RandomAgent(Agent):
     def get_weights(self):
         pass
 
-    def call_api_method(self, op, inputs=None, return_ops=None):
-        pass
-
     def __repr__(self):
         return "RandomAgent()"

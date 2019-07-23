@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import time
 
@@ -99,12 +97,12 @@ class IMPALAWorker(Worker):
             self.episode_timesteps = 0
 
             # TODO: Fix for vectorized Envs.
-            self.agent.call_api_method("reset")
+            self.agent.graph_executor.execute("reset")
 
         # Only run everything for at most num_timesteps (if defined).
         while not (0 < num_timesteps <= timesteps_executed):
             # TODO right now everything comes back as single-env.
-            out = self.agent.call_api_method(("perform_n_steps_and_insert_into_fifo", None, [0]))
+            out = self.agent.graph_executor.execute(("perform_n_steps_and_insert_into_fifo", None, [0]))
             timesteps_executed += self.agent.worker_sample_size
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.

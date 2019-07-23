@@ -32,10 +32,7 @@ from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import strip_list
 
 
-#if get_backend() == "tf":
-#    pass
-
-
+# TODO: Make Agent a child of Learner.
 class Agent(Specifiable):
     """
     Generic agent defining RLGraph-API operations and parses and sanitizes configuration specs.
@@ -102,8 +99,6 @@ class Agent(Specifiable):
         self.flat_action_space = self.action_space.flatten() if isinstance(self.action_space, ContainerSpace) else None
         self.logger.info("Parsed action space definition: {}".format(self.action_space))
 
-        #self.build_options = {}
-
         # Define the input-Spaces:
         # Tag the input-Space to `self.set_weights` as equal to whatever the variables-Space will be for
         # the Agent's policy Component.
@@ -151,7 +146,7 @@ class Agent(Specifiable):
                 self.custom_buffer_spaces[key] = None if len(flat_space) == 1 else flat_space
                 self.custom_buffers[key] = defaultdict(partial(factory_, len(flat_space)))
 
-        # The agent's root-Component.
+        # The Agent's root-Component.
         self.root_component = None
 
         # Create our GraphBuilder and -Executor.
@@ -183,84 +178,6 @@ class Agent(Specifiable):
         for key, buffer in self.custom_buffers.items():
             del self.custom_buffers[key][env_id]
 
-    # TODO: To be obsoleted once all Agents use their own AgentComponents.
-    #def define_graph_api(self, *args, **kwargs):
-    #    """
-    #    Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
-    #    Each agent implements this to build its algorithm logic.
-    #    """
-    #    agent = self
-
-    #    if self.value_function is not None:
-    #        # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
-    #        # value-function never performs any forward pass (only used as variable storage).
-    #        @rlgraph_api(component=self.root_component)
-    #        def get_state_values(root, preprocessed_states):
-    #            vf = root.get_sub_component_by_name(agent.value_function.scope)
-    #            return vf.value_output(preprocessed_states)
-
-    #    # Add API methods for syncing.
-    #    @rlgraph_api(component=self.root_component)
-    #    def get_weights(root):
-    #        policy = root.get_sub_component_by_name(agent.policy.scope)
-    #        policy_weights = policy.variables()
-    #        value_function_weights = None
-    #        if agent.value_function is not None:
-    #            value_func = root.get_sub_component_by_name(agent.value_function.scope)
-    #            value_function_weights = value_func.variables()
-    #        return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
-
-    #    @rlgraph_api(component=self.root_component, must_be_complete=False)
-    #    def set_weights(root, policy_weights, value_function_weights=None):
-    #        policy = root.get_sub_component_by_name(agent.policy.scope)
-    #        policy_sync_op = policy.sync(policy_weights)
-    #        if value_function_weights is not None:
-    #            assert agent.value_function is not None
-    #            vf = root.get_sub_component_by_name(agent.value_function.scope)
-    #            vf_sync_op = vf.sync(value_function_weights)
-    #            return root._graph_fn_group(policy_sync_op, vf_sync_op)
-    #        else:
-    #            return policy_sync_op
-
-    #    # To pre-process external data if needed.
-    #    @rlgraph_api(component=self.root_component)
-    #    def preprocess_states(root, states):
-    #        preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
-    #        return preprocessor_stack.preprocess(states)
-
-    #    @graph_fn(component=self.root_component)
-    #    def _graph_fn_training_step(root, other_step_op=None):
-    #        """
-    #        Increases the global training timestep by 1. Should be called by all training API-methods to
-    #        timestamp each training/update step.
-
-    #        Args:
-    #            other_step_op (Optional[DataOp]): Another DataOp (e.g. a step_op) which should be
-    #                executed before the increase takes place.
-
-    #        Returns:
-    #            DataOp: no_op() or identity(other_step_op) in tf, None in pytorch.
-    #        """
-    #        if get_backend() == "tf":
-    #            add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
-    #            op_list = [add_op] + [other_step_op] if other_step_op is not None else []
-    #            with tf.control_dependencies(op_list):
-    #                if other_step_op is None or hasattr(other_step_op, "type") and other_step_op.type == "NoOp":
-    #                    return tf.no_op()
-    #                else:
-    #                    return tf.identity(other_step_op)
-    #        elif get_backend == "pytorch":
-    #            self.graph_executor.global_training_timestep += 1
-    #            return None
-
-    #def _build_graph(self, root_components, input_spaces, **kwargs):
-    #    """
-    #    Builds the internal graph from the RLGraph meta-graph via the graph executor..
-    #    """
-    #    build_stats = self.graph_executor.build(root_components, input_spaces, **kwargs)
-    #    self.graph_built = True
-    #    return build_stats
-
     def build(self, build_options=None):
         """
         Builds this agent. This method call only be called if the agent parameter "auto_build"
@@ -269,8 +186,6 @@ class Agent(Specifiable):
         Args:
             build_options (Optional[dict]): Optional build options, see build doc.
         """
-        #if build_options is not None:
-        #    self.build_options.update(build_options)
         assert not self.graph_built, \
             "ERROR: Attempting to build agent which has already been built. Ensure `auto_build` c'tor arg is set to " \
             "False and the `Agent.build` method has not been called twice."
@@ -282,12 +197,6 @@ class Agent(Specifiable):
 
         self.graph_built = True
         return build_stats
-
-        # TODO let agent have a list of root-components
-        #return self._build_graph(
-        #    [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
-        #    build_options=self.build_options, batch_size=self.root_component.memory_batch_size
-        #)
 
     def preprocess_states(self, states):
         """
@@ -301,7 +210,7 @@ class Agent(Specifiable):
             np.array: Preprocessed states.
         """
         if self.root_component.preprocessing_required:
-            return self.call_api_method("preprocess_states", states)
+            return self.graph_executor.execute(("preprocess_states", states))
         else:
             # Return identity.
             return states
@@ -610,22 +519,6 @@ class Agent(Specifiable):
         and other open connections.
         """
         self.graph_executor.terminate()
-
-    # TODO: This one is never used anywhere. Either delete it, or make use of it instead of `self.graph_executor.execute`
-    def call_api_method(self, op, inputs=None, return_ops=None):
-        """
-        Utility method to call any desired api method on the graph, identified via output socket.
-        Delegate this call to the RLGraph graph executor.
-
-        Args:
-            op (str): Name of the api method.
-
-            inputs (Optional[dict,np.array]): Dict specifying the provided api_methods for (key=input space name,
-                values=the values that should go into this space (e.g. numpy arrays)).
-        Returns:
-            any: Result of the op call.
-        """
-        return self.graph_executor.execute((op, inputs, return_ops))
 
     def export_graph(self, filename=None):
         """
