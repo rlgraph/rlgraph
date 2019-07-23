@@ -50,7 +50,7 @@ class LocalOptimizer(Optimizer):
         self.optimizer_obj = None
 
     @rlgraph_api
-    def _graph_fn_step(self, variables, loss, loss_per_item, time_percentage, *inputs):
+    def _graph_fn_step(self, variables, loss, loss_per_item, time_percentage=None, *inputs):
         # TODO n.b. PyTorch does not call api functions because other optimization semantics.
         if get_backend() == "tf":
             grads_and_vars = self._graph_fn_calculate_gradients(variables, loss, time_percentage)
@@ -76,13 +76,14 @@ class LocalOptimizer(Optimizer):
             return self.optimizer_obj.step()
 
     @rlgraph_api
-    def _graph_fn_calculate_gradients(self, variables, loss, time_percentage):
+    def _graph_fn_calculate_gradients(self, variables, loss, time_percentage=None):
         """
         Args:
             variables (DataOpTuple): A list of variables to calculate gradients for.
             loss (SingeDataOp): The total loss over a batch to be minimized.
-            time_percentage (SingleDataOp): The time percentage (0.0 to 1.0) that has already passed with respect to
-                some max. time step value for the training run.
+
+            time_percentage (Optional[SingleDataOp]): The time percentage (0.0 to 1.0) that has already passed with
+                respect to some max. time step value for the training run.
         """
         if get_backend() == "tf":
             var_list = list(variables.values()) if isinstance(variables, dict) else force_list(variables)
