@@ -1,0 +1,52 @@
+{
+  "environment_spec": {
+    "type": "openai-gym",
+    "gym_env": "CartPole-v0"
+  },
+  "agent_spec": {
+    "type": "sac",
+    "discount": 0.99,
+    "initial_alpha": 1.0,
+    "target_entropy": -1.0,
+    "double_q": true,
+
+    "python_buffer_size": 200,
+
+    "sync_rules": {
+      "sync_every_n_updates": 1,
+      "sync_tau": 5e-3
+    },
+
+    "memory_batch_size": 256,
+    "memory_spec": {
+      "type": "replay",
+      "capacity": 1000
+    },
+
+    "network_spec": [
+      {
+        "type": "dense",
+        "units": 256,
+        "activation": "relu",
+        "scope": "hidden1"
+      }
+    ],
+    "q_function_spec": [
+      {
+        "type": "dense",
+        "units": 256,
+        "activation": "relu",
+        "scope": "vf-hidden1"
+      }
+    ],
+
+    "optimizer_spec": {
+      "type": "adam",
+      "learning_rate": 3e-4
+    },
+    "q_function_optimizer_spec": {
+      "type": "adam",
+      "learning_rate": 3e-4
+    }
+  }
+}
