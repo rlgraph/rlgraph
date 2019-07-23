@@ -13,15 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 
 import numpy as np
-from six.moves import xrange as range_
 
+from rlgraph.agents.agent import Agent
 from rlgraph.environments import VectorEnv, SequentialVectorEnv
 from rlgraph.execution.rules.update_rules import UpdateRules
 from rlgraph.utils.specifiable import Specifiable
@@ -31,12 +29,12 @@ class Worker(Specifiable):
     """
     Generic worker to locally interact with simulator environments.
     """
-    def __init__(self, agent, env_spec=None, update_rules=None, num_environments=1, frameskip=1, render=False,
+    def __init__(self, agent_spec=None, env_spec=None, update_rules=None, num_environments=1, frameskip=1, render=False,
                  worker_executes_exploration=True, exploration_epsilon=0.1, episode_finish_callback=None,
-                 update_finish_callback=None, max_timesteps=None):
+                 update_finish_callback=None, max_timesteps=None, agent=None):
         """
         Args:
-            agent (Agent): Agent to execute environment on.
+            agent_spec (Agent): Agent to execute environment on.
 
             env_spec Optional[Union[callable, dict]]): Either an environment spec or a callable returning a new
                 environment.
@@ -62,6 +60,12 @@ class Worker(Specifiable):
                 the Agent for time-dependent (decay) parameter calculations.
                 If None, Worker will try to infer this value automatically.
         """
+        # Make sure one is given.
+        assert (agent is not None or agent_spec is not None)
+        if agent is not None:
+            self.logger.warning("WARNING: Deprecated call arg `agent` to Worker! Use `agent_spec` instead.")
+            agent_spec = agent
+
         super(Worker, self).__init__()
         self.num_environments = num_environments
         self.logger = logging.getLogger(__name__)
@@ -72,17 +76,17 @@ class Worker(Specifiable):
         if isinstance(env_spec, VectorEnv):
             self.vector_env = env_spec
             self.num_environments = self.vector_env.num_environments
-            self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
+            self.env_ids = ["env_{}".format(i) for i in range(self.num_environments)]
         # `Env_spec` is for single envs inside a SequentialVectorEnv.
         elif env_spec is not None:
             self.vector_env = SequentialVectorEnv(env_spec=env_spec, num_environments=self.num_environments)
-            self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
+            self.env_ids = ["env_{}".format(i) for i in range(self.num_environments)]
         # No env_spec.
         else:
             self.vector_env = None
             self.env_ids = []
 
-        self.agent = agent
+        self.agent = Agent.from_spec(agent_spec)
         self.frameskip = frameskip
         self.render = render
 
@@ -195,6 +199,15 @@ class Worker(Specifiable):
         """
         pass
 
+    def pre_reset(self, env_id):
+        """
+        Called right before `env_id` gets reset. Optionally implement this to add logic to the Worker.
+
+        Args:
+            env_id (str): The env-id that will get reset right after this call.
+        """
+        pass
+
     def update_if_necessary(self, update_rules, time_percentage):
         """
         Calls update on the agent according to the update schedule set for this worker.
@@ -225,7 +238,7 @@ class Worker(Specifiable):
 
                 if do_update is True:
                     loss = 0
-                    for _ in range_(update_rules.update_repeats):
+                    for _ in range(update_rules.update_repeats):
                         ret = self.agent.update(time_percentage=time_percentage)
                         if isinstance(ret, dict):
                             loss += ret["loss"]

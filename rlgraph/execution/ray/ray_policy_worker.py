@@ -20,6 +20,7 @@ import time
 
 import numpy as np
 from six.moves import xrange as range_
+
 from rlgraph.utils import util
 from rlgraph import get_distributed_backend
 from rlgraph.environments.sequential_vector_env import SequentialVectorEnv
@@ -74,7 +75,7 @@ class RayPolicyWorker(RayActor):
         self.is_preprocessed = {}
         for env_id in self.env_ids:
             self.preprocessors[env_id] = self.setup_preprocessor(
-                preprocessing_spec, self.vector_env.state_space.with_batch_rank()
+                preprocessing_spec, self.vector_env.state_space.with_batch_rank(), env_id
             )
             self.is_preprocessed[env_id] = False
         self.agent = self.setup_agent(agent_config, worker_spec)

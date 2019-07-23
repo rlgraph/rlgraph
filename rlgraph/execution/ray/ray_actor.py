@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os
 from copy import deepcopy
@@ -36,7 +34,7 @@ class RayActor(object):
         """
         return os.uname()[1]
 
-    def setup_preprocessor(self, preprocessing_spec, in_space):
+    def setup_preprocessor(self, preprocessing_spec, in_space, env_id):
         if preprocessing_spec is not None:
             preprocessing_spec = deepcopy(preprocessing_spec)
             in_space = deepcopy(in_space)
