@@ -15,3 +15,16 @@
 
 from __future__ import absolute_import, division, print_function
 
+from rlgraph.components.models.model import Model
+from rlgraph.components.models.intrinsic_curiosity_world_option_model import IntrinsicCuriosityWorldOptionModel
+from rlgraph.components.models.supervised_model import SupervisedModel
+
+Model.__lookup_classes__ = dict(
+    intrinsiccuriosityworldoptionmodel=IntrinsicCuriosityWorldOptionModel,
+    supervisedmodel=SupervisedModel,
+)
+
+__all__ = ["Model"] + \
+          list(set(map(lambda x: x.__name__, Model.__lookup_classes__.values())))
+
+

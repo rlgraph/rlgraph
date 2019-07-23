@@ -37,6 +37,25 @@ class SupervisedModel(Model):
         """
         super(SupervisedModel, self).__init__(scope=scope, **kwargs)
 
+        supervised_predictor_spec = supervised_predictor_spec or {
+            "type": "supervised-predictor",
+            "distribution_adapter_spec": {"output_space": self.output_space}
+        }
+
+        # Force the network spec on the predictor object.
+        if network_spec is not None:
+            predictor_spec["network_spec"] = network_spec
+        # Force set output-space on predictor and its distribution adapter.
+        if "output_space" not in predictor_spec or "output_space" not in predictor_spec["distribution_adapter_spec"]:
+            predictor_spec["output_space"] = predictor_spec["distribution_adapter_spec"]["output_space"] = \
+                self.output_space
+        # Construct the Policy network.
+        self.predictor_spec = predictor_spec
+        self.predictor = SupervisedPredictor.from_spec(self.predictor_spec)
+
+        self.optimizer = Optimizer.from_spec(optimizer_spec)
+        self.loss_function = None
+
         self.supervised_predictor = SupervisedPredictor.from_spec(supervised_predictor_spec)
         self.loss_function = LossFunction.from_spec(loss_function_spec)
         self.optimizer = Optimizer.from_spec(optimizer_spec)

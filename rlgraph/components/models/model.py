@@ -56,7 +56,7 @@ class Model(Component):
         raise NotImplementedError
 
     @rlgraph_api
-    def update(self, nn_inputs, labels, timestep=None):
+    def update(self, nn_inputs, labels, time_percentage=None):
         """
         Updates the model by doing a forward pass through the predictor, passing its outputs and the
         `loss_function_inputs` through the loss function, then performing the optimizer update.
@@ -64,7 +64,9 @@ class Model(Component):
         Args:
             nn_inputs (any): The inputs to the predictor. Will be passed as one DataOpRecord into the NN.
             labels (any): The corresponding labels for the prediction inputs.
-            timestep (Optional[int]): The timestep of the update. Can be used e.g. for decaying learning rates.
+
+            time_percentage (Optional[float]): The time_percentage (0.0 to 1.0) of the update.
+                Can be used e.g. for decaying learning rates.
 
         Returns:
             dict with keys:
