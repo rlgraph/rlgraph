@@ -26,14 +26,14 @@ class MultiInputStreamNeuralNetwork(NeuralNetwork):
     A NeuralNetwork that takes n separate input-streams and feeds each of them separately through a different NN.
     The final outputs of these NNs are then all concatenated and fed further through an (optional) post-network.
     """
-    def __init__(self, input_network_specs, post_network_spec=None, **kwargs):
+    def __init__(self, input_network_specs, post_concat_network_spec=None, **kwargs):
         """
         Args:
             input_network_specs (Union[Dict[str,dict],Tuple[dict]]): A specification dict or tuple with values being
                 the spec dicts for the single streams. The `apply` method expects a dict input or a single tuple input
                 (not as *args) in its first parameter.
 
-            post_network_spec (Optional[]): The specification dict of the post-concat network or the post-concat
+            post_concat_network_spec (Optional[]): The specification dict of the post-concat network or the post-concat
                 network object itself.
         """
         super(MultiInputStreamNeuralNetwork, self).__init__(scope="multi-input-stream-nn", **kwargs)
@@ -55,7 +55,7 @@ class MultiInputStreamNeuralNetwork(NeuralNetwork):
             self.concat_layer = ConcatLayer(axis=-1)
 
         # Create the post-network (after the concat).
-        self.post_nn = NeuralNetwork.from_spec(post_network_spec, scope="post-concat-nn")  # type: NeuralNetwork
+        self.post_nn = NeuralNetwork.from_spec(post_concat_network_spec, scope="post-concat-nn")  # type: NeuralNetwork
 
         # Add all sub-Components.
         self.add_components(

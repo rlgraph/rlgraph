@@ -18,6 +18,7 @@ from __future__ import absolute_import, division, print_function
 import unittest
 
 import numpy as np
+
 from rlgraph.components.neural_networks.multi_input_stream_neural_network import MultiInputStreamNeuralNetwork
 from rlgraph.spaces import FloatBox, IntBox, Dict, Tuple
 from rlgraph.tests.component_test import ComponentTest
@@ -43,7 +44,7 @@ class TestMultiInputStreamNeuralNetwork(unittest.TestCase):
                 [{"type": "dense", "units": 2}],  # floatbox -> dense
                 [{"type": "reshape", "flatten": True, "flatten_categories": True}]  # inbox -> flatten
             ),
-            post_network_spec=[{"type": "dense", "units": 3}],
+            post_concat_network_spec=[{"type": "dense", "units": 3}],
         )
 
         test = ComponentTest(component=multi_input_nn, input_spaces=dict(inputs=input_space))
@@ -82,7 +83,7 @@ class TestMultiInputStreamNeuralNetwork(unittest.TestCase):
                 a=[],
                 b=[{"type": "reshape", "flatten": True, "flatten_categories": True}]
             ),
-            post_network_spec=[{"type": "dense", "units": 2}],
+            post_concat_network_spec=[{"type": "dense", "units": 2}],
         )
 
         test = ComponentTest(component=multi_input_nn, input_spaces=dict(inputs=input_space))
