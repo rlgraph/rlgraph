@@ -259,9 +259,7 @@ class DataOpRecordColumn(object):
                     op_rec = DataOpRecord(op=None, column=self, kwarg=key)
                     # If incoming is an op-rec -> Link them.
                     if isinstance(value, DataOpRecord):
-                        op_rec.previous = value
-                        op_rec.op = value.op  # assign op if any
-                        value.next.add(op_rec)
+                        value.connect_to(op_rec)
                     # Do constant value assignment here.
                     elif value is not None:
                         op = value
