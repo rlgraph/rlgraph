@@ -24,6 +24,7 @@ from copy import deepcopy
 from functools import partial
 
 import yaml
+
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import default_dict, force_list
 
@@ -156,7 +157,9 @@ class Specifiable(object):
 
         # Create object with inferred constructor.
         specifiable_object = constructor(*ctor_args, **ctor_kwargs)
-        assert isinstance(specifiable_object, constructor.func if isinstance(constructor, partial) else constructor)
+        # No sanity check for fake (lambda)-"constructors".
+        if type(constructor).__name__ != "function":
+            assert isinstance(specifiable_object, constructor.func if isinstance(constructor, partial) else constructor)
 
         return specifiable_object
 
