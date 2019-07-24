@@ -360,7 +360,6 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
             # Update our model.
             out = test.test(("update", [
                 dict(states=np.array(states), actions=np.array(actions), next_states=np.array(next_states))  # NN-inputs
-                #dict(predicted_actions=np.array(actions), predicted_phi_=np.array(phi_s))  # labels (no longer necessary)
             ], ["loss", "step_op"]))
             # Keep track of losses.
             losses.append(out["loss"])
@@ -370,7 +369,6 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
                 all_icwom_vars_after_update = test.read_variable_values(icwom.variable_registry)
                 for key, var_before_update in all_icwom_vars.items():
                     self.assertTrue((var_before_update != all_icwom_vars_after_update[key]).any())
-                    #print("WARNING: key={}!".format(key))
 
             # Train our decoder with predicting the original state from the phis.
             out = test_auto_decoder.test(("update", [phi_s, np.array(next_states)], ["loss", "step_op"]))
