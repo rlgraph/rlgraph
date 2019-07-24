@@ -63,7 +63,7 @@ class TestModels(unittest.TestCase):
             out = test.test(("update", [inputs, labels]))
             # Print out and store loss.
             losses.append(out["loss"])
-            print("Epoch {}: Loss={}".format(i, out["loss"]))
+            #print("Epoch {}: Loss={}".format(i, out["loss"]))
 
         # Make sure we have learnt something.
         self.assertTrue(np.mean(losses[-10:]) < np.mean(losses[:10]))
