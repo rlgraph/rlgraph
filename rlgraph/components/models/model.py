@@ -15,15 +15,18 @@
 
 from __future__ import absolute_import, division, print_function
 
+from abc import ABCMeta, abstractmethod
+
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
 
 
-class Model(Component):
+class Model(Component, metaclass=ABCMeta):
     """
     A Model is an abstract Component class that must implement the APIs `predict`, `get_distribution_parameters`, and
     `update`.
     """
+    @abstractmethod
     @rlgraph_api
     def predict(self, nn_inputs, deterministic=None):
         """
@@ -43,6 +46,7 @@ class Model(Component):
         """
         raise NotImplementedError
 
+    @abstractmethod
     @rlgraph_api
     def get_distribution_parameters(self, nn_inputs):
         """
@@ -55,6 +59,7 @@ class Model(Component):
         """
         raise NotImplementedError
 
+    @abstractmethod
     @rlgraph_api
     def update(self, nn_inputs, labels, time_percentage=None):
         """

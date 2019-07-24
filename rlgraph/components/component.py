@@ -909,14 +909,17 @@ class Component(Specifiable):
                 component=component
             )
 
-            # Should we expose some API-methods of the child?
-            # Only if parent does not have that method yet (otherwise, use parent method).
+            # Expose some API-methods of the child.
             for api_method_name, api_method_rec in component.api_methods.items():
-                if api_method_name in expose_apis and api_method_name not in self.api_methods:
+                if api_method_name in expose_apis:
+                    # TODO: Warn if method already exists in parent and is implemented.
+                    # TODO: For that, we would have to mark the parent Component as (metaclass=abc.ABCMeta) and the API as @abstractmethod.
+                    #if api_method_name in self.api_methods:
+
                     exposed_api_method_name = api_method_name if isinstance(expose_apis, set) else \
                         expose_apis[api_method_name]
                     # Build exposed method code per string, then eval it.
-                    code = "@rlgraph_api(component=self, must_be_complete={}, ok_to_overwrite=False)\n".format(
+                    code = "@rlgraph_api(component=self, must_be_complete={}, ok_to_overwrite=True)\n".format(
                         api_method_rec.must_be_complete
                     )
                     code += "def {}(self, ".format(exposed_api_method_name)

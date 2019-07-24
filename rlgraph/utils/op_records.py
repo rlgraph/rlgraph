@@ -110,7 +110,7 @@ class DataOpRecord(object):
                             found_space = self.space[lookup_key]
                         # Lookup-key could also be a flat-key. -> Try to find entry in nested (dict) op.
                         else:
-                            found_op = self.op.flat_key_lookup(lookup_key)
+                            found_op = self.op.flat_key_lookup(lookup_key, None)
                             if found_op is not None:
                                 found_space = self.space.flat_key_lookup(lookup_key)
 

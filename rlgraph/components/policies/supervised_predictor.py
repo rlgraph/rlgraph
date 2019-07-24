@@ -45,7 +45,8 @@ class SupervisedPredictor(Component):
         """
         deterministic = self.deterministic if deterministic is None else deterministic
         out = self.rlgraph_policy.get_action(nn_inputs, deterministic)
-        return dict(output=out["prediction"], nn_outputs=out["nn_outputs"])
+        return dict(predictions=out["action"], parameters=out["parameters"], nn_outputs=out["nn_outputs"],
+                    adapter_outputs=out["adapter_outputs"])
 
     @rlgraph_api
     def get_distribution_parameters(self, nn_inputs):
@@ -58,6 +59,7 @@ class SupervisedPredictor(Component):
                 - parameters: The raw (parameters) output of the DistributionAdapter layer.
                 - nn_outputs: The raw NeuralNetwork output (before distribution-parameters and sampling).
         """
-        out = self.rlgraph_policy.get_logits_parameters_log_probs(nn_inputs)
+        out = self.rlgraph_policy.get_adapter_outputs_and_parameters(nn_inputs)
         # Add last internal states to return value.
-        return dict(parameters=out["parameters"], nn_outputs=out["nn_outputs"])
+        return dict(parameters=out["parameters"], nn_outputs=out["nn_outputs"],
+                    adapter_outputs=out["adapter_outputs"])

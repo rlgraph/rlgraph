@@ -160,7 +160,7 @@ class IntrinsicCuriosityWorldOptionModel(SupervisedModel):
             optimizer = dict(type="adam", learning_rate=3e-4)
 
         super(IntrinsicCuriosityWorldOptionModel, self).__init__(
-            predictor=dict(
+            supervised_predictor_spec=dict(
                 network_spec=predictor_network,
                 output_space=Dict({
                     "predicted_actions": action_space,
@@ -173,8 +173,8 @@ class IntrinsicCuriosityWorldOptionModel(SupervisedModel):
                 ),
                 deterministic=deterministic
             ),
-            loss_function=self.loss_functions["predicted_actions"],
-            optimizer=optimizer, scope=scope, **kwargs
+            loss_function_spec=self.loss_functions["predicted_actions"],
+            optimizer_spec=optimizer, scope=scope, **kwargs
         )
 
         self.add_components(self.state_encoder, self.loss_functions["predicted_phi_"])
@@ -248,7 +248,7 @@ class IntrinsicCuriosityWorldOptionModel(SupervisedModel):
         # Update the model (w/o labels b/c labels are already included in the nn_inputs).
         assert labels is None, "ERROR: `labels` arg not needed for {}.`update()`!".format(type(self).__name__)
         nn_inputs = self.get_phis_from_nn_inputs(nn_inputs, deterministic=False)
-        parameters = self.supervised_predictor.get_distribution_parameters(nn_inputs)
+        parameters = self.supervised_predictor.get_distribution_parameters(nn_inputs)["parameters"]
         # Construct labels from nn_inputs.
         labels = dict(predicted_actions=nn_inputs["actions"], predicted_phi_=nn_inputs["phi_"])
 
