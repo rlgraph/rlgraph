@@ -38,7 +38,6 @@ class ApexAgent(DQNAgent):
         action_space,
         *,
         python_buffer_size=0,
-        custom_python_buffers=None,
         discount=0.98,
         preprocessing_spec=None,
         network_spec=None,
@@ -46,9 +45,10 @@ class ApexAgent(DQNAgent):
         policy_spec=None,
         exploration_spec=None,
         execution_spec=None,
+        sync_rules=None,
         optimizer_spec=None,
-        observe_spec=None,
-        update_spec=None,
+        observe_spec=None,  # Obsoleted
+        update_spec=None,  # Obsoleted
         summary_spec=None,
         saver_spec=None,
         auto_build=True,
@@ -93,8 +93,6 @@ class ApexAgent(DQNAgent):
             action_space=action_space,
 
             python_buffer_size=python_buffer_size,
-            custom_python_buffers=custom_python_buffers,
-
             discount=discount,
             preprocessing_spec=preprocessing_spec,
             network_spec=network_spec,
@@ -103,7 +101,8 @@ class ApexAgent(DQNAgent):
             exploration_spec=exploration_spec,
             execution_spec=execution_spec,
             optimizer_spec=optimizer_spec,
-            observe_spec=observe_spec,
+            sync_rules=sync_rules,
+            observe_spec=observe_spec,  # Obsoleted.
             update_spec=update_spec,  # Obsoleted.
             summary_spec=summary_spec,
             saver_spec=saver_spec,
@@ -118,20 +117,22 @@ class ApexAgent(DQNAgent):
         )
 
     def update(self, batch=None, time_percentage=None, **kwargs):
+        if time_percentage is None:
+            time_percentage = self.timesteps / (self.max_timesteps or 1e6)
         self.num_updates += 1
 
         # In apex, syncing is based on num steps trained, not steps sampled.
         sync_call = None
         # Apex uses train time steps for syncing.
         self.steps_since_target_net_sync += len(batch["terminals"])
-        if self.steps_since_target_net_sync >= self.update_spec["sync_interval"]:
+        if self.steps_since_target_net_sync >= self.sync_rules.sync_every_n_updates:
             sync_call = "sync_target_qnet"
             self.steps_since_target_net_sync = 0
         return_ops = [0, 1]
         self.num_updates += 1
         if batch is None:
             # Add some additional return-ops to pull (left out normally for performance reasons).
-            ret = self.graph_executor.execute(("update_from_memory", None, return_ops), sync_call)
+            ret = self.graph_executor.execute(("update_from_memory", [True, time_percentage], return_ops), sync_call)
 
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):
@@ -141,12 +142,16 @@ class ApexAgent(DQNAgent):
         else:
             # Add some additional return-ops to pull (left out normally for performance reasons).
             pps_dtype = self.preprocessed_state_space.dtype
-            batch_input = [np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
-                           batch["actions"],
-                           batch["rewards"], batch["terminals"],
-                           np.asarray(batch["next_states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
-                           batch["importance_weights"],
-                           True]
+            batch_input = [
+                np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
+                batch["actions"],
+                batch["rewards"],
+                batch["terminals"],
+                np.asarray(batch["next_states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np')),
+                batch["importance_weights"],
+                True,
+                time_percentage
+            ]
             ret = self.graph_executor.execute(("update_from_external_batch", batch_input), sync_call)
             # Remove unnecessary return dicts (e.g. sync-op).
             if isinstance(ret, dict):

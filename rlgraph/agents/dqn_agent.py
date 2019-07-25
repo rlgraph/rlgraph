@@ -360,21 +360,18 @@ class DQNAlgorithmComponent(AlgorithmComponent):
         # If we are a multi-GPU root:
         # Simply feeds everything into the multi-GPU sync optimizer's method and return.
         if "multi-gpu-synchronizer" in self.sub_components:
-            #main_policy_vars = self.policy.variables()
-            all_vars = dict(policy=self.policy.variables())  #self.vars_merger.merge(main_policy_vars)
+            all_vars = dict(policy=self.policy.variables())
             out = self.sub_components["multi-gpu-synchronizer"].calculate_update_from_external_batch(
                 all_vars, preprocessed_states, actions, rewards, terminals,
                 preprocessed_next_states, importance_weights, apply_postprocessing=apply_postprocessing,
                 time_percentage=time_percentage
             )
-            #avg_grads_and_vars = self.vars_splitter.call(out["grads_and_vars_by_component"])
             step_op = self.optimizer.apply_gradients(out["grads_and_vars_by_component"]["policy"])
             # Increase the global training step counter.
             step_op = self._graph_fn_training_step(step_op)
             step_and_sync_op = self.sub_components["multi-gpu-synchronizer"].sync_variables_to_towers(
                 step_op, all_vars
             )
-            #q_values_s = out["additional_return_0"]
             return dict(step_op=step_and_sync_op, loss=out["loss"], loss_per_item=out["loss_per_item"]) #, q_values_s
 
         # Get the different Q-values.
