@@ -380,20 +380,21 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
                 for i, s in enumerate(next_states):
                     phi_cache[int(s)] = phi_s[i]
 
-        print()
+        #print()
         for s in sorted(phi_cache.keys()):
             phi = phi_cache[s]
             # Get the original auto-decoder state
             auto_decoded_state = test_auto_decoder.test(("predict", np.array([phi]), "predictions"))
             auto_decoded_state = auto_decoded_state["predictions"][0]
-            print("state={} phi={} auto-decoded-state={}\n{}\n".format(
-                s, phi, auto_decoded_state, render_cache.get(s, "")
-            ))
-        print()
+            #print("state={} phi={} auto-decoded-state={}\n{}\n".format(
+            #    s, phi, auto_decoded_state, render_cache.get(s, "")
+            #))
+        #print()
+
         # Print softmaxed distribution over state visits:
         state_counts = np.array(list(state_counts.values()))
         state_distribution = softmax(state_counts / np.mean(state_counts))
-        print("Distribution over all states: {}".format(state_distribution))
+        #print("Distribution over all states: {}".format(state_distribution))
 
         self.assertTrue(np.mean(losses[:10]) > np.mean(losses[-10:]))
 

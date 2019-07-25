@@ -170,7 +170,7 @@ class SACAgent(Agent):
         ))
 
         if auto_build is True:
-            self.build(build_options=dict(optimizers=self.root_component.all_optimizers))
+            self.build()
 
     def set_weights(self, policy_weights, q_function_weights=None):
         return self.graph_executor.execute(("set_policy_weights", policy_weights))
@@ -307,7 +307,6 @@ class SACAlgorithmComponent(AlgorithmComponent):
             _q_optimizer_spec.propagate_scope()
 
         self.q_function_optimizer = Optimizer.from_spec(_q_optimizer_spec)
-        self.all_optimizers.append(self.q_function_optimizer)
 
         self.target_entropy = target_entropy
         self.alpha_optimizer = self.optimizer.copy(scope="alpha-" + self.optimizer.scope) if self.target_entropy is not None else None
