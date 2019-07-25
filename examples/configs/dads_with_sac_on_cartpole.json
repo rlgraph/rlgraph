@@ -69,7 +69,11 @@
       }
     },
     "loss_function_spec": {
-      "type": "neg-log-likelihood-loss"
+      "type": "neg-log-likelihood-loss",
+      "distribution_spec": {
+        "type": "mixture-distribution",
+        "_args": ["normal", "normal", "normal", "normal", "normal"]
+      }
     },
     "optimizer_spec": {
       "type": "adam",
