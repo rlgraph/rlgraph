@@ -13,13 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.environments import Environment
 from rlgraph.execution.ray.ray_policy_worker import RayPolicyWorker
-
 from rlgraph import get_distributed_backend
 from rlgraph.execution.ray.ray_executor import RayExecutor
 from rlgraph.execution.ray.ray_util import merge_samples, RayWeight
@@ -58,7 +55,7 @@ class SyncBatchExecutor(RayExecutor):
         self.agent_config["action_space"] = environment.action_space
 
         self.local_agent = self.build_agent_from_config(self.agent_config)
-        self.update_batch_size = self.agent_config["update_spec"]["batch_size"]
+        self.update_batch_size = self.agent_config["memory_batch_size"]
 
         # Create remote sample workers based on ray cluster spec.
         self.num_sample_workers = self.executor_spec["num_sample_workers"]

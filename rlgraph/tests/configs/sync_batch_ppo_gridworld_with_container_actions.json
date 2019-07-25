@@ -9,6 +9,9 @@
 
   "python_buffer_size": 200,
 
+  "num_iterations": 10,
+  "sample_size": 50,
+  "memory_batch_size": 200,
   "memory_spec":
   {
     "type": "ring_buffer",
@@ -53,15 +56,6 @@
       "scope": "vf-hidden2"
     }
   ],
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 200,
-    "batch_size": 200,
-    "num_iterations": 10,
-    "sample_size": 50
-  },
 
   "optimizer_spec": {
     "type": "adam",

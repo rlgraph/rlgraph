@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import unittest
@@ -91,7 +89,8 @@ class TestPytorchBackend(unittest.TestCase):
             agent=agent,
             frameskip=1,
             preprocessing_spec=agent_config["preprocessing_spec"],
-            worker_executes_preprocessing=True
+            worker_executes_preprocessing=True,
+            update_rules=dict(update_every_n_units=4, first_update_after_n_units=50000)
         )
 
         result = worker.execute_timesteps(1000)

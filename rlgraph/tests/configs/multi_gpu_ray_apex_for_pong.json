@@ -5,6 +5,10 @@
 
   "python_buffer_size": 3000,
 
+  "memory_batch_size": 512,
+  "sync_rules": {
+    "sync_every_n_updates": 125000
+  },
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 3000
@@ -167,13 +171,6 @@
         "min_sample_memory_size": 50000
       }
     }
-  },
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "steps_before_update": 50000,
-    "batch_size": 512,
-    "sync_interval": 500000
   },
   "optimizer_spec": {
     "type": "adam",

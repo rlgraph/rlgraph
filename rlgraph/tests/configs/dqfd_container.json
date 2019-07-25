@@ -3,6 +3,10 @@
 
   "python_buffer_size": 0,
 
+  "memory_batch_size": 32,
+  "sync_rules": {
+    "sync_every_n_updates": 6
+  },
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 10000
@@ -40,14 +44,6 @@
         "to": 0.05
       }
     }
-  },
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 4,
-    "steps_before_update": 4,
-    "batch_size": 32,
-    "sync_interval": 24
   },
   "demo_sample_ratio": 0.2,
   "expert_margin": 0.1,

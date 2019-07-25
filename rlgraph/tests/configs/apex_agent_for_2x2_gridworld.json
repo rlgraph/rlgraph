@@ -1,6 +1,11 @@
 {
   "type": "apex",
   "discount": 0.99,
+
+  "sync_rules": {
+    "sync_every_n_updates": 8
+  },
+  "memory_batch_size": 64,
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 128
@@ -85,12 +90,7 @@
       }
     }
   },
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 64,
-    "sync_interval": 32
-  },
+
   "optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.01

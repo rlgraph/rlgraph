@@ -4,6 +4,11 @@
 
   "python_buffer_size": 2,
 
+  "memory_batch_size": 2,
+  "sync_rules": {
+    "sync_every_n_updates": 2
+  },
+
   "memory_spec":
   {
     "type": "replay",
@@ -53,12 +58,6 @@
   "optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.5
-  },
-
-  "update_spec": {
-    "update_interval": 4,
-    "batch_size": 2,
-    "sync_interval": 8
   },
 
   "execution_spec": {

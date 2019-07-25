@@ -8,15 +8,14 @@
   "discount": 0.99,
   "gae_lambda": 1.0,
 
+  "memory_batch_size": 32,
+  "num_iterations": 10,
+  "sample_size": 4,
   "memory_spec":
   {
     "type": "ring-buffer",
     "capacity": 2000
   },
-
-  "preprocessing_spec":
-  [
-  ],
 
   "observe_spec": {
     "buffer_size": 2
@@ -41,15 +40,6 @@
       "scope": "vf-hidden"
     }
   ],
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 8,
-    "batch_size": 32,
-    "num_iterations": 10,
-    "sample_size": 4
-  },
 
   "optimizer_spec": {
     "type": "adam",

@@ -95,7 +95,8 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             agent=agent,
             render=False, #self.is_windows,
             worker_executes_preprocessing=True,
-            preprocessing_spec=GridWorld.grid_world_long_chain_preprocessing_spec
+            preprocessing_spec=GridWorld.grid_world_long_chain_preprocessing_spec,
+            update_rules=dict(update_every_n_units=8)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 

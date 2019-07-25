@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 from logging import DEBUG
@@ -26,8 +24,7 @@ from rlgraph.agents import ApexAgent, DQNAgent, PPOAgent
 from rlgraph.environments import OpenAIGymEnv, RandomEnv, GridWorld
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 from rlgraph.spaces import *
-from rlgraph.tests.test_util import config_from_path
-from rlgraph.tests.test_util import recursive_assert_almost_equal
+from rlgraph.tests.test_util import config_from_path, recursive_assert_almost_equal
 from rlgraph.utils import root_logger
 from rlgraph.utils.numpy import one_hot
 
@@ -111,7 +108,8 @@ class TestGpuStrategies(unittest.TestCase):
             env_spec=env_spec,
             agent=agent,
             worker_executes_preprocessing=True,
-            preprocessing_spec=preprocessing_spec
+            preprocessing_spec=preprocessing_spec,
+            update_rules=dict(update_every_n_units=4)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -162,7 +160,8 @@ class TestGpuStrategies(unittest.TestCase):
             env_spec=env_spec,
             agent=agent,
             worker_executes_preprocessing=True,
-            preprocessing_spec=preprocessing_spec
+            preprocessing_spec=preprocessing_spec,
+            update_rules=dict(update_every_n_units=16)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 

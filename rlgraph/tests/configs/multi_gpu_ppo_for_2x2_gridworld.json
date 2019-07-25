@@ -10,6 +10,9 @@
 
   "python_buffer_size": 32,
 
+  "memory_batch_size": 16,
+  "num_iterations": 6,
+  "sample_size": 8,
   "memory_spec":
   {
     "type": "ring-buffer",
@@ -63,15 +66,6 @@
 		"CPU": 1
 	  }
     }
-  },
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 16,
-    "batch_size": 16,
-    "num_iterations": 6,
-    "sample_size": 8
   },
 
   "optimizer_spec": {

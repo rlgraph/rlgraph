@@ -1,18 +1,16 @@
 {
   "type": "sac-agent",
   "discount": 0.99,
+
+  "sync_rules": {
+    "sync_every_n_updates": 1,
+    "sync_tau": 0.05
+  },
+
+  "memory_batch_size": 100,
   "memory_spec": {
     "type": "replay-memory",
     "capacity": 1000
-  },
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 1,
-    "sync_interval": 1,
-    "sync_tau": 0.05,
-    "batch_size": 100,
-    "num_iterations": 1
   },
   "network_spec": [
     {

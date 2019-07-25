@@ -239,7 +239,8 @@ class TestSACShortTaskLearning(unittest.TestCase):
             agent=agent,
             preprocessing_spec=preprocessing_spec,
             worker_executes_preprocessing=False,
-            render=False
+            render=False,
+            update_rules=dict(update_every_n_units=1)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
         print(results)

@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import random
 from threading import Thread
@@ -180,7 +178,7 @@ class ApexExecutor(RayExecutor):
         - Retrieve sample batches via Ray from remote workers
         - Insert these into the local memory
         - Have a separate learn thread sample batches from the memory and compute updates
-        - Sync weights to the shared model so remot eworkers can update their weights.
+        - Sync weights to the shared model so remote workers can update their weights.
         """
         # Env steps done during this rollout.
         env_steps = 0

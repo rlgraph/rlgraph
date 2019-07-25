@@ -4,6 +4,10 @@
 
   "python_buffer_size": 100,
 
+  "sync_rules": {
+    "sync_every_n_updates": 10000
+  },
+  "memory_batch_size": 32,
   "memory_spec":
   {
     "type": "replay",
@@ -32,15 +36,6 @@
     "epsilon_spec": {
       "decay_spec": ["linear", 1.0, 0.05]
     }
-  },
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 4,
-    "steps_before_update": 50000,
-    "batch_size": 32,
-    "sync_interval": 10000
   },
 
   "optimizer_spec": {

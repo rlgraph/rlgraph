@@ -11,8 +11,6 @@
     "capacity": 10000
   },
   "saver_spec": null,
-  "preprocessing_spec":
-  [],
 
   "network_spec":
   [
@@ -58,7 +56,7 @@
 		"intra_op_parallelism_threads": 1
     }
   },
-  "update_spec": false,
+
   "optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0001,

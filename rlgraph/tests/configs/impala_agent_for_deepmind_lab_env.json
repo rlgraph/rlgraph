@@ -3,9 +3,7 @@
 
   "architecture": "large",
 
-  "update_spec": {
-    "batch_size": 2
-  },
+  "memory_batch_size": 2,
 
   "optimizer_spec": {
     "type": "rms-prop",

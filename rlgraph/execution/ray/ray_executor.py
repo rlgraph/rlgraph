@@ -13,19 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from copy import deepcopy
-from six.moves import xrange as range_
 import logging
-import numpy as np
 import time
+
+from six.moves import xrange as range_
+import numpy as np
 
 from rlgraph import get_distributed_backend
 from rlgraph.agents import Agent
-from rlgraph.environments import Environment
 from rlgraph.execution.ray.ray_util import worker_exploration
 
 if get_distributed_backend() == "ray":

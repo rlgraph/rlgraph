@@ -3,6 +3,10 @@
   "discount": 0.99,
   "n_step": 1,
 
+  "sync_rules": {
+    "sync_every_n_updates": 32
+  },
+  "memory_batch_size": 24,
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 128
@@ -81,13 +85,6 @@
         "to": 0.05
       }
     }
-  },
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 1,
-    "batch_size": 24,
-    "sync_interval": 32,
-    "steps_before_update": 256
   },
   "optimizer_spec": {
     "type": "adam",

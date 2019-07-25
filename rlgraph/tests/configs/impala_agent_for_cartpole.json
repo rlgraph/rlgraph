@@ -3,9 +3,9 @@
 
   "num_workers": 4,
   "worker_sample_size": 20,
-
   "visualize": 0,
 
+  "memory_batch_size": 8,
   "fifo_queue_spec":
   {
     "capacity": 1
@@ -20,10 +20,6 @@
   "feed_previous_action_through_nn": false,
   "feed_previous_reward_through_nn": false,
 
-  "preprocessing_spec":
-  [
-  ],
-
   "network_spec":
   {
     "layers": [
@@ -35,11 +31,6 @@
       }
     ],
     "scope": "impala-net"
-  },
-
-  "update_spec": {
-    "do_updates": true,
-    "batch_size": 8
   },
 
   "optimizer_spec":

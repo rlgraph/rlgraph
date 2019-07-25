@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import unittest
@@ -53,7 +51,10 @@ class TestDQNAgentFunctionality(unittest.TestCase):
             action_space=env.action_space,
             discount=0.95
         )
-        worker = SingleThreadedWorker(env_spec=lambda: GridWorld(world="2x2", save_mode=True), agent=agent)
+        worker = SingleThreadedWorker(
+            env_spec=lambda: GridWorld(world="2x2", save_mode=True), agent=agent,
+            update_rules=dict(update_every_n_units=4)
+        )
         test = AgentTest(worker=worker)
 
         # Helper python DQNLossFunc object.

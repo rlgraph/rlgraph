@@ -5,6 +5,12 @@
   "gumbel_softmax_temperature": 1.0,
   "double_q": false,
 
+  "sync_rules": {
+    "sync_interval": 1,
+    "sync_tau": 0.005
+  },
+
+  "memory_batch_size": 32,
   "memory_spec":
   {
     "type": "replay",
@@ -32,17 +38,6 @@
       "scope": "vf-hidden1"
     }
   ],
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 1,
-    "sync_interval": 1,
-    "sync_tau": 0.005,
-    "batch_size": 32,
-    "num_iterations": 1,
-    "steps_before_update": 256
-  },
 
   "optimizer_spec": {
     "type": "adam",

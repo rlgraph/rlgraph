@@ -2,9 +2,12 @@
   "type": "dqn",
   "discount": 0.99,
   "n_step": 3,
-
   "python_buffer_size": 3000,
 
+  "sync_rules": {
+    "sync_every_n_updates": 125000
+  },
+  "memory_batch_size": 512,
   "memory_spec": {
     "type": "prioritized_replay",
     "capacity": 10000
@@ -101,13 +104,6 @@
 			"CPU": 1
 		}
     }
-  },
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "steps_before_update": 50000,
-    "batch_size": 512,
-    "sync_interval": 500000
   },
   "optimizer_spec": {
     "type": "adam",
