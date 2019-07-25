@@ -6,15 +6,13 @@
   "weight_entropy": 0.01,
 
   "python_buffer_size": 200,
+
   "memory_batch_size": 32,
   "memory_spec":
   {
     "type": "ring_buffer",
     "capacity": 1000
   },
-
-  "preprocessing_spec":
-  [],
 
   "network_spec":
   [

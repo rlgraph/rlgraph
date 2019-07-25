@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import os
@@ -88,12 +86,14 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
             action_space=dummy_env.action_space
         )
 
-        time_steps = 3000
+        time_steps = 10000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,
             worker_executes_preprocessing=False,
-            update_rules=dict(unit="episodes", update_every_n_units=16)
+            update_rules=dict(unit="episodes", update_every_n_units=32),
+            episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
+            print("episode return {}".format(episode_return))
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -101,7 +101,7 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
 
         self.assertEqual(results["timesteps_executed"], time_steps)
         self.assertEqual(results["env_frames"], time_steps)
-        self.assertGreaterEqual(results["mean_episode_reward"], 35.0)
+        self.assertGreaterEqual(results["mean_episode_reward_last_10_episodes"], 35.0)
         self.assertGreaterEqual(results["max_episode_reward"], 80.0)
         self.assertLessEqual(results["episodes_executed"], time_steps / 30)
 
