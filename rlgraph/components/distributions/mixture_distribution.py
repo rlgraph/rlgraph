@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.distributions.categorical import Categorical
@@ -59,7 +57,8 @@ class MixtureDistribution(Distribution):
         # Must be a Dict with keys: 'categorical', 'parameters0', 'parameters1', etc...
         in_space = input_spaces["parameters"]
 
-        assert "categorical" in in_space, "ERROR: in_space for Mixed needs parameter key: 'categorical'!"
+        if "categorical" not in in_space:
+            raise RLGraphError("in_space for MixtureDistribution needs parameter key: 'categorical'!")
 
         for i, s in enumerate(self.sub_distributions):
             sub_space = in_space.get("parameters{}".format(i))
@@ -70,7 +69,7 @@ class MixtureDistribution(Distribution):
     def _graph_fn_get_distribution(self, parameters):
         """
         Args:
-            parameters (DataOpDict): The parameters to use for parameterizations of the different sub-distributions
+            parameters (DataOpDict): The parameters to use for parametrizations of the different sub-distributions
                 including the main-categorical one. Keys must be "categorical", "parameters0", "parameters1", etc..
 
         Returns:
