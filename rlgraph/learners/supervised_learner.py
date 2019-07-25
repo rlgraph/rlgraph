@@ -69,7 +69,7 @@ class SupervisedLearner(Learner):
         #else:
         return self.graph_executor.execute(("predict", prediction_input))
 
-    def forward(self, prediction_input):
+    def get_distribution_parameters(self, prediction_input):
         """
         Runs an input through the trained network and returns the pure distribution-parameter output,
         without the sampling step after that.
@@ -80,7 +80,7 @@ class SupervisedLearner(Learner):
         Returns:
             The distribution parameters returned by the NN.
         """
-        return self.graph_executor.execute(("forward", prediction_input))
+        return self.graph_executor.execute(("get_distribution_parameters", prediction_input))
 
     def get_loss(self, prediction_input, labels, sequence_length=None):
         return self.graph_executor.execute(("get_loss", [prediction_input, labels, sequence_length]))

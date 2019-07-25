@@ -67,7 +67,9 @@ def main(argv):
             ))
 
     worker = DADSWorker(
-        agent_spec=worker_config.get("agent_spec"), env_spec=lambda: env,
+        agent_spec=worker_config.get("agent_spec"),
+        env_spec=lambda: env,
+        skill_dynamics_model_spec=worker_config.get("skill_dynamics_model_spec"),
         render=FLAGS.render, worker_executes_preprocessing=False,
         episode_finish_callback=episode_finished_callback
     )

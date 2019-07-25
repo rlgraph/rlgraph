@@ -48,5 +48,32 @@
       "type": "adam",
       "learning_rate": 3e-4
     }
+  },
+  "skill_dynamics_model_spec": {
+    "supervised_predictor_spec": {
+      "network_spec": [
+        {
+          "type": "dense",
+          "units": 256,
+          "scope": "dense-0"
+        },
+        {
+          "type": "dense",
+          "units": 256,
+          "scope": "dense-1"
+        }
+      ],
+      "distribution_adapter_spec": {
+        "type": "normal-mixture-adapter",
+        "num_mixtures": 5
+      }
+    },
+    "loss_function_spec": {
+      "type": "neg-log-likelihood-loss"
+    },
+    "optimizer_spec": {
+      "type": "adam",
+      "learning_rate": 0.0003
+    }
   }
 }

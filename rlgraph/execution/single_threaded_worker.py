@@ -30,6 +30,9 @@ from rlgraph.utils.rlgraph_errors import RLGraphError
 class SingleThreadedWorker(Worker):
 
     def __init__(self, preprocessing_spec=None, worker_executes_preprocessing=True, **kwargs):
+        # Make sure `env_spec` parameter is provided.
+        assert kwargs.get("env_spec") is not None, "ERROR: `env_spec` needed in SingleThreadedWorker!"
+
         super(SingleThreadedWorker, self).__init__(**kwargs)
 
         self.logger.info("Initialized single-threaded executor with {} environments '{}' and Agent '{}'".format(

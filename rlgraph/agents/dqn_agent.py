@@ -296,6 +296,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
 
         # Copy our Policy (target-net), make target-net synchronizable.
         self.target_policy = self.policy.copy(scope="target-policy", trainable=False)
+        # TODO: Move all sync logic (plus tau-option) into target-policy's Synchronizable as it's done in SAC.
         # Number of steps since the last target-net synching from the main policy.
         self.steps_since_target_net_sync = 0
 
@@ -331,8 +332,7 @@ class DQNAlgorithmComponent(AlgorithmComponent):
             return multi_gpu_syncer.sync_target_qnets()
         # We could be the main root or a multi-GPU tower.
         else:
-            policy_vars = self.policy.variables()
-            return self.target_policy.sync(policy_vars)
+            return self.target_policy.sync(self.policy.variables())
 
     # Learn from memory.
     @rlgraph_api

@@ -19,6 +19,7 @@ import numpy as np
 
 from rlgraph.agents.agent import Agent
 from rlgraph.environments.environment import Environment
+from rlgraph.learners.supervised_learner import SupervisedLearner
 from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
 from rlgraph.spaces import FloatBox, Space
 
@@ -40,15 +41,20 @@ class DADSWorker(SingleThreadedWorker):
 
     def __init__(
             self,
-            agent_spec, env_spec=None,
+            agent_spec,
+            env_spec,
+            skill_dynamics_model_spec,
             preprocessing_spec=None,
             worker_executes_preprocessing=None,
-            num_skill_dimensions=10,
+            num_skill_dimensions=4,
             use_discrete_skills=False,
             **kwargs
     ):
         """
         Args:
+            skill_dynamics_model_spec (Union[dict,SupervisedModel]): A specification dict for the
+                environment skill-dynamics-learning SupervisedModel or the model Component directly.
+
             num_skill_dimensions (int): The size of the skills vector.
 
             use_discrete_skills (bool): Whether to use discrete skills (one-hot vectors of size `num_skill_dimensions`).
@@ -68,10 +74,10 @@ class DADSWorker(SingleThreadedWorker):
                 "manipulation for DADS learning!"
             )
         # Add skill-Space to the Agent's state_space.
-        state_space = Space.from_spec(agent_spec.get("state_space", dummy_env.state_space))
+        env_state_space = Space.from_spec(agent_spec.get("state_space", dummy_env.state_space))
         # TODO: Make this work for any kind of state Space.
-        assert isinstance(state_space, FloatBox) and state_space.rank == 1
-        new_dim = state_space.shape[0] + self.num_skill_dimensions
+        assert isinstance(env_state_space, FloatBox) and env_state_space.rank == 1
+        new_dim = env_state_space.shape[0] + self.num_skill_dimensions
         state_space = FloatBox(shape=(new_dim,))
         # Add state and action spaces to Agent config and create Worker base.
         agent_spec["state_space"] = state_space
@@ -106,6 +112,20 @@ class DADSWorker(SingleThreadedWorker):
 
         # Reserve skill-vector (with batch rank==num envs in vector-env) to sample into.
         self.skill_vectors = {env_id: np.ndarray(shape=(self.num_skill_dimensions,), dtype=np.float32) for env_id in self.env_ids}
+
+        # Create supervised learner that learns a SupervisedModel on the skill-dependent-transition-function
+        # q(s'|s,z), where z=skill vector
+        # Convenience: Add output_space if not already done in config (determined by env).
+        if isinstance(skill_dynamics_model_spec, dict) and \
+                isinstance(skill_dynamics_model_spec["supervised_predictor_spec"], dict) and \
+                "output_space" not in skill_dynamics_model_spec["supervised_predictor_spec"]:
+            skill_dynamics_model_spec["supervised_predictor_spec"]["output_space"] = env_state_space
+        self.transition_function_learner = SupervisedLearner.from_spec(
+            input_space=state_space,
+            output_space=env_state_space,
+            supervised_model_spec=skill_dynamics_model_spec
+        )
+        print()
 
     def _observe(self, env_ids, states, actions, rewards, next_states, terminals, **other_data):
         """
