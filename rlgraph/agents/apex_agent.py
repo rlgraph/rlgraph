@@ -37,28 +37,29 @@ class ApexAgent(DQNAgent):
         state_space,
         action_space,
         *,
-        python_buffer_size=0,
         discount=0.98,
-        preprocessing_spec=None,
-        network_spec=None,
-        internal_states_space=None,
-        policy_spec=None,
-        exploration_spec=None,
-        execution_spec=None,
-        sync_rules=None,
-        optimizer_spec=None,
-        observe_spec=None,  # Obsoleted
-        update_spec=None,  # Obsoleted
-        summary_spec=None,
-        saver_spec=None,
-        auto_build=True,
-        name="apex-agent",
+        python_buffer_size=0,
+        memory_batch_size=None,
         double_q=True,
         dueling_q=True,
-        huber_loss=True,
         n_step=1,
+        preprocessing_spec=None,
+        memory_spec=None,
+        internal_states_space=None,
+        policy_spec=None,
+        network_spec=None,
+        exploration_spec=None,
+        execution_spec=None,
+        optimizer_spec=None,
+        observe_spec=None,  # Obsoleted.
+        update_spec=None,  # Obsoleted.
+        sync_rules=None,
+        summary_spec=None,
+        saver_spec=None,
+        huber_loss=False,
         shared_container_action_target=True,
-        memory_spec=None
+        auto_build=True,
+        name="dqn-agent"
     ):
         """
         Args:
@@ -83,7 +84,7 @@ class ApexAgent(DQNAgent):
             name (str): Some name for this Agent object.
             double_q (bool): Whether to use the double DQN loss function (see [2]).
             dueling_q (bool): Whether to use a dueling layer in the ActionAdapter  (see [3]).
-            huber_loss (bool) : Whether to apply a Huber loss. (see [4]).
+            huber_loss (bool): Whether to apply a Huber loss. (see [4]).
             n_step (Optional[int]): n-step adjustment to discounting.
             memory_spec (Optional[dict,Memory]): The spec for the Memory to use for the DQN algorithm.
         """
@@ -91,8 +92,8 @@ class ApexAgent(DQNAgent):
         super(ApexAgent, self).__init__(
             state_space=state_space,
             action_space=action_space,
-
             python_buffer_size=python_buffer_size,
+            memory_batch_size=memory_batch_size,
             discount=discount,
             preprocessing_spec=preprocessing_spec,
             network_spec=network_spec,
