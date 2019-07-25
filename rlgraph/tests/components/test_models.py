@@ -50,7 +50,7 @@ class TestModels(unittest.TestCase):
         test = ComponentTest(component=model, input_spaces=dict(
             nn_inputs=input_space,
             labels=output_space
-        ), build_kwargs={"optimizer": model.optimizer})
+        ))
 
         # Test learning capabilities of the model.
         batch_size = 256

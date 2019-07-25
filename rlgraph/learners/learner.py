@@ -70,12 +70,6 @@ class Learner(ABC, Specifiable):
         )
         self.graph_built = False
 
-    def _build_graph(self, root_components, input_spaces, **kwargs):
-        """
-        Builds the internal graph from the RLGraph meta-graph via the graph executor..
-        """
-        return self.graph_executor.build(root_components, input_spaces, **kwargs)
-
     def build(self, build_options=None):
         """
         Builds this agent. This method call only be called if the agent parameter "auto_build"
@@ -89,8 +83,10 @@ class Learner(ABC, Specifiable):
             "to `False` and the `Learner.build` method has not been called twice."
 
         build_stats = self.graph_executor.build(
-            [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
-            build_options=build_options, batch_size=self.root_component.memory_batch_size
+            root_components=[self.root_component],
+            input_spaces=self.input_spaces,
+            build_options=build_options,
+            batch_size=self.root_component.memory_batch_size
         )
 
         self.graph_built = True

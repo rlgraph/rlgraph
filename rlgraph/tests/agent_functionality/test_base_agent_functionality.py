@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import unittest
@@ -92,11 +90,11 @@ class TestBaseAgentFunctionality(unittest.TestCase):
             state_space=env.state_space,
             action_space=env.action_space
         )
-        build = agent.build()
-        print("Build stats = ", build)
+        build_stats = agent.build()
+        print("Build stats = ", build_stats)
         # Check no negative times (e.g. from wrong start/stop times in recursive calls).
-        self.assertGreater(build["total_build_time"], 0.0)
-        build_times = build["build_times"][0]
+        self.assertGreater(build_stats["total_build_time"], 0.0)
+        build_times = build_stats["build_times"][0]
         self.assertGreater(build_times["build_overhead"], 0.0)
         self.assertGreater(build_times["total_build_time"], 0.0)
         self.assertGreater(build_times["op_creation"], 0.0)

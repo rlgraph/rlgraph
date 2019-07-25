@@ -17,7 +17,6 @@ from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.models.supervised_model import SupervisedModel
-from rlgraph.components.optimizers.optimizer import Optimizer
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
 
@@ -46,17 +45,8 @@ class SupervisedRootComponent(Component):
         self.nesting_level = 0
 
         self.supervised_model = SupervisedModel.from_spec(supervised_model_spec)
+
         self.add_components(self.supervised_model)
-
-        self.all_optimizers = self.supervised_model.optimizer
-
-    def add_components(self, *sub_components, expose_apis=None):
-        super(SupervisedRootComponent, self).add_components(*sub_components, expose_apis=expose_apis)
-
-        # Keep track of all our Optimizers.
-        for sub_component in self.get_all_sub_components(exclude_self=True):
-            if isinstance(sub_component, Optimizer):
-                self.all_optimizers.append(sub_component)
 
     @rlgraph_api
     def predict(self, prediction_input):

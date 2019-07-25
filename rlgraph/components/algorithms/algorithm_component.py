@@ -112,14 +112,10 @@ class AlgorithmComponent(Component):
         # operations.
         self.loss_function = None
 
-        # List of all of this Component's optimizer sub-components.
-        self.all_optimizers = []
-
         # Create the Agent's optimizer based on optimizer_spec and execution strategy.
         self.optimizer = None
         if optimizer_spec is not None:
             self.optimizer = Optimizer.from_spec(optimizer_spec)
-            self.all_optimizers.append(self.optimizer)
 
         self.value_function_optimizer = None
         if self.value_function is not None:
@@ -136,7 +132,6 @@ class AlgorithmComponent(Component):
                 vf_optimizer_spec.propagate_scope()
 
             self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
-            self.all_optimizers.append(self.value_function_optimizer)
 
         self.add_components(self.preprocessor, self.policy, self.value_function, #self.vars_merger, self.vars_splitter,
                             self.exploration, self.optimizer, self.value_function_optimizer)
@@ -180,14 +175,6 @@ class AlgorithmComponent(Component):
                     return self._graph_fn_group(policy_sync_op, vf_sync_op)
                 else:
                     return policy_sync_op
-
-    def add_components(self, *sub_components, expose_apis=None):
-        super(AlgorithmComponent, self).add_components(*sub_components, expose_apis=expose_apis)
-
-        # Keep track of all our Optimizers.
-        for sub_component in self.get_all_sub_components(exclude_self=True):
-            if isinstance(sub_component, Optimizer):
-                self.all_optimizers.append(sub_component)
 
     @rlgraph_api
     def get_preprocessed_states(self, states):

@@ -20,6 +20,7 @@ import random
 import numpy as np
 
 from rlgraph import get_backend
+from rlgraph.components.component import Component
 from rlgraph.graphs import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.tests.test_util import recursive_assert_almost_equal
@@ -46,7 +47,7 @@ class ComponentTest(object):
         device_map=None,
         backend=None,
         auto_build=True,
-        build_kwargs=None
+        build_options=None
     ):
         """
         Args:
@@ -66,7 +67,8 @@ class ComponentTest(object):
             backend (Optional[str]): Override global backend settings for a test by passing in a specific
                 backend, convenience method.
             auto_build (Optional[bool]): If false, build has to be triggered manually to eval build stats.
-            build_kwargs (Optional[dict]): Dict to be passed as **kwargs to the call to `self.graph_executor.build`.
+            build_options (Optional[dict]): Optional `build_options` arg to be passed to `GraphExecutor.build()`.
+                Can be overwritten by passing `build_options` manually into `self.build()` when `auto_build` is False.
         """
         self.seed = seed
         np.random.seed(seed)
@@ -79,8 +81,8 @@ class ComponentTest(object):
         self.graph_builder = GraphBuilder(action_space=action_space)
         self.component = component
         self.component.nesting_level = 0
+
         self.input_spaces = input_spaces
-        self.build_kwargs = build_kwargs or dict()
 
         # Build the model.
         execution_spec = parse_execution_spec(execution_spec or dict(
@@ -97,13 +99,18 @@ class ComponentTest(object):
             graph_builder=self.graph_builder,
             execution_spec=execution_spec
         )
+
+        self.build_options = build_options
         if auto_build:
             self.build()
         else:
             print("Auto-build false, did not build. Waiting for manual build.")
 
-    def build(self):
-        return self.graph_executor.build([self.component], self.input_spaces, **self.build_kwargs)
+    def build(self, build_options=None):
+        return self.graph_executor.build(
+            root_components=[self.component], input_spaces=self.input_spaces,
+            build_options=(build_options or self.build_options)
+        )
 
     def test(self, *api_method_calls, **kwargs):
         """

@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os
 import time
@@ -23,6 +21,7 @@ import time
 from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
+from rlgraph.components.optimizers.optimizer import Optimizer
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.utils.util import force_list
@@ -76,10 +75,10 @@ class TensorFlowExecutor(GraphExecutor):
         self.session = None
         self.monitored_session = None
 
-        # The optimizer is a somewhat privileged graph component because it must manage
-        # devices depending on the device strategy and we hence keep an instance here to be able
+        # Optimizers are somewhat privileged graph components because they must manage
+        # devices depending on the device strategy and we hence keep instances here to be able
         # to request special device init ops.
-        self.optimizers = None
+        self.all_optimizers = []
 
         self.graph_default_context = None
         self.local_device_protos = device_lib.list_local_devices()
@@ -169,7 +168,7 @@ class TensorFlowExecutor(GraphExecutor):
         else:
             raise RLGraphError("Invalid device_strategy ('{}') for TensorFlowExecutor!".format(self.device_strategy))
 
-    def build(self, root_components, input_spaces, optimizer=None, build_options=None, batch_size=32):
+    def build(self, root_components, input_spaces, build_options=None, batch_size=32):
         # Use perf_counter for short tasks.
         start = time.perf_counter()
 
@@ -188,7 +187,9 @@ class TensorFlowExecutor(GraphExecutor):
             # Sanity-check the component tree (from root all the way down).
             self.sanity_check_component_tree(root_component=component)
 
-            self._build_device_strategy(component, optimizer, batch_size=batch_size, extra_build_args=build_options)
+            self._build_device_strategy(
+                component, batch_size=batch_size, extra_build_args=build_options
+            )
             start = time.perf_counter()
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
             meta_build_times.append(time.perf_counter() - start)
@@ -453,8 +454,8 @@ class TensorFlowExecutor(GraphExecutor):
 
         # We can not fetch optimizer vars.
         # TODO let graph builder do this
-        if self.optimizers is not None:
-            for optimizer in self.optimizers:
+        if len(self.all_optimizers) > 0:
+            for optimizer in self.all_optimizers:
                 var_list.extend(optimizer.get_optimizer_variables())
 
         if self.execution_mode == "single":
@@ -657,7 +658,7 @@ class TensorFlowExecutor(GraphExecutor):
         if self.tf_session_auto_start is True:
             self.monitored_session.close()
 
-    def _build_device_strategy(self, root_component, root_optimizer, batch_size, extra_build_args=None):
+    def _build_device_strategy(self, root_component, batch_size, extra_build_args=None):
         """
         When using multiple GPUs or other special devices, additional graph components
         may be required to split up incoming data, load it to device memories, and aggregate
@@ -672,18 +673,11 @@ class TensorFlowExecutor(GraphExecutor):
 
         Args:
             root_component (Component): The root Component (will be used to create towers via `Component.copy()`).
-            root_optimizer (Optimizer): The Optimizer object of the root Component.
             batch_size (int): The batch size that needs to be split between the different GPUs.
             extra_build_args (Optional[dict]): Extra build elements to pass.
         """
-        self.optimizers = []
-        if root_optimizer is not None:
-            self.optimizers.append(root_optimizer)
-        # Save separate vf optimizer if necessary.
-        if extra_build_args is not None and "vf_optimizer" in extra_build_args:
-            self.optimizers.append(extra_build_args["vf_optimizer"])
-        if extra_build_args is not None and "optimizers" in extra_build_args:
-            self.optimizers.extend(extra_build_args["optimizers"])
+        # Specify all optimizers in a list.
+        self.all_optimizers = [c for c in root_component.get_all_sub_components() if isinstance(c, Optimizer)]
 
         if self.device_strategy == "multi_gpu_sync":
             assert self.num_gpus > 1 or (self.fake_gpus is True and self.max_usable_gpus > 0), \
@@ -708,11 +702,9 @@ class TensorFlowExecutor(GraphExecutor):
                 self.used_devices.append(device)
 
             # Setup and add MultiGpuSynchronizer to root.
-            multi_gpu_optimizer = MultiGpuSynchronizer(batch_size=batch_size)
-            root_component.add_components(multi_gpu_optimizer)
-            #multi_gpu_optimizer.graph_fn_num_outputs["_graph_fn_calculate_update_from_external_batch"] = \
-            #    root_component.graph_fn_num_outputs["_graph_fn_update_from_external_batch"]
-            multi_gpu_optimizer.setup_towers(sub_graphs, devices)
+            multi_gpu_synchronizer = MultiGpuSynchronizer(batch_size=batch_size)
+            root_component.add_components(multi_gpu_synchronizer)
+            multi_gpu_synchronizer.setup_towers(sub_graphs, devices)
 
     def _sanity_check_devices(self):
         """

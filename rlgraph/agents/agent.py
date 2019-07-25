@@ -85,8 +85,8 @@ class Agent(Specifiable):
 
         super(Agent, self).__init__()
         self.name = name
-        #self.auto_build = auto_build
         self.graph_built = False
+        self.build_stats = None
         self.logger = logging.getLogger(__name__)
 
         self.state_space = Space.from_spec(state_space).with_batch_rank(False)
@@ -190,13 +190,13 @@ class Agent(Specifiable):
             "ERROR: Attempting to build agent which has already been built. Ensure `auto_build` c'tor arg is set to " \
             "False and the `Agent.build` method has not been called twice."
 
-        build_stats = self.graph_executor.build(
-            [self.root_component], self.input_spaces, optimizer=self.root_component.optimizer,
+        self.build_stats = self.graph_executor.build(
+            root_components=[self.root_component], input_spaces=self.input_spaces,
             build_options=build_options, batch_size=self.root_component.memory_batch_size
         )
 
         self.graph_built = True
-        return build_stats
+        return self.build_stats
 
     def preprocess_states(self, states):
         """

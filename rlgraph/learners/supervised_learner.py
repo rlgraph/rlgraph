@@ -45,9 +45,8 @@ class SupervisedLearner(Learner):
 
         self.root_component = SupervisedRootComponent(self, supervised_model_spec=supervised_model_spec)
 
-        if auto_build:
-            if auto_build is True:
-                self.build(build_options=dict(optimizers=self.root_component.all_optimizers))
+        if auto_build is True:
+            self.build()
 
     def predict(self, prediction_input):
         """

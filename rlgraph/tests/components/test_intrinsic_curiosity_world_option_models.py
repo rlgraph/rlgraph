@@ -58,9 +58,9 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
             num_mixtures=num_mixtures, optimizer={"type": "adam", "learning_rate": 3e-4}, deterministic=True)
 
         test = ComponentTest(component=icwom, input_spaces=dict(
-            nn_inputs=nn_inputs_space, #labels=labels_space,
+            nn_inputs=nn_inputs_space,
             states=state_space
-        ), build_kwargs={"optimizer": icwom.optimizer})
+        ))
 
         variables = test.read_variable_values(icwom.variable_registry)
         encoder_nn_scope = "intrinsic-curiosity-world-option-model/state-encoder/policy/neural-network/"
@@ -159,7 +159,7 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
         test = ComponentTest(component=icwom, input_spaces=dict(
             nn_inputs=nn_inputs_space, #labels=labels_space,
             states=state_space
-        ), build_kwargs={"optimizer": icwom.optimizer})
+        ))  #, build_kwargs={"optimizer": icwom.optimizer})
 
         variables = test.read_variable_values(icwom.variable_registry)
         encoder_nn_scope = "intrinsic-curiosity-world-option-model/state-encoder/policy/neural-network/"
@@ -300,7 +300,7 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
         test = ComponentTest(component=icwom, input_spaces=dict(
             nn_inputs=nn_inputs_space, #labels=labels_space,
             states=state_space
-        ), build_kwargs={"optimizer": icwom.optimizer})
+        ))  #, build_kwargs={"optimizer": icwom.optimizer})
 
         all_icwom_vars = test.read_variable_values(icwom.variable_registry)
 
@@ -318,8 +318,8 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
         test_auto_decoder = ComponentTest(
             component=auto_decoder, input_spaces=dict(
                 nn_inputs=state_feature_space, labels=state_space
-            ),
-            build_kwargs={"optimizer": auto_decoder.optimizer}
+            )
+            #build_kwargs={"optimizer": auto_decoder.optimizer}
         )
 
         phi_cache = {}  # Store latest phis per state in this dict.
