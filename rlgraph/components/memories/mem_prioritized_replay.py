@@ -18,6 +18,8 @@ from __future__ import absolute_import, division, print_function
 import operator
 
 import numpy as np
+from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.components.memories.memory import Memory
@@ -25,7 +27,6 @@ from rlgraph.utils import util, DataOpDict
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.define_by_run_ops import define_by_run_unflatten
 from rlgraph.utils.util import SMALL_NUMBER, get_rank
-from six.moves import xrange as range_
 
 if get_backend() == "pytorch":
     import torch
@@ -33,13 +34,10 @@ if get_backend() == "pytorch":
 
 class MemPrioritizedReplay(Memory):
     """
-    Implements an in-memory  prioritized replay.
-
-    API:
-        update_records(indices, update) -> Updates the given indices with the given priority scores.
+    Implements an in-memory prioritized replay.
     """
-    def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0):
-        super(MemPrioritizedReplay, self).__init__()
+    def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0, scope="prioritized-replay", **kwargs):
+        super(MemPrioritizedReplay, self).__init__(backend="python", scope=scope, **kwargs)
 
         self.memory_values = []
         self.index = 0

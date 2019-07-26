@@ -13,17 +13,20 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
+
 import numpy as np
 from six.moves import xrange as range_
+
+from rlgraph import get_distributed_backend
 from rlgraph.components.memories.mem_prioritized_replay import MemPrioritizedReplay
-from rlgraph.execution.ray.apex.apex_memory import ApexMemory
-from rlgraph.execution.ray.ray_util import ray_compress
 from rlgraph.spaces import Dict, IntBox, BoolBox, FloatBox
+
+if get_distributed_backend() == "ray":
+    from rlgraph.execution.ray.apex.apex_memory import ApexMemory
+    from rlgraph.execution.ray.ray_util import ray_compress
 
 
 # TODO (Michael): Clean up memory semantics and tests re:
@@ -79,29 +82,33 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         )
         memory.create_variables(self.input_spaces)
 
-        observation = memory.record_space_flat.sample(size=1)
+        observation = self.record_space.sample(size=1)
         memory.insert_records(observation)
 
         # Test chunked insert
-        observation = memory.record_space_flat.sample(size=5)
+        observation = self.record_space.sample(size=5)
         memory.insert_records(observation)
 
-        # Also test Apex version
-        memory = ApexMemory(
-            capacity=self.capacity,
-            alpha=self.alpha,
-            beta=self.beta
-        )
-        observation = self.apex_space.sample(size=5)
-        for i in range_(5):
-            memory.insert_records((
-                observation['states'][i],
-                observation['actions'][i],
-                observation['reward'][i],
-                observation['terminals'][i],
-                observation['states'][i],
-                observation["weights"][i]
-            ))
+        try:
+            import ray
+            # Also test Apex version
+            memory = ApexMemory(
+                capacity=self.capacity,
+                alpha=self.alpha,
+                beta=self.beta
+            )
+            observation = self.apex_space.sample(size=5)
+            for i in range_(5):
+                memory.insert_records((
+                    observation['states'][i],
+                    observation['actions'][i],
+                    observation['reward'][i],
+                    observation['terminals'][i],
+                    observation['states'][i],
+                    observation["weights"][i]
+                ))
+        except ImportError:
+            return
 
     def test_update_records(self):
         """
@@ -114,7 +121,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         memory.create_variables(self.input_spaces)
 
         # Insert a few Elements.
-        observation = memory.record_space_flat.sample(size=2)
+        observation = self.record_space.sample(size=2)
         memory.insert_records(observation)
 
         # Fetch elements and their indices.
@@ -126,30 +133,34 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         # Does not return anything.
         memory.update_records(indices, np.asarray([0.1, 0.2]))
 
-        # Test apex memory.
-        memory = ApexMemory(
-            capacity=self.capacity,
-            alpha=self.alpha,
-            beta=self.beta
-        )
-        observation = self.apex_space.sample(size=5)
-        for i in range_(5):
-            memory.insert_records((
-                ray_compress(observation["states"][i]),
-                observation["actions"][i],
-                observation["reward"][i],
-                observation["terminals"][i],
-                observation["weights"][i]
-            ))
+        try:
+            import ray
+            # Test apex memory.
+            memory = ApexMemory(
+                capacity=self.capacity,
+                alpha=self.alpha,
+                beta=self.beta
+            )
+            observation = self.apex_space.sample(size=5)
+            for i in range_(5):
+                memory.insert_records((
+                    ray_compress(observation["states"][i]),
+                    observation["actions"][i],
+                    observation["reward"][i],
+                    observation["terminals"][i],
+                    observation["weights"][i]
+                ))
 
-        # Fetch elements and their indices.
-        num_records = 5
-        batch = memory.get_records(num_records)
-        indices = batch[1]
-        self.assertEqual(num_records, len(indices))
+            # Fetch elements and their indices.
+            num_records = 5
+            batch = memory.get_records(num_records)
+            indices = batch[1]
+            self.assertEqual(num_records, len(indices))
 
-        # Does not return anything
-        memory.update_records(indices, np.random.uniform(size=10))
+            # Does not return anything
+            memory.update_records(indices, np.random.uniform(size=10))
+        except ImportError:
+            return
 
     def test_segment_tree_insert_values(self):
         """
@@ -176,7 +187,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         self.assertEqual(len(min_segment_values), 2 * priority_capacity)
 
         # Insert 1 Element.
-        observation = memory.record_space_flat.sample(size=1)
+        observation = self.record_space.sample(size=1)
         memory.insert_records(observation)
 
         # Check insert positions
@@ -191,7 +202,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
             start = int(start / 2)
 
         # Insert another Element.
-        observation =  memory.record_space_flat.sample(size=1)
+        observation =  self.record_space.sample(size=1)
         memory.insert_records(observation)
 
         # Index shifted 1
@@ -210,6 +221,11 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         """
         Tests inserting into the segment tree and querying segments.
         """
+        try:
+            import ray
+        except ImportError:
+            return
+
         memory = ApexMemory(
             capacity=4
         )
@@ -227,6 +243,11 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         """
         Tests fetching the index corresponding to a prefix sum.
         """
+        try:
+            import ray
+        except ImportError:
+            return
+
         memory = ApexMemory(
             capacity=4
         )
