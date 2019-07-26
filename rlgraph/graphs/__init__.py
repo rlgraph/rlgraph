@@ -13,15 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.graphs.meta_graph import MetaGraph
 from rlgraph.graphs.meta_graph_builder import MetaGraphBuilder
 from rlgraph.graphs.graph_builder import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
+from rlgraph.graphs.python_executor import PythonExecutor
 from rlgraph.graphs.pytorch_executor import PyTorchExecutor
 from rlgraph.graphs.tensorflow_executor import TensorFlowExecutor
 
@@ -40,9 +39,10 @@ def backend_executor():
 GraphExecutor.__lookup_classes__ = dict(
     tf=TensorFlowExecutor,
     tensorflow=TensorFlowExecutor,
+    python=PythonExecutor,
     pt=PyTorchExecutor,
     pytorch=PyTorchExecutor
 )
 
 __all__ = ["MetaGraph", "MetaGraphBuilder", "GraphBuilder",
-           "GraphExecutor", "TensorFlowExecutor", "PyTorchExecutor", "backend_executor"]
+           "GraphExecutor", "TensorFlowExecutor", "PythonExecutor", "PyTorchExecutor", "backend_executor"]

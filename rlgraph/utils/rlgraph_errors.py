@@ -106,3 +106,10 @@ class RLGraphKerasStyleAssemblyError(RLGraphError):
     Special error to raise when constructing a NeuralNetwork using our Keras-style assembly support.
     """
     pass
+
+
+class RLGraphUnsupportedBackendError(RLGraphError):
+    """
+    Special error to raise when we run into any unknown/unsupported backend problem.
+    """
+    pass

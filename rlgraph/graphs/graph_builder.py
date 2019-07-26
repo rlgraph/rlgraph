@@ -317,14 +317,15 @@ class GraphBuilder(Specifiable):
         if name in self.placeholders:
             return self.placeholders[name]
 
-        device = self.get_device(component)  #, variables=True)
+        device = self.get_device(component)
         placeholder = None
         space = Space.from_spec(space)
-        if get_backend() == "tf":
+        if self.root_component.backend == "python" or get_backend() == "pytorch":
+            placeholder = space.get_variable(name=name, is_input_feed=True,
+                                             is_python=self.root_component.backend == "python")
+        elif get_backend() == "tf":
             with tf.device(device):
                 placeholder = space.get_variable(name=name, is_input_feed=True)
-        elif get_backend() == "pytorch":
-                placeholder = space.get_variable(name=name, is_input_feed=True, is_python=True)
         self.placeholders[name] = placeholder
         return placeholder
 
@@ -450,7 +451,13 @@ class GraphBuilder(Specifiable):
         device = self.get_device(op_rec_column.component, variables=False)
 
         try:
-            if get_backend() == "tf":
+            if get_backend() == "pytorch" or op_rec_column.component.backend == "python":
+                # No device handling via decorators.
+                out_op_rec_column = self.run_through_graph_fn(
+                    op_rec_column, create_new_out_column=create_new_out_column
+                )
+                op_rec_column.out_graph_fn_column = out_op_rec_column
+            elif get_backend() == "tf":
                 # TODO: Write custom scope generator for devices (in case None, etc..).
                 if device is not None:
                     # Assign proper device to all ops created in this context manager.
@@ -481,13 +488,6 @@ class GraphBuilder(Specifiable):
                         self.device_component_assignments[device] = [str(op_rec_column.graph_fn.__name__)]
                     else:
                         self.device_component_assignments[device].append(str(op_rec_column.graph_fn.__name__))
-
-            elif get_backend() == "pytorch":
-                # No device handling via decorators.
-                out_op_rec_column = self.run_through_graph_fn(
-                    op_rec_column, create_new_out_column=create_new_out_column
-                )
-                op_rec_column.out_graph_fn_column = out_op_rec_column
 
         # Catch errors and print out everything leading to the input column of this call.
         except RLGraphSpaceError:
@@ -682,7 +682,7 @@ class GraphBuilder(Specifiable):
         # Make sure the number of returned ops matches the number of op-records in the next column.
         # TODO: instead of backend check, do a build mode check here.
         # Define-by-run may return Nothing or None which is not an Op.
-        if get_backend() == "tf":
+        if get_backend() == "tf" and out_graph_fn_column.component.backend != "python":
             assert len(ops) == len(out_graph_fn_column.op_records), \
                 "ERROR: Number of returned values of graph_fn '{}/{}' ({}) does not match the number of op-records " \
                 "({}) reserved for the return values of the method!".format(
@@ -1052,9 +1052,10 @@ class GraphBuilder(Specifiable):
         Executes a graph_fn in define by run mode.
 
         Args:
-            component (Component): Component this graph_fn is eecuted on.
+            component (Component): Component this graph_fn is executed on.
             graph_fn (callable): Graph function to execute.
             options (dict): Execution options.
+
         Returns:
             any: Results of executing this graph-fn.
         """
@@ -1135,7 +1136,7 @@ class GraphBuilder(Specifiable):
                         flattened_ret = graph_fn(component, *split_args, **split_kwargs)
 
                 # If result is a raw tensor, return as is.
-                if get_backend() == "pytorch":
+                if get_backend() == "pytorch" and component.backend != "python":
                     if isinstance(flattened_ret, torch.Tensor):
                         return flattened_ret
 
@@ -1164,11 +1165,13 @@ class GraphBuilder(Specifiable):
         Builds a graph for eager or define by run execution. This primarily consists of creating variables through
         the component hierarchy by pushing the input spaces  through the graph.
 
-          Args:
+        Args:
             meta_graph (MetaGraph): MetaGraph to build to backend graph.
             input_spaces (dict): Input spaces to build for.
+
             available_devices (list): Devices which can be used to assign parts of the graph
                 during the graph build.
+
             device_strategy (Optional[str]): Device strategy.
             default_device (Optional[str]): Default device identifier.
             device_map (Optional[Dict]): Dict of Component names mapped to device names to place the Component's ops.

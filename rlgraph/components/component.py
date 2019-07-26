@@ -30,7 +30,7 @@ from rlgraph.utils import util
 from rlgraph.utils.decorators import rlgraph_api, graph_fn, component_api_registry, component_graph_fn_registry, \
     define_api_method, define_graph_fn
 from rlgraph.utils.ops import DataOpDict, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, TraceContext
-from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphObsoletedError, RLGraphUnsupportedBackendError
 from rlgraph.utils.specifiable import Specifiable
 
 if get_backend() == "tf":
@@ -114,7 +114,7 @@ class Component(Specifiable):
         self.trainable = kwargs.pop("trainable", None)
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
         self.switched_off_apis = kwargs.pop("switched_off_apis", set())
-        self.backend = kwargs.pop("backend", None)
+        self.backend = kwargs.pop("backend", get_backend())
         self.space_agnostic = kwargs.pop("space_agnostic", None)
         self.nesting_level = kwargs.pop("nesting_level", None)
 
@@ -141,7 +141,7 @@ class Component(Specifiable):
         self.synthetic_methods = set()
 
         # How this component executes its 'call' method.
-        self.execution_mode = "static_graph" if self.backend != "python" else "define_by_run"
+        self.execution_mode = "static_graph" if self.backend == "tf" else "define_by_run"
 
         # `self.api_method_inputs`: Registry for all unique API-method input parameter names and their Spaces.
         # Two API-methods may share the same input if their input parameters have the same names.
@@ -374,7 +374,7 @@ class Component(Specifiable):
         self.check_input_spaces(input_spaces, action_space)
 
         # Allow the Component to create all its variables.
-        if get_backend() == "tf":
+        if self.backend == "tf":
             # TODO: write custom scope generator for devices (in case None, etc..).
             if device is not None:
                 with tf.device(device):
@@ -392,9 +392,10 @@ class Component(Specifiable):
                     with tf.variable_scope(self.global_scope):
                         self.create_variables(input_spaces, action_space)
 
-        elif get_backend() == "pytorch":
+        elif self.backend == "pytorch" or self.backend == "python":
             # No scoping/devices here, handled at tensor level.
             self.create_variables(input_spaces, action_space)
+
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
 
@@ -533,7 +534,7 @@ class Component(Specifiable):
             )
 
         # TODO: Revise possible arg combinations, move in utils.
-        elif self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        elif self.backend == "python" or self.backend == "pytorch":
             if add_batch_rank is not False and isinstance(add_batch_rank, int):
                 if isinstance(add_time_rank, int):
                     if time_major:
@@ -563,7 +564,7 @@ class Component(Specifiable):
                 var = []
 
         # Direct variable creation (using the backend).
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             # Provide a shape, if initializer is not given or it is an actual Initializer object (rather than an array
             # of fixed values, for which we then don't need a shape as it comes with one).
             if initializer is None or isinstance(initializer, tf.keras.initializers.Initializer):
@@ -579,7 +580,7 @@ class Component(Specifiable):
                 collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
                 use_resource=use_resource
             )
-        elif get_backend() == "tf-eager":
+        elif self.backend == "tf2":
             shape = tuple(
                 (() if add_batch_rank is False else (None,) if add_batch_rank is True else (add_batch_rank,)) +
                 (shape or ())
@@ -611,21 +612,21 @@ class Component(Specifiable):
         """
         # Variables should be returned in a flattened OrderedDict.
         # TODO can we hide this tf.variable_scope somewhere?
-        if get_backend() == "tf":
+        if self.backend == "tf":
             if self.reuse_variable_scope is not None:
                 with tf.variable_scope(name_or_scope=self.reuse_variable_scope, reuse=True):
                     if flatten:
                         return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                             name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                             time_major=time_major, trainable=trainable, initializer=initializer,
-                            is_python=(self.backend == "python" or get_backend() == "python"),
+                            is_python=(self.backend == "python"),
                             local=local, use_resource=use_resource
                         ))
                     # Normal, nested Variables from a Space (container or primitive).
                     else:
                         return from_space.get_variable(
                             name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                            is_python=(self.backend == "python" or get_backend() == "python"),
+                            is_python=(self.backend == "python"),
                             local=local, use_resource=use_resource
                         )
             else:
@@ -633,29 +634,29 @@ class Component(Specifiable):
                     return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                         name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                         time_major=time_major, trainable=trainable, initializer=initializer,
-                        is_python=(self.backend == "python" or get_backend() == "python"),
+                        is_python=(self.backend == "python"),
                         local=local, use_resource=use_resource
                     ))
                 # Normal, nested Variables from a Space (container or primitive).
                 else:
                     return from_space.get_variable(
                         name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                        is_python=(self.backend == "python" or get_backend() == "python"),
+                        is_python=(self.backend == "python"),
                         local=local, use_resource=use_resource
                     )
 
-        elif get_backend() == "pytorch":
+        elif self.backend == "pytorch" or self.backend == "python":
             if flatten:
                 return from_space.flatten(mapping=lambda key_, primitive: primitive.get_variable(
                     name=name + key_, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                     time_major=time_major, trainable=trainable, initializer=initializer,
-                    is_python=True, local=local, use_resource=use_resource
+                    is_python=(self.backend == "python"), local=local, use_resource=use_resource
                 ))
             # Normal, nested Variables from a Space (container or primitive).
             else:
                 return from_space.get_variable(
                     name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
-                    is_python=True, local=local, use_resource=use_resource
+                    is_python=(self.backend == "python"), local=local, use_resource=use_resource
                 )
 
     def get_variables(self, *names, **kwargs):
@@ -681,14 +682,27 @@ class Component(Specifiable):
         Returns:
             dict: A dict mapping variable names to their get_backend variables.
         """
-        if get_backend() == "tf":
+        if len(names) == 1 and isinstance(names[0], list):
+            names = names[0]
+
+        if self.backend == "pytorch" or self.backend == "python":
+            # There are no collections - just return variables for this component if names are empty.
+            custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
+            global_scope = kwargs.pop("global_scope", True)
+            get_ref = kwargs.pop("get_ref", False)
+
+            if len(names) == 0:
+                names = list(self.variable_registry.keys())
+            return self.get_variables_by_name(
+                *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope,
+                get_ref=get_ref
+            )
+        elif self.backend == "tf":
             collections = kwargs.pop("collections", None) or tf.GraphKeys.GLOBAL_VARIABLES
             custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
             global_scope = kwargs.pop("global_scope", True)
             assert not kwargs, "{}".format(kwargs)
 
-            if len(names) == 1 and isinstance(names[0], list):
-                names = names[0]
             names = util.force_list(names)
             # Return all variables of this Component (for some collection).
             if len(names) == 0:
@@ -709,18 +723,6 @@ class Component(Specifiable):
                 return self.get_variables_by_name(
                     *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope
                 )
-        elif get_backend() == "pytorch":
-            # There are no collections - just return variables for this component if names are empty.
-            custom_scope_separator = kwargs.pop("custom_scope_separator", "/")
-            global_scope = kwargs.pop("global_scope", True)
-            get_ref = kwargs.pop("get_ref", False)
-
-            if len(names) == 0:
-                names = list(self.variable_registry.keys())
-            return self.get_variables_by_name(
-                *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope,
-                get_ref=get_ref
-            )
 
     def get_variables_by_name(self, *names, **kwargs):
         """
@@ -736,6 +738,7 @@ class Component(Specifiable):
                 Variables. Default: False.
             get_ref (bool): Whether to return the ref or the value when using PyTorch. Default: False (return
                 values).
+
         Returns:
             dict: Dict containing the requested names as keys and variables as values.
         """
@@ -745,18 +748,7 @@ class Component(Specifiable):
         assert not kwargs
 
         variables = {}
-        if get_backend() == "tf":
-            for name in names:
-                global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
-                if name in self.variable_registry:
-                    variables[re.sub(r'/', custom_scope_separator, name)] = self.variable_registry[name]
-                elif global_scope_name in self.variable_registry:
-                    if global_scope:
-                        variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variable_registry[
-                            global_scope_name]
-                    else:
-                        variables[name] = self.variable_registry[global_scope_name]
-        elif get_backend() == "pytorch":
+        if self.backend == "pytorch" or self.backend == "python":
             # Unpack tuple.
             if isinstance(names, tuple) and len(names) == 1:
                 names = names[0]
@@ -792,6 +784,18 @@ class Component(Specifiable):
                         else:
                             variables[name] = self.read_variable(self.variable_registry[global_scope_name])
 
+        elif self.backend == "tf":
+            for name in names:
+                global_scope_name = ((self.global_scope + "/") if self.global_scope else "") + name
+                if name in self.variable_registry:
+                    variables[re.sub(r'/', custom_scope_separator, name)] = self.variable_registry[name]
+                elif global_scope_name in self.variable_registry:
+                    if global_scope:
+                        variables[re.sub(r'/', custom_scope_separator, global_scope_name)] = self.variable_registry[
+                            global_scope_name]
+                    else:
+                        variables[name] = self.variable_registry[global_scope_name]
+
         return variables
 
     def create_summary(self, name, values, summary_type="histogram"):
@@ -818,7 +822,7 @@ class Component(Specifiable):
             return
 
         summary = None
-        if get_backend() == "tf":
+        if self.backend == "tf":
             ctor = getattr(tf.summary, summary_type)
             summary = ctor(name, values)
 
@@ -1200,8 +1204,7 @@ class Component(Specifiable):
 
         return new_component
 
-    @staticmethod
-    def scatter_update_variable(variable, indices, updates):
+    def scatter_update_variable(self, variable, indices, updates):
         """
         Updates a variable. Optionally returns the operation depending on the backend.
 
@@ -1213,11 +1216,12 @@ class Component(Specifiable):
         Returns:
             Optional[op]: The graph operation representing the update (or None).
         """
-        if get_backend() == "tf":
+        if self.backend == "tf":
             return tf.scatter_update(ref=variable, indices=indices, updates=updates)
+        else:
+            raise RLGraphUnsupportedBackendError()
 
-    @staticmethod
-    def assign_variable(ref, value):
+    def assign_variable(self, ref, value):
         """
         Assigns a variable (ref) to a value.
 
@@ -1228,17 +1232,16 @@ class Component(Specifiable):
         Returns:
             Optional[op]: None or the graph operation representing the assignment.
         """
-        if get_backend() == "tf":
+        if self.backend == "pytorch" or self.backend == "python":
+            ref.set_value(value)
+        elif self.backend == "tf":
             tensor_type = type(value).__name__
             if tensor_type == "Variable" or tensor_type == "RefVariable":
                 return tf.assign(ref=ref, value=value.read_value())
             else:
                 return tf.assign(ref=ref, value=value)
-        elif get_backend() == "pytorch":
-            ref.set_value(value)
 
-    @staticmethod
-    def read_variable(variable, indices=None, dtype=None, shape=None):
+    def read_variable(self, variable, indices=None, dtype=None, shape=None):
         """
         Reads a variable.
 
@@ -1251,14 +1254,13 @@ class Component(Specifiable):
         Returns:
             any: Variable values.
         """
-        if get_backend() == "tf":
+        # Python -> return as is (plus possible index lookup).
+        if self.backend == "python":
             if indices is not None:
-                # Could be redundant, question is if there may be special read operations
-                # in other backends, or read from remote variable requiring extra args.
-                return tf.gather(params=variable, indices=indices)
-            else:
-                return variable
-        elif get_backend() == "pytorch":
+                return [variable[i] for i in indices]
+            return variable
+        # Pytorch.
+        elif self.backend == "pytorch":
             # PyTorchVariable is used to store torch parameters (e.g. layers).
             if isinstance(variable, PyTorchVariable):
                 return variable.get_value()
@@ -1289,6 +1291,14 @@ class Component(Specifiable):
                     return variable
             else:
                 # Catch all for raw types.
+                return variable
+
+        elif self.backend == "tf":
+            if indices is not None:
+                # Could be redundant, question is if there may be special read operations
+                # in other backends, or read from remote variable requiring extra args.
+                return tf.gather(params=variable, indices=indices)
+            else:
                 return variable
 
     def sub_component_by_name(self, scope_name):
@@ -1392,7 +1402,7 @@ class Component(Specifiable):
         Returns:
             SingleDataOp: The resulting grouped tf-op.
         """
-        if get_backend() == "tf":
+        if self.backend == "tf":
             return tf.group(*ops)
         # For pytorch (define-by-run), ops don't matter.
         return ops[0]

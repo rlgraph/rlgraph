@@ -93,7 +93,7 @@ class ComponentTest(object):
             disable_monitoring=disable_monitoring,
             device_map=device_map
         ))
-        use_backend = backend if backend is not None else get_backend()
+        use_backend = backend if backend is not None else "python" if component.backend == "python" else get_backend()
         self.graph_executor = GraphExecutor.from_spec(
             use_backend,
             graph_builder=self.graph_builder,
@@ -195,13 +195,13 @@ class ComponentTest(object):
 
         Args:
             component (Component):
-            *names (list): List of strings.
+            *names (list): List of strings of variable values to pull.
 
         Returns:
             Dict: Variable values.
         """
         variables = component.get_variables(names, global_scope=False)
-        if get_backend() == "tf":
+        if component.backend == "tf":
             return self.graph_executor.read_variable_values(variables)
         else:
             return variables

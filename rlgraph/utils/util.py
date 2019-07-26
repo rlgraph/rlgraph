@@ -22,9 +22,10 @@ import re
 import sys
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphUnsupportedBackendError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -181,10 +182,13 @@ def get_batch_size(tensor):
     Returns:
         SingleDataOp: The op holding the batch size information of the given tensor.
     """
-    if get_backend() == "tf":
-        return tf.shape(tensor)[0]
-    elif get_backend() == "pytorch":
+    # Simple numpy array?
+    if isinstance(tensor, np.ndarray) or get_backend() == "pytorch":
         return tensor.shape[0]
+    elif get_backend() == "tf":
+        return tf.shape(tensor)[0]
+    else:
+        raise RLGraphUnsupportedBackendError()
 
 
 def force_list(elements=None, to_tuple=False):

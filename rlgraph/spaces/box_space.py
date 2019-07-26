@@ -19,6 +19,7 @@ import re
 
 import numpy as np
 from six.moves import xrange as range_
+
 from rlgraph import get_backend
 from rlgraph.spaces.space import Space
 from rlgraph.utils.initializer import Initializer
@@ -144,11 +145,12 @@ class BoxSpace(Space):
 
     def get_variable(self, name, is_input_feed=False, add_batch_rank=None, add_time_rank=None,
                      time_major=None, is_python=False, local=False, **kwargs):
+        is_python_or_pytorch = is_python or get_backend() == "pytorch"
         add_batch_rank = self.has_batch_rank if add_batch_rank is None else add_batch_rank
         if add_batch_rank is False:
             batch_rank = ()
         elif add_batch_rank is True:
-            batch_rank = (None,) if get_backend() == "tf" else (1,)
+            batch_rank = (None,) if is_python_or_pytorch is False else (1,)
         else:
             batch_rank = (add_batch_rank,)
 
@@ -156,7 +158,7 @@ class BoxSpace(Space):
         if add_time_rank is False:
             time_rank = ()
         elif add_time_rank is True:
-            time_rank = (None,) if get_backend() == "tf" else (1,)
+            time_rank = (None,) if is_python_or_pytorch is False else (1,)
         else:
             time_rank = (add_time_rank,)
         time_major = self.time_major if time_major is None else time_major
@@ -166,7 +168,7 @@ class BoxSpace(Space):
         else:
             shape = time_rank + batch_rank + self.shape
 
-        if is_python is True or get_backend() == "python":
+        if is_python_or_pytorch is True:
             if isinstance(add_batch_rank, int):
                 if isinstance(add_time_rank, int) and add_time_rank > 0:
                     if time_major:
@@ -182,8 +184,11 @@ class BoxSpace(Space):
                 var = []
 
             # Un-indent and just directly construct pytorch?
-            if get_backend() == "pytorch" and is_input_feed:
-                # Convert to PyTorch tensors as a faux placehodler.
+            if is_python and is_input_feed:
+                # Convert to numpy as a fake placeholder.
+                return np.zeros(shape or (), dtype=convert_dtype(dtype=self.dtype, to="np"))
+            elif get_backend() == "pytorch" and is_input_feed:
+                # Convert to PyTorch tensors as a fake placeholder.
                 return torch.zeros(shape, dtype=convert_dtype(dtype=self.dtype, to="pytorch"))
             else:
                 # TODO also convert?
@@ -214,6 +219,7 @@ class BoxSpace(Space):
                     collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES],
                     **kwargs
                 )
+
             # Add batch/time rank flags to the op.
             if self.has_batch_rank:
                 variable._batch_rank = 0 if self.time_major is False else 1

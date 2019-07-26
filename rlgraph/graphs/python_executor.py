@@ -15,44 +15,23 @@
 
 from __future__ import absolute_import, division, print_function
 
-import os
 import time
 
 import numpy as np
 
-from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
-from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run_unflatten
-from rlgraph.utils.util import force_torch_tensors
-
-if get_backend() == "pytorch":
-    import torch
 
 
-class PyTorchExecutor(GraphExecutor):
+class PythonExecutor(GraphExecutor):
     """
-    Manages execution for component graphs using define-by-run semantics.
+    Manages execution for component graphs using define-by-run semantics in pure python (numpy).
     """
     def __init__(self, **kwargs):
-        super(PyTorchExecutor, self).__init__(**kwargs)
+        super(PythonExecutor, self).__init__(**kwargs)
 
         self.global_training_timestep = 0
-
-        self.cuda_enabled = torch.cuda.is_available()
-
-        # In PyTorch, tensors are default created on the CPU unless assigned to a visible CUDA device,
-        # e.g. via x = tensor([0, 0], device="cuda:0") for the first GPU.
-        self.available_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
-        # TODO handle cuda tensors
-
-        self.default_torch_tensor_type = self.execution_spec.get("dtype", "torch.FloatTensor")
-        if self.default_torch_tensor_type is not None:
-            torch.set_default_tensor_type(self.default_torch_tensor_type)
-
-        self.torch_num_threads = self.execution_spec.get("torch_num_threads", 1)
-        self.omp_num_threads = self.execution_spec.get("OMP_NUM_THREADS", 1)
 
         # Squeeze result dims, often necessary in tests.
         self.remove_batch_dims = True
@@ -65,11 +44,14 @@ class PyTorchExecutor(GraphExecutor):
         build_times = []
         for component in root_components:
             start = time.perf_counter()
+            ## Make sure we check input-spaces and create variables.
+            ##component.when_input_complete(input_spaces=input_spaces)
+            # Build the meta-graph.
             meta_graph = self.meta_graph_builder.build(component, input_spaces)
             meta_build_times.append(time.perf_counter() - start)
 
             build_time = self.graph_builder.build_define_by_run_graph(
-                meta_graph=meta_graph, input_spaces=input_spaces, available_devices=self.available_devices
+                meta_graph=meta_graph, input_spaces=input_spaces, available_devices=None
             )
             build_times.append(build_time)
 
@@ -90,9 +72,8 @@ class PyTorchExecutor(GraphExecutor):
                 op_or_indices_to_return = api_method[2] if len(api_method) > 2 else None
                 params = util.force_list(api_method[1])
                 api_method = api_method[0]
-                tensor_params = force_torch_tensors(params=params)
 
-                api_ret = self.graph_builder.execute_define_by_run_op(api_method, tensor_params)
+                api_ret = self.graph_builder.execute_define_by_run_op(api_method, params)
                 is_dict_result = isinstance(api_ret, dict)
                 if not isinstance(api_ret, list) and not isinstance(api_ret, tuple):
                     api_ret = [api_ret]
@@ -111,16 +92,12 @@ class PyTorchExecutor(GraphExecutor):
                         # TODO clarify op indices order vs tensorflow.
                         for i in sorted(op_or_indices_to_return):
                             op_result = api_ret[i]
-                            if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
-                                op_result = op_result.detach()
                             to_return.append(op_result)
 
                 else:
                     # Just return everything in the order it was returned by the API method.
                     if api_ret is not None:
                         for op_result in api_ret:
-                            if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
-                                op_result = op_result.detach()
                             to_return.append(op_result)
 
                 # Clean and return.
@@ -134,8 +111,6 @@ class PyTorchExecutor(GraphExecutor):
                 if not isinstance(api_ret, list) and not isinstance(api_ret, tuple):
                     api_ret = [api_ret]
                 for op_result in api_ret:
-                    if isinstance(op_result, torch.Tensor) and op_result.requires_grad is True:
-                        op_result = op_result.detach()
                     to_return.append(op_result)
 
                 # Clean and return.
@@ -149,7 +124,6 @@ class PyTorchExecutor(GraphExecutor):
         for result in to_return:
             if isinstance(result, dict):
                 cleaned_dict = {k: v for k, v in result.items() if v is not None}
-                cleaned_dict = self.clean_dict(cleaned_dict)
                 ret.append(cleaned_dict)
             elif self.remove_batch_dims and isinstance(result, np.ndarray):
                 ret.append(np.array(np.squeeze(result)))
@@ -157,28 +131,6 @@ class PyTorchExecutor(GraphExecutor):
                 ret.append(np.array(result.numpy()))
             else:
                 ret.append(result)
-
-    @staticmethod
-    def clean_dict(tensor_dict):
-        """
-        Detach tensor values in nested dict.
-        Args:
-            tensor_dict (dict): Dict containing torch tensor.
-
-        Returns:
-            dict: Dict containing numpy arrays.
-        """
-        # Un-nest.
-        param = define_by_run_flatten(tensor_dict)
-        ret = {}
-
-        # Detach tensor values.
-        for key, value in param.items():
-            if isinstance(value, torch.Tensor):
-                ret[key] = value.detach().numpy()
-
-        # Pack again.
-        return define_by_run_unflatten(ret)
 
     def read_variable_values(self, variables):
         # For test compatibility.
@@ -194,18 +146,9 @@ class PyTorchExecutor(GraphExecutor):
         else:
             return Component.read_variable(variables)
 
-    def init_execution(self):
-        # TODO Import guards here are annoying but otherwise breaks if torch is not installed.
-        if get_backend() == "torch":
-            torch.set_num_threads(self.torch_num_threads)
-            os.environ["OMP_NUM_THREADS"] = str(self.omp_num_threads)
-
     def finish_graph_setup(self):
         # Nothing to do here for PyTorch.
         pass
-
-    def get_available_devices(self):
-        return self.available_devices
 
     def load_model(self, checkpoint_directory=None, checkpoint_path=None):
         pass

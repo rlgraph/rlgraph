@@ -239,7 +239,8 @@ class Space(Specifiable):
                 Otherwise, batch-rank will be 0th and time-rank will be 1st.
                 Default: False.
 
-            is_python (bool): Whether to create a python-based variable (list) or a backend-specific one.
+            is_python (bool): Whether to create a python-based (np) variable (list) or a backend-specific one.
+                Note: When using pytorch or tf, `is_python` should be False.
 
             local (bool): Whether the variable must not be shared across the network.
                 Default: False.

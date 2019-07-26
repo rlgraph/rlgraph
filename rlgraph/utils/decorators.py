@@ -18,7 +18,6 @@ from __future__ import absolute_import, division, print_function
 import copy
 import inspect
 import re
-import time
 
 # from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.spaces.space_utils import get_space_from_op
@@ -93,23 +92,6 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
         def api_method_wrapper(self, *args, **kwargs):
             api_fn_name = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
-            # Direct evaluation of function.
-            if self.execution_mode == "define_by_run":
-                type(self).call_count += 1
-
-                start = time.perf_counter()
-                # Check with owner if extra args needed.
-                if api_fn_name in self.api_methods and self.api_methods[api_fn_name].add_auto_key_as_first_param:
-                    output = wrapped_func(self, "", *args, **kwargs)
-                else:
-                    output = wrapped_func(self, *args, **kwargs)
-
-                # Store runtime for this method.
-                type(self).call_times.append(  # Component.call_times
-                    (self.name, wrapped_func.__name__, time.perf_counter() - start)
-                )
-                return output
-
             api_method_rec = self.api_methods[api_fn_name]
 
             # Create op-record column to call API method with. Ignore None input params. These should not be sent
@@ -251,6 +233,7 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             # OR a parent -> Error.
             elif caller_component is not None and \
                     type(caller_component).__name__ != "MetaGraphBuilder" and \
+                    (self.backend != "python" or type(caller_component).__name__ != "GraphBuilder") and \
                     caller_component not in [self] + self.get_parents():
                 if not (stack[1][3] == "__init__" and re.search(r'op_records\.py$', stack[1][1])):
                     raise RLGraphError(
@@ -262,15 +245,23 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
             # Update trace context.
             TraceContext.PREV_CALLER = caller_component
 
-            for stack_item in stack[1:]:  # skip current frame
-                # If we hit an API-method call -> return op-recs.
-                if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):
-                    break
-                # If we hit a graph_fn call -> return ops.
-                elif stack_item[3] == "run_through_graph_fn" and re.search(r'graph_builder\.py$', stack_item[1]):
-                    return_ops = True
-                    break
+            # Return immediately if called from MetaGraphBuilder (return values are not used).
+            if type(caller_component).__name__ == "MetaGraphBuilder":
+                return
 
+            if return_values != ():
+                for stack_item in stack[1:]:  # skip current frame
+                    # If we hit an API-method call -> return op-recs.
+                    if stack_item[3] == "api_method_wrapper" and re.search(r'decorators\.py$', stack_item[1]):
+                        break
+                    # If we hit a graph_fn call (or define-by-run execution) -> return ops.
+                    elif (stack_item[3] == "run_through_graph_fn" and
+                          re.search(r'graph_builder\.py$', stack_item[1])) or \
+                            stack_item[3] == "execute_define_by_run_op":
+                        return_ops = True
+                        break
+
+            # Parent caller is graph_fn -> return ops directly.
             if return_ops is True:
                 if type(return_values) == dict:
                     return {key: value.op for key, value in out_op_column.get_args_and_kwargs()[1].items()}
@@ -366,16 +357,10 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
         def _graph_fn_wrapper(self, *args, **kwargs):
             # Direct execution.
             if self.execution_mode == "define_by_run":
-                if self.backend == "python":
-                    if add_auto_key_as_first_param:
-                        return wrapped_func(self, "", *args, ** kwargs)
-                    else:
-                        return wrapped_func(self, *args, **kwargs)
-                else:
-                    return self.graph_builder.execute_define_by_run_graph_fn(self, wrapped_func,  dict(
-                            flatten_ops=flatten_ops, split_ops=split_ops,
-                            add_auto_key_as_first_param=add_auto_key_as_first_param
-                            ), *args, **kwargs)
+                return self.graph_builder.execute_define_by_run_graph_fn(self, wrapped_func,  dict(
+                        flatten_ops=flatten_ops, split_ops=split_ops,
+                        add_auto_key_as_first_param=add_auto_key_as_first_param
+                        ), *args, **kwargs)
             # Wrap construction of graph functions with op records.
             else:
                 return graph_fn_wrapper(
