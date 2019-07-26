@@ -101,7 +101,7 @@ class ContainerMerger(Component):
         else:
             ret = DataOpDict()
             for i, op in enumerate(inputs):
-                if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
+                if get_backend() == "pytorch":
                     ret[FLATTEN_SCOPE_PREFIX + self.dict_keys[i]] = op
                 else:
                     ret[self.dict_keys[i]] = op

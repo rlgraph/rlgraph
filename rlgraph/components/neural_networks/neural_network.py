@@ -123,7 +123,7 @@ class NeuralNetwork(Stack):
     def build_auto_api_method(self, stack_api_method_name, component_api_method_name, fold_time_rank=False,
                               unfold_time_rank=False, ok_to_overwrite=False):
 
-        if get_backend() == "pytorch" and self.execution_mode == "define_by_run":
+        if get_backend() == "pytorch":
             @rlgraph_api(name=stack_api_method_name, component=self, ok_to_overwrite=ok_to_overwrite)
             def method(self, nn_input, *nn_inputs, **kwargs):
                 # Avoid jumping back between layers and calls at runtime.
