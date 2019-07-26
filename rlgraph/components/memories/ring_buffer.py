@@ -13,9 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
+
+import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components.memories.memory import Memory
@@ -27,7 +27,6 @@ from rlgraph.utils.util import get_batch_size
 if get_backend() == "tf":
     import tensorflow as tf
 elif get_backend() == "pytorch":
-    import numpy as np
     import torch
 
 
@@ -62,6 +61,7 @@ class RingBuffer(Memory):
         #    assert "sequence_indices" in self.record_space
 
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
+
         # Num episodes present.
         self.num_episodes = self.get_variable(name="num-episodes", dtype=int, trainable=False, initializer=0)
 
@@ -71,7 +71,7 @@ class RingBuffer(Memory):
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        if get_backend() == "tf":
+        if self.backend == "tf":
             num_records = get_batch_size(records[self.terminal_key])
             index = self.read_variable(self.index)
 
@@ -140,13 +140,19 @@ class RingBuffer(Memory):
             # Nothing to return.
             with tf.control_dependencies(control_inputs=record_updates):
                 return tf.no_op()
-        elif get_backend() == "pytorch":
+
+        elif self.backend == "pytorch" or self.backend == "python":
             # TODO: Unclear if we should do this in numpy and then convert to torch once we sample.
             num_records = get_batch_size(records[self.terminal_key])
-            update_indices = torch.arange(self.index, self.index + num_records) % self.capacity
 
-            # Newly inserted episodes.
-            inserted_episodes = torch.sum(records[self.terminal_key].int(), 0)
+            if self.backend == "pytorch":
+                update_indices = torch.arange(self.index, self.index + num_records) % self.capacity
+                # Newly inserted episodes.
+                inserted_episodes = torch.sum(records[self.terminal_key].int(), 0)
+            else:
+                update_indices = np.arange(self.index, self.index + num_records) % self.capacity
+                # Newly inserted episodes.
+                inserted_episodes = np.sum(records[self.terminal_key].astype(np.int32), 0)
 
             # Episodes previously existing in the range we inserted to as indicated
             # by count of terminals in the that slice.
@@ -163,8 +169,12 @@ class RingBuffer(Memory):
             slice_start = self.num_episodes - episodes_in_insert_range
             slice_end = num_episode_update
 
-            byte_terminals = records[self.terminal_key].byte()
-            mask = torch.masked_select(update_indices, byte_terminals)
+            if self.backend == "pytorch":
+                byte_terminals = records[self.terminal_key].byte()
+                mask = torch.masked_select(update_indices, byte_terminals)
+            else:
+                #byte_terminals = records[self.terminal_key].astype(np.bytes_)
+                mask = update_indices[records[self.terminal_key]]
             self.episode_indices[slice_start:slice_end] = mask
 
             # Update indices.
@@ -182,28 +192,30 @@ class RingBuffer(Memory):
 
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
-        if get_backend() == "tf":
+        if self.backend == "tf":
             stored_records = self.read_variable(self.size)
             available_records = tf.minimum(x=num_records, y=stored_records)
             index = self.read_variable(self.index)
             indices = tf.range(start=index - available_records, limit=index) % self.capacity
             return self._read_records(indices=indices)
-        elif get_backend() == "pytorch":
+
+        elif self.backend == "pytorch" or self.backend == "python":
             available_records = min(num_records, self.size)
             indices = np.arange(self.index - available_records, self.index) % self.capacity
             records = DataOpDict()
 
             for name, variable in self.memory.items():
-                records[name] = self.read_variable(variable, indices, dtype=
-                                                   util.convert_dtype(self.flat_record_space[name].dtype, to="pytorch"),
-                                                   shape=self.flat_record_space[name].shape)
+                records[name] = self.read_variable(
+                    variable, indices, dtype=util.convert_dtype(self.flat_record_space[name].dtype, to=self.backend),
+                    shape=self.flat_record_space[name].shape
+                )
 
             records = define_by_run_unflatten(records)
             return records
 
     @rlgraph_api(ok_to_overwrite=True)
     def _graph_fn_get_episodes(self, num_episodes=1):
-        if get_backend() == "tf":
+        if self.backend == "tf":
             stored_episodes = self.read_variable(self.num_episodes)
             available_episodes = tf.minimum(x=num_episodes, y=stored_episodes)
 
@@ -227,7 +239,8 @@ class RingBuffer(Memory):
             # limit = tf.Print(limit, [stored_episodes, start, limit], summarize=100, message="start | limit")
             indices = tf.range(start=start, limit=limit + 1) % self.capacity
             return self._read_records(indices=indices)
-        elif get_backend() == "pytorch":
+
+        elif self.backend == "pytorch" or self.backend == "python":
             stored_episodes = self.num_episodes
             available_episodes = min(num_episodes, self.num_episodes)
 
@@ -240,7 +253,10 @@ class RingBuffer(Memory):
             limit = self.episode_indices[stored_episodes - 1]
             if start >= limit:
                 limit += self.capacity - 1
-            indices = torch.arange(start, limit + 1) % self.capacity
+            if self.backend == "pytorch":
+                indices = torch.arange(start, limit + 1) % self.capacity
+            else:
+                indices = np.arange(start, limit + 1) % self.capacity
 
             records = DataOpDict()
             for name, variable in self.memory.items():
