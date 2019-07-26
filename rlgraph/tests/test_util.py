@@ -19,6 +19,7 @@ import json
 import os
 
 import numpy as np
+
 from rlgraph import get_backend
 
 if get_backend() == "pytorch":
@@ -105,11 +106,14 @@ def recursive_assert_almost_equal(x, y, decimals=7, atol=None, rtol=None):
             recursive_assert_almost_equal(value, y[key], decimals=decimals, atol=atol, rtol=rtol)
             y_keys.remove(key)
         assert not y_keys, "ERROR: y contains keys ({}) that are not in x!".format(list(y_keys))
-    # A tuple type.
+    # A tuple/list type.
     elif isinstance(x, (tuple, list)):
-        assert isinstance(y, (tuple, list)), "ERROR: If x is tuple, y needs to be a tuple as well!"
-        assert len(y) == len(x), "ERROR: y does not have the same length as " \
-                                 "x ({} vs {})!".format(len(y), len(x))
+        # Allow comparing also vs ndarray.
+        assert isinstance(y, (tuple, list, np.ndarray)), "ERROR: If x is tuple, y needs to be a tuple as well!"
+        # Outer lengths must be the same.
+        assert len(y) == len(x), \
+            "ERROR: y does not have the same length as x ({} vs {})!".format(len(y), len(x))
+        # Compare everything else.
         for i, value in enumerate(x):
             recursive_assert_almost_equal(value, y[i], decimals=decimals, atol=atol, rtol=rtol)
     # Boolean comparison.
