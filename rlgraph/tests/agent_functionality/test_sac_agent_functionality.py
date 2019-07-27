@@ -59,6 +59,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 states=state_space.with_batch_rank(),
                 preprocessed_states=state_space.with_batch_rank(),
                 env_actions=action_space.with_batch_rank(),
+                actions=float_action_space,
                 rewards=rewards_space,
                 next_states=state_space.with_batch_rank(),
                 terminals=terminal_space,
@@ -73,12 +74,12 @@ class TestSACAgentFunctionality(unittest.TestCase):
                 #)
             ),
             action_space=action_space,
-            build_kwargs=dict(
-                optimizer=agent_component.optimizer,
-                build_options=dict(
-                    vf_optimizer=agent_component.q_function_optimizer,
-                ),
-            )
+            #build_kwargs=dict(
+            #    optimizer=agent_component.optimizer,
+            #    build_options=dict(
+            #        vf_optimizer=agent_component.q_function_optimizer,
+            #    ),
+            #)
         )
 
         batch_size = 10

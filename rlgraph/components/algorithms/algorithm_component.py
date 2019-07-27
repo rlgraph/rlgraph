@@ -20,7 +20,7 @@ from rlgraph.components import Exploration, PreprocessorStack, Synchronizable, P
     ValueFunction
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api, graph_fn
-from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError, RLGraphUnsupportedBackendError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -258,17 +258,21 @@ class AlgorithmComponent(Component):
         Returns:
             DataOp: no_op.
         """
-        if get_backend() == "tf":
-            add_op = tf.assign_add(self.agent.graph_executor.global_training_timestep, 1)
-            op_list = [add_op] + [other_step_op] if other_step_op is not None else []
-            with tf.control_dependencies(op_list):
-                if other_step_op is None or hasattr(other_step_op, "type") and other_step_op.type == "NoOp":
-                    return tf.no_op()
-                else:
-                    return tf.identity(other_step_op)
-        elif get_backend == "pytorch":
+        if self.backend == "tf":
+            if self.agent is not None:
+                add_op = tf.assign_add(self.agent.graph_executor.global_training_timestep, 1)
+                op_list = [add_op] + [other_step_op] if other_step_op is not None else []
+                with tf.control_dependencies(op_list):
+                    if other_step_op is None or hasattr(other_step_op, "type") and other_step_op.type == "NoOp":
+                        return tf.no_op()
+                    else:
+                        return tf.identity(other_step_op)
+        elif self.backend == "pytorch":
             self.agent.graph_executor.global_training_timestep += 1
-            return None
+        else:
+            raise RLGraphUnsupportedBackendError()
+
+        return None
 
     def preprocess_states(self, nn_inputs):
         raise RLGraphObsoletedError("API-method", "preprocess_states", "get_preprocessed_states")
