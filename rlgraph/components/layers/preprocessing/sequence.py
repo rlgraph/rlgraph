@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from collections import deque
 
@@ -66,7 +64,7 @@ class Sequence(PreprocessLayer):
         self.add_rank = add_rank
 
         self.in_data_format = in_data_format
-        if get_backend() == "pytorch":
+        if self.backend == "pytorch":
             # Always channels first for PyTorch.
             self.out_data_format = "channels_first"
         else:
@@ -78,7 +76,7 @@ class Sequence(PreprocessLayer):
         self.index = None
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        if self.backend == "python" or self.backend == "pytorch":
             self.deque = deque([], maxlen=self.sequence_length)
 
     def get_preprocessed_space(self, space):
@@ -111,7 +109,7 @@ class Sequence(PreprocessLayer):
         self.output_spaces = self.get_preprocessed_space(in_space)
         self.index = self.get_variable(name="index", dtype="int", initializer=-1, trainable=False)
 
-        if get_backend() == "tf":
+        if self.backend == "tf":
             self.buffer = self.get_variable(
                 name="buffer", trainable=False, from_space=in_space,
                 add_batch_rank=self.batch_size if in_space.has_batch_rank is not False else False,
@@ -120,9 +118,9 @@ class Sequence(PreprocessLayer):
 
     @rlgraph_api
     def _graph_fn_reset(self):
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        if self.backend == "python" or self.backend == "pytorch":
             self.index = -1
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             return tf.variables_initializer([self.index])
 
     @rlgraph_api(flatten_ops=True, split_ops=False)
@@ -139,13 +137,16 @@ class Sequence(PreprocessLayer):
         Returns:
             FlattenedDataOp: The FlattenedDataOp holding the sequenced SingleDataOps as values.
         """
-        # A normal (index != -1) assign op.
-        if self.backend == "python" or get_backend() == "python":
+
+        if self.backend == "python":
             if self.index == -1:
                 for _ in range_(self.sequence_length):
-                    self.deque.append(inputs)
+                    for key, value in inputs.items():
+                        self.deque.append(value)
             else:
-                self.deque.append(inputs)
+                for key, value in inputs.items():
+                    self.deque.append(value)
+
             self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
@@ -159,22 +160,24 @@ class Sequence(PreprocessLayer):
                 sequence = sequence.transpose((0, 3, 2, 1))
 
             return sequence
-        elif get_backend() == "pytorch":
+
+        elif self.backend == "pytorch":
             if self.index == -1:
                 for _ in range_(self.sequence_length):
                     if isinstance(inputs, dict):
                         for key, value in inputs.items():
                             self.deque.append(value)
                     else:
-                        self.deque.append(inputs)
+                        assert False  # Should never get here, inputs should always be a dict (flatten=True)
             else:
                 if isinstance(inputs, dict):
                     for key, value in inputs.items():
                         self.deque.append(value)
                         self.index = (self.index + 1) % self.sequence_length
                 else:
-                    self.deque.append(inputs)
-                    self.index = (self.index + 1) % self.sequence_length
+                    assert False  # Should never get here, inputs should always be a dict (flatten=True)
+                    #self.deque.append(inputs)
+                    #self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
                 sequence = torch.stack(torch.tensor(self.deque), dim=-1)
@@ -198,7 +201,8 @@ class Sequence(PreprocessLayer):
                 sequence = sequence.permute(0, 3, 2, 1)
 
             return sequence
-        elif get_backend() == "tf":
+
+        elif self.backend == "tf":
             # Assigns the input_ into the buffer at the current time index.
             def normal_assign():
                 assigns = list()
@@ -242,14 +246,14 @@ class Sequence(PreprocessLayer):
                     else:
                         sequence = tf.concat(values=n_in, axis=-1)
 
-                    # Must pass the sequence through a placeholder_with_default dummy to set back the
-                    # batch rank to '?', instead of 1 (1 would confuse the auto Space inference).
-                    #sequences[key] = tf.placeholder_with_default(
-                    #    sequence, shape=(None,) + tuple(get_shape(sequence)[1:])
-                    #)
                     sequence._batch_rank = 0
                     sequences[key] = sequence
 
-            # TODO implement transpose
+                # TODO implement transpose
                 return sequences
 
+    # TODO: Remove necessity to define this via np/torch refs for scalar values (0D ndarray.itemset).
+    def get_state(self):
+        return {
+            "index": self.index
+        }

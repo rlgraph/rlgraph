@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
@@ -24,82 +22,43 @@ from six.moves import xrange as range_
 
 from rlgraph.components.layers import Sequence
 from rlgraph.spaces import *
-from rlgraph.tests import ComponentTest, recursive_assert_almost_equal
+from rlgraph.tests import ComponentTest
 
 
 class TestSequencePreprocessor(unittest.TestCase):
 
     def test_sequence_preprocessor(self):
-        space = FloatBox(shape=(1,), add_batch_rank=True)
-        sequencer = Sequence(sequence_length=3, add_rank=True)
-        test = ComponentTest(component=sequencer, input_spaces=dict(inputs=space))
+        for backend in (None, "python"):
+            space = FloatBox(shape=(1,), add_batch_rank=True)
+            sequencer = Sequence(sequence_length=3, add_rank=True, backend=backend)
+            test = ComponentTest(component=sequencer, input_spaces=dict(inputs=space))
 
-        vars = sequencer.get_variables("index", "buffer", global_scope=False)
-        index, buffer = vars["index"], vars["buffer"]
+            for _ in range_(3):
+                test.test("reset")
+                index_value = test.get_variable_values("index")
+                self.assertEqual(index_value, -1)
+                test.test(("call", np.array([[0.1]])),
+                          expected_outputs=np.array([[[0.1, 0.1, 0.1]]]))
+                index_value = test.get_variable_values("index")
+                self.assertEqual(index_value, 0)
+                test.test(("call", np.array([[0.2]])),
+                          expected_outputs=np.array([[[0.1, 0.1, 0.2]]]))
+                index_value = test.get_variable_values("index")
+                self.assertEqual(index_value, 1)
+                test.test(("call", np.array([[0.3]])),
+                          expected_outputs=np.array([[[0.1, 0.2, 0.3]]]))
+                index_value = test.get_variable_values("index")
+                self.assertEqual(index_value, 2)
+                test.test(("call", np.array([[0.4]])),
+                          expected_outputs=np.array([[[0.2, 0.3, 0.4]]]))
+                index_value = test.get_variable_values("index")
+                self.assertEqual(index_value, 0)
+                test.test(("call", np.array([[0.5]])),
+                          expected_outputs=np.array([[[0.3, 0.4, 0.5]]]))
+                index_value = test.get_variable_values("index")
+                self.assertEqual(index_value, 1)
 
-        for _ in range_(3):
-            test.test("reset")
-            index_value, buffer_value = test.read_variable_values(index, buffer)
-            self.assertEqual(index_value, -1)
-            test.test(("call", np.array([[0.1]])),
-                      expected_outputs=np.array([[[0.1, 0.1, 0.1]]]))
-            index_value, buffer_value = test.read_variable_values(index, buffer)
-            self.assertEqual(index_value, 0)
-            test.test(("call", np.array([[0.2]])),
-                      expected_outputs=np.array([[[0.1, 0.1, 0.2]]]))
-            index_value, buffer_value = test.read_variable_values(index, buffer)
-            self.assertEqual(index_value, 1)
-            test.test(("call", np.array([[0.3]])),
-                      expected_outputs=np.array([[[0.1, 0.2, 0.3]]]))
-            index_value, buffer_value = test.read_variable_values(index, buffer)
-            self.assertEqual(index_value, 2)
-            test.test(("call", np.array([[0.4]])),
-                      expected_outputs=np.array([[[0.2, 0.3, 0.4]]]))
-            index_value, buffer_value = test.read_variable_values(index, buffer)
-            self.assertEqual(index_value, 0)
-            test.test(("call", np.array([[0.5]])),
-                      expected_outputs=np.array([[[0.3, 0.4, 0.5]]]))
-            index_value, buffer_value = test.read_variable_values(index, buffer)
-            self.assertEqual(index_value, 1)
-
-        test.terminate()
-
-    # TODO: Make it irrelevent whether we test a python or a tf Component (API and handling should be 100% identical)
-    def test_python_sequence_preprocessor(self):
-        seq_len = 3
-        space = FloatBox(shape=(1,), add_batch_rank=True)
-        sequencer = Sequence(sequence_length=seq_len, batch_size=4, add_rank=True, backend="python")
-        sequencer.create_variables(input_spaces=dict(inputs=space))
-
-        #test = ComponentTest(component=sequencer, input_spaces=dict(call=space))
-
-        for _ in range_(3):
-            sequencer._graph_fn_reset()
-            self.assertEqual(sequencer.index, -1)
-            input_ = np.asarray([[1.0], [2.0], [3.0], [4.0]])
-            out = sequencer._graph_fn_call(input_)
-            self.assertEqual(sequencer.index, 0)
-            recursive_assert_almost_equal(
-                out, np.asarray([[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]], [[3.0, 3.0, 3.0]], [[4.0, 4.0, 4.0]]])
-            )
-            input_ = np.asarray([[1.1], [2.2], [3.3], [4.4]])
-            out = sequencer._graph_fn_call(input_)
-            self.assertEqual(sequencer.index, 1)
-            recursive_assert_almost_equal(
-                out, np.asarray([[[1.0, 1.0, 1.1]], [[2.0, 2.0, 2.2]], [[3.0, 3.0, 3.3]], [[4.0, 4.0, 4.4]]])
-            )
-            input_ = np.asarray([[1.11], [2.22], [3.33], [4.44]])
-            out = sequencer._graph_fn_call(input_)
-            self.assertEqual(sequencer.index, 2)
-            recursive_assert_almost_equal(
-                out, np.asarray([[[1.0, 1.1, 1.11]], [[2.0, 2.2, 2.22]], [[3.0, 3.3, 3.33]], [[4.0, 4.4, 4.44]]])
-            )
-            input_ = np.asarray([[10], [20], [30], [40]])
-            out = sequencer._graph_fn_call(input_)
-            self.assertEqual(sequencer.index, 0)
-            recursive_assert_almost_equal(
-                out, np.asarray([[[1.1, 1.11, 10]], [[2.2, 2.22, 20]], [[3.3, 3.33, 30]], [[4.4, 4.44, 40]]])
-            )
+            test.terminate()
 
     def test_sequence_preprocessor_with_batch(self):
         space = FloatBox(shape=(2,), add_batch_rank=True)
