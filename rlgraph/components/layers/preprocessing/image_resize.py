@@ -51,13 +51,13 @@ class ImageResize(PreprocessLayer):
         self.height = height
         
         if interpolation == "bilinear":
-            if self.backed == "tf":
+            if self.backend == "tf":
                 self.tf_interpolation = ResizeMethod.BILINEAR
                 # All other backends use cv2 currently.
             # Sometimes we mix python preprocessor stack with tf backend -> always need this.
             self.cv2_interpolation = cv2.INTER_LINEAR
         elif interpolation == "area":
-            if self.backed == "tf":
+            if self.backend == "tf":
                 self.tf_interpolation = ResizeMethod.AREA
             self.cv2_interpolation = cv2.INTER_AREA
         else:
