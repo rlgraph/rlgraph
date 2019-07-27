@@ -18,6 +18,7 @@ from __future__ import absolute_import, division, print_function
 from functools import partial
 
 import numpy as np
+
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
 from rlgraph.spaces.containers import ContainerSpace, Dict, Tuple
@@ -34,7 +35,14 @@ Space.__lookup_classes__ = dict({
     np.bool_: BoolBox,
     "int": IntBox,
     int: IntBox,
+    np.uint8: partial(IntBox, dtype=np.uint8),
+    "uint8": partial(IntBox, dtype=np.uint8),
+    np.int8: partial(IntBox, dtype=np.int8),
+    "int8": partial(IntBox, dtype=np.int8),
     np.int32: IntBox,
+    "int32": IntBox,
+    np.int64: partial(IntBox, dtype=np.int64),
+    "int64": partial(IntBox, dtype=np.int64),
     "intbox": IntBox,
     "continuous": FloatBox,
     "float": FloatBox,
