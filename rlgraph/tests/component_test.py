@@ -184,7 +184,7 @@ class ComponentTest(object):
         # No variables given: Read all variables of our component.
         if len(variables) == 0:
             variables = self.component.variable_registry
-        ret = self.graph_executor.read_variable_values(variables)
+        ret = self.graph_executor.read_variable_values(self.component, variables)
         if len(variables) == 1:
             return ret[0]
         return ret
@@ -202,7 +202,7 @@ class ComponentTest(object):
         """
         variables = component.get_variables(names, global_scope=False)
         if component.backend == "tf":
-            return self.graph_executor.read_variable_values(variables)
+            return self.graph_executor.read_variable_values(component, variables)
         else:
             return variables
 

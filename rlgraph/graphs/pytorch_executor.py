@@ -21,7 +21,6 @@ import time
 import numpy as np
 
 from rlgraph import get_backend
-from rlgraph.components.component import Component
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run_unflatten
@@ -180,19 +179,19 @@ class PyTorchExecutor(GraphExecutor):
         # Pack again.
         return define_by_run_unflatten(ret)
 
-    def read_variable_values(self, variables):
+    def read_variable_values(self, component, variables):
         # For test compatibility.
         if isinstance(variables, dict):
             ret = {}
             for name, var in variables.items():
-                ret[name] = Component.read_variable(var)
+                ret[name] = component.read_variable(var)
             return ret
         # Read a list of vars.
         elif isinstance(variables, list):
-            return [Component.read_variable(var) for var in variables]
+            return [component.read_variable(var) for var in variables]
         # Attempt to read as single var.
         else:
-            return Component.read_variable(variables)
+            return component.read_variable(variables)
 
     def init_execution(self):
         # TODO Import guards here are annoying but otherwise breaks if torch is not installed.

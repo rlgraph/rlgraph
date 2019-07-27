@@ -123,12 +123,13 @@ class GraphExecutor(Specifiable):
         """
         raise NotImplementedError
 
-    def read_variable_values(self, variables):
+    def read_variable_values(self, component, variables):
         """
         Read variable values from a graph, e.g. by calling the underlying graph
         or just returning the variable in imperative modes.
 
         Args:
+            component (Component): Component that the variables should be read from.
             variables (list): Variable objects to retrieve from the graph.
 
         Returns:

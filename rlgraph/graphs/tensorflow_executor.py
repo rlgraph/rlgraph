@@ -263,7 +263,7 @@ class TensorFlowExecutor(GraphExecutor):
                 f.write(chrome_trace)
         self.timeline_step += 1
 
-    def read_variable_values(self, variables):
+    def read_variable_values(self, component, variables):
         """
         Fetches the given variables from the graph and returns their current values.
         The returned structure corresponds to the data type and structure of `variables`
@@ -271,6 +271,7 @@ class TensorFlowExecutor(GraphExecutor):
         is returned).
 
         Args:
+            component (Component): Component that the variables should be read from.
             variables (any): Any structure that contains variables.
 
         Returns:

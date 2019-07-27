@@ -19,7 +19,6 @@ import time
 
 import numpy as np
 
-from rlgraph.components.component import Component
 from rlgraph.graphs import GraphExecutor
 from rlgraph.utils import util
 
@@ -33,8 +32,9 @@ class PythonExecutor(GraphExecutor):
 
         self.global_training_timestep = 0
 
-        # Squeeze result dims, often necessary in tests.
-        self.remove_batch_dims = True
+        ##OBSOLETED: Squeeze result dims, often necessary in tests.
+        # Should not behave differently from tf/pytorch backends (graph_fns are identical in functionality).
+        self.remove_batch_dims = False
 
     def build(self, root_components, input_spaces, **kwargs):
         start = time.perf_counter()
@@ -132,19 +132,19 @@ class PythonExecutor(GraphExecutor):
             else:
                 ret.append(result)
 
-    def read_variable_values(self, variables):
+    def read_variable_values(self, component, variables):
         # For test compatibility.
         if isinstance(variables, dict):
             ret = {}
             for name, var in variables.items():
-                ret[name] = Component.read_variable(var)
+                ret[name] = component.read_variable(var)
             return ret
         # Read a list of vars.
         elif isinstance(variables, list):
-            return [Component.read_variable(var) for var in variables]
+            return [component.read_variable(var) for var in variables]
         # Attempt to read as single var.
         else:
-            return Component.read_variable(variables)
+            return component.read_variable(variables)
 
     def finish_graph_setup(self):
         # Nothing to do here for PyTorch.
