@@ -44,6 +44,13 @@ class PythonExecutor(GraphExecutor):
         build_times = []
         for component in root_components:
             start = time.perf_counter()
+
+            # Collect all components.
+            components = component.get_all_sub_components(exclude_self=False)
+            # Point to this GraphBuilder object.
+            for c in components:
+                c.graph_builder = self.graph_builder
+
             ## Make sure we check input-spaces and create variables.
             ##component.when_input_complete(input_spaces=input_spaces)
             # Build the meta-graph.

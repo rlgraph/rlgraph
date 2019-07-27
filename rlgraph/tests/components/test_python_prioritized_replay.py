@@ -76,7 +76,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         """
         memory = MemPrioritizedReplay(
             capacity=self.capacity,
-            next_states=True,
+            #next_states=True,
             alpha=self.alpha,
             beta=self.beta
         )
@@ -116,7 +116,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         """
         memory = MemPrioritizedReplay(
             capacity=self.capacity,
-            next_states=True
+            #next_states=True
         )
         memory.create_variables(self.input_spaces)
 
@@ -168,7 +168,7 @@ class TestPythonPrioritizedReplay(unittest.TestCase):
         """
         memory = MemPrioritizedReplay(
             capacity=self.capacity,
-            next_states=True,
+            #next_states=True,
             alpha=self.alpha,
             beta=self.beta
         )

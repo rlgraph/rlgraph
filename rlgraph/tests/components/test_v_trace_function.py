@@ -13,12 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
+
+import unittest
 
 import numpy as np
-import unittest
 
 from rlgraph.components.helpers.v_trace_function import VTraceFunction
 from rlgraph.spaces import *
@@ -50,6 +49,7 @@ class TestVTraceFunctions(unittest.TestCase):
         )
 
         test = ComponentTest(component=v_trace_function, input_spaces=input_spaces)
+        test_reference = ComponentTest(component=v_trace_function_reference, input_spaces=input_spaces)
 
         size = (3, 2)
         logits_actions_pi = self.time_x_batch_x_2_space.sample(size=size)
@@ -68,8 +68,7 @@ class TestVTraceFunctions(unittest.TestCase):
             bootstrapped_values
         ]
 
-        vs_expected, pg_advantages_expected = v_trace_function_reference._graph_fn_calc_v_trace_values(*input_)
-
+        vs_expected, pg_advantages_expected = test_reference.test(("calc_v_trace_values", input_))
         test.test(("calc_v_trace_values", input_), expected_outputs=[vs_expected, pg_advantages_expected], decimals=4)
 
     def test_v_trace_function_more_complex(self):
@@ -90,6 +89,7 @@ class TestVTraceFunctions(unittest.TestCase):
         )
 
         test = ComponentTest(component=v_trace_function, input_spaces=input_spaces)
+        test_reference = ComponentTest(component=v_trace_function_reference, input_spaces=input_spaces)
 
         size = (100, 16)
         logits_actions_pi = self.time_x_batch_x_9_space.sample(size=size)
@@ -108,7 +108,6 @@ class TestVTraceFunctions(unittest.TestCase):
             bootstrapped_values
         ]
 
-        vs_expected, pg_advantages_expected = v_trace_function_reference._graph_fn_calc_v_trace_values(*input_)
-
+        vs_expected, pg_advantages_expected = test_reference.test(("calc_v_trace_values", input_))
         test.test(("calc_v_trace_values", input_), expected_outputs=[vs_expected, pg_advantages_expected], decimals=4)
 

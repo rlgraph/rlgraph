@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.utils.decorators import rlgraph_api
@@ -53,11 +54,11 @@ class MovingStandardize(PreprocessLayer):
         #self.output_spaces = in_space
         self.in_shape = (self.batch_size, ) + in_space.shape
 
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        if self.backend == "python" or self.backend == "pytorch":
             self.sample_count = 0.0
             self.mean_est = np.zeros(self.in_shape, dtype=np.float32)
             self.std_sum_est = np.zeros(self.in_shape, dtype=np.float32)
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             self.sample_count = self.get_variable(name="sample-count", dtype="float", initializer=0.0, trainable=False)
             self.mean_est = self.get_variable(
                 name="mean-est",
@@ -76,16 +77,16 @@ class MovingStandardize(PreprocessLayer):
 
     @rlgraph_api
     def _graph_fn_reset(self):
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        if self.backend == "python" or self.backend == "pytorch":
             self.sample_count = 0.0
             self.mean_est = np.zeros(self.in_shape)
             self.std_sum_est = np.zeros(self.in_shape)
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             return tf.variables_initializer([self.sample_count, self.mean_est, self.std_sum_est])
 
     @rlgraph_api
     def _graph_fn_call(self, inputs):
-        if self.backend == "python" or get_backend() == "python" or get_backend() == "pytorch":
+        if self.backend == "python" or self.backend == "pytorch":
             # https://www.johndcook.com/blog/standard_deviation/
             inputs = np.asarray(inputs, dtype=np.float32)
             self.sample_count += 1.0
@@ -107,16 +108,16 @@ class MovingStandardize(PreprocessLayer):
             std = np.sqrt(var_estimate) + SMALL_NUMBER
 
             standardized = result / std
-            if get_backend() == "pytorch":
+            if self.backend == "pytorch":
                 standardized = torch.Tensor(standardized)
             return standardized
 
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             assignments = [tf.assign_add(ref=self.sample_count, value=1.0)]
             with tf.control_dependencies(assignments):
                 # 1. Update vars
                 assignments = []
-                update = inputs - self.mean_est
+                update = tf.cast(inputs, tf.float32) - self.mean_est
                 mean_update = tf.cond(
                     pred=self.sample_count > 1.0,
                     false_fn=lambda: self.mean_est,
@@ -133,7 +134,14 @@ class MovingStandardize(PreprocessLayer):
                     false_fn=lambda: tf.square(x=self.mean_est),
                     true_fn=lambda: self.std_sum_est / (self.sample_count - 1)
                 )
-                result = inputs - self.mean_est
+                result = tf.cast(inputs, tf.float32) - self.mean_est
                 std = tf.sqrt(x=var_estimate) + SMALL_NUMBER
 
                 return result / std
+
+    def get_state(self):
+        return dict({
+            "mean-est": self.mean_est,
+            "std-sum-est": self.std_sum_est,
+            "sample-count": self.sample_count
+        })

@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os
 import unittest
@@ -80,29 +78,18 @@ class TestPreprocessLayers(unittest.TestCase):
 
     def test_grayscale_with_uint8_image(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
-        space = IntBox(256, shape=(1, 1, 2), dtype="uint8", add_batch_rank=True)
-        grayscale = GrayScale(weights=(0.5, 0.5), keep_rank=False)
-
-        test = ComponentTest(component=grayscale, input_spaces=dict(inputs=space))
-
-        # Run the test (batch of 3 images).
-        input_ = space.sample(size=3)
-        expected = np.sum(input_, axis=-1, keepdims=False)
-        expected = (expected / 2).astype(input_.dtype)
-        test.test("reset")
-        print(test.test(("call", input_), expected_outputs=expected))
-
-    def test_grayscale_python_with_uint8_image(self):
-        # last rank is always the color rank (its dim must match len(grayscale-weights))
         space = IntBox(256, shape=(1, 1, 3), dtype="uint8", add_batch_rank=True)
-        grayscale = GrayScale(keep_rank=False, backend="python")
 
-        # Run the test (batch of 2 images).
-        input_ = space.sample(size=2)
-        expected = np.round(np.dot(input_[:, :, :, :3], [0.299, 0.587, 0.114]), 0).astype(dtype=input_.dtype)
+        for backend in (None, "python"):
+            grayscale = GrayScale(weights=(0.333, 0.333, 0.333), keep_rank=False, backend=backend)
+            test = ComponentTest(component=grayscale, input_spaces=dict(inputs=space))
 
-        out = grayscale._graph_fn_call(input_)
-        recursive_assert_almost_equal(out, expected)
+            # Run the test (batch of 3 images).
+            input_ = space.sample(size=3)
+            expected = np.sum(input_, axis=-1, keepdims=False)
+            expected = (expected / 3).astype(input_.dtype)
+            test.test("reset")
+            print(test.test(("call", input_), expected_outputs=expected, decimals=0))
 
     def test_split_inputs_on_grayscale(self):
         # last rank is always the color rank (its dim must match len(grayscale-weights))
@@ -190,34 +177,22 @@ class TestPreprocessLayers(unittest.TestCase):
         test.test(("call", input_image), expected_outputs=expected)
 
     def test_image_crop(self):
-        image_crop = ImageCrop(x=7, y=1, width=8, height=12)
+        for backend in (None, "python"):
+            image_crop = ImageCrop(x=7, y=1, width=8, height=12, backend=backend)
 
-        # Some image of 16x16x3 size.
-        test = ComponentTest(
-            component=image_crop, input_spaces=dict(inputs=FloatBox(shape=(16, 16, 3),
-                                                                                  add_batch_rank=False))
-        )
+            # Some image of 16x16x3 size.
+            test = ComponentTest(component=image_crop, input_spaces=dict(
+                inputs=FloatBox(shape=(16, 16, 3), add_batch_rank=False)
+            ))
 
-        test.test("reset")
+            test.test("reset")
 
-        input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
-        expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
-        assert expected is not None
+            input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
+            expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
+            assert expected is not None
 
-        test.test(("call", input_image), expected_outputs=expected)
-
-    def test_python_image_crop(self):
-        image_crop = ImageCrop(x=7, y=1, width=8, height=12, backend="python")
-        image_crop.create_variables(input_spaces=dict(
-            inputs=FloatBox(shape=(16, 16, 3)), add_batch_rank=False)
-        )
-
-        input_image = cv2.imread(os.path.join(os.path.dirname(__file__), "images/16x16x3_image.bmp"))
-        expected = cv2.imread(os.path.join(os.path.dirname(__file__), "images/8x12x3_image_cropped.bmp"))
-        assert expected is not None
-
-        out = image_crop._graph_fn_call(input_image)
-        recursive_assert_almost_equal(out, expected)
+            test.test(("call", input_image), expected_outputs=expected)
+            test.terminate()
 
     def test_black_and_white(self):
         binary = ImageBinary()
@@ -236,33 +211,34 @@ class TestPreprocessLayers(unittest.TestCase):
         ])
         test.test(("call", input_images), expected_outputs=expected)
 
-    def test_moving_standardize_python(self):
+    def test_moving_standardize(self):
         env = OpenAIGymEnv("Pong-v0")
         space = env.state_space
 
-        moving_standardize = MovingStandardize(backend="python")
-        moving_standardize.create_variables(input_spaces=dict(
-                    inputs=space
-                ), action_space=None)
-        samples = [space.sample() for _ in range(100)]
-        out = None
-        for sample in samples:
-            out = moving_standardize._graph_fn_call(sample)
+        for backend in (None, "python"):
+            moving_standardize = MovingStandardize(backend=backend)
+            test = ComponentTest(component=moving_standardize, input_spaces=dict(inputs=space))
 
-        # Assert shape remains intact.
-        expected_shape = (1, ) + space.shape
-        self.assertEqual(expected_shape,  moving_standardize.mean_est.shape)
-        # Assert mean estimate.
-        expected_mean = np.mean(samples, axis=0)
-        self.assertTrue(np.allclose(moving_standardize.mean_est, expected_mean))
+            samples = [space.sample() for _ in range(100)]
+            out = None
+            for sample in samples:
+                out = test.test(("call", sample))
 
-        expected_variance = np.var(samples, ddof=1, axis=0)
-        variance_estimate = moving_standardize.std_sum_est / (moving_standardize.sample_count - 1.0)
-        self.assertEqual(expected_shape,  variance_estimate.shape)
-        self.assertTrue(np.allclose(variance_estimate, expected_variance))
+            # Assert shape remains intact.
+            expected_shape = (1, ) + space.shape
+            self.assertEqual(expected_shape, moving_standardize.mean_est.shape)
+            # Assert mean estimate.
+            expected_mean = np.mean(samples, axis=0)
+            recursive_assert_almost_equal(test.get_variable_values("mean-est"), expected_mean)
 
-        std = np.sqrt(variance_estimate) + SMALL_NUMBER
+            expected_variance = np.var(samples, ddof=1, axis=0)
+            variance_estimate = test.get_variable_values("std-sum-est") / \
+                                (test.get_variable_values("sample-count") - 1.0)
+            recursive_assert_almost_equal(expected_shape, variance_estimate.shape)
+            recursive_assert_almost_equal(variance_estimate, expected_variance)
 
-        # Final output.
-        expected_out = (samples[-1] - moving_standardize.mean_est) / std
-        self.assertTrue(np.allclose(out, expected_out))
+            std = np.sqrt(variance_estimate) + SMALL_NUMBER
+
+            # Final output.
+            expected_out = (samples[-1] - test.get_variable_values("mean-est")) / std
+            recursive_assert_almost_equal(out, expected_out)

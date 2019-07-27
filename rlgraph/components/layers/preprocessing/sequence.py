@@ -141,11 +141,17 @@ class Sequence(PreprocessLayer):
         if self.backend == "python":
             if self.index == -1:
                 for _ in range_(self.sequence_length):
+                    if isinstance(inputs, dict):
+                        for key, value in inputs.items():
+                            self.buffer.append(value)
+                    else:
+                        self.buffer.append(inputs)
+            else:
+                if isinstance(inputs, dict):
                     for key, value in inputs.items():
                         self.buffer.append(value)
-            else:
-                for key, value in inputs.items():
-                    self.buffer.append(value)
+                else:
+                    self.buffer.append(inputs)
 
             self.index = (self.index + 1) % self.sequence_length
 
@@ -168,16 +174,15 @@ class Sequence(PreprocessLayer):
                         for key, value in inputs.items():
                             self.buffer.append(value)
                     else:
-                        assert False  # Should never get here, inputs should always be a dict (flatten=True)
+                        self.buffer.append(inputs)
             else:
                 if isinstance(inputs, dict):
                     for key, value in inputs.items():
                         self.buffer.append(value)
-                        self.index = (self.index + 1) % self.sequence_length
                 else:
-                    assert False  # Should never get here, inputs should always be a dict (flatten=True)
-                    #self.buffer.append(inputs)
-                    #self.index = (self.index + 1) % self.sequence_length
+                    self.buffer.append(inputs)
+
+            self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
                 sequence = torch.stack(torch.tensor(self.buffer), dim=-1)

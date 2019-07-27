@@ -15,18 +15,27 @@
 
 from __future__ import absolute_import, division, print_function
 
+from collections import OrderedDict
 import copy
 import inspect
 import re
+import time
 
-# from rlgraph.components.common.container_merger import ContainerMerger
+from rlgraph import get_backend
+from rlgraph.spaces.containers import Dict
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import util
+from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten, \
+    define_by_run_unpack
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn
 from rlgraph.utils.ops import TraceContext
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphAPICallParamError, RLGraphVariableIncompleteError, \
     RLGraphInputIncompleteError
+
+if get_backend() == "pytorch":
+    import torch
+
 
 # Global registries for Component classes' API-methods and graph_fn.
 component_api_registry = {}
@@ -93,6 +102,34 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
         def api_method_wrapper(self, *args, **kwargs):
             api_fn_name = name or re.sub(r'^_graph_fn_', "", wrapped_func.__name__)
             api_method_rec = self.api_methods[api_fn_name]
+
+            # TODO: Direct evaluation of function.
+            # This block needs to be unified. It is currently only executed if python-Components
+            # are not build and executed directly (without a GraphBuilder).
+            # BUT code needs to go here for every define-by-run execution (after(!) the build).
+            if self.execution_mode == "define_by_run" and self.graph_builder is None:
+                type(self).call_count += 1
+
+                start = time.perf_counter()
+                # Wrapped  graph_fn -> call execute_define_by_run_graph_fn.
+                if api_method_rec.is_graph_fn_wrapper is True:
+                    output = execute_define_by_run_graph_fn(
+                        self, api_method_rec.func,
+                        dict(
+                            flatten_ops=flatten_ops, split_ops=split_ops,
+                            add_auto_key_as_first_param=add_auto_key_as_first_param
+                        ),
+                        *args, **kwargs
+                    )
+                # Normal (non-graph-fn-wrapping) API.
+                else:
+                    output = wrapped_func(self, *args, **kwargs)
+
+                # Store runtime for this method.
+                type(self).call_times.append(  # Component.call_times
+                    (self.name, wrapped_func.__name__, time.perf_counter() - start)
+                )
+                return output
 
             # Create op-record column to call API method with. Ignore None input params. These should not be sent
             # to the API-method.
@@ -356,8 +393,8 @@ def graph_fn(graph_fn=None, *, component=None, returns=None,
     def decorator_func(wrapped_func):
         def _graph_fn_wrapper(self, *args, **kwargs):
             # Direct execution.
-            if self.execution_mode == "define_by_run":
-                return self.graph_builder.execute_define_by_run_graph_fn(self, wrapped_func,  dict(
+            if self.execution_mode == "define_by_run" and self.graph_builder is None:
+                return execute_define_by_run_graph_fn(self, wrapped_func,  dict(
                         flatten_ops=flatten_ops, split_ops=split_ops,
                         add_auto_key_as_first_param=add_auto_key_as_first_param
                         ), *args, **kwargs)
@@ -643,6 +680,124 @@ def graph_fn_wrapper(component, wrapped_func, returns, options, *args, **kwargs)
             return out_graph_fn_column.op_records[0]
         else:
             return tuple(out_graph_fn_column.op_records)
+
+
+def execute_define_by_run_graph_fn(component, graph_fn, options, *args, **kwargs):
+    """
+    Executes a graph_fn in define by run mode.
+
+    Args:
+        component (Component): Component this graph_fn is executed on.
+        graph_fn (callable): Graph function to execute.
+        options (dict): Execution options.
+
+    Returns:
+        any: Results of executing this graph-fn.
+    """
+    flatten_ops = options.pop("flatten_ops", False)
+    split_ops = options.pop("split_ops", False)
+    add_auto_key_as_first_param = options.pop("add_auto_key_as_first_param", False)
+
+    # No container arg handling.
+    if not flatten_ops:
+        return graph_fn(component, *args, **kwargs)
+
+    # Flatten and identify containers for potential splits.
+    flattened_args = []
+
+    # Was there actually any flattening
+    args_actually_flattened = False
+    for arg in args:
+        if isinstance(arg, (Dict, dict, tuple)) or isinstance(arg, Dict) or isinstance(arg, tuple):
+            flattened_args.append(define_by_run_flatten(arg))
+            args_actually_flattened = True
+        else:
+            flattened_args.append(arg)
+
+    flattened_kwargs = {}
+    if len(kwargs) > 0:
+        for key, arg in kwargs.items():
+            if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
+                flattened_kwargs[key] = define_by_run_flatten(arg)
+                args_actually_flattened = True
+            else:
+                flattened_kwargs[key] = arg
+
+    # If splitting args, split then iterate and merge. Only split if some args were actually flattened.
+    if args_actually_flattened:
+        if split_ops:
+            split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
+                                                             *flattened_args, **flattened_kwargs)
+
+            # Idea: Unwrap light flattening by iterating over flattened args and reading out "" where possible
+            if split_ops and isinstance(split_args_and_kwargs, OrderedDict):
+                # Args were actually split.
+                ops = {}
+                num_return_values = -1
+                for key, params in split_args_and_kwargs.items():
+                    # Are there any kwargs?
+                    if isinstance(params, tuple):
+                        params_args = params[0]
+                        params_kwargs = params[1]
+                    else:
+                        params_args = params
+                        params_kwargs = {}
+                    ops[key] = graph_fn(component, *params_args, **params_kwargs)
+                    if hasattr(ops[key], "shape"):
+                        num_return_values = 1
+                    else:
+                        num_return_values = len(ops[key])
+
+                # Un-split the results dict into a tuple of `num_return_values` slots.
+                un_split_ops = []
+                for i in range(num_return_values):
+                    dict_with_singles = OrderedDict()
+                    for key in split_args_and_kwargs.keys():
+                        # Use tensor as is.
+                        if hasattr(ops[key], "shape"):
+                            dict_with_singles[key] = ops[key]
+                        else:
+                            dict_with_singles[key] = ops[key][i]
+                    un_split_ops.append(dict_with_singles)
+
+                flattened_ret = tuple(un_split_ops)
+            else:
+                if isinstance(split_args_and_kwargs, OrderedDict):
+                    flattened_ret = graph_fn(component, split_args_and_kwargs)
+                else:
+                    # Args and kwargs tuple.
+                    split_args = split_args_and_kwargs[0]
+                    split_kwargs = split_args_and_kwargs[1]
+                    # Args did not contain deep nested structure so
+                    flattened_ret = graph_fn(component, *split_args, **split_kwargs)
+
+            # If result is a raw tensor, return as is.
+            if get_backend() == "pytorch" and component.backend != "python":
+                if isinstance(flattened_ret, torch.Tensor):
+                    return flattened_ret
+
+            unflattened_ret = []
+            for i, op in enumerate(flattened_ret):
+                # Try to re-nest ordered-dict it.
+                if isinstance(op, OrderedDict):
+                    unflattened_ret.append(define_by_run_unflatten(op))
+                # All others are left as-is.
+                else:
+                    unflattened_ret.append(op)
+
+            # Return unflattened results.
+            return unflattened_ret[0] if len(unflattened_ret) == 1 else unflattened_ret
+
+        # Flattened only.
+        else:
+            ret = graph_fn(component, *flattened_args, **flattened_kwargs)
+    else:
+        if add_auto_key_as_first_param is True:
+            ret = graph_fn(component, "",  *args, **kwargs)
+        else:
+            ret = graph_fn(component, *args, **kwargs)
+
+    return define_by_run_unpack(ret)
 
 
 def _sanity_check_call_parameters(self, params, method, method_type, add_auto_key_as_first_param):

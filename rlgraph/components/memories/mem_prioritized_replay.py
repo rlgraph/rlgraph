@@ -36,7 +36,7 @@ class MemPrioritizedReplay(Memory):
     """
     Implements an in-memory prioritized replay.
     """
-    def __init__(self, capacity=1000, next_states=True, alpha=1.0, beta=0.0, scope="prioritized-replay", **kwargs):
+    def __init__(self, capacity=1000, alpha=1.0, beta=0.0, scope="prioritized-replay", **kwargs):
         super(MemPrioritizedReplay, self).__init__(backend="python", scope=scope, **kwargs)
 
         self.memory_values = []
@@ -47,7 +47,6 @@ class MemPrioritizedReplay(Memory):
         self.max_priority = 1.0
         self.alpha = alpha
         self.beta = beta
-        self.next_states = next_states
 
         self.default_new_weight = np.power(self.max_priority, self.alpha)
 

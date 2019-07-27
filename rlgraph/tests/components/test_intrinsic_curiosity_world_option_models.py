@@ -270,7 +270,7 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
         env = GridWorld(world="4-room")
         num_mixtures = 3
         num_features = 4
-        batch_size = 1000
+        batch_size = 512
 
         state_space = env.state_space.with_batch_rank()
         state_feature_space = FloatBox(shape=(num_features,), add_batch_rank=True)
@@ -331,7 +331,7 @@ class TestIntrinsicCuriosityWorldOptionModels(unittest.TestCase):
         s = env.reset()
 
         # Do n update rounds.
-        for batch in range(1000):
+        for batch in range(200):
             # Buffers for trajectories.
             states = []
             actions = []

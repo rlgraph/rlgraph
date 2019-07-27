@@ -13,16 +13,19 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
+
+import operator
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.helpers.segment_tree import SegmentTree
+from rlgraph.components.helpers.mem_segment_tree import MemSegmentTree, MinSumSegmentTree
 from rlgraph.components.memories.memory import Memory
 from rlgraph.utils.decorators import rlgraph_api
-from rlgraph.utils.util import get_batch_size
+from rlgraph.utils.rlgraph_errors import RLGraphUnsupportedBackendError
+from rlgraph.utils.util import get_batch_size, get_rank
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -65,6 +68,11 @@ class PrioritizedReplay(Memory):
         self.alpha = alpha
         self.beta = beta
 
+        # backend=python stuff.
+        self.memory_values = []
+        self.default_new_weight = None
+        self.merged_segment_tree = None
+
     def create_variables(self, input_spaces, action_space=None):
         super(PrioritizedReplay, self).create_variables(input_spaces, action_space)
 
@@ -72,13 +80,15 @@ class PrioritizedReplay(Memory):
         self.index = self.get_variable(name="index", dtype=int, trainable=False, initializer=0)
 
         self.max_priority = self.get_variable(name="max-priority", dtype=float, trainable=False, initializer=1.0)
+        if self.backend == "python":
+            self.default_new_weight = np.power(self.max_priority, self.alpha)
 
         # Segment tree must be full binary tree.
         self.priority_capacity = 1
         while self.priority_capacity < self.capacity:
             self.priority_capacity *= 2
 
-        # 1. Create a variable for a sum-segment tree.
+        # Create a variable for a sum-segment tree.
         self.sum_segment_buffer = self.get_variable(
                 name="sum-segment-tree",
                 shape=(2 * self.priority_capacity,),
@@ -88,67 +98,115 @@ class PrioritizedReplay(Memory):
         )
         self.sum_segment_tree = SegmentTree(self.sum_segment_buffer, self.priority_capacity)
 
-        # 2. Create a variable for a min-segment tree.
-        self.min_segment_buffer = self.get_variable(
-                name="min-segment-tree",
-                dtype=tf.float32,
-                trainable=False,
-                # Neutral element of min()
-                shape=(2 * self.priority_capacity,),
-                initializer=tf.constant_initializer(np.full((2 * self.priority_capacity,), float('inf')))
-        )
-        self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
+        if self.backend == "tf":
+            # Create a variable for a min-segment tree.
+            self.min_segment_buffer = self.get_variable(
+                    name="min-segment-tree",
+                    dtype=tf.float32,
+                    trainable=False,
+                    # Neutral element of min()
+                    shape=(2 * self.priority_capacity,),
+                    initializer=tf.constant_initializer(np.full((2 * self.priority_capacity,), float('inf')))
+            )
+            self.min_segment_tree = SegmentTree(self.min_segment_buffer, self.priority_capacity)
+        elif self.backend == "python":
+            # Create segment trees, initialize with neutral elements.
+            sum_values = [0.0 for _ in range(2 * self.priority_capacity)]
+            sum_segment_tree = MemSegmentTree(sum_values, self.priority_capacity, operator.add)
+            min_values = [float('inf') for _ in range(2 * self.priority_capacity)]
+            min_segment_tree = MemSegmentTree(min_values, self.priority_capacity, min)
+
+            self.merged_segment_tree = MinSumSegmentTree(
+                sum_tree=sum_segment_tree,
+                min_tree=min_segment_tree,
+                capacity=self.priority_capacity
+            )
 
     @rlgraph_api(flatten_ops=True)
     def _graph_fn_insert_records(self, records):
-        num_records = get_batch_size(records[self.some_key])
-        index = self.read_variable(self.index)
-        update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
+        if self.backend == "tf":
+            num_records = get_batch_size(records[self.some_key])
+            index = self.read_variable(self.index)
+            update_indices = tf.range(start=index, limit=index + num_records) % self.capacity
 
-        # Updates all the necessary sub-variables in the record.
-        record_updates = list()
-        for key in self.memory:
-            record_updates.append(self.scatter_update_variable(
-                variable=self.memory[key],
-                indices=update_indices,
-                updates=records[key]
-            ))
+            # Updates all the necessary sub-variables in the record.
+            record_updates = list()
+            for key in self.memory:
+                record_updates.append(self.scatter_update_variable(
+                    variable=self.memory[key],
+                    indices=update_indices,
+                    updates=records[key]
+                ))
 
-        # Update indices and size.
-        with tf.control_dependencies(control_inputs=record_updates):
-            index_updates = list()
-            index_updates.append(self.assign_variable(ref=self.index, value=(index + num_records) % self.capacity))
-            update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
-            index_updates.append(self.assign_variable(self.size, value=update_size))
+            # Update indices and size.
+            with tf.control_dependencies(control_inputs=record_updates):
+                index_updates = list()
+                index_updates.append(self.assign_variable(ref=self.index, value=(index + num_records) % self.capacity))
+                update_size = tf.minimum(x=(self.read_variable(self.size) + num_records), y=self.capacity)
+                index_updates.append(self.assign_variable(self.size, value=update_size))
 
-        weight = tf.pow(x=self.max_priority, y=self.alpha)
+            weight = tf.pow(x=self.max_priority, y=self.alpha)
 
-        # Insert new priorities into segment tree.
-        def insert_body(i):
-            sum_insert = self.sum_segment_tree.insert(update_indices[i], weight, tf.add)
+            # Insert new priorities into segment tree.
+            def insert_body(i):
+                sum_insert = self.sum_segment_tree.insert(update_indices[i], weight, tf.add)
+                with tf.control_dependencies(control_inputs=[sum_insert]):
+                    return i + 1
+
+            def cond(i):
+                return i < num_records
+
+            with tf.control_dependencies(control_inputs=index_updates):
+                sum_insert = tf.while_loop(cond=cond, body=insert_body, loop_vars=[0])
+
+            def insert_body(i):
+                min_insert = self.min_segment_tree.insert(update_indices[i], weight, tf.minimum)
+                with tf.control_dependencies(control_inputs=[min_insert]):
+                    return i + 1
+
+            def cond(i):
+                return i < num_records
+
             with tf.control_dependencies(control_inputs=[sum_insert]):
-                return i + 1
+                min_insert = tf.while_loop(cond=cond, body=insert_body, loop_vars=[0])
 
-        def cond(i):
-            return i < num_records
-
-        with tf.control_dependencies(control_inputs=index_updates):
-            sum_insert = tf.while_loop(cond=cond, body=insert_body, loop_vars=[0])
-
-        def insert_body(i):
-            min_insert = self.min_segment_tree.insert(update_indices[i], weight, tf.minimum)
+            # Nothing to return.
             with tf.control_dependencies(control_inputs=[min_insert]):
-                return i + 1
+                return tf.no_op()
 
-        def cond(i):
-            return i < num_records
+        elif self.backend == "python":
+            if records is None or get_rank(records[self.some_key]) == 0:
+                return
+            num_records = len(records[self.some_key])
 
-        with tf.control_dependencies(control_inputs=[sum_insert]):
-            min_insert = tf.while_loop(cond=cond, body=insert_body, loop_vars=[0])
+            if num_records == 1:
+                if self.index >= self.size:
+                    self.memory_values.append(records)
+                else:
+                    self.memory_values[self.index] = records
+                self.merged_segment_tree.insert(self.index, self.default_new_weight)
+            else:
+                insert_indices = np.arange(start=self.index, stop=self.index + num_records) % self.capacity
+                i = 0
+                for insert_index in insert_indices:
+                    self.merged_segment_tree.insert(insert_index, self.default_new_weight)
+                    record = {}
+                    for name, record_values in records.items():
+                        record[name] = record_values[i]
+                    if insert_index >= self.size:
+                        self.memory_values.append(record)
+                    else:
+                        self.memory_values[insert_index] = record
+                    i += 1
 
-        # Nothing to return.
-        with tf.control_dependencies(control_inputs=[min_insert]):
-            return tf.no_op()
+            # Update indices
+            self.index = (self.index + num_records) % self.capacity
+            self.size = min(self.size + num_records, self.capacity)
+
+            return None
+
+        else:
+            raise RLGraphUnsupportedBackendError()
 
     @rlgraph_api
     def _graph_fn_get_records(self, num_records=1):
