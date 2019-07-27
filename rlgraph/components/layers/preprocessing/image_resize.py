@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import cv2
 import numpy as np
@@ -25,7 +23,7 @@ from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import unflatten_op
-from rlgraph.utils.rlgraph_errors import RLGraphError
+from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphUnsupportedBackendError
 
 cv2.ocl.setUseOpenCL(False)
 
@@ -53,13 +51,13 @@ class ImageResize(PreprocessLayer):
         self.height = height
         
         if interpolation == "bilinear":
-            if get_backend() == "tf":
+            if self.backed == "tf":
                 self.tf_interpolation = ResizeMethod.BILINEAR
                 # All other backends use cv2 currently.
             # Sometimes we mix python preprocessor stack with tf backend -> always need this.
             self.cv2_interpolation = cv2.INTER_LINEAR
         elif interpolation == "area":
-            if get_backend() == "tf":
+            if self.backed == "tf":
                 self.tf_interpolation = ResizeMethod.AREA
             self.cv2_interpolation = cv2.INTER_AREA
         else:
@@ -84,7 +82,7 @@ class ImageResize(PreprocessLayer):
         for key, value in space.flatten().items():
             # Do some sanity checking.
             rank = value.rank
-            if get_backend() == "tf":
+            if self.backend == "tf":
                 assert rank == 2 or rank == 3, \
                     "ERROR: Given image's rank (which is {}{}, not counting batch rank) must be either 2 or 3!".\
                     format(rank, ("" if key == "" else " for key '{}'".format(key)))
@@ -92,7 +90,7 @@ class ImageResize(PreprocessLayer):
                 shape = list(value.shape)
                 shape[0] = self.width
                 shape[1] = self.height
-            elif get_backend() == "pytorch":
+            else:  #if self.backend == "pytorch":
                 shape = list(value.shape)
 
                 # Determine the output shape.
@@ -115,7 +113,7 @@ class ImageResize(PreprocessLayer):
         """
         Images come in with either a batch dimension or not.
         """
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python":
             if isinstance(inputs, list):
                 inputs = np.asarray(inputs)
             had_single_color_dim = (inputs.shape[-1] == 1)
@@ -138,7 +136,7 @@ class ImageResize(PreprocessLayer):
                 resized = np.expand_dims(resized, axis=-1)
 
             return resized
-        elif get_backend() == "pytorch":
+        elif self.backend == "pytorch":
             if isinstance(inputs, list):
                 inputs = torch.tensor(inputs)
 
@@ -164,8 +162,9 @@ class ImageResize(PreprocessLayer):
                 resized = torch.unsqueeze(resized, dim=-1)
 
             return resized
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             return tf.image.resize_images(
                 images=inputs, size=(self.width, self.height), method=self.tf_interpolation
             )
-
+        else:
+            raise RLGraphUnsupportedBackendError()

@@ -13,14 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
+from rlgraph.utils.rlgraph_errors import RLGraphUnsupportedBackendError
 from rlgraph.utils.decorators import rlgraph_api
 from rlgraph.utils.ops import flatten_op, unflatten_op
 
@@ -81,7 +80,7 @@ class ImageCrop(PreprocessLayer):
         """
         Images come in with either a batch dimension or not.
         """
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python":
             if isinstance(inputs, list):
                 inputs = np.asarray(inputs)
             # Preserve batch dimension.
@@ -89,7 +88,7 @@ class ImageCrop(PreprocessLayer):
                 return inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
                 return inputs[self.y:self.y + self.height, self.x:self.x + self.width]
-        elif get_backend() == "pytorch":
+        elif self.backend == "pytorch":
             if isinstance(inputs, list):
                 inputs = torch.tensor(inputs)
 
@@ -100,7 +99,7 @@ class ImageCrop(PreprocessLayer):
                 return inputs[:, self.y:self.y + self.height, self.x:self.x + self.width]
             else:
                 return inputs[self.y:self.y + self.height, self.x:self.x + self.width]
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             return tf.image.crop_to_bounding_box(
                 image=inputs,
                 offset_height=self.y,
@@ -108,3 +107,5 @@ class ImageCrop(PreprocessLayer):
                 target_height=self.height,
                 target_width=self.width
             )
+        else:
+            raise RLGraphUnsupportedBackendError()

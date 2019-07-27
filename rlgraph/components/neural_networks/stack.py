@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import copy
 import re
 
-from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.components.layers.preprocessing import ReShape
 from rlgraph.utils.decorators import rlgraph_api
@@ -157,13 +154,13 @@ class Stack(Component):
                     continue
                 # TODO: python-Components: For now, we call each preprocessor's graph_fn
                 #  directly (assuming that inputs are not ContainerSpaces).
-                if self_.backend == "python" or get_backend() == "python":
+                if self_.backend == "python":
                     graph_fn = getattr(sub_component, "_graph_fn_" + sub_components_api_method_name)
                     # if sub_component.api_methods[components_api_method_name].add_auto_key_as_first_param:
                     #    results = graph_fn("", *args_)  # TODO: kwargs??
                     # else:
                     results = graph_fn(*args_)
-                elif get_backend() == "pytorch":
+                elif self_.backend == "pytorch":
                     # Do NOT convert to tuple, has to be in unpacked again immediately.n
                     results = getattr(sub_component, sub_components_api_method_name)(*force_list(args_))
                 else:  # if get_backend() == "tf":

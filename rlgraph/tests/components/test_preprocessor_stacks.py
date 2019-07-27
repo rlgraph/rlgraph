@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 from copy import deepcopy
@@ -47,31 +45,26 @@ class TestPreprocessorStacks(unittest.TestCase):
             "x": 0,
             "y": 25,
             "width": 160,
-            "height": 160,
-            "scope": "image_crop"
+            "height": 160
         },
         #{
         #    "type": "image_resize",
         #    "width": 80,
-        #    "height": 80,
-        #    "scope": "image_resize"
+        #    "height": 80
         #},
         {
             "type": "grayscale",
-            "keep_rank": True,
-            "scope": "grayscale"
+            "keep_rank": True
         },
         {
             "type": "divide",
-            "divisor": 255,
-            "scope": "divide"
+            "divisor": 255
         },
         {
             "type": "sequence",
             "sequence_length": 4,
             "batch_size": batch_size,
-            "add_rank": False,
-            "scope": "sequence"
+            "add_rank": False
         }
     ]
 
@@ -96,7 +89,27 @@ class TestPreprocessorStacks(unittest.TestCase):
         }
     ]
 
-    # TODO: Make tests backend independent so we can use the same tests for everything.
+    def test_simple_preprocessor_stack(self):
+        """
+        Tests a simple preprocessor stack.
+        """
+        space = FloatBox(shape=(2,), add_batch_rank=True)
+        multiply = dict(type="multiply", factor=0.5, scope="m")
+        divide = dict(type="divide", divisor=0.5, scope="d")
+
+        for backend in (None, "python"):
+            stack = PreprocessorStack(multiply, divide, backend=backend)
+            test = ComponentTest(component=stack, input_spaces=dict(inputs=space))
+
+            for _ in range_(3):
+                # Call fake API-method directly (ok for PreprocessorStack).
+                test.test("reset")
+                input_ = space.sample(4)
+                test.test(("preprocess", input_), expected_outputs=input_)
+
+                input_ = space.sample(3)
+                test.test(("preprocess", input_), expected_outputs=input_)
+
     def test_backend_equivalence(self):
         """
         Tests if Python and TensorFlow backend return the same output
@@ -109,47 +122,35 @@ class TestPreprocessorStacks(unittest.TestCase):
         for i, decimals in zip(range_(len(self.preprocessing_spec)), [0, 0, 2, 2]):
             to_use.append(i)
             incremental_spec = []
-            incremental_scopes = []
+            incremental_types = []
             for index in to_use:
                 incremental_spec.append(deepcopy(self.preprocessing_spec[index]))
-                incremental_scopes.append(self.preprocessing_spec[index]["scope"])
+                incremental_types.append(self.preprocessing_spec[index]["type"])
 
-            print("Comparing incremental spec: {}".format(incremental_scopes))
+            print("Comparing incremental spec: {}".format(incremental_types))
 
             # Set up python preprocessor.
-            # Set backend to python.
-            for spec in incremental_spec:
-                spec["backend"] = "python"
             python_preprocessor = PreprocessorStack(*incremental_spec, backend="python")
-            for sub_comp_scope in incremental_scopes:
-                python_preprocessor.sub_components[sub_comp_scope].create_variables(
-                    input_spaces=dict(inputs=in_space), action_space=None
-                )
-                python_preprocessor.sub_components[sub_comp_scope].check_input_spaces(
-                    input_spaces=dict(inputs=in_space), action_space=None
-                )
-                #build_space = python_processor.sub_components[sub_comp_scope].get_preprocessed_space(build_space)
-                python_preprocessor.reset()
+            test_python = ComponentTest(component=python_preprocessor, input_spaces=dict(
+                inputs=in_space
+            ))
+            test_python.test("reset")
 
-            # To compare to tf, use an equivalent tf PreprocessorStack.
-            # Switch back to tf.
-            for spec in incremental_spec:
-                spec["backend"] = "tf"
+            # Tf-preprocessor.
             tf_preprocessor = PreprocessorStack(*incremental_spec, backend="tf")
-
             test = ComponentTest(component=tf_preprocessor, input_spaces=dict(
                 inputs=in_space
             ))
 
             # Generate a few states from random set points. Test if preprocessed states are almost equal
             states = in_space.sample(size=self.batch_size)
-            python_preprocessed_states = python_preprocessor.preprocess(states)
-            tf_preprocessed_states = test.test(("preprocess", states), expected_outputs=None)
+            python_preprocessed_states = test_python.test(("preprocess", states))
+            tf_preprocessed_states = test.test(("preprocess", states))
 
             print("Asserting (almost) equal values:")
             for tf_state, python_state in zip(tf_preprocessed_states, python_preprocessed_states):
                 recursive_assert_almost_equal(tf_state, python_state, decimals=decimals)
-            print("Success comparing: {}".format(incremental_scopes))
+            print("Success comparing: {}".format(incremental_types))
 
     def test_ray_pong_preprocessor_config_in_python(self):
         in_space = IntBox(256, shape=(210, 160, 3), dtype="uint8", add_batch_rank=True)
@@ -239,35 +240,6 @@ class TestPreprocessorStacks(unittest.TestCase):
 
         test.test("reset")
         test.test(("preprocess", 2.0), expected_outputs=1.0)
-
-    # TODO: Make it irrelevent whether we test a python or a tf Component (API and handling should be 100% identical)
-    def test_simple_python_preprocessor_stack(self):
-        """
-        Tests a pure python preprocessor stack.
-        """
-        space = FloatBox(shape=(2,), add_batch_rank=True)
-        # python PreprocessorStack
-        multiply = dict(type="multiply", factor=0.5, scope="m")
-        divide = dict(type="divide", divisor=0.5, scope="d")
-        stack = PreprocessorStack(multiply, divide, backend="python")
-        for sub_comp_scope in ["m", "d"]:
-            stack.sub_components[sub_comp_scope].create_variables(input_spaces=dict(inputs=space))
-
-        #test = ComponentTest(component=stack, input_spaces=dict(inputs=float))
-
-        for _ in range_(3):
-            # Call fake API-method directly (ok for PreprocessorStack).
-            stack.reset()
-            input_ = np.asarray([[1.0], [2.0], [3.0], [4.0]])
-            expected = input_
-            #test.test(("preprocess", input_), expected_outputs=expected)
-            out = stack.preprocess(input_)
-            recursive_assert_almost_equal(out, input_)
-
-            input_ = space.sample()
-            #test.test(("preprocess", input_), expected_outputs=expected)
-            out = stack.preprocess(input_)
-            recursive_assert_almost_equal(out, input_)
 
     def test_preprocessor_from_list_spec(self):
         space = FloatBox(shape=(2,))

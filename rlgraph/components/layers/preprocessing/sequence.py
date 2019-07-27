@@ -76,8 +76,6 @@ class Sequence(PreprocessLayer):
         self.index = None
         # The output spaces after preprocessing (per flat-key).
         self.output_spaces = None
-        if self.backend == "python" or self.backend == "pytorch":
-            self.deque = deque([], maxlen=self.sequence_length)
 
     def get_preprocessed_space(self, space):
         ret = {}
@@ -115,6 +113,8 @@ class Sequence(PreprocessLayer):
                 add_batch_rank=self.batch_size if in_space.has_batch_rank is not False else False,
                 add_time_rank=self.sequence_length, time_major=True, flatten=True
             )
+        if self.backend == "python" or self.backend == "pytorch":
+            self.buffer = deque([], maxlen=self.sequence_length)
 
     @rlgraph_api
     def _graph_fn_reset(self):
@@ -142,18 +142,18 @@ class Sequence(PreprocessLayer):
             if self.index == -1:
                 for _ in range_(self.sequence_length):
                     for key, value in inputs.items():
-                        self.deque.append(value)
+                        self.buffer.append(value)
             else:
                 for key, value in inputs.items():
-                    self.deque.append(value)
+                    self.buffer.append(value)
 
             self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
-                sequence = np.stack(self.deque, axis=-1)
+                sequence = np.stack(self.buffer, axis=-1)
             # Concat the sequence items in the last rank.
             else:
-                sequence = np.concatenate(self.deque, axis=-1)
+                sequence = np.concatenate(self.buffer, axis=-1)
 
             # TODO move into transpose component.
             if self.in_data_format == "channels_last" and self.out_data_format == "channels_first":
@@ -166,25 +166,25 @@ class Sequence(PreprocessLayer):
                 for _ in range_(self.sequence_length):
                     if isinstance(inputs, dict):
                         for key, value in inputs.items():
-                            self.deque.append(value)
+                            self.buffer.append(value)
                     else:
                         assert False  # Should never get here, inputs should always be a dict (flatten=True)
             else:
                 if isinstance(inputs, dict):
                     for key, value in inputs.items():
-                        self.deque.append(value)
+                        self.buffer.append(value)
                         self.index = (self.index + 1) % self.sequence_length
                 else:
                     assert False  # Should never get here, inputs should always be a dict (flatten=True)
-                    #self.deque.append(inputs)
+                    #self.buffer.append(inputs)
                     #self.index = (self.index + 1) % self.sequence_length
 
             if self.add_rank:
-                sequence = torch.stack(torch.tensor(self.deque), dim=-1)
+                sequence = torch.stack(torch.tensor(self.buffer), dim=-1)
             # Concat the sequence items in the last rank.
             else:
                 data = []
-                for t in self.deque:
+                for t in self.buffer:
                     if isinstance(t, torch.Tensor):
                         data.append(t)
                     else:
