@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import operator
 
@@ -30,7 +28,6 @@ class MemSegmentTree(object):
     and in scenarios like Ape-X, memory and update are separated processes, so there is little to be gained
     from inserting into the graph.
     """
-
     def __init__(
             self,
             values,

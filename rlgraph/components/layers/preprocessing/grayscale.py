@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import cv2
 import numpy as np
@@ -93,11 +91,12 @@ class GrayScale(PreprocessLayer):
         assert images_shape[-1] == self.last_rank,\
             "ERROR: Given image's shape ({}) does not match number of weights (last rank must be {})!".\
             format(images_shape, self.last_rank)
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python":
             if inputs.ndim == 4:
                 grayscaled = []
+                m = np.array(self.weights).reshape((1, 3))
                 for i in range_(len(inputs)):
-                    scaled = cv2.cvtColor(inputs[i], cv2.COLOR_RGB2GRAY)
+                    scaled = cv2.transform(inputs[i], m)
                     grayscaled.append(scaled)
                 scaled_images = np.asarray(grayscaled)
 
@@ -109,7 +108,7 @@ class GrayScale(PreprocessLayer):
                 scaled_images = cv2.cvtColor(inputs, cv2.COLOR_RGB2GRAY)
 
             return scaled_images
-        elif get_backend() == "pytorch":
+        elif self.backend == "pytorch":
             if len(inputs.shape) == 4:
                 grayscaled = []
                 for i in range_(len(inputs)):
@@ -123,7 +122,7 @@ class GrayScale(PreprocessLayer):
                 # Sample by sample.
                 scaled_images = cv2.cvtColor(inputs.numpy(), cv2.COLOR_RGB2GRAY)
             return torch.tensor(scaled_images)
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             weights_reshaped = np.reshape(
                 self.weights, newshape=tuple([1] * (get_rank(inputs) - 1)) + (self.last_rank,)
             )
