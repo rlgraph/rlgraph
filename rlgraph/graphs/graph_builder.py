@@ -195,9 +195,9 @@ class GraphBuilder(Specifiable):
         # Collect all components and add those op-recs to the set that are constant.
         components = self.root_component.get_all_sub_components(exclude_self=False)
         # Point to this GraphBuilder object.
-        # Add those op-recs to the set that are constant.
         for component in components:
             component.graph_builder = self
+        # Add those op-recs to the set that are constant.
         # Try to build if already input complete.
         for component in components:
             self.op_records_to_process.update(component.constant_op_records)
@@ -1208,8 +1208,10 @@ class GraphBuilder(Specifiable):
 
         # Collect all components and add those op-recs to the set that are constant.
         components = self.root_component.get_all_sub_components(exclude_self=False)
+        # Point to this GraphBuilder object.
         for component in components:
-            component.graph_builder = self  # point to us.
+            component.graph_builder = self
+        for component in components:
             self.op_records_to_process.update(component.constant_op_records)
             # Check whether the Component is input-complete (and build already if it is).
             self.build_component_when_input_complete(component)
