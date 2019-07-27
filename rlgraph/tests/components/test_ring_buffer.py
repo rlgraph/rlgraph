@@ -68,7 +68,7 @@ class TestRingBufferMemory(unittest.TestCase):
             ring_buffer = RingBuffer(capacity=self.capacity, backend=backend)
             test = ComponentTest(component=ring_buffer, input_spaces=self.input_spaces)
             # Internal memory variables.
-            ring_buffer_variables = test.get_variable_values(ring_buffer, self.ring_buffer_variables)
+            ring_buffer_variables = test.get_variable_values(self.ring_buffer_variables)
             size_value = ring_buffer_variables["size"]
             index_value = ring_buffer_variables["index"]
             num_episodes_value = ring_buffer_variables["num-episodes"]
@@ -87,7 +87,7 @@ class TestRingBufferMemory(unittest.TestCase):
             observation = non_terminal_records(self.record_space, self.capacity + 1)
             test.test(("insert_records", observation), expected_outputs=None)
 
-            ring_buffer_variables = test.get_variable_values(ring_buffer, self.ring_buffer_variables)
+            ring_buffer_variables = test.get_variable_values(self.ring_buffer_variables)
             size_value = ring_buffer_variables["size"]
             index_value = ring_buffer_variables["index"]
             num_episodes_value = ring_buffer_variables["num-episodes"]
@@ -122,7 +122,7 @@ class TestRingBufferMemory(unittest.TestCase):
             test.test(("insert_records", observation), expected_outputs=None)
 
             # Internal memory variables.
-            ring_buffer_variables = test.get_variable_values(ring_buffer, self.ring_buffer_variables)
+            ring_buffer_variables = test.get_variable_values(self.ring_buffer_variables)
             num_episodes_value = ring_buffer_variables["num-episodes"]
             episode_index_values = ring_buffer_variables["episode-indices"]
 
@@ -138,7 +138,7 @@ class TestRingBufferMemory(unittest.TestCase):
             test.test(("insert_records", observation), expected_outputs=None)
 
             # Now, we expect to have 2 episodes with episode indices at 0 and 2.
-            ring_buffer_variables = test.get_variable_values(ring_buffer, self.ring_buffer_variables)
+            ring_buffer_variables = test.get_variable_values(self.ring_buffer_variables)
             num_episodes_value = ring_buffer_variables["num-episodes"]
             episode_index_values = ring_buffer_variables["episode-indices"]
 
@@ -157,7 +157,7 @@ class TestRingBufferMemory(unittest.TestCase):
             observation = terminal_records(self.record_space, self.capacity)
             test.test(("insert_records", observation), expected_outputs=None)
 
-            ring_buffer_variables = test.get_variable_values(ring_buffer, self.ring_buffer_variables)
+            ring_buffer_variables = test.get_variable_values(self.ring_buffer_variables)
             num_episodes_value = ring_buffer_variables["num-episodes"]
             episode_index_values = ring_buffer_variables["episode-indices"]
 
@@ -180,7 +180,7 @@ class TestRingBufferMemory(unittest.TestCase):
             observation = terminal_records(self.record_space, 1)
             test.test(("insert_records", observation), expected_outputs=None)
 
-            ring_buffer_variables = test.get_variable_values(ring_buffer, self.ring_buffer_variables)
+            ring_buffer_variables = test.get_variable_values(self.ring_buffer_variables)
             num_episodes_value = ring_buffer_variables["num-episodes"]
             episode_index_values = ring_buffer_variables["episode-indices"]
 
@@ -204,7 +204,7 @@ class TestRingBufferMemory(unittest.TestCase):
             observation = non_terminal_records(self.record_space, 7)
             test.test(("insert_records", observation), expected_outputs=None)
 
-            ring_buffer_variables = test.get_variable_values(ring_buffer, self.ring_buffer_variables)
+            ring_buffer_variables = test.get_variable_values(self.ring_buffer_variables)
             index_value = ring_buffer_variables["index"]
             episode_index_values = ring_buffer_variables["episode-indices"]
 
@@ -219,7 +219,7 @@ class TestRingBufferMemory(unittest.TestCase):
             test.test(("insert_records", observation), expected_outputs=None)
 
             # Episode indices:
-            ring_buffer_variables = test.get_variable_values(ring_buffer, self.ring_buffer_variables)
+            ring_buffer_variables = test.get_variable_values(self.ring_buffer_variables)
             num_episodes_value = ring_buffer_variables["num-episodes"]
             recursive_assert_almost_equal(num_episodes_value, 2)
 

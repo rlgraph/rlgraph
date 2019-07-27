@@ -189,20 +189,19 @@ class ComponentTest(object):
             return ret[0]
         return ret
 
-    def get_variable_values(self, component, names):
+    def get_variable_values(self, names):
         """
         Reads value of component state for given component and names.
 
         Args:
-            component (Component):
             *names (list): List of strings of variable values to pull.
 
         Returns:
             Dict: Variable values.
         """
-        variables = component.get_variables(names, global_scope=False)
-        if component.backend == "tf":
-            return self.graph_executor.read_variable_values(component, variables)
+        variables = self.component.get_variables(names, global_scope=False)
+        if self.component.backend == "tf":
+            return self.graph_executor.read_variable_values(self.component, variables)
         else:
             return variables
 

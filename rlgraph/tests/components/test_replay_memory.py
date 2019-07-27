@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
@@ -69,7 +67,7 @@ class TestReplayMemory(unittest.TestCase):
         )
         test = ComponentTest(component=memory, input_spaces=self.input_spaces)
         # Internal state variables.
-        variables = test.get_variable_values(memory, self.memory_variables)
+        variables = test.get_variable_values(self.memory_variables)
         size_value = variables["size"]
         index_value = variables["index"]
         # Assert indices 0 before insert.
@@ -80,7 +78,7 @@ class TestReplayMemory(unittest.TestCase):
         observation = self.record_space.sample(size=self.capacity + 1)
         test.test(("insert_records", observation), expected_outputs=None)
 
-        variables = test.get_variable_values(memory, self.memory_variables)
+        variables = test.get_variable_values(self.memory_variables)
         size_value = variables["size"]
         index_value = variables["index"]
         # Size should be equivalent to capacity when full.
