@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.component import Component
 from rlgraph.utils.decorators import rlgraph_api
@@ -102,7 +103,7 @@ class VTraceFunction(Component):
                 - PG-advantage values in time x batch dimensions used for training via policy gradient with baseline.
         """
         # Simplified (not performance optimized!) numpy implementation of v-trace for testing purposes.
-        if get_backend() == "python" or self.backend == "python":
+        if self.backend == "python":
             probs_actions_pi = softmax(logits_actions_pi, axis=-1)
             log_probs_actions_pi = np.log(probs_actions_pi)
 
@@ -156,7 +157,7 @@ class VTraceFunction(Component):
 
             return vs, pg_advantages
 
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             # Calculate the log IS-weight values via: logIS = log(pi(a|s)) - log(mu(a|s)).
             # Use the action_probs_pi values only of the actions actually taken.
             log_probs_actions_taken_pi = tf.expand_dims(-tf.nn.sparse_softmax_cross_entropy_with_logits(

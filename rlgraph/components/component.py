@@ -759,10 +759,6 @@ class Component(Specifiable):
 
         variables = {}
         if self.backend == "pytorch" or self.backend == "python":
-            # Unpack tuple.
-            if isinstance(names, tuple) and len(names) == 1:
-                names = names[0]
-            # print("names = ", names)
             state = None
             if TraceContext.DEFINE_BY_RUN_CONTEXT == "execution" and hasattr(self, "get_state"):
                 state = self.get_state()

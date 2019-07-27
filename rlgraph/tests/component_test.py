@@ -24,7 +24,7 @@ from rlgraph.components.component import Component
 from rlgraph.graphs import GraphBuilder
 from rlgraph.graphs.graph_executor import GraphExecutor
 from rlgraph.tests.test_util import recursive_assert_almost_equal
-from rlgraph.utils import root_logger, PyTorchVariable
+from rlgraph.utils import root_logger, PyTorchVariable, force_list
 from rlgraph.utils.input_parsing import parse_execution_spec
 
 
@@ -194,16 +194,23 @@ class ComponentTest(object):
         Reads value of component state for given component and names.
 
         Args:
-            *names (list): List of strings of variable values to pull.
+            *names (Union[list,str]): List of strings (or single string) of variable values to pull.
 
         Returns:
-            Dict: Variable values.
+            Union[Dict,any]: Variable values.
+                Or the value directly iff only one variable is queried (len(names) == 1).
         """
+        names = force_list(names)
         variables = self.component.get_variables(names, global_scope=False)
         if self.component.backend == "tf":
-            return self.graph_executor.read_variable_values(self.component, variables)
+            variable_values = self.graph_executor.read_variable_values(self.component, variables)
         else:
-            return variables
+            variable_values = variables
+
+        if len(variable_values) == 1:
+            return next(iter(variable_values.values()))
+
+        return variable_values
 
     @staticmethod
     def read_params(name, params, transpose_torch_params=True):
