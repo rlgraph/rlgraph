@@ -917,7 +917,10 @@ class Component(Specifiable):
 
             # Execution modes must be coherent within one component subgraph.
             self.propagate_sub_component_properties(
-                properties=dict(execution_mode=self.execution_mode, nesting_level=(self.nesting_level or 0) + 1),
+                properties=dict(
+                    backend=self.backend, execution_mode=self.execution_mode,
+                    nesting_level=(self.nesting_level or 0) + 1
+                ),
                 component=component
             )
 
