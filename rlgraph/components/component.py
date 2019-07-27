@@ -114,7 +114,9 @@ class Component(Specifiable):
         self.trainable = kwargs.pop("trainable", None)
         self.graph_fn_num_outputs = kwargs.pop("graph_fn_num_outputs", dict())
         self.switched_off_apis = kwargs.pop("switched_off_apis", set())
-        self.backend = kwargs.pop("backend", get_backend())
+        self.backend = kwargs.pop("backend", None)
+        if self.backend is None:
+            self.backend = get_backend()
         self.space_agnostic = kwargs.pop("space_agnostic", None)
         self.nesting_level = kwargs.pop("nesting_level", None)
 
@@ -395,6 +397,8 @@ class Component(Specifiable):
         elif self.backend == "pytorch" or self.backend == "python":
             # No scoping/devices here, handled at tensor level.
             self.create_variables(input_spaces, action_space)
+        else:
+            raise RLGraphUnsupportedBackendError()
 
         # Add all created variables up the parent/container hierarchy.
         self.propagate_variables()
@@ -590,6 +594,8 @@ class Component(Specifiable):
                 name=name, shape=shape, dtype=util.convert_dtype(dtype), initializer=initializer, trainable=trainable,
                 collections=[tf.GraphKeys.GLOBAL_VARIABLES if local is False else tf.GraphKeys.LOCAL_VARIABLES]
             )
+        else:
+            raise RLGraphUnsupportedBackendError()
 
         # Register the new variable with this Component.
         # TODO: what about python variables?
@@ -658,6 +664,8 @@ class Component(Specifiable):
                     name=name, add_batch_rank=add_batch_rank, trainable=trainable, initializer=initializer,
                     is_python=(self.backend == "python"), local=local, use_resource=use_resource
                 )
+        else:
+            raise RLGraphUnsupportedBackendError()
 
     def get_variables(self, *names, **kwargs):
         """
@@ -723,6 +731,8 @@ class Component(Specifiable):
                 return self.get_variables_by_name(
                     *names, custom_scope_separator=custom_scope_separator, global_scope=global_scope
                 )
+        else:
+            raise RLGraphUnsupportedBackendError()
 
     def get_variables_by_name(self, *names, **kwargs):
         """
@@ -795,6 +805,8 @@ class Component(Specifiable):
                             global_scope_name]
                     else:
                         variables[name] = self.variable_registry[global_scope_name]
+        else:
+            raise RLGraphUnsupportedBackendError()
 
         return variables
 
@@ -1240,6 +1252,8 @@ class Component(Specifiable):
                 return tf.assign(ref=ref, value=value.read_value())
             else:
                 return tf.assign(ref=ref, value=value)
+        else:
+            raise RLGraphUnsupportedBackendError()
 
     def read_variable(self, variable, indices=None, dtype=None, shape=None):
         """
@@ -1300,6 +1314,8 @@ class Component(Specifiable):
                 return tf.gather(params=variable, indices=indices)
             else:
                 return variable
+        else:
+            raise RLGraphUnsupportedBackendError()
 
     def sub_component_by_name(self, scope_name):
         """
