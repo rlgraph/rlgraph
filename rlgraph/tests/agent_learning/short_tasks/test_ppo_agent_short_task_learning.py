@@ -175,7 +175,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             preprocessing_spec=GridWorld.grid_world_4x4_preprocessing_spec,
             episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs: print(
                 "Episode done return={} timesteps={}".format(episode_return, timesteps)),
-            update_rules=dict(update_every_n_units=8)
+            update_rules=dict(unit="timesteps", update_every_n_units=8)
         )
         results = worker.execute_timesteps(time_steps, use_exploration=True)
 
@@ -190,7 +190,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
         self.assertEqual(results["env_frames"], time_steps)
         self.assertLessEqual(results["episodes_executed"], time_steps / 4)
         # Assume we have learned something.
-        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -1.0)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -1.1)
 
     def test_ppo_on_4_room_grid_world(self):
         """

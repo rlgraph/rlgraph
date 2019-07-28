@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
@@ -47,11 +45,8 @@ class EpsilonExploration(Component):
     def __init__(self, decay_spec=None, scope="epsilon-exploration", **kwargs):
         """
         Args:
-            decay_spec (Optional[dict,DecayComponent]): The spec-dict for the DecayComponent to use or a DecayComponent
-                object directly.
-
-        Keyword Args:
-            Used as decay_spec (only if `decay_spec` not given) to construct the DecayComponent.
+            decay_spec (Optional[dict,DecayComponent]): The spec-dict for the TimeDependentParameter to use
+                or a TimeDependentParameter object directly.
         """
         super(EpsilonExploration, self).__init__(scope=scope, **kwargs)
 

@@ -19,7 +19,6 @@ from copy import deepcopy
 import time
 
 import numpy as np
-from six.moves import xrange as range_
 
 from rlgraph.utils import util
 from rlgraph import get_distributed_backend
@@ -61,7 +60,7 @@ class RayValueWorker(RayActor):
         self.worker_sample_size = worker_spec.pop("worker_sample_size") * self.num_environments
         self.worker_executes_postprocessing = worker_spec.pop("worker_executes_postprocessing", True)
         self.n_step_adjustment = worker_spec.pop("n_step_adjustment", 1)
-        self.env_ids = ["env_{}".format(i) for i in range_(self.num_environments)]
+        self.env_ids = ["env_{}".format(i) for i in range(self.num_environments)]
         num_background_envs = worker_spec.pop("num_background_envs", 1)
 
         # TODO from spec once we decided on generic vectorization.
@@ -105,12 +104,12 @@ class RayValueWorker(RayActor):
         self.action_space = self.agent.flat_action_space
 
         # Save these so they can be fetched after training if desired.
-        self.finished_episode_rewards = [[] for _ in range_(self.num_environments)]
-        self.finished_episode_timesteps = [[] for _ in range_(self.num_environments)]
+        self.finished_episode_rewards = [[] for _ in range(self.num_environments)]
+        self.finished_episode_timesteps = [[] for _ in range(self.num_environments)]
         # Total times sample the "real" wallclock time from start to end for each episode.
-        self.finished_episode_total_times = [[] for _ in range_(self.num_environments)]
+        self.finished_episode_total_times = [[] for _ in range(self.num_environments)]
         # Sample times stop the wallclock time counter between runs, so only the sampling time is accounted for.
-        self.finished_episode_sample_times = [[] for _ in range_(self.num_environments)]
+        self.finished_episode_sample_times = [[] for _ in range(self.num_environments)]
 
         self.total_worker_steps = 0
         self.episodes_executed = 0
@@ -129,14 +128,14 @@ class RayValueWorker(RayActor):
             shape=(self.num_environments,) + self.agent.preprocessed_state_space.shape,
             dtype=self.agent.preprocessed_state_space.dtype
         )
-        self.last_ep_timesteps = [0 for _ in range_(self.num_environments)]
-        self.last_ep_rewards = [0 for _ in range_(self.num_environments)]
-        self.last_ep_start_timestamps = [0.0 for _ in range_(self.num_environments)]
+        self.last_ep_timesteps = [0 for _ in range(self.num_environments)]
+        self.last_ep_rewards = [0 for _ in range(self.num_environments)]
+        self.last_ep_start_timestamps = [0.0 for _ in range(self.num_environments)]
         self.last_ep_start_initialized = False  # initialize on first `execute_and_get_timesteps()` call
-        self.last_ep_sample_times = [0.0 for _ in range_(self.num_environments)]
+        self.last_ep_sample_times = [0.0 for _ in range(self.num_environments)]
 
         # Was the last state a terminal state so env should be reset in next call?
-        self.last_terminals = [False for _ in range_(self.num_environments)]
+        self.last_terminals = [False for _ in range(self.num_environments)]
 
     def get_constructor_success(self):
         """
@@ -200,7 +199,7 @@ class RayValueWorker(RayActor):
 
         start = time.monotonic()
         timesteps_executed = 0
-        episodes_executed = [0 for _ in range_(self.num_environments)]
+        episodes_executed = [0 for _ in range(self.num_environments)]
         env_frames = 0
         last_episode_rewards = []
         # Final result batch.
@@ -212,7 +211,7 @@ class RayValueWorker(RayActor):
 
         # Running trajectories.
         sample_states, sample_actions, sample_rewards, sample_terminals = {}, {}, {}, {}
-        next_states = [np.zeros_like(self.last_states) for _ in range_(self.num_environments)]
+        next_states = [np.zeros_like(self.last_states) for _ in range(self.num_environments)]
 
         # Reset envs and Agent either if finished an episode in current loop or if last state
         # from previous execution was terminal for that environment.
@@ -232,7 +231,7 @@ class RayValueWorker(RayActor):
         current_episode_sample_times = self.last_ep_sample_times
 
         # Whether the episode in each env has terminated.
-        terminals = [False for _ in range_(self.num_environments)]
+        terminals = [False for _ in range(self.num_environments)]
         while timesteps_executed < num_timesteps:
             current_iteration_start_timestamp = time.perf_counter()
             for i, env_id in enumerate(self.env_ids):
@@ -264,7 +263,7 @@ class RayValueWorker(RayActor):
 
             next_states, step_rewards, terminals, infos = self.vector_env.step(actions=env_actions)
             # Worker frameskip not needed as done in env.
-            # for _ in range_(self.worker_frameskip):
+            # for _ in range(self.worker_frameskip):
             #     next_states, step_rewards, terminals, infos = self.vector_env.step(actions=actions)
             #     env_frames += self.num_environments
             #
@@ -515,8 +514,8 @@ class RayValueWorker(RayActor):
             else:
                 # We know this segment does not contain any terminals so we simply have to adjust next
                 # states and rewards.
-                for i in range_(len(rewards) - self.n_step_adjustment + 1):
-                    for j in range_(1, self.n_step_adjustment):
+                for i in range(len(rewards) - self.n_step_adjustment + 1):
+                    for j in range(1, self.n_step_adjustment):
                         next_states[i] = next_states[i + j]
                         rewards[i] += self.discount ** j * rewards[i + j]
 

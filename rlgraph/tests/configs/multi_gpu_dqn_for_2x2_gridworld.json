@@ -3,7 +3,7 @@
 
   "dueling_q": false,
 
-  "python_buffer_size": 32,
+  "python_buffer_size": 48,
 
   "sync_rules": {
     "sync_every_n_updates": 8
@@ -13,7 +13,7 @@
   "memory_spec":
   {
     "type": "replay",
-    "capacity": 32
+    "capacity": 48
   },
 
   "preprocessing_spec":
@@ -68,6 +68,6 @@
 
   "optimizer_spec": {
     "type": "adam",
-    "learning_rate": 0.15
+    "learning_rate": [0.15, 0.001]
   }
 }

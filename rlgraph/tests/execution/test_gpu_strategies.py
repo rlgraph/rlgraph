@@ -100,10 +100,10 @@ class TestGpuStrategies(unittest.TestCase):
         agent = DQNAgent.from_spec(
             agent_config,
             state_space=self.grid_world_2x2_flattened_state_space,
-            action_space=dummy_env.action_space,
+            action_space=dummy_env.action_space
         )
 
-        time_steps = 2000
+        time_steps = 3000
         worker = SingleThreadedWorker(
             env_spec=env_spec,
             agent=agent,

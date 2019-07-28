@@ -158,7 +158,11 @@ class TestSACAgentFunctionality(unittest.TestCase):
         print(agent.update(batch))
 
     def test_apex_integration(self):
-        from rlgraph.execution.ray import ApexExecutor
+        try:
+            from rlgraph.execution.ray import ApexExecutor
+        except ImportError:
+            return
+
         env_spec = dict(
             type="openai",
             gym_env="PongNoFrameskip-v4",
