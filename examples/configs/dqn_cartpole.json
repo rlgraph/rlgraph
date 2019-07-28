@@ -1,14 +1,15 @@
 {
   "type": "dqn",
 
+  "memory_batch_size": 16,
+  "sync_rules": {
+    "sync_every_n_updates": 8
+  },
   "memory_spec":
   {
     "type": "replay",
     "capacity": 128
   },
-
-  "preprocessing_spec":
-  [],
 
   "network_spec":
   [
@@ -43,14 +44,6 @@
         "to": 0.05
       }
     }
-  },
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 4,
-    "batch_size": 16,
-    "sync_interval": 32
   },
 
   "optimizer_spec": {

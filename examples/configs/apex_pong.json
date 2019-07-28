@@ -3,6 +3,7 @@
   "discount": 0.99,
   "n_step": 3,
 
+  "memory_batch_size": 512,
   "python_buffer_size": 1000,
 
   "memory_spec": {
@@ -160,13 +161,6 @@
       }
     },
     "trace_enabled": false
-  },
-  "update_spec": {
-    "do_updates": true,
-    "update_interval": 4,
-    "steps_before_update": 50000,
-    "batch_size": 512,
-    "sync_interval": 500000
   },
   "optimizer_spec": {
     "type": "adam",

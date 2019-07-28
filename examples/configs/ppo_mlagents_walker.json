@@ -9,6 +9,9 @@
   "weight_entropy": 0.001,
 
   "python_buffer_size": 1000,
+  "memory_batch_size": 2048,
+  "num_iterations": 10,
+  "sample_size": 512,
 
   "memory_spec":
   {
@@ -62,15 +65,6 @@
       "scope": "vf-hidden3"
     }
   ],
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 2048,
-    "batch_size": 2048,
-    "num_iterations": 10,
-    "sample_size": 512
-  },
 
   "optimizer_spec": {
     "type": "adam",

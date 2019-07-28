@@ -6,8 +6,12 @@
   "target_entropy": -1.0,
   "double_q": true,
 
+  "sync_rules": {
+    "sync_every_n_updates": 4,
+    "sync_tau": 5e-3
+  },
+  "memory_batch_size": 1024,
   "python_buffer_size": 1500,
-
   "memory_spec":
   {
     "type": "replay",
@@ -33,7 +37,7 @@
     }
   ],
 
-  "value_function_spec":
+  "q_function_spec":
   [
     {
       "type": "dense",
@@ -49,21 +53,11 @@
     }
   ],
 
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 4,
-    "sync_interval": 16,
-    "sync_tau": 5e-3,
-    "batch_size": 1024,
-    "num_iterations": 1
-  },
-
   "optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0003
   },
-  "value_function_optimizer_spec": {
+  "q_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0003
   }

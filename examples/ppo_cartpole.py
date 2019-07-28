@@ -75,7 +75,8 @@ def main(argv):
 
     worker = SingleThreadedWorker(
         env_spec=lambda: env, agent=agent, render=FLAGS.render, worker_executes_preprocessing=False,
-        episode_finish_callback=episode_finished_callback
+        episode_finish_callback=episode_finished_callback,
+        update_rules=dict(update_every_n_units=200)
     )
     print("Starting workload, this will take some time for the agents to build.")
 

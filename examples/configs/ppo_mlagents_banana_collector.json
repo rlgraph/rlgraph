@@ -7,9 +7,11 @@
   "discount": 0.995,
   "gae_lambda": 0.8,
   "weight_entropy": 0.001,
+  "num_iterations": 10,
+  "sample_size": 500,
 
   "python_buffer_size": 1500,
-
+  "memoory_batch_size": 1500,
   "memory_spec":
   {
     "type": "ring_buffer",
@@ -50,15 +52,6 @@
       "scope": "vf-hidden2"
     }
   ],
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 1500,
-    "batch_size": 1500,
-    "num_iterations": 10,
-    "sample_size": 500
-  },
 
   "optimizer_spec": {
     "type": "adam",

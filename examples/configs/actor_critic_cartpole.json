@@ -7,6 +7,7 @@
 
   "python_buffer_size": 200,
 
+  "memory_batch_size": 20,
   "memory_spec":
   {
     "type": "ring_buffer",
@@ -46,13 +47,6 @@
       "scope": "vf-hidden2"
     }
   ],
-
-  "update_spec": {
-    "update_mode": "episodes",
-    "do_updates": true,
-    "update_interval": 20,
-    "batch_size": 20
-  },
 
   "optimizer_spec": {
     "type": "adam",

@@ -7,6 +7,10 @@
   "gae_lambda": 0.8,
   "weight_entropy": 0.001,
 
+  "memory_batch_size": 200,
+  "num_iterations": 10,
+  "sample_size": 50,
+
   "python_buffer_size": 200,
 
   "memory_spec":
@@ -52,15 +56,6 @@
       "scope": "vf-hidden2"
     }
   ],
-
-  "update_spec": {
-    "update_mode": "time_steps",
-    "do_updates": true,
-    "update_interval": 200,
-    "batch_size": 200,
-    "num_iterations": 10,
-    "sample_size": 50
-  },
 
   "optimizer_spec": {
     "type": "adam",

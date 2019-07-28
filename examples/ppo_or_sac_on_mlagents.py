@@ -28,6 +28,7 @@ import sys
 
 import numpy as np
 from absl import flags
+
 from rlgraph.agents import Agent
 from rlgraph.environments import MLAgentsEnv
 from rlgraph.execution import SingleThreadedWorker
@@ -40,6 +41,13 @@ FLAGS = flags.FLAGS
 # - ./configs/ppo_mlagents_3dball_hard.json learns the 3DBall (hard version) Env using PPO.
 # - ./configs/sac_mlagents_3dball_hard.json learns the 3DBall (hard version) Env using SAC.
 flags.DEFINE_string('config', './configs/ppo_mlagents_banana_collector.json', 'Agent config file.')
+flags.DEFINE_integer(
+    name='update_freq',
+    default=4,
+    help='Update frequency (try 1500 for PPO BananaCollector, 2048 for PPO Walker, '
+         '200 for PPO 3DBallHard, 4 for all others).',
+    lower_bound=1
+)
 
 
 def main(argv):
@@ -76,7 +84,8 @@ def main(argv):
 
     worker = SingleThreadedWorker(
         env_spec=env, agent=agent, render=False, worker_executes_preprocessing=False,
-        episode_finish_callback=episode_finished_callback
+        episode_finish_callback=episode_finished_callback,
+        update_rules=dict(update_every_n_units=FLAGS.update_freq)
     )
     print("Starting workload, this will take some time for the agents to build.")
 

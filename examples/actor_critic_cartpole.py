@@ -75,8 +75,11 @@ def main(argv):
                 len(episode_returns), episode_return, np.mean(episode_returns[-10:])
             ))
 
-    worker = SingleThreadedWorker(env_spec=lambda: env, agent=agent, render=False, worker_executes_preprocessing=False,
-                                  episode_finish_callback=episode_finished_callback)
+    worker = SingleThreadedWorker(
+        env_spec=lambda: env, agent=agent, render=False, worker_executes_preprocessing=False,
+        episode_finish_callback=episode_finished_callback,
+        update_rules=dict(unit="episodes", update_every_n_units=20)
+    )
     print("Starting workload, this will take some time for the agents to build.")
 
     # Use exploration is true for training, false for evaluation.
