@@ -160,7 +160,7 @@ class TestSACAgentFunctionality(unittest.TestCase):
     def test_apex_integration(self):
         try:
             from rlgraph.execution.ray import ApexExecutor
-        except ImportError:
+        except (NameError, ImportError):
             return
 
         env_spec = dict(
