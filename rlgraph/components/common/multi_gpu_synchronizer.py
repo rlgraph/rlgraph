@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import re
 
@@ -43,7 +41,7 @@ class MultiGpuSynchronizer(Component):
                 (each GPU will receive a shard of this batch).
         """
         super(MultiGpuSynchronizer, self).__init__(graph_fn_num_outputs=dict(
-            _graph_fn_calculate_update_from_external_batch=3  # TODO: <- This is currently hardcoded for DQN-type agents
+            _graph_fn_calculate_update_from_external_batch=4
         ), scope=scope, **kwargs)
 
         self.batch_size = batch_size
@@ -281,7 +279,7 @@ class MultiGpuSynchronizer(Component):
                     mean_grad = tf.reduce_mean(input_tensor=aggregate_grads, axis=0)
                     # Need the actual main policy vars, as these are the ones that should be updated.
                     # TODO: This is a hack and needs to be changed, but it works for now to look up main policy variables.
-                    main_variable_key = re.sub(r'{}/tower-0/'.format(self.global_scope), "", grads_and_vars[0][1].op.name)
+                    main_variable_key = re.sub(r'{}/tower-0/'.format(self.global_scope), self.parent_component.global_scope+"/", grads_and_vars[0][1].op.name)
                     main_variable_key = re.sub(r'/', "-", main_variable_key)
                     var = variables_by_component[component_key][main_variable_key]
                     gpu_grad_averages.append((mean_grad, var))

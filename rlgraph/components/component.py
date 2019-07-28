@@ -240,7 +240,7 @@ class Component(Specifiable):
 
         return tuple(num_allowed_inputs)
 
-    def check_input_completeness(self):
+    def check_input_completeness(self, ignore_non_called_apis=False):
         """
         Checks whether this Component is "input-complete" and stores the result in self.input_complete.
         Input-completeness is reached (only once and then it stays that way) if all API-methods of this component
@@ -274,6 +274,9 @@ class Component(Specifiable):
             # Loop through all of this API-method's input parameter names and check, whether they
             # all have a Space defined.
             for input_name in api_method_rec.input_names:
+                # Ignore APIs that are not called.
+                if ignore_non_called_apis is True and len(api_method_rec.in_op_columns) == 0:
+                    continue
                 assert input_name in self.api_method_inputs
                 # This one is not defined yet -> Component is not input-complete.
                 if self.api_method_inputs[input_name] is None:
@@ -319,7 +322,7 @@ class Component(Specifiable):
         self.input_complete = True
         return True
 
-    def check_variable_completeness(self):
+    def check_variable_completeness(self, ignore_non_called_apis=False):
         """
         Checks, whether this Component is input-complete AND all our sub-Components are input-complete.
         At that point, all variables are defined and we can run all variables-dependent graph_fns.
@@ -333,7 +336,7 @@ class Component(Specifiable):
         # We are not input-complete yet (our own variables have not been created) -> return False.
         elif self.input_complete is False:
             # Check again, just in case something has changed.
-            if self.check_input_completeness() is False:
+            if self.check_input_completeness(ignore_non_called_apis=ignore_non_called_apis) is False:
                 return False
             # Input complete now -> Try to build.
             self.graph_builder.build_component_when_input_complete(self)
@@ -342,7 +345,7 @@ class Component(Specifiable):
         for direct_child in self.sub_components.values():
             if re.search(r'^\.helper-', direct_child.scope):
                 continue
-            if not direct_child.check_variable_completeness():
+            if not direct_child.check_variable_completeness(ignore_non_called_apis=ignore_non_called_apis):
                 return False
         self.variable_complete = True
         return self.variable_complete

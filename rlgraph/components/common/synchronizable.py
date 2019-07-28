@@ -59,7 +59,7 @@ class Synchronizable(Component):
             "steps-since-last-sync", dtype="int", initializer=0, trainable=False  #, private=True
         )
 
-    def check_variable_completeness(self):
+    def check_variable_completeness(self, ignore_non_called_apis=False):
         # Overwrites this method as any Synchronizable should only be variable-complete once the parent
         # component is variable-complete (not counting this component!).
 
@@ -69,21 +69,23 @@ class Synchronizable(Component):
 
         # If this component is not used at all (no calls to API-method: `sync` are made), return True.
         if len(self.api_methods["sync"].in_op_columns) == 0:
-            return super(Synchronizable, self).check_variable_completeness()
+            return super(Synchronizable, self).check_variable_completeness(ignore_non_called_apis=True)
 
         # Recheck input-completeness of parent.
         if self.parent_component.input_complete is False:
             self.graph_builder.build_component_when_input_complete(self.parent_component)
 
-        # Pretend we are input- and variable-complete (which we may not be) and then check parent's variable
+        # Pretend we are input- and variable-complete (which we may not be) and then check parent's variable.
         # completeness under this condition.
         if self.parent_component.variable_complete is False:
             self.variable_complete = True
-            self.graph_builder.build_component_when_input_complete(self.parent_component)  #.check_variable_completeness()  #build_when_complete=False)
+            self.graph_builder.build_component_when_input_complete(self.parent_component)
             self.variable_complete = False
 
         if self.parent_component.variable_complete is True:
-            return super(Synchronizable, self).check_variable_completeness()
+            return super(Synchronizable, self).check_variable_completeness(
+                ignore_non_called_apis=ignore_non_called_apis
+            )
 
         return False
 
@@ -128,12 +130,22 @@ class Synchronizable(Component):
                 )
 
             def sync_op():
-                parents_vars = self.parent_component.get_variables(collections=self.collections, custom_scope_separator="-")
+                parents_vars = self.parent_component.get_variables(collections=self.collections)
                 # Remove all our own variables from the parent-list. These should not be synched.
-                own_vars = self.get_variables(collections=self.collections, custom_scope_separator="-")
-                for key in own_vars:
-                    del parents_vars[key]
-                syncs_from, syncs_to = (sorted(values_.items()), sorted(parents_vars.items()))
+                # Also remove the according variables from the values_ input
+                # (the synching Component could have a Synchronizable as well or not).
+                syncs_from = sorted(values_.items())
+                own_vars = self.get_variables(collections=self.collections)
+                parents_vars_keys = list(parents_vars.keys())
+                for i, key in enumerate(parents_vars_keys):
+                    if key in own_vars:
+                        # If sync_from also seems to have a Synchronizable, remove it from there as well.
+                        if len(syncs_from) == len(parents_vars):
+                            syncs_from = syncs_from[0:i] + syncs_from[i+1:]
+                        # Remove from syncs_to.
+                        del parents_vars[key]
+                syncs_to = sorted(parents_vars.items())
+
                 if len(syncs_from) != len(syncs_to):
                     raise RLGraphError(
                         "ERROR: Number of Variables to sync must match! We have {} syncs_from and {} syncs_to.".
@@ -141,15 +153,12 @@ class Synchronizable(Component):
                     )
 
                 for (key_from, var_from), (key_to, var_to) in zip(syncs_from, syncs_to):
-                    # Sanity checking. TODO: Check the names' ends? Without the global scope?
-                    #if key_from != key_to:
-                    #    raise RLGraphError("ERROR: Variable names for syncing must match in order and name! "
-                    #                    "Mismatch at from={} and to={}.".format(key_from, key_to))
                     if get_shape(var_from) != get_shape(var_to):
                         raise RLGraphError(
                             "ERROR: Variable shapes for syncing must match! Shape mismatch between from={} ({}) and "
                             "to={} ({}).".format(key_from, get_shape(var_from), key_to, get_shape(var_to))
                         )
+                    # Synchronize according to tau value (between 0.0 (no synching) and 1.0 (full synching)).
                     if tau == 1.0:
                         syncs.append(self.assign_variable(var_to, var_from))
                     else:
