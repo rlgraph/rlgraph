@@ -80,8 +80,12 @@ class AlgorithmComponent(Component):
             self.logger.info("No preprocessing required.")
 
         # Construct the Policy and its NeuralNetwork (if policy-spec or network given).
-        if policy_spec is None and network_spec is None:
-            self.policy = None
+        if policy_spec is None:
+            if network_spec is None:
+                self.policy = None
+            else:
+                self.policy = Policy.from_spec(network_spec=network_spec, action_space=self.agent.action_space)
+                self.policy.add_components(Synchronizable(), expose_apis="sync")
         elif isinstance(policy_spec, dict):
             # Adjust/auto-generate a policy_spec so it always contains a network spec and action_space.
             policy_spec = policy_spec or {}
