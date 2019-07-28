@@ -26,7 +26,7 @@
       "scope": "hidden2"
     }
   ],
-  "value_function_spec": [
+  "q_function_spec": [
     {
       "type": "dense",
       "units": 8,
@@ -44,7 +44,7 @@
     "type": "adam",
     "learning_rate": 3e-3
   },
-  "value_function_optimizer_spec": {
+  "q_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 3e-3
   },

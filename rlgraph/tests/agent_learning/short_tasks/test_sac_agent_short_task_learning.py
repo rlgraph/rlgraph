@@ -72,6 +72,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
                 states=state_space.with_batch_rank(),
                 preprocessed_states=state_space.with_batch_rank(),
                 env_actions=continuous_action_space.with_batch_rank(),
+                actions=continuous_action_space.with_batch_rank(),
                 rewards=FloatBox(add_batch_rank=True),
                 next_states=state_space.with_batch_rank(),
                 terminals=terminal_space,
@@ -85,13 +86,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
                 #    q_1="variables:{}".format(agent_component._q_functions[1].scope),
                 # )
             ),
-            action_space=continuous_action_space,
-            build_kwargs=dict(
-                optimizer=agent_component.optimizer,
-                build_options=dict(
-                    vf_optimizer=agent_component.q_function_optimizer,
-                ),
-            )
+            action_space=continuous_action_space
         )
 
         policy_loss = []
@@ -176,7 +171,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             update_rules=dict(unit="time_steps", update_every_n_units=1)
         )
         # Note: SAC is more computationally expensive.
-        episodes = 35
+        episodes = 50
         results = worker.execute_episodes(episodes, max_timesteps_per_episode=200)
 
         print(results)

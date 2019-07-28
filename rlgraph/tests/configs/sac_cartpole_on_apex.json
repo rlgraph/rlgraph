@@ -43,7 +43,7 @@
     "type": "adam",
     "learning_rate": 0.0002
   },
-  "value_function_optimizer_spec": {
+  "q_function_optimizer_spec": {
     "type": "adam",
     "learning_rate": 0.0004
   },
