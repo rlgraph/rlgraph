@@ -22,7 +22,7 @@ import re
 import time
 
 from rlgraph import get_backend
-from rlgraph.spaces.containers import Dict
+import rlgraph.spaces as space
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import util
 from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten, \
@@ -708,7 +708,7 @@ def execute_define_by_run_graph_fn(component, graph_fn, options, *args, **kwargs
     # Was there actually any flattening
     args_actually_flattened = False
     for arg in args:
-        if isinstance(arg, (Dict, dict, tuple)) or isinstance(arg, Dict) or isinstance(arg, tuple):
+        if isinstance(arg, (space.Dict, dict, tuple)) or isinstance(arg, space.Dict) or isinstance(arg, tuple):
             flattened_args.append(define_by_run_flatten(arg))
             args_actually_flattened = True
         else:
@@ -717,7 +717,7 @@ def execute_define_by_run_graph_fn(component, graph_fn, options, *args, **kwargs
     flattened_kwargs = {}
     if len(kwargs) > 0:
         for key, arg in kwargs.items():
-            if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
+            if isinstance(arg, dict) or isinstance(arg, space.Dict) or isinstance(arg, tuple):
                 flattened_kwargs[key] = define_by_run_flatten(arg)
                 args_actually_flattened = True
             else:

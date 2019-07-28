@@ -257,6 +257,26 @@ class DataOpRecordColumn(object):
                     if value is None:
                         continue
                     op_rec = DataOpRecord(op=None, column=self, kwarg=key)
+
+                    # Dict instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
+                    # ContainerMerger Component.
+                    if isinstance(value, dict):
+                        items = value.items()
+                        keys = [k for k, _ in items]
+                        values = [v for _, v in items]
+                        if isinstance(values[0], DataOpRecord):
+                            merger_component = values[0].column.component.get_helper_component(
+                                "container-merger", _args=list(keys)
+                            )
+                            value = merger_component.merge(*list(values))
+                    # Tuple instead of a DataOpRecord -> Translate on the fly into a DataOpRec held by a
+                    # ContainerMerger Component.
+                    elif isinstance(value, tuple) and isinstance(value[0], DataOpRecord):
+                        merger_component = value[0].column.component.get_helper_component(
+                            "container-merger", _args=len(value)
+                        )
+                        value = merger_component.merge(*value)
+
                     # If incoming is an op-rec -> Link them.
                     if isinstance(value, DataOpRecord):
                         value.connect_to(op_rec)
