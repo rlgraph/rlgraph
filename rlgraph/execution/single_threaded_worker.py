@@ -71,6 +71,9 @@ class SingleThreadedWorker(Worker):
         self.episode_timesteps = [0 for _ in range(self.num_environments)]
         # Whether the running episode has terminated.
         self.episode_terminals = [False for _ in range(self.num_environments)]
+        # Whether the running episode fragment has come to an end (not because the episode actually terminated, but
+        # maybe because the buffer is full or some max. timestep counter has been reached).
+        self.sequence_indices = [False for _ in range(self.num_environments)]
         # Wall time of the last start of the running episode.
         self.episode_starts = [0 for _ in range(self.num_environments)]
         # The current state of the running episode.
@@ -182,7 +185,7 @@ class SingleThreadedWorker(Worker):
 
         num_timesteps = num_timesteps or 0
         num_episodes = num_episodes or 0
-        max_timesteps_per_episode = [max_timesteps_per_episode or 0 for _ in range(self.num_environments)]
+        max_timesteps_per_episode = max_timesteps_per_episode or 0
         frameskip = frameskip or self.frameskip
 
         # Stats.
@@ -191,6 +194,7 @@ class SingleThreadedWorker(Worker):
 
         start = time.perf_counter()
         episode_terminals = self.episode_terminals
+        sequence_indices = self.sequence_indices
         if reset is True:
             self.env_frames = 0
             self.episodes_since_update = 0
@@ -202,6 +206,7 @@ class SingleThreadedWorker(Worker):
                 self.episode_returns[i] = 0
                 self.episode_timesteps[i] = 0
                 self.episode_terminals[i] = False
+                self.sequence_indices[i] = False
                 self.episode_starts[i] = time.perf_counter()
                 if self.worker_executes_preprocessing:
                     self.state_is_preprocessed[env_id] = False
@@ -294,12 +299,14 @@ class SingleThreadedWorker(Worker):
                 self.episode_returns[i] += env_rewards[i]
                 self.episode_timesteps[i] += 1
 
-                if 0 < max_timesteps_per_episode[i] <= self.episode_timesteps[i]:
-                    episode_terminals[i] = True
+                sequence_indices[i] = episode_terminals[i]
+                if 0 < max_timesteps_per_episode <= self.episode_timesteps[i]:
+                    sequence_indices[i] = True
+
                 if self.worker_executes_preprocessing:
                     self.state_is_preprocessed[env_id] = False
                 # Do accounting for finished episodes.
-                if episode_terminals[i]:
+                if episode_terminals[i] or sequence_indices[i]:
                     episodes_executed += 1
                     self.episodes_since_update += 1
                     episode_duration = time.perf_counter() - self.episode_starts[i]
@@ -334,9 +341,9 @@ class SingleThreadedWorker(Worker):
 
                 if self.worker_executes_preprocessing and self.preprocessors[env_id] is not None:
                     next_states[i] = np.array(self.preprocessors[env_id].preprocess(env_states[i]))
-                self._observe(
+                self.observe(
                     self.env_ids[i], preprocessed_states[i], env_actions[i], env_rewards[i], next_states[i],
-                    episode_terminals[i], **other_data
+                    episode_terminals[i], sequence_indices[i], **other_data
                 )
             loss = self.update_if_necessary(update_rules=update_rules, time_percentage=time_percentage)
             if loss is not None:
@@ -369,6 +376,7 @@ class SingleThreadedWorker(Worker):
             final_episode_reward = all_finished_rewards[-1]
 
         self.episode_terminals = episode_terminals
+        self.sequence_indices = sequence_indices
         self.env_states = env_states
         results = dict(
             runtime=total_time,
@@ -408,13 +416,16 @@ class SingleThreadedWorker(Worker):
 
         return results
 
-    def _observe(self, env_ids, states, actions, rewards, next_states, terminals, **other_data):
+    def observe(self, env_ids, states, actions, rewards, next_states, terminals, sequence_indices, **other_data):
         # TODO: If worker does not execute preprocessing, next state is not preprocessed here.
         # Observe per environment.
         self.agent.observe(
             preprocessed_states=states, actions=actions, internals=[],
-            rewards=rewards, next_states=next_states,
+            rewards=rewards,
+            next_states=next_states,
             terminals=terminals,
-            env_id=env_ids, **other_data
+            sequence_indices=sequence_indices,
+            env_id=env_ids,
+            **other_data
         )
 

@@ -15,9 +15,9 @@
 
 from __future__ import absolute_import, division, print_function
 
-import logging
 from collections import defaultdict
 from functools import partial
+import logging
 
 import numpy as np
 
@@ -277,7 +277,7 @@ class Agent(Specifiable):
             return ret
 
     def observe(self, preprocessed_states, actions, internals, rewards, next_states, terminals,
-                env_id=None, batched=False, **other_data):
+                sequence_indices=None, env_id=None, batched=False, **other_data):
         """
         Observes an experience tuple or a batch of experience tuples. Note: If configured,
         first uses buffers and then internally calls _observe_graph() to actually run the computation graph.
@@ -294,6 +294,9 @@ class Agent(Specifiable):
             rewards (Union[float,List[float]]): Scalar reward(s) observed.
             terminals (Union[bool,List[bool]]): Boolean indicating terminal.
             next_states (Union[dict,ndarray]): Preprocessed next states dict or array.
+
+            sequence_indices (Union[bool,List[bool]): Boolean indicating an end (not an episode terminal!) of a
+                consecutive episode fragment in the buffer/memory.
 
             env_id (Optional[str]): Environment id to observe for. When using vectorized execution and
                 buffering, using environment ids is necessary to ensure correct trajectories are inserted.
@@ -330,7 +333,8 @@ class Agent(Specifiable):
                 self.internals_buffer[env_id].extend(internals)
                 self.rewards_buffer[env_id].extend(rewards)
                 self.terminals_buffer[env_id].extend(terminals)
-                self.sequence_indices_buffer[env_id].extend(terminals)
+                if sequence_indices is not None:
+                    self.sequence_indices_buffer[env_id].extend(sequence_indices)
                 for buffer_key, other_data_item in other_data.items():
                     if buffer_key in self.custom_buffer_spaces:
                         if self.custom_buffer_spaces[buffer_key] is not None:
@@ -357,7 +361,8 @@ class Agent(Specifiable):
                 self.internals_buffer[env_id].append(internals)
                 self.rewards_buffer[env_id].append(rewards)
                 self.terminals_buffer[env_id].append(terminals)
-                self.sequence_indices_buffer[env_id].append(terminals)
+                if sequence_indices is not None:
+                    self.sequence_indices_buffer[env_id].append(sequence_indices)
                 for buffer_key, other_data_item in other_data.items():
                     if buffer_key in self.custom_buffer_spaces:
                         if self.custom_buffer_spaces[buffer_key] is not None:
@@ -444,7 +449,9 @@ class Agent(Specifiable):
                 actions, _ = self.action_space.force_batch(actions)
                 rewards = [rewards]
                 terminals = [terminals]
+                sequence_indices = [sequence_indices]
 
+            more_observe_data = {} if sequence_indices is None else {"sequence_indices": sequence_indices}
             self._observe_graph(
                 preprocessed_states=preprocessed_states,
                 actions=actions,
@@ -452,11 +459,12 @@ class Agent(Specifiable):
                 rewards=rewards,
                 next_states=next_states,
                 terminals=terminals,
-                sequence_indices=terminals
-                # TODO: what about custom data if there is not buffering?
+                **more_observe_data
+                # TODO: what about custom data if there is no buffering?
             )
 
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, next_states=None, **kwargs):
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, next_states=None,
+                       **kwargs):
         """
         This methods defines the actual data-inserting call to the computation graph by executing
         the respective op via the graph executor. Since this may use varied underlying
@@ -466,11 +474,13 @@ class Agent(Specifiable):
         Args:
             preprocessed_states (Union[dict,ndarray]): Preprocessed states dict or array.
             actions (Union[dict,ndarray]): Actions dict or array containing actions performed for the given state(s).
+
             internals (Union[list]): Internal state(s) returned by agent for the given states. Must be an empty list
                 if no internals available.
+
             rewards (Union[ndarray,list,float]): Scalar reward(s) observed.
             terminals (Union[list,bool]): Boolean indicating terminal.
-            next_states (Union[dict, ndarray]): Preprocessed next states dict or array.
+            next_states (Union[dict,ndarray]): Preprocessed next states dict or array.
 
         Keyword Args:
             Any agent-specific (optional) data to move into the graph.

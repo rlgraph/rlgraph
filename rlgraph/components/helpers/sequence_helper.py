@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
@@ -288,13 +286,14 @@ class SequenceHelper(Component):
 
         delta = reward + discount * bootstrapped_values[1:] - bootstrapped_values[:-1]
 
-
         Args:
             rewards (DataOp): Rewards for the observed sequences.
             values (DataOp): Value estimates for the observed sequences.
             terminals (DataOp): Terminals in sequences
-            sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments
+
+            sequence_indices (DataOp): Int indices denoting sequences (which may be non-terminal episode fragments)
                 from multiple environments.
+
             discount (float): Discount to apply to delta computation.
 
         Returns:

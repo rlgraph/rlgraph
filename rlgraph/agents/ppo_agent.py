@@ -189,8 +189,9 @@ class PPOAgent(Agent):
             self.build(dict(vf_optimizer=self.root_component.value_function_optimizer))
 
     def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
+        sequence_indices = kwargs.pop("sequence_indices")
         self.graph_executor.execute(
-            ("insert_records", [preprocessed_states, actions, rewards, terminals])
+            ("insert_records", [preprocessed_states, actions, rewards, terminals, sequence_indices])
         )
 
     def update(self, batch=None, time_percentage=None, sequence_indices=None, apply_postprocessing=True):
@@ -221,15 +222,15 @@ class PPOAgent(Agent):
         else:
             # No sequence indices means terminals are used in place.
             if sequence_indices is None:
-                sequence_indices = batch["terminals"]
+                sequence_indices = batch["sequence_indices"] if "sequence_indices" in batch else batch["terminals"]
 
             pps_dtype = self.preprocessed_state_space.dtype
             batch["states"] = np.asarray(batch["states"], dtype=util.convert_dtype(dtype=pps_dtype, to='np'))
 
             ret = self.graph_executor.execute(
                 ("update_from_external_batch", [
-                    batch["states"], batch["actions"], batch["rewards"], batch["terminals"], sequence_indices,
-                    apply_postprocessing, time_percentage
+                    batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
+                    sequence_indices, apply_postprocessing, time_percentage
                 ])
             )
 
@@ -302,10 +303,10 @@ class PPOAlgorithmComponent(AlgorithmComponent):
 
     # Insert into memory.
     @rlgraph_api
-    def insert_records(self, preprocessed_states, actions, rewards, terminals):
+    def insert_records(self, preprocessed_states, actions, rewards, terminals, sequence_indices):
         records = dict(
             states=preprocessed_states, actions=actions, rewards=rewards,
-            terminals=terminals
+            terminals=terminals, sequence_indices=sequence_indices
         )
         return self.memory.insert_records(records)
 
@@ -324,10 +325,9 @@ class PPOAlgorithmComponent(AlgorithmComponent):
             records = self.memory.get_records(self.memory_batch_size)
 
         # Route to post process and update method.
-        sequence_indices = records["terminals"]  # TODO: memory must return sequence_indices automatically.
         return self.update_from_external_batch(
             records["states"], records["actions"], records["rewards"], records["terminals"],
-            sequence_indices, apply_postprocessing=apply_postprocessing, time_percentage=time_percentage
+            records["sequence_indices"], apply_postprocessing=apply_postprocessing, time_percentage=time_percentage
         )
 
     # Retrieve some records from memory.
