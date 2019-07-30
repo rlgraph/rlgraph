@@ -228,10 +228,10 @@ class Worker(Specifiable):
                      int(self.agent.timesteps / self.num_environments) >= self.agent.python_buffer_size):
                 do_update = False
                 # Updating according to one update mode:
-                if update_rules.unit == "time_steps" and \
+                if update_rules.unit == "time_step" and \
                         self.agent.timesteps % update_rules.update_every_n_units == 0:
                     do_update = True
-                elif update_rules.unit == "episodes" and \
+                elif update_rules.unit == "episode" and \
                         self.episodes_since_update == update_rules.update_every_n_units:
                     self.episodes_since_update = 0
                     do_update = True

@@ -168,7 +168,7 @@ class TestSACShortTaskLearning(unittest.TestCase):
             render=False,  # self.is_windows
             episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs:
             print("episode: return={} ts={}".format(episode_return, timesteps)),
-            update_rules=dict(unit="time_steps", update_every_n_units=1)
+            update_rules=dict(unit="time_step", update_every_n_units=1)
         )
         # Note: SAC is more computationally expensive.
         episodes = 50

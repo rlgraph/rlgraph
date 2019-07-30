@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.utils.specifiable import Specifiable
 
@@ -26,13 +24,13 @@ class UpdateRules(Specifiable):
     Agent.update() calls.
     """
     def __init__(
-            self, do_update=True, unit="time_steps", update_every_n_units=1,
+            self, do_update=True, unit="time_step", update_every_n_units=1,
             update_repeats=1, first_update_after_n_units=0
     ):
         """
         Args:
             do_update (bool): Whether to make calls to Agent.update(). Default: True.
-            unit (str): One of "time_steps" or "episodes". What to count when determining update
+            unit (str): One of "time_step" or "episode". What to count when determining update
                 intervals, by time-step (single act = 1 time step) or episode.
             update_every_n_units (int): Every how many units (ts or episodes) should one call `Agent.update()`?
             update_repeats (int): How many update calls to make in a single step. Default: 1.
@@ -42,6 +40,7 @@ class UpdateRules(Specifiable):
         super(UpdateRules, self).__init__()
 
         self.do_update = do_update
+        assert unit == "time_step" or unit == "episode"
         self.unit = unit
         self.update_every_n_units = update_every_n_units
         self.update_repeats = update_repeats

@@ -167,7 +167,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        time_steps = 3000
+        time_steps = 6000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
@@ -175,9 +175,10 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             preprocessing_spec=GridWorld.grid_world_4x4_preprocessing_spec,
             episode_finish_callback=lambda episode_return, duration, timesteps, **kwargs: print(
                 "Episode done return={} timesteps={}".format(episode_return, timesteps)),
-            update_rules=dict(unit="timesteps", update_every_n_units=8)
+            update_rules=dict(unit="time_step", update_every_n_units=16)
         )
-        results = worker.execute_timesteps(time_steps, use_exploration=True)
+        results = worker.execute_timesteps(time_steps, max_timesteps_per_episode=100,
+                                           use_exploration=True)
 
         print(results)
 
@@ -294,7 +295,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             print("episode return {}; steps={}".format(episode_return, timesteps)),
             update_rules=dict(update_every_n_units=16)
         )
-        results = worker.execute_timesteps(num_timesteps=int(1e6), use_exploration=True)
+        results = worker.execute_timesteps(num_timesteps=int(1e6), use_exploration=True, max_timesteps_per_episode=199)
 
         print(results)
 

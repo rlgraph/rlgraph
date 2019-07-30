@@ -59,7 +59,7 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
         results = worker.execute_timesteps(
             time_steps,
             use_exploration=True,
-            update_rules=dict(unit="episodes", update_every_n_units=4)
+            update_rules=dict(unit="episode", update_every_n_units=4)
         )
 
         print(results)
@@ -91,7 +91,7 @@ class TestActorCriticShortTaskLearning(unittest.TestCase):
             env_spec=env_spec,
             agent=agent,
             worker_executes_preprocessing=False,
-            update_rules=dict(unit="episodes", update_every_n_units=32),
+            update_rules=dict(unit="episode", update_every_n_units=32),
             episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
             print("episode return {}".format(episode_return))
         )
