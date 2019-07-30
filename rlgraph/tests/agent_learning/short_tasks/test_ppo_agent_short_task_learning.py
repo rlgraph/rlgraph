@@ -167,7 +167,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        time_steps = 6000
+        time_steps = 4000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
@@ -250,7 +250,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             action_space=env.action_space
         )
 
-        time_steps = 3000
+        time_steps = 6000
         worker = SingleThreadedWorker(
             env_spec=lambda: env,
             agent=agent,
