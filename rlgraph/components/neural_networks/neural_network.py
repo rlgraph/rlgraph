@@ -77,7 +77,11 @@ class NeuralNetwork(Stack):
         self.num_inputs = len(self.keras_style_api_inputs)
         if self.num_inputs == 0:
             self.num_inputs = kwargs.pop("num_inputs", 1)
-        self.num_outputs = min(len(self.keras_style_api_outputs), 1)
+        # If not keras-style AND not provided in kwargs, will infer num_outputs automatically from len(return-tuple)
+        # of API `call`.
+        self.num_outputs = len(self.keras_style_api_outputs)
+        if self.num_outputs == 0:
+            self.num_outputs = kwargs.pop("num_outputs", 0)
 
         # Force the only API-method to be `call`. No matter whether custom-API or auto-generated (via Stack).
         self.custom_call_given = True
@@ -142,6 +146,7 @@ class NeuralNetwork(Stack):
             super(NeuralNetwork, self).build_auto_api_method(
                 stack_api_method_name, component_api_method_name, fold_time_rank, unfold_time_rank, True
             )
+            self.num_outputs = len([1])
 
     def _unfold(self, original_input, *args_, **kwargs_):
         if args_ == ():
@@ -431,9 +436,12 @@ class NeuralNetwork(Stack):
 
             if unfold_time_rank:
                 args_, kwargs_ = self_._unfold(original_input, *args_, **kwargs_)
+
             if args_ == ():
+                self_.num_outputs = len(kwargs_)
                 return kwargs_
             elif len(args_) == 1:
+                self_.num_outputs = 1
                 return args_[0]
             else:
                 self_.num_outputs = len(args_)

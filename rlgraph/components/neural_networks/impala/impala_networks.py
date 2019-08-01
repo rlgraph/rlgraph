@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph.components.common.repeater_stack import RepeaterStack
 from rlgraph.components.layers.nn.concat_layer import ConcatLayer
@@ -47,16 +45,13 @@ class IMPALANetwork(NeuralNetwork):
         Args:
             worker_sample_size (int): How many time-steps an IMPALA actor will have performed in one rollout.
         """
-        super(IMPALANetwork, self).__init__(scope=scope, **kwargs)
+        # 2 outputs due to LSTMLayer at the end.
+        # TODO: Try to automate counting the outputs (should be easy as it's the len of the return tuple of `call`).
+        super(IMPALANetwork, self).__init__(num_outputs=2, scope=scope, **kwargs)
 
         self.worker_sample_size = worker_sample_size
 
         # Create all needed sub-components.
-
-        # ContainerSplitter for the Env signal (dict of 4 keys: for env image, env text, previous action and reward).
-        self.splitter = ContainerSplitter("RGB_INTERLEAVED", "INSTR", "previous_action", "previous_reward",
-                                          scope="input-splitter")
-
         # Fold the time rank into the batch rank.
         self.time_rank_fold_before_lstm = ReShape(fold_time_rank=True, scope="time-rank-fold-before-lstm")
         self.time_rank_unfold_before_lstm = ReShape(unfold_time_rank=True, time_major=True,
@@ -71,8 +66,6 @@ class IMPALANetwork(NeuralNetwork):
         # lookup is then passed through an LSTM(64).
         self.text_processing_stack = self.build_text_processing_stack()
 
-        #self.debug_slicer = Slice(scope="internal-states-slicer", squeeze=True)
-
         # The concatenation layer (concatenates outputs from image/text processing stacks, previous action/reward).
         self.concat_layer = ConcatLayer()
 
@@ -82,11 +75,10 @@ class IMPALANetwork(NeuralNetwork):
 
         # Add all sub-components to this one.
         self.add_components(
-            self.splitter, self.image_processing_stack, self.text_processing_stack,
+            self.image_processing_stack, self.text_processing_stack,
             self.concat_layer,
             self.main_lstm,
-            self.time_rank_fold_before_lstm, self.time_rank_unfold_before_lstm,
-            #self.debug_slicer
+            self.time_rank_fold_before_lstm, self.time_rank_unfold_before_lstm
         )
 
     @staticmethod
@@ -132,8 +124,7 @@ class IMPALANetwork(NeuralNetwork):
             # Return only the last output (sentence of words, where we are not interested in intermediate results
             # where the LSTM has not seen the entire sentence yet).
             # Last output is the final internal h-state (slot 1 in the returned LSTM tuple; slot 0 is final c-state).
-            lstm_output = self.sub_components["lstm-64"].call(embedding_output, sequence_length=lengths)
-            lstm_final_internals = lstm_output["last_internal_states"]
+            lstm_output, lstm_final_internals = self.sub_components["lstm-64"].call(embedding_output, sequence_length=lengths)
 
             # Need to split once more because the LSTM state is always a tuple of final c- and h-states.
             _, lstm_final_h_state = self.sub_components["tuple-splitter"].call(lstm_final_internals)
@@ -148,12 +139,14 @@ class IMPALANetwork(NeuralNetwork):
         return text_processing_stack
 
     @rlgraph_api
-    def call(self, input_dict, internal_states=None):
-        # Split the input dict coming directly from the Env.
-        _, _, _, orig_previous_reward = self.splitter.call(input_dict)
+    def call(self, inputs):
+        input_dict, internal_states = inputs[0], inputs[1]
+        orig_previous_reward = input_dict["previous_reward"]
 
         folded_input = self.time_rank_fold_before_lstm.call(input_dict)
-        image, text, previous_action, previous_reward = self.splitter.call(folded_input)
+        image, text, previous_action, previous_reward = \
+            folded_input["RGB_INTERLEAVED"], folded_input["INSTR"], \
+            folded_input["previous_action"], folded_input["previous_reward"]
 
         # Get the left-stack (image) and right-stack (text) output (see [1] for details).
         text_processing_output = self.text_processing_stack.call(text)
@@ -265,7 +258,6 @@ class SmallIMPALANetwork(IMPALANetwork):
             NNLayer(activation="relu", scope="relu-before-lstm"),
         ])
 
-        #stack_before_unfold = <- formerly known as
         image_stack = Stack(sub_components, scope="image-stack")
 
         return image_stack

@@ -41,35 +41,35 @@ class SharedValueFunctionPolicy(Policy):
         self.add_components(self.value_network)
 
     @rlgraph_api
-    def get_state_values(self, nn_inputs):  # , internal_states=None
+    def get_state_values(self, nn_inputs):
         """
         Returns the state value node's output.
 
         Args:
             nn_inputs (any): The input to our neural network.
-            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Dict:
                 state_values: The single (but batched) value function node output.
         """
         nn_outputs = self.get_nn_outputs(nn_inputs)
-        #if self.value_unfold_time_rank is True:
-        #    state_values = self.value_network.call(nn_outputs, nn_inputs)
-        #else:
-        state_values = self.value_network.call(nn_outputs)
+        # Only feed the first output of our NN into the value network.
+        # This is usually the "main" output.
+        if isinstance(nn_outputs, tuple) and len(nn_outputs) > 1:
+            state_values = self.value_network.call(nn_outputs[0])
+        else:
+            state_values = self.value_network.call(nn_outputs)
 
         return dict(state_values=state_values, nn_outputs=nn_outputs)
 
     @rlgraph_api
-    def get_state_values_adapter_outputs_and_parameters(self, nn_inputs):  #, internal_states=None
+    def get_state_values_adapter_outputs_and_parameters(self, nn_inputs):
         """
         Similar to `get_values_logits_probabilities_log_probs`, but also returns in the return dict under key
         `state_value` the output of our state-value function node.
 
         Args:
             nn_inputs (any): The input to our neural network.
-            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Dict:
@@ -80,15 +80,13 @@ class SharedValueFunctionPolicy(Policy):
                     logits as mean and stddev for a normal distribution).
                 log_probs: The log(probabilities) values.
         """
-        nn_outputs = self.get_nn_outputs(nn_inputs)
-        adapter_outputs, parameters, probs, log_probs = self._graph_fn_get_adapter_outputs_and_parameters(nn_outputs)
-        #if self.value_unfold_time_rank is True:
-        #    state_values = self.value_network.call(nn_outputs, nn_inputs)
-        #else:
-        state_values = self.value_network.call(nn_outputs)
+        out = self.get_state_values(nn_inputs)
+        adapter_outputs, parameters, probs, log_probs = \
+            self._graph_fn_get_adapter_outputs_and_parameters(out["nn_outputs"])
 
         return dict(
-            nn_outputs=nn_outputs, state_values=state_values, adapter_outputs=adapter_outputs,
+            nn_outputs=out["nn_outputs"], state_values=out["state_values"],
+            adapter_outputs=adapter_outputs,
             parameters=parameters, probabilities=probs, log_probs=log_probs
         )
 

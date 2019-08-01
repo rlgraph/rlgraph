@@ -184,8 +184,12 @@ class Policy(Component):
         """
         nn_outputs = self.get_nn_outputs(nn_inputs)
         nn_main_outputs = nn_outputs
+
+        # Only feed the first output of our NN into the action-adapter.
+        # This is usually the "main" output.
         if self.neural_network.num_outputs > 1:
             nn_main_outputs = nn_outputs[0]
+
         action_layer_outputs = self._graph_fn_get_adapter_outputs(nn_main_outputs)
         # Add last internal states to return value.
         return dict(adapter_outputs=action_layer_outputs, nn_outputs=nn_outputs)
@@ -195,7 +199,6 @@ class Policy(Component):
         """
         Args:
             nn_inputs (any): The input to our neural network.
-            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             Dict:
@@ -204,9 +207,13 @@ class Policy(Component):
                 log_probs (Optional): The log(probabilities) values for discrete distributions.
         """
         nn_outputs = self.get_nn_outputs(nn_inputs)
+
+        # Only feed the first output of our NN into the action-adapter.
+        # This is usually the "main" output.
         nn_main_outputs = nn_outputs
         if self.neural_network.num_outputs > 1:
             nn_main_outputs = nn_outputs[0]
+
         out = self._graph_fn_get_adapter_outputs_and_parameters(nn_main_outputs)
         return dict(
             nn_outputs=nn_outputs, adapter_outputs=out[0], parameters=out[1],
@@ -231,7 +238,7 @@ class Policy(Component):
         """
         deterministic = self.deterministic if deterministic is None else deterministic
 
-        out = self.get_adapter_outputs_and_parameters(nn_inputs)  #, other_nn_inputs)
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)
         action = self._graph_fn_get_action_components(out["adapter_outputs"], out["parameters"], deterministic)
 
         return dict(
@@ -298,7 +305,6 @@ class Policy(Component):
         """
         Args:
             nn_inputs (any): The input to our neural network.
-            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             any: See `get_action`, but with deterministic force set to True.
@@ -309,16 +315,15 @@ class Policy(Component):
         return dict(action=action, nn_outputs=out["nn_outputs"])
 
     @rlgraph_api
-    def get_stochastic_action(self, nn_inputs): #, internal_states=None):
+    def get_stochastic_action(self, nn_inputs):
         """
         Args:
             nn_inputs (any): The input to our neural network.
-            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             any: See `get_action`, but with deterministic force set to False.
         """
-        out = self.get_adapter_outputs_and_parameters(nn_inputs)  # internal_states
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)
         action = self._graph_fn_get_action_components(out["adapter_outputs"], out["parameters"], False)
 
         return dict(action=action, nn_outputs=out["nn_outputs"])
@@ -328,25 +333,23 @@ class Policy(Component):
         """
         Args:
             nn_inputs (any): The inputs to our neural network.
-            #internal_states (Optional[any]): The initial internal states going into an RNN-based neural network.
 
         Returns:
             any: See Distribution component.
         """
-        out = self.get_adapter_outputs_and_parameters(nn_inputs)  #, internal_states)
+        out = self.get_adapter_outputs_and_parameters(nn_inputs)
         entropy = self._graph_fn_get_distribution_entropies(out["parameters"])
 
         return dict(entropy=entropy, nn_outputs=out["nn_outputs"])
 
     @graph_fn(flatten_ops=True, split_ops=True, add_auto_key_as_first_param=True)
-    def _graph_fn_get_adapter_outputs(self, flat_key, nn_outputs):  #, nn_inputs):
+    def _graph_fn_get_adapter_outputs(self, flat_key, nn_outputs):
         """
         Pushes the given nn_output through all our action adapters and returns a DataOpDict with the keys corresponding
         to our `action_space`.
 
         Args:
             nn_outputs (DataOp): The output of our neural network.
-            #nn_inputs (DataOp): The original inputs of the NN (that produced the `nn_outputs`).
 
         Returns:
             FlattenedDataOp: A DataOpDict with the different action adapter outputs (keys correspond to
@@ -373,7 +376,6 @@ class Policy(Component):
 
         Args:
             nn_outputs (DataOp): The output of our neural network.
-            #nn_inputs (DataOp): The original inputs of the NN (that produced the `nn_outputs`).
 
         Returns:
             tuple:
@@ -396,10 +398,10 @@ class Policy(Component):
         parameters = FlattenedDataOp()
         probs = FlattenedDataOp()
         log_probs = FlattenedDataOp()
+
         for aa_flat_key, action_adapter in self.action_adapters.items():
             adapter_outs = action_adapter.call(nn_outputs)
             params = action_adapter.get_parameters_from_adapter_outputs(adapter_outs)
-            #out = action_adapter.get_adapter_outputs_and_parameters(nn_outputs, nn_inputs)
             adapter_outputs[aa_flat_key], parameters[aa_flat_key], probs[aa_flat_key], log_probs[aa_flat_key] = \
                 adapter_outs, params["parameters"], params.get("probabilities"), params.get("log_probs")
 

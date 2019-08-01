@@ -13,11 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph import get_backend
 from rlgraph.components.layers.preprocessing.preprocess_layer import PreprocessLayer
 from rlgraph.spaces import BoolBox, FloatBox, IntBox
@@ -192,7 +191,7 @@ class ReShape(PreprocessLayer):
         """
         assert self.unfold_time_rank is not True or input_before_time_rank_folding is not None
 
-        if self.backend == "python" or get_backend() == "python":
+        if self.backend == "python":
             # Create a one-hot axis for the categories at the end?
             num_categories = self.get_num_categories(key, get_space_from_op(inputs))
             if num_categories and num_categories > 1:
@@ -226,7 +225,7 @@ class ReShape(PreprocessLayer):
 
             return np.reshape(inputs, newshape=new_shape)
 
-        elif get_backend() == "pytorch":
+        elif self.backend == "pytorch":
             # Create a one-hot axis for the categories at the end?
             num_categories = self.get_num_categories(key, get_space_from_op(inputs))
             if num_categories and num_categories > 1:
@@ -283,7 +282,7 @@ class ReShape(PreprocessLayer):
             else:
                 return torch.reshape(inputs, new_shape)
 
-        elif get_backend() == "tf":
+        elif self.backend == "tf":
             # Create a one-hot axis for the categories at the end?
             space = get_space_from_op(inputs)
             num_categories = self.get_num_categories(key, space)
