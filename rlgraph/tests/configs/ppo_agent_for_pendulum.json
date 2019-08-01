@@ -2,15 +2,16 @@
   "type": "ppo",
   "sample_episodes": false,
   "standardize_advantages": true,
-  "clip_ratio": ["linear", 0.2, 0.1],
-  "discount": 0.995,
-  "gae_lambda": 0.4,
-  "weight_entropy": ["linear", 0.01, 0.0001],
-  "num_iterations": 10,
-  "sample_size": 128,
+  "clip_ratio": [0.2, 0.1],
+  "discount": 0.999,
+  "gae_lambda": 1.0,
+  "weight_entropy": [0.01, 0.001],
 
   "python_buffer_size": 200,
-  "memory_batch_size": 2048,
+
+  "memory_batch_size": 1024,
+  "num_iterations": 10,
+  "sample_size": 256,
   "memory_spec":
   {
     "type": "ring_buffer",
@@ -21,14 +22,14 @@
   [
     {
       "type": "dense",
-      "units": 128,
-      "activation": "tanh",
+      "units": 512,
+      "activation": "linear",
       "scope": "hidden1"
     },
         {
       "type": "dense",
-      "units": 128,
-      "activation": "tanh",
+      "units": 512,
+      "activation": "linear",
       "scope": "hidden2"
     }
   ],
@@ -37,24 +38,24 @@
   [
     {
       "type": "dense",
-      "units": 32,
-      "activation": "relu",
+      "units": 512,
+      "activation": "linear",
       "scope": "vf-hidden1"
     },
     {
       "type": "dense",
-      "units": 32,
-      "activation": "relu",
+      "units": 512,
+      "activation": "linear",
       "scope": "vf-hidden2"
     }
   ],
 
   "optimizer_spec": {
     "type": "rms-prop",
-    "learning_rate": ["polynomial", 0.03, 0.0000001]
+    "learning_rate": [0.03, 0.00001]
   },
   "value_function_optimizer_spec": {
     "type": "adam",
-    "learning_rate": ["linear", 0.003, 0.00001]
+    "learning_rate": [0.03, 0.00001]
   }
 }

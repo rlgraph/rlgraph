@@ -295,7 +295,7 @@ class TestPPOShortTaskLearning(unittest.TestCase):
             print("episode return {}; steps={}".format(episode_return, timesteps)),
             update_rules=dict(update_every_n_units=16)
         )
-        results = worker.execute_timesteps(num_timesteps=int(1e6), use_exploration=True, max_timesteps_per_episode=199)
+        results = worker.execute_timesteps(num_timesteps=int(1e6), use_exploration=True, max_timesteps_per_episode=200)
 
         print(results)
 
