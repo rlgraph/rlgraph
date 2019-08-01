@@ -15,6 +15,8 @@
 
 from __future__ import absolute_import, division, print_function
 
+import re
+
 from rlgraph.utils.rlgraph_errors import RLGraphError
 
 
@@ -57,8 +59,9 @@ class MetaGraph(object):
                 for api_method_name, api_method_rec in component.api_methods.items():
                     for i, arg_name in enumerate(api_method_rec.input_names):
                         # Argument found in this API-method -> Return first best matching op-rec.
-                        if arg_name == api_input_name:
-                            # TODO: will not work if *flex or **flex.
+                        if arg_name == api_input_name or \
+                                (api_method_rec.args_name == arg_name and re.match(r'{}\[\d+\]'.format(arg_name), api_input_name)) or \
+                                (api_method_rec.kwargs_name == arg_name and re.match(r'{}\[[\'"]\w+[\'"]\]'.format(arg_name), api_input_name)):
                             op_rec = api_method_rec.in_op_columns[0].op_records[i]
                             return op_rec
 
