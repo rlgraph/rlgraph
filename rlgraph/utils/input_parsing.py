@@ -18,7 +18,9 @@ from __future__ import absolute_import, division, print_function
 import os.path
 
 from rlgraph import get_backend
-from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError
+from rlgraph.components.common import Synchronizable
+from rlgraph.components.neural_networks.value_function import ValueFunction
+from rlgraph.utils.rlgraph_errors import RLGraphObsoletedError, RLGraphError
 from rlgraph.utils.util import default_dict
 
 
@@ -51,32 +53,35 @@ def parse_saver_spec(saver_spec):
     return default_dict(saver_spec, default_spec)
 
 
-#def parse_value_function_spec(value_function_spec):
-#    """
-#    Creates value function from spec if needed.
-#
-#    Args:
-#        value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
-#            of ValueFunction.
-#    Returns:
-#        Optional(ValueFunction): None if Spec is None or instance of ValueFunction.
-#    """
-#    if value_function_spec is None:
-#        return None
-#    else:
-#        vf_sync = Synchronizable()
-#        # VF is already instantiated.
-#        if isinstance(value_function_spec, ValueFunction):
-#            value_function = value_function_spec
-#            if vf_sync.name not in value_function.sub_components:
-#                value_function.add_components(vf_sync, expose_apis="sync")
-#        else:
-#            if isinstance(value_function_spec, list):
-#                # Use default type if given in layer-list.
-#                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
-#            value_function = ValueFunction.from_spec(value_function_spec)
-#            value_function.add_components(vf_sync, expose_apis="sync")
-#        return value_function
+def parse_value_function_spec(value_function_spec, skip_obsoleted_error=False):
+    """
+    Creates value function from spec if needed.
+
+    Args:
+        value_function_spec (list, dict, ValueFunction): Neural network specification for baseline or instance
+            of ValueFunction.
+    Returns:
+        Optional(ValueFunction): None if Spec is None or instance of ValueFunction.
+    """
+    if not skip_obsoleted_error:
+        raise RLGraphObsoletedError("function", "parse_value_function_spec", "[nothing]")
+
+    if value_function_spec is None:
+        return None
+    else:
+        vf_sync = Synchronizable()
+        # VF is already instantiated.
+        if isinstance(value_function_spec, ValueFunction):
+            value_function = value_function_spec
+            if vf_sync.name not in value_function.sub_components:
+                value_function.add_components(vf_sync, expose_apis="sync")
+        else:
+            if isinstance(value_function_spec, list):
+                # Use default type if given in layer-list.
+                value_function_spec = dict(type="value_function", network_spec=value_function_spec)
+            value_function = ValueFunction.from_spec(value_function_spec)
+            value_function.add_components(vf_sync, expose_apis="sync")
+        return value_function
 
 
 def parse_summary_spec(summary_spec):
@@ -213,7 +218,7 @@ def parse_execution_spec(execution_spec):
     return execution_spec
 
 
-def parse_observe_spec(observe_spec):
+def parse_observe_spec(observe_spec, skip_obsoleted_error=False):
     """
     Parses parameters for `Agent.observe()` calls and inserts default values where necessary.
 
@@ -223,7 +228,8 @@ def parse_observe_spec(observe_spec):
     Returns:
         dict: The sanitized observe_spec dict.
     """
-    raise RLGraphObsoletedError("observe_spec", "observe_spec", "python_buffer_size")
+    if not skip_obsoleted_error:
+        raise RLGraphObsoletedError("function", "parse_observe_spec", "[nothing]")
 
     if observe_spec and "buffer_enabled" not in observe_spec:
         # Set to true if a buffer size is given and > 0, but flag is not given.
@@ -256,7 +262,7 @@ def parse_observe_spec(observe_spec):
     return observe_spec
 
 
-def parse_update_spec(update_spec):
+def parse_update_spec(update_spec, skip_obsoleted_error=False):
     """
     Parses update/learning parameters and inserts default values where necessary.
 
@@ -266,17 +272,18 @@ def parse_update_spec(update_spec):
     Returns:
         dict: The sanitized update_spec dict.
     """
-    raise RLGraphObsoletedError(
-        "update_spec", "update_spec", "Use the `UpdateRules` class instead. "
-        "The following translations need to be done:\n"
-        "do_updates -> do_updates\n"
-        "update_mode -> unit (`time_steps` or `episodes`)\n"
-        "update_interval -> update_every_n_units\n"
-        "update_steps -> update_repeats\n"
-        "steps_before_update -> first_update_after_n_units\n"
-        "sync_interval -> Use the new `SyncRules` class' `sync_every_n_updates` property and pass this "
-        "SyncRules (or spec) directly into the Agent\n"
-    )
+    if not skip_obsoleted_error:
+        raise RLGraphObsoletedError(
+            "update_spec", "update_spec", "Use the `UpdateRules` class instead. "
+            "The following translations need to be done:\n"
+            "do_updates -> do_updates\n"
+            "update_mode -> unit (`time_steps` or `episodes`)\n"
+            "update_interval -> update_every_n_units\n"
+            "update_steps -> update_repeats\n"
+            "steps_before_update -> first_update_after_n_units\n"
+            "sync_interval -> Use the new `SyncRules` class' `sync_every_n_updates` property and pass this "
+            "SyncRules (or spec) directly into the Agent\n"
+        )
     # If no spec given.
     default_spec = dict(
         # Whether to perform calls to `Agent.update()` at all.

@@ -68,19 +68,19 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         large_impala_architecture = LargeIMPALANetwork(worker_sample_size=2)
         test = ComponentTest(
             large_impala_architecture,
-            input_spaces=dict(input_dict=self.input_space),
+            input_spaces=dict(inputs=Tuple(self.input_space, self.internal_states_space, do_not_overwrite_items_extra_ranks=True)),
             execution_spec=dict(disable_monitoring=True)
         )
 
         # Send a 2x3 sample through the network (2=sequence-length (time-rank), 3=batch-size).
         sample_input = self.input_space.sample(size=(2, 3))
-        expected = None
-        ret = test.test(("call", sample_input), expected_outputs=expected)
+        internal_states = self.internal_states_space.zeros(size=3)
+        ret = test.test(("call", tuple([sample_input, internal_states])))
         # Check shape of outputs.
-        self.assertEquals(ret["output"].shape, (2, 3, 256))
+        self.assertEqual(ret[0].shape, (2, 3, 256))
         # Check shapes of current internal_states (c and h).
-        self.assertEquals(ret["last_internal_states"][0].shape, (3, 256))
-        self.assertEquals(ret["last_internal_states"][1].shape, (3, 256))
+        self.assertEqual(ret[1][0].shape, (3, 256))
+        self.assertEqual(ret[1][1].shape, (3, 256))
 
         test.terminate()
 
@@ -98,14 +98,14 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                 "get_log_likelihood"
             }
         )
+
+        input_spaces = dict(
+            nn_inputs=Tuple(self.input_space, self.internal_states_space, do_not_overwrite_items_extra_ranks=True)
+        )
+
         test = ComponentTest(
             policy,
-            input_spaces=dict(
-                nn_input=self.input_space,
-                internal_states=self.internal_states_space,
-                #parameters=self.parameters_and_logits_space,
-                #logits=self.parameters_and_logits_space
-            ),
+            input_spaces=input_spaces,
             action_space=self.action_space,
             execution_spec=dict(disable_monitoring=True)
         )
@@ -113,21 +113,19 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Send a 1x1 sample through the network (1=sequence-length (time-rank), 1=batch-size).
         nn_input = self.input_space.sample(size=(1, 1))
         initial_internal_states = self.internal_states_space.zeros(size=1)
-        expected = None
-        out = test.test(("get_action", [nn_input, initial_internal_states]), expected_outputs=expected)
+        out = test.test(("get_action", tuple([nn_input, initial_internal_states])))
         print("First action: {}".format(out["action"]))
-        self.assertEquals(out["action"].shape, (1, 1))
-        self.assertEquals(out["last_internal_states"][0].shape, (1, 256))
-        self.assertEquals(out["last_internal_states"][1].shape, (1, 256))
+        self.assertEqual(out["action"].shape, (1, 1))
+        self.assertEqual(out["nn_outputs"][1][0].shape, (1, 256))
+        self.assertEqual(out["nn_outputs"][1][1].shape, (1, 256))
 
         # Send another 1x1 sample through the network using the previous internal-state.
         next_nn_input = self.input_space.sample(size=(1, 1))
-        expected = None
-        out = test.test(("get_action", [next_nn_input, out["last_internal_states"]]), expected_outputs=expected)
+        out = test.test(("get_action", tuple([next_nn_input, out["nn_outputs"][1]])))
         print("Second action: {}".format(out["action"]))
-        self.assertEquals(out["action"].shape, (1, 1))
-        self.assertEquals(out["last_internal_states"][0].shape, (1, 256))
-        self.assertEquals(out["last_internal_states"][1].shape, (1, 256))
+        self.assertEqual(out["action"].shape, (1, 1))
+        self.assertEqual(out["nn_outputs"][1][0].shape, (1, 256))
+        self.assertEqual(out["nn_outputs"][1][1].shape, (1, 256))
 
         test.terminate()
 
@@ -144,11 +142,11 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
                                            action_space=self.action_space, deterministic=False)
         actor_component = ActorComponent(preprocessor_spec=None, policy_spec=policy, exploration_spec=None)
 
+        input_spaces = dict(
+            states=Tuple(self.input_space, self.internal_states_space, do_not_overwrite_items_extra_ranks=True)
+        )
         test = ComponentTest(
-            actor_component, input_spaces=dict(
-                states=self.input_space,
-                internal_states=self.internal_states_space
-            ),
+            actor_component, input_spaces=input_spaces,
             action_space=self.action_space,
             execution_spec=dict(disable_monitoring=True)
         )
@@ -156,17 +154,16 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Send a sample through the network (sequence-length (time-rank) x batch-size).
         nn_dict_input = self.input_space.sample(size=(time_steps, batch_size))
         initial_internal_states = self.internal_states_space.zeros(size=batch_size)
-        expected = None
         out = test.test(
-            ("get_preprocessed_state_and_action", [nn_dict_input, initial_internal_states]), expected_outputs=expected
+            ("get_preprocessed_state_and_action", tuple([nn_dict_input, initial_internal_states]))
         )
         print("First action: {}".format(out["action"]))
-        self.assertEquals(out["action"].shape, (time_steps, batch_size))
-        self.assertEquals(out["last_internal_states"][0].shape, (batch_size, 256))
-        self.assertEquals(out["last_internal_states"][1].shape, (batch_size, 256))
+        self.assertEqual(out["action"].shape, (time_steps, batch_size))
+        self.assertEqual(out["nn_outputs"][1][0].shape, (batch_size, 256))
+        self.assertEqual(out["nn_outputs"][1][1].shape, (batch_size, 256))
         # Check preprocessed state (all the same except 'image' channel).
         recursive_assert_almost_equal(
-            out["preprocessed_state"], dict(
+            out["preprocessed_state"][0], dict(
                 RGB_INTERLEAVED=nn_dict_input["RGB_INTERLEAVED"],
                 INSTR=nn_dict_input["INSTR"],
                 previous_action=nn_dict_input["previous_action"],
@@ -176,17 +173,16 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
         # Send another 1x1 sample through the network using the previous internal-state.
         next_nn_input = self.input_space.sample(size=(time_steps, batch_size))
-        expected = None
         out = test.test(
-            ("get_preprocessed_state_and_action", [next_nn_input, out["last_internal_states"]]), expected_outputs=expected
+            ("get_preprocessed_state_and_action", tuple([next_nn_input, out["nn_outputs"][1]]))
         )
         print("Second action: {}".format(out["action"]))
-        self.assertEquals(out["action"].shape, (time_steps, batch_size))
-        self.assertEquals(out["last_internal_states"][0].shape, (batch_size, 256))
-        self.assertEquals(out["last_internal_states"][1].shape, (batch_size, 256))
+        self.assertEqual(out["action"].shape, (time_steps, batch_size))
+        self.assertEqual(out["nn_outputs"][1][0].shape, (batch_size, 256))
+        self.assertEqual(out["nn_outputs"][1][1].shape, (batch_size, 256))
         # Check preprocessed state (all the same except 'image' channel, which gets divided by 255).
         recursive_assert_almost_equal(
-            out["preprocessed_state"], dict(
+            out["preprocessed_state"][0], dict(
                 RGB_INTERLEAVED=next_nn_input["RGB_INTERLEAVED"],
                 INSTR=next_nn_input["INSTR"],
                 previous_action=next_nn_input["previous_action"],
