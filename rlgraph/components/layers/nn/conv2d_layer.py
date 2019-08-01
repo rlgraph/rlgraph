@@ -13,13 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.layers.nn.activation_functions import get_activation_function
 from rlgraph.components.layers.nn.nn_layer import NNLayer
+from rlgraph.spaces import FloatBox
+from rlgraph.spaces.space_utils import sanity_check_space
 from rlgraph.utils import PyTorchVariable
 from rlgraph.utils.initializer import Initializer
 
@@ -66,6 +66,11 @@ class Conv2DLayer(NNLayer):
         # At model-build time.
         self.kernel_init = None
         self.biases_init = None
+
+    def check_input_spaces(self, input_spaces, action_space=None):
+        in_space = input_spaces["inputs[0]"]
+        # Input space must be some 2D image.
+        sanity_check_space(in_space, allowed_types=[FloatBox], rank=[2, 3])
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs[0]"]
@@ -135,4 +140,3 @@ class Conv2DLayer(NNLayer):
                 # Activation function will be used in `call`.
                 self.activation_fn = get_activation_function(self.activation, *self.activation_params)
             self.register_variables(PyTorchVariable(name=self.global_scope, ref=self.layer))
-
