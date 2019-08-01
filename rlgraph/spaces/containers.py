@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+
 from rlgraph.spaces.space import Space
 from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op, flat_key_lookup
 from rlgraph.utils.rlgraph_errors import RLGraphError
@@ -49,6 +50,8 @@ class Dict(ContainerSpace, dict):
         add_time_rank = kwargs.pop("add_time_rank", False)
         time_major = kwargs.pop("time_major", False)
 
+        self.do_not_overwrite_items_extra_ranks = kwargs.get("do_not_overwrite_items_extra_ranks", False)
+
         ContainerSpace.__init__(self, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major)
 
         # Allow for any spec or already constructed Space to be passed in as values in the python-dict.
@@ -68,23 +71,34 @@ class Dict(ContainerSpace, dict):
             value = spec[key]
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch/time-ranks.
             if isinstance(value, Space):
-                w_batch_w_time = value.with_extra_ranks(add_batch_rank, add_time_rank, time_major)
-                space_dict[key] = w_batch_w_time
+                if self.do_not_overwrite_items_extra_ranks is True:
+                    space_dict[key] = value
+                else:
+                    space_dict[key] = value.with_extra_ranks(add_batch_rank, add_time_rank, time_major)
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                space_dict[key] = Tuple(
-                    *value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
-                )
+                if self.do_not_overwrite_items_extra_ranks is True:
+                    space_dict[key] = Tuple(*value, do_not_overwrite_items_extra_ranks=True)
+                else:
+                    space_dict[key] = Tuple(
+                        *value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
+                    )
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
-                space_dict[key] = Space.from_spec(
-                    value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
-                )
+                if self.do_not_overwrite_items_extra_ranks is True:
+                    space_dict[key] = Space.from_spec(value, do_not_overwrite_items_extra_ranks=True)
+                else:
+                    space_dict[key] = Space.from_spec(
+                        value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
+                    )
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
-                space_dict[key] = Dict(
-                    value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
-                )
+                if self.do_not_overwrite_items_extra_ranks is True:
+                    space_dict[key] = Dict(value, do_not_overwrite_items_extra_ranks=True)
+                else:
+                    space_dict[key] = Dict(
+                        value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
+                    )
             # Set the parent of the added Space to `self`.
             space_dict[key].parent = self
 
@@ -92,13 +106,15 @@ class Dict(ContainerSpace, dict):
 
     def _add_batch_rank(self, add_batch_rank=False):
         super(Dict, self)._add_batch_rank(add_batch_rank)
-        for v in self.values():
-            v._add_batch_rank(add_batch_rank)
+        if self.do_not_overwrite_items_extra_ranks is False:
+            for v in self.values():
+                v._add_batch_rank(add_batch_rank)
 
     def _add_time_rank(self, add_time_rank=False, time_major=False):
         super(Dict, self)._add_time_rank(add_time_rank, time_major)
-        for v in self.values():
-            v._add_time_rank(add_time_rank, time_major)
+        if self.do_not_overwrite_items_extra_ranks is False:
+            for v in self.values():
+                v._add_time_rank(add_time_rank, time_major)
 
     def force_batch(self, samples, horizontal=False):
         # Return a batch of dicts.
@@ -205,28 +221,41 @@ class Tuple(ContainerSpace, tuple):
         add_batch_rank = kwargs.get("add_batch_rank", False)
         add_time_rank = kwargs.get("add_time_rank", False)
         time_major = kwargs.get("time_major", False)
+        do_not_overwrite_items_extra_ranks = kwargs.get("do_not_overwrite_items_extra_ranks", False)
 
         # Allow for any spec or already constructed Space to be passed in as values in the python-list/tuple.
         list_ = list()
         for value in components:
             # Value is already a Space: Copy it (to not affect original Space) and maybe add/remove batch-rank.
             if isinstance(value, Space):
-                list_.append(value.with_extra_ranks(add_batch_rank, add_time_rank, time_major))
+                if do_not_overwrite_items_extra_ranks is True:
+                    list_.append(value)
+                else:
+                    list_.append(value.with_extra_ranks(add_batch_rank, add_time_rank, time_major))
             # Value is a list/tuple -> treat as Tuple space.
             elif isinstance(value, (list, tuple)):
-                list_.append(
-                    Tuple(*value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major)
-                )
+                if do_not_overwrite_items_extra_ranks is True:
+                    list_.append(Tuple(*value, do_not_overwrite_items_extra_ranks=True))
+                else:
+                    list_.append(
+                        Tuple(*value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major)
+                    )
             # Value is a spec (or a spec-dict with "type" field) -> produce via `from_spec`.
             elif (isinstance(value, dict) and "type" in value) or not isinstance(value, dict):
-                list_.append(Space.from_spec(
-                    value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
-                ))
+                if do_not_overwrite_items_extra_ranks is True:
+                    list_.append(Space.from_spec(value, do_not_overwrite_items_extra_ranks=True))
+                else:
+                    list_.append(Space.from_spec(
+                        value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
+                    ))
             # Value is a simple dict -> recursively construct another Dict Space as a sub-space of this one.
             else:
-                list_.append(Dict(
-                    value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
-                ))
+                if do_not_overwrite_items_extra_ranks is True:
+                    list_.append(Dict(value, do_not_overwrite_items_extra_ranks=True))
+                else:
+                    list_.append(Dict(
+                        value, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major
+                    ))
 
         return tuple.__new__(cls, list_)
 
@@ -234,6 +263,9 @@ class Tuple(ContainerSpace, tuple):
         add_batch_rank = kwargs.get("add_batch_rank", False)
         add_time_rank = kwargs.get("add_time_rank", False)
         time_major = kwargs.get("time_major", False)
+
+        self.do_not_overwrite_items_extra_ranks = kwargs.get("do_not_overwrite_items_extra_ranks", False)
+
         super(Tuple, self).__init__(add_batch_rank=add_batch_rank, add_time_rank=add_time_rank, time_major=time_major)
 
         # Set the parent of the added Space to `self`.
@@ -242,13 +274,15 @@ class Tuple(ContainerSpace, tuple):
 
     def _add_batch_rank(self, add_batch_rank=False):
         super(Tuple, self)._add_batch_rank(add_batch_rank)
-        for v in self:
-            v._add_batch_rank(add_batch_rank)
+        if self.do_not_overwrite_items_extra_ranks is False:
+            for v in self:
+                v._add_batch_rank(add_batch_rank)
 
     def _add_time_rank(self, add_time_rank=False, time_major=False):
         super(Tuple, self)._add_time_rank(add_time_rank, time_major)
-        for v in self:
-            v._add_time_rank(add_time_rank, time_major)
+        if self.do_not_overwrite_items_extra_ranks is False:
+            for v in self:
+                v._add_time_rank(add_time_rank, time_major)
 
     def force_batch(self, samples, horizontal=False):
         return tuple([c.force_batch(samples[i])[0] for i, c in enumerate(self)])
