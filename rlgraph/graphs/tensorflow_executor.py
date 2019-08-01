@@ -22,9 +22,10 @@ from rlgraph import get_backend, get_distributed_backend
 import rlgraph.utils as util
 from rlgraph.components.common.multi_gpu_synchronizer import MultiGpuSynchronizer
 from rlgraph.components.optimizers.optimizer import Optimizer
-from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.graphs.graph_executor import GraphExecutor
-from rlgraph.utils.util import force_list
+from rlgraph.utils.op_records import DataOpRecord
+from rlgraph.utils.ops import ContainerDataOp, DataOpDict, DataOpTuple, flatten_op, unflatten_op
+from rlgraph.utils.rlgraph_errors import RLGraphError
 
 if get_backend() == "tf":
     import tensorflow as tf
@@ -219,7 +220,7 @@ class TensorFlowExecutor(GraphExecutor):
 
     def execute(self, *api_method_calls):
         # Fetch inputs for the different API-methods.
-        fetch_dict, feed_dict = self.graph_builder.get_execution_inputs(*api_method_calls)
+        fetch_dict, feed_dict = self._get_execution_inputs(*api_method_calls)
         ret = self.monitored_session.run(
             fetch_dict, feed_dict=feed_dict, options=self.tf_session_options, run_metadata=self.run_metadata
         )
@@ -756,7 +757,7 @@ class TensorFlowExecutor(GraphExecutor):
                                 "ERROR: 'cuda_visible_devices' must be int/string or list of device index-values, e.g. "
                                 "[0,2] or '0' or 1, but is: {}".format(type(cuda_visible_devices))
                             )
-                        cuda_visible_devices = force_list(cuda_visible_devices)
+                        cuda_visible_devices = util.force_list(cuda_visible_devices)
                         num_provided_cuda_devices = len(cuda_visible_devices)
                         use_names = [gpu_names[int(device_id)] for device_id in cuda_visible_devices]
                         cuda_visible_devices = ",".join(cuda_visible_devices)
@@ -793,3 +794,108 @@ class TensorFlowExecutor(GraphExecutor):
             # Do not allow any GPUs to be used.
             self.gpus_enabled = False
             self.logger.info("gpu_spec is None, disabling GPUs.")
+
+    def _get_execution_inputs(self, *api_method_calls):
+        """
+        Creates a fetch-dict and a feed-dict for a graph session call.
+
+        Args:
+            api_method_calls (dict): See `execute` method.
+
+        Returns:
+            Tuple[list,dict]: Fetch-list, feed-dict with relevant args.
+        """
+        fetch_dict = {}
+        feed_dict = {}
+
+        api = self.graph_builder.api
+
+        for api_method_call in api_method_calls:
+            if api_method_call is None:
+                continue
+
+            api_method_name = api_method_call
+            params = []
+            return_ops = None
+
+            # Call is defined by a list/tuple of [method], [input params], [return_ops]?
+            if isinstance(api_method_call, (list, tuple)):
+                api_method_name = api_method_call[0] if not callable(api_method_call[0]) else \
+                    api_method_call[0].__name__
+
+                if api_method_name not in api:
+                    raise RLGraphError("No API-method with name '{}' found!".format(api_method_name))
+
+                # If input is one dict: Check first placeholder for being a dict as well and if so, do a normal 1:1
+                # mapping, otherwise, roll out the input dict as a list.
+                if isinstance(api_method_call[1], dict) and \
+                        not isinstance(api[api_method_name][0][0].op, DataOpDict):
+                    params = [v for k, v in sorted(api_method_call[1].items())]
+                else:
+                    if isinstance(api_method_call[1], tuple) and isinstance(api[api_method_name][0][0].op, DataOpTuple):
+                        params = [api_method_call[1]]
+                    else:
+                        params = util.force_list(api_method_call[1])
+
+                return_ops = None
+                if len(api_method_call) > 2 and api_method_call[2] is not None:
+                    return_ops = util.force_list(api_method_call[2])
+
+            # Allow passing the function directly
+            if callable(api_method_call):
+                api_method_name = api_method_call.__name__
+
+            if api_method_name not in api:
+                raise RLGraphError("No API-method with name '{}' found!".format(api_method_name))
+
+            # API returns a dict.
+            if len(api[api_method_name][1]) > 0 and api[api_method_name][1][0].kwarg is not None:
+                for op_rec in api[api_method_name][1]:
+                    if return_ops is None or op_rec.kwarg in return_ops:
+                        if api_method_name not in fetch_dict:
+                            fetch_dict[api_method_name] = {}
+                        flat_ops = flatten_op(op_rec.op, mapping=lambda o: o.op if isinstance(o, DataOpRecord) else o)
+                        fetch_dict[api_method_name][op_rec.kwarg] = unflatten_op(flat_ops)
+
+                if return_ops is not None:
+                    assert all(op in fetch_dict[api_method_name] for op in return_ops),\
+                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `{}`!".format(
+                        return_ops, api_method_name)
+            # API returns a tuple.
+            else:
+                fetch_dict[api_method_name] = [op_rec.op for i, op_rec in enumerate(api[api_method_name][1]) if
+                                               return_ops is None or i in return_ops]
+                if return_ops is not None:
+                    assert len(fetch_dict[api_method_name]) == len(return_ops),\
+                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `{}`!".format(
+                        return_ops, api_method_name)
+
+            for i, param in enumerate(params):
+                if param is None:
+                    assert len(api[api_method_name][0]) == i, \
+                        "ERROR: {} input params given ({}) than expected ({}) for call to '{}'!". \
+                        format("More" if len(api[api_method_name][0]) < i else "Less", len(params),
+                               len(api[api_method_name][0]), api_method_name)
+                    break
+
+                # TODO: What if len(params) < len(api[api_method][0])?
+                # Need to handle default API-method params also for the root-component (this one).
+                if len(api[api_method_name][0]) <= i:
+                    raise RLGraphError(
+                        "API-method with name '{}' only has {} input parameters! You passed in "
+                        "{}.".format(api_method_name, len(api[api_method_name][0]), len(params))
+                    )
+
+                placeholder = api[api_method_name][0][i].op  # 0=input op-recs; i=ith input op-rec
+                if isinstance(placeholder, ContainerDataOp):
+                    flat_placeholders = flatten_op(placeholder)
+                    for flat_key, value in flatten_op(param).items():
+                        feed_dict[flat_placeholders[flat_key]] = value
+                # Special case: Get the default argument for this arg.
+                # TODO: Support API-method's kwargs here as well (mostly useful for test.test).
+                #elif param is None:
+                #    feed_dict[placeholder] = self.root_component.api_methods[api_method_call].default_values[i]
+                else:
+                    feed_dict[placeholder] = param
+
+        return fetch_dict, feed_dict

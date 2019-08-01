@@ -27,7 +27,7 @@ from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalenc
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
-from rlgraph.utils.ops import is_constant, ContainerDataOp, DataOpDict, flatten_op, unflatten_op, TraceContext
+from rlgraph.utils.ops import is_constant, TraceContext
 from rlgraph.utils.rlgraph_errors import RLGraphError, RLGraphBuildError, RLGraphSpaceError
 from rlgraph.utils.specifiable import Specifiable
 from rlgraph.utils.util import force_list, force_tuple, get_shape
@@ -917,104 +917,6 @@ class GraphBuilder(Specifiable):
             op_rec = op_rec.previous
 
         return none_op_recs
-
-    def get_execution_inputs(self, *api_method_calls):
-        """
-        Creates a fetch-dict and a feed-dict for a graph session call.
-
-        Args:
-            api_method_calls (dict): See `rlgraph.graphs.graph_executor` for details.
-
-        Returns:
-            Tuple[list,dict]: Fetch-list, feed-dict with relevant args.
-        """
-        fetch_dict = {}
-        feed_dict = {}
-
-        for api_method_call in api_method_calls:
-            if api_method_call is None:
-                continue
-
-            api_method_name = api_method_call
-            params = []
-            return_ops = None
-
-            # Call is defined by a list/tuple of [method], [input params], [return_ops]?
-            if isinstance(api_method_call, (list, tuple)):
-                api_method_name = api_method_call[0] if not callable(api_method_call[0]) else \
-                    api_method_call[0].__name__
-
-                if api_method_name not in self.api:
-                    raise RLGraphError("No API-method with name '{}' found!".format(api_method_name))
-
-                # If input is one dict: Check first placeholder for being a dict as well and if so, do a normal 1:1
-                # mapping, otherwise, roll out the input dict as a list.
-                if isinstance(api_method_call[1], dict) and \
-                        not isinstance(self.api[api_method_name][0][0].op, DataOpDict):
-                    params = [v for k, v in sorted(api_method_call[1].items())]
-                else:
-                    params = force_list(api_method_call[1])
-
-                return_ops = force_list(api_method_call[2]) if len(api_method_call) > 2 and \
-                                                               api_method_call[2] is not None else None
-            # Allow passing the function directly
-            if callable(api_method_call):
-                api_method_name = api_method_call.__name__
-
-            if api_method_name not in self.api:
-                raise RLGraphError("No API-method with name '{}' found!".format(api_method_name))
-
-            # API returns a dict.
-            if len(self.api[api_method_name][1]) > 0 and self.api[api_method_name][1][0].kwarg is not None:
-                for op_rec in self.api[api_method_name][1]:
-                    if return_ops is None or op_rec.kwarg in return_ops:
-                        if api_method_name not in fetch_dict:
-                            fetch_dict[api_method_name] = {}
-                        flat_ops = flatten_op(op_rec.op, mapping=lambda o: o.op if isinstance(o, DataOpRecord) else o)
-                        fetch_dict[api_method_name][op_rec.kwarg] = unflatten_op(flat_ops)
-
-                if return_ops is not None:
-                    assert all(op in fetch_dict[api_method_name] for op in return_ops),\
-                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `{}`!".format(
-                        return_ops, api_method_name)
-            # API returns a tuple.
-            else:
-                fetch_dict[api_method_name] = [op_rec.op for i, op_rec in enumerate(self.api[api_method_name][1]) if
-                                               return_ops is None or i in return_ops]
-                if return_ops is not None:
-                    assert len(fetch_dict[api_method_name]) == len(return_ops),\
-                        "ERROR: Not all wanted return_ops ({}) are returned by API-method `{}`!".format(
-                        return_ops, api_method_name)
-
-            for i, param in enumerate(params):
-                if param is None:
-                    assert len(self.api[api_method_name][0]) == i, \
-                        "ERROR: {} input params given ({}) than expected ({}) for call to '{}'!". \
-                        format("More" if len(self.api[api_method_name][0]) < i else "Less", len(params),
-                               len(self.api[api_method_name][0]), api_method_name)
-                    break
-
-                # TODO: What if len(params) < len(self.api[api_method][0])?
-                # Need to handle default API-method params also for the root-component (this one).
-                if len(self.api[api_method_name][0]) <= i:
-                    raise RLGraphError(
-                        "API-method with name '{}' only has {} input parameters! You passed in "
-                        "{}.".format(api_method_name, len(self.api[api_method_name][0]), len(params))
-                    )
-
-                placeholder = self.api[api_method_name][0][i].op  # 0=input op-recs; i=ith input op-rec
-                if isinstance(placeholder, ContainerDataOp):
-                    flat_placeholders = flatten_op(placeholder)
-                    for flat_key, value in flatten_op(param).items():
-                        feed_dict[flat_placeholders[flat_key]] = value
-                # Special case: Get the default argument for this arg.
-                # TODO: Support API-method's kwargs here as well (mostly useful for test.test).
-                #elif param is None:
-                #    feed_dict[placeholder] = self.root_component.api_methods[api_method_call].default_values[i]
-                else:
-                    feed_dict[placeholder] = param
-
-        return fetch_dict, feed_dict
 
     def execute_define_by_run_op(self, api_method, params=None):
         """
