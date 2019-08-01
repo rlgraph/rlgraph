@@ -58,7 +58,7 @@ class DataOpRecord(object):
         self.id = self.get_id()
         self.op = op
         # Some instruction on how to derive the `op` property of this record (other than just: pass along).
-        # e.g. "key-lookup: [some key]" if previous op is a DataOpDict.
+        # e.g. "key_lookup: [some key]" if previous op is a DataOpDict.
         self.op_instructions = dict()
         # Whether the op in this record is one of the last in the graph (a core API-method returned op).
         self.is_terminal_op = False
@@ -97,29 +97,26 @@ class DataOpRecord(object):
         if self.op is not None:
             # Push op and Space into next op-record.
             # With op-instructions?
-            #if "key-lookup" in next_op_rec.op_instructions:
-            if "key-lookup" in self.op_instructions:
-                lookup_key = self.op_instructions["key-lookup"]
+            if "key_lookup" in self.op_instructions:
+                lookup_key = self.op_instructions["key_lookup"]
                 if isinstance(lookup_key, str):
-                    found_op = None
-                    found_space = None
-                    if isinstance(self.op, dict):
-                        assert isinstance(self.op, DataOpDict)
-                        if lookup_key in self.op:
-                            found_op = self.op[lookup_key]
-                            found_space = self.space[lookup_key]
-                        # Lookup-key could also be a flat-key. -> Try to find entry in nested (dict) op.
-                        else:
-                            found_op = self.op.flat_key_lookup(lookup_key, None)
-                            if found_op is not None:
-                                found_space = self.space.flat_key_lookup(lookup_key)
+                    assert isinstance(self.op, DataOpDict)
 
-                    # Did we find anything? If not, error for invalid key-lookup.
-                    if found_op is None or found_space is None:
-                        raise RLGraphError(
-                            "Op ({}) is not a dict or does not contain the lookup key '{}'!". \
-                            format(self.op, lookup_key)
-                        )
+                    if lookup_key in self.op:
+                        found_op = self.op[lookup_key]
+                        found_space = self.space[lookup_key]
+                    # Lookup-key could also be a flat-key. -> Try to find entry in nested (dict) op.
+                    else:
+                        try:
+                            found_op = self.op.flat_key_lookup(lookup_key, None)
+                            found_space = self.space.flat_key_lookup(lookup_key)
+                        # Reraise possible key-error with more information.
+                        except KeyError:
+                            raise KeyError(
+                                "DataOpRecord {} in {}:{} does not contain key '{}'!".
+                                format(self.op, self.op_instructions["file_name"], self.op_instructions["line_number"],
+                                       lookup_key)
+                            )
 
                     next_op_rec.op = found_op
                     next_op_rec.space = found_space
@@ -127,20 +124,21 @@ class DataOpRecord(object):
                 elif isinstance(lookup_key, int) and \
                         (not isinstance(self.op, (list, tuple)) or lookup_key >= len(self.op)):
                     raise RLGraphError(
-                        "Op ({}) is not a list/tuple or contains not enough items for lookup "
-                        "index '{}'!".format(self.op, lookup_key)
+                        "DataOpRecord {} in {}:{} is not a list/tuple or contains not enough items for lookup "
+                        "index '{}'!".format(
+                            self.op, self.op_instructions["file_name"], self.op_instructions["line_number"], lookup_key
+                        )
                     )
-
                 else:
                     next_op_rec.op = self.op[lookup_key]
                     next_op_rec.space = self.space[lookup_key]
+
             # No instructions -> simply pass on.
             else:
                 next_op_rec.op = self.op
                 next_op_rec.space = self.space
 
             assert next_op_rec.space is not None
-            #next_op_rec.space = get_space_from_op(self.op)
 
         # Add `next` connection.
         self.next.add(next_op_rec)
@@ -173,7 +171,11 @@ class DataOpRecord(object):
         column = DataOpRecordColumn(
             self.column.component, args=[self]
         )
-        column.op_records[0].op_instructions["key-lookup"] = key
+        # Track, where the lookup is coming from for possible error message during build time.
+        caller_frame = inspect.stack()[1]
+        column.op_records[0].op_instructions["key_lookup"] = key
+        column.op_records[0].op_instructions["file_name"] = caller_frame[1]
+        column.op_records[0].op_instructions["line_number"] = caller_frame[2]
         return column.op_records[0]
 
     def __str__(self):
