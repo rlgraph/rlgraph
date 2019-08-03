@@ -127,8 +127,8 @@ class OldBaseAgent(Specifiable):
         self.input_spaces = dict(
             states=self.state_space.with_batch_rank(),
             time_percentage=float,
-            increment=int,
-            episode_reward=float
+            #increment=int,
+            #episode_reward=float
         )
 
         # Construct the Preprocessor.
@@ -154,7 +154,7 @@ class OldBaseAgent(Specifiable):
         self.policy.add_components(Synchronizable(), expose_apis="sync")
 
         # Create non-shared baseline network.
-        self.value_function = parse_value_function_spec(value_function_spec)
+        self.value_function = parse_value_function_spec(value_function_spec, skip_obsoleted_error=True)
         # TODO move this to specific agents.
         if self.value_function is not None:
             self.vars_merger = ContainerMerger("policy", "vf", scope="variable-dict-merger")
@@ -188,7 +188,7 @@ class OldBaseAgent(Specifiable):
         self.next_states_buffer = defaultdict(partial(factory_, len(self.flat_state_space or [])))
         self.terminals_buffer = defaultdict(list)
 
-        self.observe_spec = parse_observe_spec(observe_spec)
+        self.observe_spec = parse_observe_spec(observe_spec, skip_obsoleted_error=True)
 
         # Global time step counter.
         self.timesteps = 0
@@ -210,7 +210,7 @@ class OldBaseAgent(Specifiable):
             self.value_function_optimizer = Optimizer.from_spec(vf_optimizer_spec)
 
         # Update-spec dict tells the Agent how to update (e.g. memory batch size).
-        self.update_spec = parse_update_spec(update_spec)
+        self.update_spec = parse_update_spec(update_spec, skip_obsoleted_error=True)
 
         # Create our GraphBuilder and -Executor.
         self.graph_builder = GraphBuilder(action_space=self.action_space, summary_spec=summary_spec)
@@ -236,122 +236,6 @@ class OldBaseAgent(Specifiable):
         del self.rewards_buffer[env_id]  # = []
         del self.next_states_buffer[env_id]  # = ([] for _ in range(len(self.flat_state_space)))
         del self.terminals_buffer[env_id]  # = []
-
-    def define_graph_api(self, *args, **kwargs):
-        """
-        Can be used to specify and then `self.define_api_method` the Agent's CoreComponent's API methods.
-        Each agent implements this to build its algorithm logic.
-        """
-        agent = self
-
-        if self.value_function is not None:
-            # This avoids variable-incompleteness for the value-function component in a multi-GPU setup, where the root
-            # value-function never performs any forward pass (only used as variable storage).
-            @rlgraph_api(component=self.root_component)
-            def get_state_values(root, preprocessed_states):
-                vf = root.get_sub_component_by_name(agent.value_function.scope)
-                return vf.value_output(preprocessed_states)
-
-        # Variable that stores episode rewards.
-        self.root_component.episode_reward = None
-
-        # Assign `create_variables` method to root.
-        def _create_variables(self, input_spaces, action_space):
-            # Skip this for multi-GPU towers.
-            if not hasattr(self, "is_multi_gpu_tower") or self.is_multi_gpu_tower is False:
-                agent.root_component.episode_reward = agent.root_component.get_variable(
-                    "episode-reward", shape=(), initializer=0.0
-                )
-        # Bind `_create_variables` method (as "create_variables") to this Component object.
-        setattr(self.root_component, "create_variables", _create_variables.__get__(self.root_component, None))
-
-        # Add API methods for syncing.
-        @rlgraph_api(component=self.root_component)
-        def get_weights(root):
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            policy_weights = policy.variables()
-            value_function_weights = None
-            if agent.value_function is not None:
-                value_func = root.get_sub_component_by_name(agent.value_function.scope)
-                value_function_weights = value_func.variables()
-            return dict(policy_weights=policy_weights, value_function_weights=value_function_weights)
-
-        @rlgraph_api(component=self.root_component, must_be_complete=False)
-        def set_weights(root, policy_weights, value_function_weights=None):
-            policy = root.get_sub_component_by_name(agent.policy.scope)
-            policy_sync_op = policy.sync(policy_weights)
-            if value_function_weights is not None:
-                assert agent.value_function is not None
-                vf = root.get_sub_component_by_name(agent.value_function.scope)
-                vf_sync_op = vf.sync(value_function_weights)
-                return root._graph_fn_group(policy_sync_op, vf_sync_op)
-            else:
-                return policy_sync_op
-
-        # TODO: Replace this with future on-the-fly-API-components.
-        @graph_fn(component=self.root_component)
-        def _graph_fn_group(root, *ops):
-            if get_backend() == "tf":
-                return tf.group(*ops)
-            return ops[0]
-
-        # To pre-process external data if needed.
-        @rlgraph_api(component=self.root_component)
-        def preprocess_states(root, states):
-            preprocessor_stack = root.get_sub_component_by_name(agent.preprocessor.scope)
-            return preprocessor_stack.preprocess(states)
-
-        @graph_fn(component=self.root_component)
-        def _graph_fn_training_step(root, other_step_op=None):
-            """
-            Increases the global training timestep by 1. Should be called by all training API-methods to
-            timestamp each training/update step.
-
-            Args:
-                other_step_op (Optional[DataOp]): Another DataOp (e.g. a step_op) which should be
-                    executed before the increase takes place.
-
-            Returns:
-                DataOp: no_op() or identity(other_step_op) in tf, None in pytorch.
-            """
-            if get_backend() == "tf":
-                add_op = tf.assign_add(self.graph_executor.global_training_timestep, 1)
-                op_list = [add_op] + [other_step_op] if other_step_op is not None else []
-                with tf.control_dependencies(op_list):
-                    if other_step_op is None or hasattr(other_step_op, "type") and other_step_op.type == "NoOp":
-                        return tf.no_op()
-                    else:
-                        return tf.identity(other_step_op)
-            elif get_backend == "pytorch":
-                self.graph_executor.global_training_timestep += 1
-                return None
-
-        @rlgraph_api(component=self.root_component)
-        def get_global_timestep(root):
-            return root.read_variable(self.graph_executor.global_timestep)
-
-        @rlgraph_api(component=self.root_component)
-        def _graph_fn_update_global_timestep(root, increment):
-            if get_backend() == "tf":
-                add_op = tf.assign_add(self.graph_executor.global_timestep, increment)
-                return add_op
-            elif get_backend() == "pytorch":
-                # If we are in build phase, don't do anything here.
-                if self.graph_executor.global_timestep is not None:
-                    self.graph_executor.global_timestep += increment
-                return None
-
-        @rlgraph_api(component=self.root_component)
-        def _graph_fn_get_episode_reward(root):
-            return root.episode_reward
-
-        @rlgraph_api(component=self.root_component)
-        def _graph_fn_set_episode_reward(root, episode_reward):
-            if get_backend() == "tf":
-                return tf.assign(root.episode_reward, episode_reward)
-            elif get_backend() == "pytorch":
-                root.episode_reward = episode_reward
-                return None
 
     def _build_graph(self, root_components, input_spaces, **kwargs):
         """
@@ -850,19 +734,20 @@ class IMPALAAgent(OldBaseAgent):
             environment_spec = None
 
         # Add previous-action/reward preprocessors to env-specific preprocessor spec.
-        # TODO: remove this empty hard-coded preprocessor.
-        self.preprocessing_spec = kwargs.pop(
-            "preprocessing_spec", dict(type="dict-preprocessor-stack", preprocessors=dict(
-                # Flatten actions.
-                previous_action=[
+        self.preprocessing_spec = kwargs.pop("preprocessing_spec", None)
+        if self.preprocessing_spec is None:
+            config = dict()
+            # Flatten actions.
+            if self.feed_previous_action_through_nn is True:
+                config["previous_action"] = [
                     dict(type="reshape", flatten=True, flatten_categories=kwargs.get("action_space").num_categories)
-                ],
-                # Bump reward and convert to float32, so that it can be concatenated by the Concat layer.
-                previous_reward=[
-                    dict(type="reshape", new_shape=(1,))
                 ]
-            ))
-        )
+            # Bump reward and convert to float32, so that it can be concatenated by the Concat layer.
+            if self.feed_previous_reward_through_nn is True:
+                config["previous_reward"] = [dict(type="reshape", new_shape=(1,))]
+
+            if len(config) > 0:
+                self.preprocessing_spec = dict(type="dict-preprocessor-stack", preprocessors=config)
 
         # Limit communication in distributed mode between each actor and the learner (never between actors).
         execution_spec = kwargs.pop("execution_spec", None)
@@ -1160,7 +1045,7 @@ class IMPALAAgent(OldBaseAgent):
             # - preprocessed_s
             # - preprocessed_last_s_prime
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
-            records = fifo_queue.get_records(self.batch_size)
+            records = fifo_queue.get_records(self.update_spec["batch_size"])
 
             split_record = fifo_output_splitter.call(records)
             actions = None
@@ -1230,8 +1115,6 @@ class IMPALAAgent(OldBaseAgent):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
     def update(self, batch=None, time_percentage=None):
-        self.num_updates += 1
-
         if batch is None:
             # Include stage_op or not?
             if self.has_gpu:
@@ -1252,7 +1135,7 @@ class SingleIMPALAAgent(IMPALAAgent):
     """
     def __init__(self, discount=0.99, fifo_queue_spec=None, architecture="large", environment_spec=None,
                  feed_previous_action_through_nn=True, feed_previous_reward_through_nn=True,
-                 weight_pg=None, weight_baseline=None, weight_entropy=None,
+                 weight_pg=None, weight_vf=None, weight_entropy=None,
                  num_workers=1, worker_sample_size=100,
                  dynamic_batching=False, visualize=False, **kwargs):
         """
@@ -1269,7 +1152,7 @@ class SingleIMPALAAgent(IMPALAAgent):
                 ActionComponent's (NN's) input at each step. This is only possible if the state space is already a Dict.
                 It will be added under the key "previous_reward". Default: True.
             weight_pg (float): See IMPALALossFunction Component.
-            weight_baseline (float): See IMPALALossFunction Component.
+            weight_vf (float): See IMPALALossFunction Component.
             weight_entropy (float): See IMPALALossFunction Component.
             num_workers (int): How many actors (workers) should be run in separate threads.
             worker_sample_size (int): How many steps the actor will perform in the environment each sample-run.
@@ -1289,7 +1172,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             feed_previous_action_through_nn=feed_previous_action_through_nn,
             feed_previous_reward_through_nn=feed_previous_reward_through_nn,
             weight_pg=weight_pg,
-            weight_baseline=weight_baseline,
+            weight_vf=weight_vf,
             weight_entropy=weight_entropy,
             worker_sample_size=worker_sample_size,
             name=kwargs.pop("name", "impala-single-agent"),
@@ -1325,7 +1208,7 @@ class SingleIMPALAAgent(IMPALAAgent):
 
         # Create an IMPALALossFunction with some parameters.
         self.loss_function = IMPALALossFunction(
-            discount=self.discount, weight_pg=weight_pg, weight_baseline=weight_baseline,
+            discount=self.discount, weight_pg=weight_pg, weight_vf=weight_vf,
             weight_entropy=weight_entropy, slice_actions=self.feed_previous_action_through_nn,
             slice_rewards=self.feed_previous_reward_through_nn
         )
@@ -1399,8 +1282,7 @@ class SingleIMPALAAgent(IMPALAAgent):
         self.define_graph_api()
 
         if self.auto_build:
-            self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
-                              build_options=None)
+            self._build_graph([self.root_component], self.input_spaces)
             self.graph_built = True
 
             if self.has_gpu:
@@ -1434,7 +1316,7 @@ class SingleIMPALAAgent(IMPALAAgent):
             # - preprocessed_s
             # - preprocessed_last_s_prime
             # But must still be done for actions, rewards, terminals here in this API-method via separate ReShapers.
-            records = agent.fifo_queue.get_records(self.batch_size)
+            records = agent.fifo_queue.get_records(self.update_spec["batch_size"])
 
             out = agent.fifo_output_splitter.split_into_dict(records)
             terminals = out["terminals"]

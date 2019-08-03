@@ -7,7 +7,7 @@
   "visualize": 1,
 
   "weight_pg": 1.0,
-  "weight_baseline": 0.5,
+  "weight_vf": 0.5,
   "weight_entropy": 0.00025,
 
   "fifo_queue_spec":

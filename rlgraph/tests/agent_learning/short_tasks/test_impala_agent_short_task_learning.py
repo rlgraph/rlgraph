@@ -13,15 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
-import numpy as np
 import os
 import time
 import unittest
+
+import numpy as np
 
 from rlgraph.environments import GridWorld, OpenAIGymEnv
 from rlgraph.agents import IMPALAAgent
@@ -102,7 +101,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             ret = agent.update()
             mean_return = self._calc_mean_return(ret)
             mean_returns.append(mean_return)
-            print("i={}/{} Loss={:.4} Avg-reward={:.2}".format(i, learn_updates, float(ret[1]), mean_return))
+            print("i={}/{} Loss={:.4} Avg-reward={:f.2}".format(i, learn_updates, float(ret[1]), mean_return))
 
         # Assume we have learned something.
         average_return_last_n_episodes = np.nanmean(mean_returns[:-100])

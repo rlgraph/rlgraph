@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.helpers.v_trace_function import VTraceFunction
@@ -45,14 +43,14 @@ class IMPALALossFunction(LossFunction):
         Munos et al. - 2018 (https://arxiv.org/abs/1802.01561)
     """
     def __init__(self, discount=0.99, reward_clipping="clamp_one",
-                 weight_pg=None, weight_baseline=None, weight_entropy=None, slice_actions=False,
+                 weight_pg=None, weight_vf=None, weight_entropy=None, slice_actions=False,
                  slice_rewards=False, **kwargs):
         """
         Args:
             discount (float): The discount factor (gamma) to use.
             reward_clipping (Optional[str]): One of None, "clamp_one" or "soft_asymmetric". Default: "clamp_one".
             weight_pg (float): The coefficient used for the policy gradient loss term (L[PG]).
-            weight_baseline (float): The coefficient used for the Value-function baseline term (L[V]).
+            weight_vf (float): The coefficient used for the Value-function baseline term (L[V]).
 
             weight_entropy (float): The coefficient used for the entropy regularization term (L[E]).
                 In the paper, values between 0.01 and 0.00005 are used via log-uniform search.
@@ -73,7 +71,7 @@ class IMPALALossFunction(LossFunction):
         self.reward_clipping = reward_clipping
 
         self.weight_pg = weight_pg if weight_pg is not None else 1.0
-        self.weight_baseline = weight_baseline if weight_baseline is not None else 0.5
+        self.weight_vf = weight_vf if weight_vf is not None else 0.5
         self.weight_entropy = weight_entropy if weight_entropy is not None else 0.00025
 
         self.slice_actions = slice_actions
@@ -189,7 +187,7 @@ class IMPALALossFunction(LossFunction):
             # The value-function baseline loss.
             loss_baseline = 0.5 * tf.square(x=tf.subtract(vs, values))
             loss_baseline = tf.reduce_sum(loss_baseline, axis=0)  # reduce over the time-rank
-            loss += self.weight_baseline * loss_baseline
+            loss += self.weight_vf * loss_baseline
 
             # The entropy regularizer term.
             policy = tf.nn.softmax(logits=logits_actions_pi)

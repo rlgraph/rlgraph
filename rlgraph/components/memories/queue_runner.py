@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from rlgraph import get_backend
 from rlgraph.components.component import Component
@@ -76,7 +74,7 @@ class QueueRunner(Component):
 
         self.input_complete = False
 
-    def check_input_completeness(self):
+    def check_input_completeness(self, ignore_non_called_apis=False):
         # The queue must be ready before we are (even though it's not a sub-component).
         if self.queue.input_complete is False or self.queue.built is False:
             return False

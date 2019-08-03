@@ -5,7 +5,10 @@
   "worker_sample_size": 20,
   "visualize": 0,
 
-  "memory_batch_size": 8,
+  "update_spec": {
+    "batch_size": 8
+  },
+
   "fifo_queue_spec":
   {
     "capacity": 1
