@@ -940,11 +940,9 @@ class IMPALAAgent(OldBaseAgent):
                     build_device_context="/job:learner/task:0/cpu",
                     pin_global_variable_device="/job:learner/task:0/cpu"
                 )
-                self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
-                                  build_options=build_options)
+                self._build_graph([self.root_component], self.input_spaces, build_options=build_options)
             else:
-                self._build_graph([self.root_component], self.input_spaces, optimizer=self.optimizer,
-                                  build_options=None)
+                self._build_graph([self.root_component], self.input_spaces, build_options=None)
 
             self.graph_built = True
 
