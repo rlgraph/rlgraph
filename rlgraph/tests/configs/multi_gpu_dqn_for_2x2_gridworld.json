@@ -9,7 +9,10 @@
     "sync_every_n_updates": 8
   },
 
-  "memory_batch_size": 48,
+  "update_spec": {
+    "batch_size": 48
+  },
+  
   "memory_spec":
   {
     "type": "replay",

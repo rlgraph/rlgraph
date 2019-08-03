@@ -7,9 +7,6 @@
     "capacity": 100
   },
 
-  "preprocessing_spec":
-  [],
-
   "network_spec":
   [
     {

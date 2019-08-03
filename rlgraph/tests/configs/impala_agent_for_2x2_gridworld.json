@@ -1,7 +1,9 @@
 {
   "type": "single-impala",
 
-  "memory_batch_size": 16,
+  "update_spec": {
+    "batch_size": 16
+  },
   "fifo_queue_spec":
   {
     "capacity": 1
