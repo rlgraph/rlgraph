@@ -265,7 +265,7 @@ class OldBaseAgent(Specifiable):
 
         # TODO let agent have a list of root-components
         return self._build_graph(
-            [self.root_component], self.input_spaces, optimizer=self.optimizer,
+            [self.root_component], self.input_spaces,
             build_options=self.build_options, batch_size=self.update_spec["batch_size"]
         )
 
