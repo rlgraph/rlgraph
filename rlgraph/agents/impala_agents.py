@@ -61,7 +61,7 @@ class OldBaseAgent(Specifiable):
                  preprocessing_spec=None, network_spec=None, internal_states_space=None,
                  policy_spec=None, value_function_spec=None,
                  exploration_spec=None, execution_spec=None, optimizer_spec=None, value_function_optimizer_spec=None,
-                 observe_spec=None, update_spec=None,
+                 observe_spec=None, update_spec=None, max_timesteps=None,
                  summary_spec=None, saver_spec=None, auto_build=True, name="agent"):
         """
         Args:
@@ -92,6 +92,7 @@ class OldBaseAgent(Specifiable):
 
             observe_spec (Optional[dict]): Spec-dict to specify `Agent.observe()` settings.
             update_spec (Optional[dict]): Spec-dict to specify `Agent.update()` settings.
+            max_timesteps (Optional[int]): An optional max timesteps hint for Workers.
             summary_spec (Optional[dict]): Spec-dict to specify summary settings.
             saver_spec (Optional[dict]): Spec-dict to specify saver settings.
 
@@ -192,6 +193,11 @@ class OldBaseAgent(Specifiable):
 
         # Global time step counter.
         self.timesteps = 0
+        # Global updates counter.
+        self.num_updates = 0
+        # An optional maximum timestep value to use by Workers to figure out `time_percentage` in calls to
+        # `update()` and `get_action()`.
+        self.max_timesteps = max_timesteps
 
         # Create the Agent's optimizer based on optimizer_spec and execution strategy.
         self.optimizer = None
@@ -1111,16 +1117,24 @@ class IMPALAAgent(OldBaseAgent):
                    time_percentage=None):
         pass
 
-    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals):
+    def _observe_graph(self, preprocessed_states, actions, internals, rewards, terminals, **kwargs):
         self.graph_executor.execute(("insert_records", [preprocessed_states, actions, rewards, terminals]))
 
-    def update(self, batch=None, time_percentage=None):
+    def update(self, batch=None, time_percentage=None, sequence_indices=None, apply_postprocessing=True):
+        q_size = self.graph_executor.execute("get_queue_size")
+        self.timesteps += q_size * self.worker_sample_size
+
+        if time_percentage is None:
+            time_percentage = self.timesteps / (self.max_timesteps or 1e6)
+
+        self.num_updates += 1
+
         if batch is None:
             # Include stage_op or not?
             if self.has_gpu:
-                return self.graph_executor.execute("update_from_memory")
+                return self.graph_executor.execute(("update_from_memory", time_percentage))
             else:
-                return self.graph_executor.execute(("update_from_memory", None, ([0, 2, 3, 4])))
+                return self.graph_executor.execute(("update_from_memory", time_percentage, ([0, 2, 3, 4])))
         else:
             raise RLGraphError("Cannot call update-from-batch on an IMPALA Agent.")
 

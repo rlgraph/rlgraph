@@ -90,6 +90,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
         dummy_env = OpenAIGymEnv.from_spec(env_spec)
         agent = IMPALAAgent.from_spec(
             config_,
+            max_timesteps=10000,
             state_space=dummy_env.state_space,
             action_space=dummy_env.action_space,
             execution_spec=dict(seed=10)
@@ -101,7 +102,7 @@ class TestIMPALAAgentShortTaskLearning(unittest.TestCase):
             ret = agent.update()
             mean_return = self._calc_mean_return(ret)
             mean_returns.append(mean_return)
-            print("i={}/{} Loss={:.4} Avg-reward={:f.2}".format(i, learn_updates, float(ret[1]), mean_return))
+            print("i={}/{} Loss={:.4} Avg-reward={:.2f} timesteps={}".format(i, learn_updates, float(ret[1]), mean_return, agent.timesteps))
 
         # Assume we have learned something.
         average_return_last_n_episodes = np.nanmean(mean_returns[:-100])

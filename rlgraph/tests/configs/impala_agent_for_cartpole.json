@@ -11,30 +11,27 @@
 
   "fifo_queue_spec":
   {
-    "capacity": 1
+    "capacity": 25
   },
 
   "environment_spec":
   {
     "type": "open-ai-gym",
-    "gym_env": "CartPole-v0"
+    "gym_env": "CartPole-v0",
+    "visualize": false
   },
 
   "feed_previous_action_through_nn": false,
   "feed_previous_reward_through_nn": false,
 
-  "network_spec":
-  {
-    "layers": [
-      {
-        "type": "dense",
-        "units": 10,
-        "activation": "linear",
-        "scope": "hidden"
-      }
-    ],
-    "scope": "impala-net"
-  },
+  "network_spec": [
+    {
+      "type": "dense",
+      "units": 10,
+      "activation": "linear",
+      "scope": "hidden-a"
+    }
+  ],
 
   "optimizer_spec":
   {
