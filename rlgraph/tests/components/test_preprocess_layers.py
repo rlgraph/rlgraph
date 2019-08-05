@@ -213,7 +213,8 @@ class TestPreprocessLayers(unittest.TestCase):
 
     def test_moving_standardize(self):
         env = OpenAIGymEnv("Pong-v0")
-        space = env.state_space
+        space = FloatBox(shape=(2,))
+        #space = env.state_space
 
         for backend in (None, "python"):
             moving_standardize = MovingStandardize(backend=backend)
@@ -228,17 +229,17 @@ class TestPreprocessLayers(unittest.TestCase):
             expected_shape = (1, ) + space.shape
             self.assertEqual(expected_shape, moving_standardize.mean_est.shape)
             # Assert mean estimate.
-            expected_mean = np.mean(samples, axis=0)
-            recursive_assert_almost_equal(test.get_variable_values("mean-est"), expected_mean)
+            expected_mean = np.mean(samples, axis=0, keepdims=True)
+            recursive_assert_almost_equal(test.get_variable_values("mean-est"), expected_mean, decimals=2)
 
-            expected_variance = np.var(samples, ddof=1, axis=0)
+            expected_variance = np.var(samples, ddof=1, axis=0, keepdims=True)
             variance_estimate = test.get_variable_values("std-sum-est") / \
                                 (test.get_variable_values("sample-count") - 1.0)
             recursive_assert_almost_equal(expected_shape, variance_estimate.shape)
-            recursive_assert_almost_equal(variance_estimate, expected_variance)
+            recursive_assert_almost_equal(variance_estimate, expected_variance, decimals=2)
 
             std = np.sqrt(variance_estimate) + SMALL_NUMBER
 
             # Final output.
             expected_out = (samples[-1] - test.get_variable_values("mean-est")) / std
-            recursive_assert_almost_equal(out, expected_out)
+            recursive_assert_almost_equal(out, expected_out, decimals=2)

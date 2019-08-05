@@ -115,20 +115,20 @@ class MovingStandardize(PreprocessLayer):
         elif self.backend == "tf":
             assignments = [tf.assign_add(ref=self.sample_count, value=1.0)]
             with tf.control_dependencies(assignments):
-                # 1. Update vars
+                # Update vars.
                 assignments = []
                 update = tf.cast(inputs, tf.float32) - self.mean_est
                 mean_update = tf.cond(
                     pred=self.sample_count > 1.0,
-                    false_fn=lambda: self.mean_est,
-                    true_fn=lambda: update
+                    true_fn=lambda: update,
+                    false_fn=lambda: self.mean_est
                 )
                 var_update = update * update * (self.sample_count - 1) / self.sample_count
-                assignments.append(tf.assign_add(ref=self.mean_est, value=mean_update))
+                assignments.append(tf.assign_add(ref=self.mean_est, value=mean_update / self.sample_count))
                 assignments.append(tf.assign_add(ref=self.std_sum_est, value=var_update))
 
             with tf.control_dependencies(assignments):
-                # 2. Compute var estimate after update.
+                # Compute var estimate after update.
                 var_estimate = tf.cond(
                     pred=self.sample_count > 1,
                     false_fn=lambda: tf.square(x=self.mean_est),
