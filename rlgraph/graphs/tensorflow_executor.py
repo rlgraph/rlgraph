@@ -833,7 +833,7 @@ class TensorFlowExecutor(GraphExecutor):
                     params = [v for k, v in sorted(api_method_call[1].items())]
                 else:
                     if isinstance(api_method_call[1], tuple) and isinstance(api[api_method_name][0][0].op, DataOpTuple):
-                        params = [api_method_call[1]]
+                        params = api_method_call[1]
                     else:
                         params = util.force_list(api_method_call[1])
 

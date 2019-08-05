@@ -68,14 +68,16 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         large_impala_architecture = LargeIMPALANetwork(worker_sample_size=2)
         test = ComponentTest(
             large_impala_architecture,
-            input_spaces=dict(inputs=Tuple(self.input_space, self.internal_states_space, do_not_overwrite_items_extra_ranks=True)),
+            input_spaces=dict(
+                inputs=Tuple(self.input_space, self.internal_states_space, do_not_overwrite_items_extra_ranks=True)
+            ),
             execution_spec=dict(disable_monitoring=True)
         )
 
         # Send a 2x3 sample through the network (2=sequence-length (time-rank), 3=batch-size).
         sample_input = self.input_space.sample(size=(2, 3))
         internal_states = self.internal_states_space.zeros(size=3)
-        ret = test.test(("call", tuple([sample_input, internal_states])))
+        ret = test.test(("call", [tuple([sample_input, internal_states])]))
         # Check shape of outputs.
         self.assertEqual(ret[0].shape, (2, 3, 256))
         # Check shapes of current internal_states (c and h).
@@ -113,7 +115,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Send a 1x1 sample through the network (1=sequence-length (time-rank), 1=batch-size).
         nn_input = self.input_space.sample(size=(1, 1))
         initial_internal_states = self.internal_states_space.zeros(size=1)
-        out = test.test(("get_action", tuple([nn_input, initial_internal_states])))
+        out = test.test(("get_action", [tuple([nn_input, initial_internal_states])]))
         print("First action: {}".format(out["action"]))
         self.assertEqual(out["action"].shape, (1, 1))
         self.assertEqual(out["nn_outputs"][1][0].shape, (1, 256))
@@ -121,7 +123,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
 
         # Send another 1x1 sample through the network using the previous internal-state.
         next_nn_input = self.input_space.sample(size=(1, 1))
-        out = test.test(("get_action", tuple([next_nn_input, out["nn_outputs"][1]])))
+        out = test.test(("get_action", [tuple([next_nn_input, out["nn_outputs"][1]])]))
         print("Second action: {}".format(out["action"]))
         self.assertEqual(out["action"].shape, (1, 1))
         self.assertEqual(out["nn_outputs"][1][0].shape, (1, 256))
@@ -155,7 +157,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         nn_dict_input = self.input_space.sample(size=(time_steps, batch_size))
         initial_internal_states = self.internal_states_space.zeros(size=batch_size)
         out = test.test(
-            ("get_preprocessed_state_and_action", tuple([nn_dict_input, initial_internal_states]))
+            ("get_preprocessed_state_and_action", [tuple([nn_dict_input, initial_internal_states])])
         )
         print("First action: {}".format(out["action"]))
         self.assertEqual(out["action"].shape, (time_steps, batch_size))
@@ -174,7 +176,7 @@ class TestIMPALAAgentFunctionality(unittest.TestCase):
         # Send another 1x1 sample through the network using the previous internal-state.
         next_nn_input = self.input_space.sample(size=(time_steps, batch_size))
         out = test.test(
-            ("get_preprocessed_state_and_action", tuple([next_nn_input, out["nn_outputs"][1]]))
+            ("get_preprocessed_state_and_action", [tuple([next_nn_input, out["nn_outputs"][1]])])
         )
         print("Second action: {}".format(out["action"]))
         self.assertEqual(out["action"].shape, (time_steps, batch_size))
