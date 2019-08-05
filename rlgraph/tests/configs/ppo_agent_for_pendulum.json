@@ -18,6 +18,12 @@
     "capacity": 2048
   },
 
+  "preprocessing_spec": [
+    {
+      "type": "moving-standardize"
+    }
+  ],
+
   "network_spec":
   [
     {

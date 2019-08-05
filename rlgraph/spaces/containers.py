@@ -106,13 +106,15 @@ class Dict(ContainerSpace, dict):
 
     def _add_batch_rank(self, add_batch_rank=False):
         super(Dict, self)._add_batch_rank(add_batch_rank)
-        if self.do_not_overwrite_items_extra_ranks is False:
+        if len(self) > 0 and (not hasattr(self, "do_not_overwrite_items_extra_ranks") or
+                self.do_not_overwrite_items_extra_ranks is False):
             for v in self.values():
                 v._add_batch_rank(add_batch_rank)
 
     def _add_time_rank(self, add_time_rank=False, time_major=False):
         super(Dict, self)._add_time_rank(add_time_rank, time_major)
-        if self.do_not_overwrite_items_extra_ranks is False:
+        if len(self) > 0 and (not hasattr(self, "do_not_overwrite_items_extra_ranks") or
+                self.do_not_overwrite_items_extra_ranks is False):
             for v in self.values():
                 v._add_time_rank(add_time_rank, time_major)
 
