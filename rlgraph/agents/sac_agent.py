@@ -635,11 +635,10 @@ class SACAgent(Agent):
                 return 0.0, 0.0, 0.0
             ret = self.graph_executor.execute((self.root_component.update_from_memory, [self.batch_size, time_percentage]))
         else:
-            raise NotImplementedError
-            ## No sequence indices means terminals are used in place.
-            #batch_input = [batch["states"], batch["actions"], batch["rewards"], batch["terminals"],
-            #               batch["next_states"], batch["time_percentage"]]
-            #ret = self.graph_executor.execute((self.root_component.update_from_external_batch, batch_input))
+            ret = self.graph_executor.execute((self.root_component.update_from_external_batch, [
+                batch["states"], batch["actions"], batch["rewards"], batch["terminals"], batch["next_states"],
+                batch["importance_weights"], time_percentage
+            ]))
 
         return ret["actor_loss"], ret["actor_loss_per_item"], ret["critic_loss"], ret["alpha_loss"]
 
