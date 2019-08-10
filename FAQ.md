@@ -13,6 +13,8 @@ Here we collect short answers to common questions and point to resources:
 
 [How can I use GraphViz to quickly detect and render build problems (like shape and type errors)?](#how-can-i-use-graphviz-to-quickly-detect-and-render-build-problems-like-shape-and-type-errors)
 
+[How can I add summaries to my API method](#How can I add summaries to my API method)
+
 ### How can I execute a gym environment?
 
 The simplest way of executing an environment is the single-threaded executor. For an example, see
@@ -381,3 +383,52 @@ See the docstring of `draw_meta_graph` on how to use each single filter.
 RLgraph uses these filters to display only the relevant data-path back from a faulty input
 Space to the leftmost placeholders.
 
+### How can I add summaries to my API method
+
+Summaries are invaluable tool when it comes to tracking down bugs in algorithm implementation and to keep track of the
+agent's performance when selecting hyper-parameters.
+
+RLgraph will automatically evaluate all of the summary ops registered in graph functions on the API
+method's call path when the method is executed. Here's the basic recipe:
+
+```python
+@rlgraph_api
+def add(self, value1, value2):
+    return self._graph_fn_sum(value1, value2)
+
+@graph_fn
+def _graph_fn_sum(self, value1, value2):
+    self.register_summary_op(tf.summary.scalar("value1", value1))
+    self.register_summary_op(tf.summary.scalar("value2", value2))
+    return value1 + value2
+```
+
+Calling `graph_executor.execute((component.add, [1, 2]))`, besides returning the result of the
+addition will evaluate the two summary ops and will write their value on the
+`global_training_timestep` timeline. The timestep needs to be advanced manually as appropriate. To advance
+the timestep in the example above you can change the graph function like this:
+
+```python
+@graph_fn
+def _graph_fn_sum(self, value1, value2):
+    ...
+    advance_op = tf.assign_add(graph_executor.global_training_timestep, 1)
+    with tf.control_dependencies([advance_op]):
+        return value1 + value2
+```
+
+For a more practical example you can refer to PPOAgent. It is instrumented to track the policy and the value function
+losses.
+
+Here are the reported losses while training PPO on CartPole-v0  
+![Losses](https://raw.githubusercontent.com/rlgraph/rlgraph/master/docs/images/tf-summaries-losses.png)
+
+Additionally RLgraph automatically tracks the episode and the per-timestep returns on a separate timeline. This gives
+you a cohesive view of the algorithm's internal performance measurements and how this translates to the
+actual environment returns.
+
+Here are the corresponding returns on the same run  
+![Rewards](https://raw.githubusercontent.com/rlgraph/rlgraph/master/docs/images/tf-summaries-rewards.png)
+
+Pro tip: you can align the two timelines by switching the horizontal axis in the tensorboard UI from STEP to RELATIVE
+or WALL.
