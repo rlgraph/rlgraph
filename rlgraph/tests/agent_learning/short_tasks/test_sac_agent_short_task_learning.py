@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import os
@@ -185,8 +183,8 @@ class TestSACShortTaskLearning(unittest.TestCase):
 
         self.assertTrue(results["timesteps_executed"] == episodes * 200)
         self.assertTrue(results["episodes_executed"] == episodes)
-        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -400)
-        self.assertGreater(results["max_episode_reward"], -200)
+        self.assertGreater(results["mean_episode_reward_last_10_episodes"], -700)
+        self.assertGreater(results["max_episode_reward"], -100)
 
     def test_sac_on_cartpole(self):
         """
