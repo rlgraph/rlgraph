@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 
 import numpy as np
-
 from rlgraph.components.common.time_dependent_parameters import TimeDependentParameter
 from rlgraph.spaces import *
 from rlgraph.tests import ComponentTest
@@ -81,7 +78,7 @@ class TestParameters(unittest.TestCase):
 
         input_ = np.array([0.5, 0.1, 1.0, 0.9, 0.02, 0.01, 0.99, 0.23])
 
-        test.test(("get", input_), expected_outputs=0.5 + (2.0 - 0.5) * 0.5 ** input_)
+        test.test(("get", input_), expected_outputs=0.5 + (2.0 - 0.5) * 0.5 ** input_, decimals=5)
 
     def test_exponential_parameter_using_global_timestep(self):
         exponential_parameter = TimeDependentParameter.from_spec("exponential-decay", from_=3.0, to_=0.5, max_time_steps=100)
