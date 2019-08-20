@@ -41,8 +41,19 @@ class SquashedNormalDistributionAdapter(ActionAdapter):
 
     @graph_fn
     def _graph_fn_get_parameters_from_adapter_outputs(self, adapter_outputs):
+
+        full_action_space_rank = len(self.action_space.get_shape(with_batch_rank=True, with_time_rank=True))
+
         if get_backend() == "tf":
             mean, log_sd = tf.split(adapter_outputs, num_or_size_splits=2, axis=-1)
+
+            # If action_space is 0D, we have to squeeze the params by 1 dim to make them match our action_space.
+            if full_action_space_rank != len(mean.shape.as_list()):
+                # Assume a difference by exactly 1 dim.
+                assert len(mean.shape.as_list()) == full_action_space_rank + 1
+                mean = tf.squeeze(mean, axis=-1)
+                log_sd = tf.squeeze(log_sd, axis=-1)
+
             log_sd = tf.clip_by_value(log_sd, MIN_LOG_STDDEV, MAX_LOG_STDDEV)
 
             # Turn log sd into sd to ascertain always positive stddev values.
@@ -53,6 +64,14 @@ class SquashedNormalDistributionAdapter(ActionAdapter):
 
         elif get_backend() == "pytorch":
             mean, log_sd = torch.split(adapter_outputs, split_size_or_sections=2, dim=1)
+
+            # If action_space is 0D, we have to squeeze the params by 1 dim to make them match our action_space.
+            if full_action_space_rank != len(list(mean.size)):
+                # Assume a difference by exactly 1 dim.
+                assert len(list(mean.size)) == full_action_space_rank + 1
+                mean = torch.squeeze(mean, dim=-1)
+                log_sd = torch.squeeze(log_sd, dim=-1)
+
             log_sd = torch.clamp(log_sd, min=MIN_LOG_STDDEV, max=MAX_LOG_STDDEV)
 
             # Turn log sd into sd.
