@@ -23,6 +23,7 @@ import time
 # from rlgraph.components.common.container_merger import ContainerMerger
 from rlgraph.spaces.space_utils import get_space_from_op
 from rlgraph.utils import util
+from rlgraph.utils.define_by_run_ops import execute_define_by_run_graph_fn
 from rlgraph.utils.op_records import GraphFnRecord, APIMethodRecord, DataOpRecord, DataOpRecordColumnIntoAPIMethod, \
     DataOpRecordColumnFromAPIMethod, DataOpRecordColumnIntoGraphFn, DataOpRecordColumnFromGraphFn, gather_summaries
 from rlgraph.utils.ops import TraceContext
@@ -99,7 +100,18 @@ def rlgraph_api(api_method=None, *, component=None, name=None, returns=None,
 
                 start = time.perf_counter()
                 # Check with owner if extra args needed.
-                if api_fn_name in self.api_methods and self.api_methods[api_fn_name].add_auto_key_as_first_param:
+                if '_graph_fn_' in wrapped_func.__name__:
+                    output = execute_define_by_run_graph_fn(
+                        self,
+                        wrapped_func,
+                        {"flatten_ops": flatten_ops,
+                         "add_auto_key_as_first_param": add_auto_key_as_first_param,
+                         "split_ops": split_ops,
+                         },
+                        *args,
+                        **kwargs
+                    )
+                elif api_fn_name in self.api_methods and self.api_methods[api_fn_name].add_auto_key_as_first_param:
                     output = wrapped_func(self, "", *args, **kwargs)
                 else:
                     output = wrapped_func(self, *args, **kwargs)

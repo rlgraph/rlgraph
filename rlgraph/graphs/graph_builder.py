@@ -19,14 +19,12 @@ import inspect
 import logging
 import re
 import time
-from collections import OrderedDict
 
 from rlgraph import get_backend, get_config
 from rlgraph.components.component import Component
 from rlgraph.spaces import Space, Dict
 from rlgraph.spaces.space_utils import get_space_from_op, check_space_equivalence
-from rlgraph.utils.define_by_run_ops import define_by_run_flatten, define_by_run_split_args, define_by_run_unflatten, \
-    define_by_run_unpack
+from rlgraph.utils.define_by_run_ops import execute_define_by_run_graph_fn
 from rlgraph.utils.input_parsing import parse_summary_spec
 from rlgraph.utils.op_records import FlattenedDataOp, DataOpRecord, DataOpRecordColumnIntoGraphFn, \
     DataOpRecordColumnIntoAPIMethod, DataOpRecordColumnFromGraphFn, DataOpRecordColumnFromAPIMethod, get_call_param_name
@@ -963,105 +961,7 @@ class GraphBuilder(Specifiable):
         Returns:
             any: Results of executing this graph-fn.
         """
-        flatten_ops = options.pop("flatten_ops", False)
-        split_ops = options.pop("split_ops", False)
-        add_auto_key_as_first_param = options.pop("add_auto_key_as_first_param", False)
-
-        # No container arg handling.
-        if not flatten_ops:
-            return graph_fn(component, *args, **kwargs)
-        else:
-            # Flatten and identify containers for potential splits.
-            flattened_args = []
-
-            # Was there actually any flattening
-            args_actually_flattened = False
-            for arg in args:
-                if isinstance(arg, (Dict, dict, tuple)) or isinstance(arg, Dict) or isinstance(arg, tuple):
-                    flattened_args.append(define_by_run_flatten(arg))
-                    args_actually_flattened = True
-                else:
-                    flattened_args.append(arg)
-
-            flattened_kwargs = {}
-            if len(kwargs) > 0:
-                for key, arg in kwargs.items():
-                    if isinstance(arg, dict) or isinstance(arg, Dict) or isinstance(arg, tuple):
-                        flattened_kwargs[key] = define_by_run_flatten(arg)
-                        args_actually_flattened = True
-                    else:
-                        flattened_kwargs[key] = arg
-
-            # If splitting args, split then iterate and merge. Only split if some args were actually flattened.
-            if args_actually_flattened:
-                split_args_and_kwargs = define_by_run_split_args(add_auto_key_as_first_param,
-                                                                 *flattened_args, **flattened_kwargs)
-
-                # Idea: Unwrap light flattening by iterating over flattened args and reading out "" where possible
-                if split_ops and isinstance(split_args_and_kwargs, OrderedDict):
-                    # Args were actually split.
-                    ops = {}
-                    num_return_values = -1
-                    for key, params in split_args_and_kwargs.items():
-                        # Are there any kwargs?
-                        if isinstance(params, tuple):
-                            params_args = params[0]
-                            params_kwargs = params[1]
-                        else:
-                            params_args = params
-                            params_kwargs = {}
-                        ops[key] = graph_fn(component, *params_args, **params_kwargs)
-                        if hasattr(ops[key], "shape"):
-                            num_return_values = 1
-                        else:
-                            num_return_values = len(ops[key])
-
-                    # Un-split the results dict into a tuple of `num_return_values` slots.
-                    un_split_ops = []
-                    for i in range(num_return_values):
-                        dict_with_singles = OrderedDict()
-                        for key in split_args_and_kwargs.keys():
-                            # Use tensor as is.
-                            if hasattr(ops[key], "shape"):
-                                dict_with_singles[key] = ops[key]
-                            else:
-                                dict_with_singles[key] = ops[key][i]
-                        un_split_ops.append(dict_with_singles)
-
-                    flattened_ret = tuple(un_split_ops)
-                else:
-                    if isinstance(split_args_and_kwargs, OrderedDict):
-                        flattened_ret = graph_fn(component, split_args_and_kwargs)
-                    else:
-                        # Args and kwargs tuple.
-                        split_args = split_args_and_kwargs[0]
-                        split_kwargs = split_args_and_kwargs[1]
-                        # Args did not contain deep nested structure so
-                        flattened_ret = graph_fn(component, *split_args, **split_kwargs)
-
-                # If result is a raw tensor, return as is.
-                if get_backend() == "pytorch":
-                    if isinstance(flattened_ret, torch.Tensor):
-                        return flattened_ret
-
-                unflattened_ret = []
-                for i, op in enumerate(flattened_ret):
-                    # Try to re-nest ordered-dict it.
-                    if isinstance(op, OrderedDict):
-                        unflattened_ret.append(define_by_run_unflatten(op))
-                    # All others are left as-is.
-                    else:
-                        unflattened_ret.append(op)
-
-                # Return unflattened results.
-                return unflattened_ret[0] if len(unflattened_ret) == 1 else unflattened_ret
-            else:
-                # Just pass in args and kwargs because not actually flattened, with or without default key.
-                if add_auto_key_as_first_param:
-                    ret = graph_fn(component, "", *args, **kwargs)
-                else:
-                    ret = graph_fn(component, *args, **kwargs)
-                return define_by_run_unpack(ret)
+        return execute_define_by_run_graph_fn(component, graph_fn, options, *args, **kwargs)
 
     def build_define_by_run_graph(self, meta_graph, input_spaces, available_devices,
                                   device_strategy="default", default_device=None, device_map=None):
