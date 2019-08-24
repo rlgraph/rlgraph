@@ -44,7 +44,7 @@ class Transpose(PreprocessLayer):
         self.output_is_time_major = output_is_time_major
 
         # Only used if `self.output_is_time_major` is None.
-        self.output_time_majors = dict()
+        self.output_time_majors = {}
 
     def create_variables(self, input_spaces, action_space=None):
         in_space = input_spaces["inputs"]  # type: Space
@@ -52,7 +52,7 @@ class Transpose(PreprocessLayer):
         self.get_preprocessed_space(in_space)
 
     def get_preprocessed_space(self, space):
-        ret = dict()
+        ret = {}
         for key, single_space in space.flatten().items():
             class_ = type(single_space)
             # We flip batch and time ranks.

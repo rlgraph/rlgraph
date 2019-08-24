@@ -58,7 +58,7 @@ class GrayScale(PreprocessLayer):
         self.output_spaces = None
 
     def get_preprocessed_space(self, space):
-        ret = dict()
+        ret = {}
         for key, value in space.flatten().items():
             shape = list(value.shape)
             if self.keep_rank is True:
