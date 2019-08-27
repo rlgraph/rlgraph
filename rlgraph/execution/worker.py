@@ -13,15 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 
 import numpy as np
 from six.moves import xrange as range_
-
 from rlgraph.environments import VectorEnv, SequentialVectorEnv
 from rlgraph.utils.specifiable import Specifiable
 
@@ -270,7 +267,7 @@ class Worker(Specifiable):
                                          apply_preprocessing=apply_preprocessing, extra_returns=extra_returns)
 
     def log_finished_episode(self, episode_return, duration, timesteps, env_num=0):
-        self.logger.debug("Finished episode: return={}, actions={}, duration={}s.".format(
+        self.logger.debug("Finished episode: return={}, duration={}s, timesteps={}.".format(
             episode_return, duration, timesteps))
 
         if self.episode_finish_callback:

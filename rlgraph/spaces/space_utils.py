@@ -15,9 +15,10 @@
 
 from __future__ import absolute_import, division, print_function
 
+import re
+
 import numpy as np
 from six.moves import xrange as range_
-
 from rlgraph import get_backend
 from rlgraph.spaces.bool_box import BoolBox
 from rlgraph.spaces.box_space import BoxSpace
@@ -72,15 +73,27 @@ def get_list_registry(from_space, capacity=None, initializer=0, flatten=True, ad
     return var
 
 
-def get_space_from_op(op, num_categories=None):
+def get_space_from_op(op, read_key_hints=False, dtype=None, low=None, high=None):
     """
     Tries to re-create a Space object given some DataOp (e.g. a tf op).
     This is useful for shape inference on returned ops after having run through a graph_fn.
 
     Args:
         op (DataOp): The op to create a corresponding Space for.
-        num_categories (Optional[int]): An optional indicator, what the `num_categories` property for
-            an IntBox should be.
+
+        read_key_hints (bool): If True, tries to read type- and low/high-hints from the pattern of the Dict keys (str).
+            - Preceding "I_": IntBox, "F_": FloatBox, "B_": BoolBox.
+            - Succeeding "_low=0.0": Low value.
+            - Succeeding "_high=1.0": High value.
+            E.g. Dict key "F_somekey_low=0.0_high=2.0" indicates a FloatBox with low=0.0 and high=2.0.
+                 Dict key "I_somekey" indicates an intbox with no limits.
+                 Dict key "I_somekey_high=5" indicates an intbox with high=5 (values 0-4).
+
+            Default: False.
+
+        dtype (Optional[str]): An optional indicator, what the `dtype` of a BoxSpace should be.
+        low (Optional[int,float]): An optional indicator, what the `low` property for a BoxSpace should be.
+        high (Optional[int,float]): An optional indicator, what the `high` property for a BoxSpace should be.
 
     Returns:
         Space: The inferred Space object.
@@ -91,12 +104,10 @@ def get_space_from_op(op, num_categories=None):
         add_batch_rank = False
         add_time_rank = False
         for key, value in op.items():
-            # Special case for IntBoxes:
-            # If another key exists, with the name: `_num_[key]` -> take num_categories from that key's value.
-            if key[:5] == "_num_":
-                continue
-            num_categories = op.get("_num_{}".format(key))
-            spec[key] = get_space_from_op(value, num_categories=num_categories)
+            # Try to infer hints from the key.
+            if read_key_hints is True:
+                dtype, low, high = get_space_hints_from_dict_key(key)
+            spec[key] = get_space_from_op(value, dtype=dtype, low=low, high=high)
             # Return
             if spec[key] == 0:
                 return 0
@@ -120,19 +131,24 @@ def get_space_from_op(op, num_categories=None):
             if spec[-1].has_time_rank:
                 add_time_rank = True
         return Tuple(spec, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank)
+
     # primitive Space -> infer from op dtype and shape
     else:
-        int_high = {"high": num_categories} if num_categories is not None else {}
+        low_high = {}
+        if high is not None:
+            low_high["high"] = high
+        if low is not None:
+            low_high["low"] = low
         # Op itself is a single value, simple python type.
         if isinstance(op, (bool, int, float)):
-            return BoxSpace.from_spec(spec=type(op), shape=(), **int_high)
+            return BoxSpace.from_spec(spec=(dtype or type(op)), shape=(), **low_high)
         elif isinstance(op, str):
             raise RLGraphError("Cannot derive Space from non-allowed op ({})!".format(op))
         # A single numpy array.
         elif isinstance(op, np.ndarray):
-            return BoxSpace.from_spec(spec=convert_dtype(str(op.dtype), "np"), shape=op.shape, **int_high)
+            return BoxSpace.from_spec(spec=convert_dtype(str(op.dtype), "np"), shape=op.shape, **low_high)
         elif isinstance(op, list):
-            return try_space_inference_from_list(op)
+            return try_space_inference_from_list(op, dtype=dtype, **low_high)
         # No Space: e.g. the tf.no_op, a distribution (anything that's not a tensor).
         # PyTorch Tensors do not have get_shape so must check backend.
         elif hasattr(op, "dtype") is False or (get_backend() == "tf" and not hasattr(op, "get_shape")):
@@ -193,8 +209,8 @@ def get_space_from_op(op, num_categories=None):
                                 time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # IntBox
             elif "int" in base_dtype_str:
-                high = num_categories or getattr(op, "_num_categories", None)
-                return IntBox(high, shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
+                high_ = high or getattr(op, "_num_categories", None)
+                return IntBox(high_, shape=shape, add_batch_rank=add_batch_rank, add_time_rank=add_time_rank,
                               time_major=time_major, dtype=convert_dtype(base_dtype, "np"))
             # a BoolBox
             elif "bool" in base_dtype_str:
@@ -206,6 +222,40 @@ def get_space_from_op(op, num_categories=None):
                                time_major=time_major)
 
     raise RLGraphError("ERROR: Cannot derive Space from op '{}' (unknown type?)!".format(op))
+
+
+def get_space_hints_from_dict_key(key):
+    """
+    Args:
+        key (str): The Dict key to analyze for type- and low/high hints.
+
+    Returns:
+        dtype (str), low (numeric), high (numeric): Some of these may be None if no hints were found in the key.
+    """
+    # Look for dtype hint.
+    dtype = None
+    mo = re.search(r'^([IFB])_', key)
+    if mo is not None:
+        dtype = mo.group(1)
+        dtype = "float" if dtype == "F" else "int" if dtype == "I" else "bool"
+    if dtype == "bool":
+        return dtype, None, None
+
+    # Look for low hint.
+    low = None
+    mo = re.search(r'_low([\-\d\.\d]+)', key)
+    if mo is not None:
+        low = mo.group(1)
+        low = float(low) if dtype == "float" else int(low)
+
+    # Look for high hint.
+    high = None
+    mo = re.search(r'_high([\-\d\.\d]+)', key)
+    if mo is not None:
+        high = mo.group(1)
+        high = float(high) if dtype == "float" else int(high)
+
+    return dtype, low, high
 
 
 def sanity_check_space(
@@ -475,7 +525,7 @@ def check_space_equivalence(space1, space2):
     return False
 
 
-def try_space_inference_from_list(list_op):
+def try_space_inference_from_list(list_op, dtype=None, **low_high):
     """
     Attempts to infer shape space from a list op. A list op may be the result of fetching state from a Python
     memory.
@@ -492,27 +542,29 @@ def try_space_inference_from_list(list_op):
         elem = list_op[0]
         if (get_backend() == "pytorch" and isinstance(elem, torch.Tensor)) or \
                 get_backend() == "tf" and isinstance(elem, tf.Tensor):
-            list_type = elem.dtype
+            list_type = dtype or elem.dtype
             inner_shape = elem.shape
             return BoxSpace.from_spec(spec=convert_dtype(list_type, "np"), shape=(shape,) + inner_shape,
-                                      add_batch_rank=True)
+                                      add_batch_rank=True, **low_high)
         elif isinstance(elem, list):
             inner_shape = len(elem)
-            return BoxSpace.from_spec(spec=convert_dtype(float, "np"), shape=(shape, inner_shape),
-                                      add_batch_rank=True)
-        elif isinstance(elem, int):
+            return BoxSpace.from_spec(spec=convert_dtype(dtype or float, "np"), shape=(shape, inner_shape),
+                                      add_batch_rank=True, **low_high)
+        # IntBox -> elem must be int and dtype hint must match (or None).
+        elif isinstance(elem, int) and (dtype is None or dtype == "int"):
             # In case of missing comma values, check all other items in list for float.
             # If one float in there -> FloatBox, otherwise -> IntBox.
             has_floats = any(isinstance(el, float) for el in list_op)
             if has_floats is False:
-                return IntBox.from_spec(shape=(shape,), add_batch_rank=True)
+                return IntBox.from_spec(shape=(shape,), add_batch_rank=True, **low_high)
             else:
-                return FloatBox.from_spec(shape=(shape,), add_batch_rank=True)
-        elif isinstance(elem, float):
-            return FloatBox.from_spec(shape=(shape,), add_batch_rank=True)
-    else:
-        # Most general guess is a Float box.
-        return FloatBox(shape=(shape,))
+                return FloatBox.from_spec(shape=(shape,), add_batch_rank=True, **low_high)
+        # FloatBox -> elem must be float (or int) and dtype hint must match (or None).
+        elif isinstance(elem, (float, int)) and (dtype is None or dtype == "float"):
+            return FloatBox.from_spec(shape=(shape,), add_batch_rank=True, **low_high)
+
+    # Most general guess is a Float box.
+    return FloatBox(shape=(shape,), **low_high)
 
 
 def get_default_distribution_from_space(
@@ -574,3 +626,37 @@ def is_bounded_space(box_space):
             "Semi-bounded spaces for distribution-generation are not supported yet! You passed in low={} high={}.".
             format(box_space.low, box_space.high)
         )
+
+
+def horizontalize_space_sample(space, sample, batch_size=1):
+    # For Dicts, we have to treat each key as an array with batch-rank at index 0.
+    # The dict is then translated into a list of dicts where each dict contains the original data
+    # but without the batch-rank.
+    # E.g. {'A': array([0, 1]), 'B': array([2, 3])} -> [{'A': 0, 'B': 2}, {'A': 1, 'B': 3}]
+    if isinstance(space, Dict):
+        some_key = next(iter(sample))
+        assert isinstance(sample, dict) and isinstance(sample[some_key], np.ndarray), \
+            "ERROR: Cannot flip Dict batch with dict keys if returned value is not a dict OR " \
+            "values of returned value are not np.ndarrays!"
+        # TODO: What if actions come as nested dicts (more than one level deep)?
+        # TODO: Use DataOpDict/Tuple's new `map` method.
+        if hasattr(sample[some_key], "__len__"):
+            result = [{key: value[i] for key, value in sample.items()} for i in range(len(sample[some_key]))]
+        else:
+            # Action was not array type.
+            result = [{key: value for key, value in sample.items()}]
+    # Tuple:
+    # E.g. Tuple(array([0, 1]), array([2, 3])) -> [(0, 2), (1, 3)]
+    elif isinstance(space, Tuple):
+        assert isinstance(sample, tuple) and isinstance(sample[0], np.ndarray), \
+            "ERROR: Cannot flip tuple batch if returned value is not a tuple OR " \
+            "values of returned value are not np.ndarrays!"
+        # TODO: Use DataOpDict/Tuple's new `map` method.
+        result = [tuple(value[i] for _, value in enumerate(sample)) for i in range(len(sample[0]))]
+    # No container batch-flipping necessary.
+    else:
+        result = sample
+        if batch_size == 1 and result.shape == ():
+            result = [result]
+
+    return result
