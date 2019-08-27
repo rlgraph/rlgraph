@@ -16,7 +16,6 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 from rlgraph.spaces.space import Space
 from rlgraph.utils.ops import DataOpDict, DataOpTuple, FLAT_TUPLE_OPEN, FLAT_TUPLE_CLOSE, unflatten_op, flat_key_lookup
 from rlgraph.utils.rlgraph_errors import RLGraphError
@@ -276,13 +275,15 @@ class Tuple(ContainerSpace, tuple):
 
     def _add_batch_rank(self, add_batch_rank=False):
         super(Tuple, self)._add_batch_rank(add_batch_rank)
-        if self.do_not_overwrite_items_extra_ranks is False:
+        if len(self) > 0 and (not hasattr(self, "do_not_overwrite_items_extra_ranks") or
+                              self.do_not_overwrite_items_extra_ranks is False):
             for v in self:
                 v._add_batch_rank(add_batch_rank)
 
     def _add_time_rank(self, add_time_rank=False, time_major=False):
         super(Tuple, self)._add_time_rank(add_time_rank, time_major)
-        if self.do_not_overwrite_items_extra_ranks is False:
+        if len(self) > 0 and (not hasattr(self, "do_not_overwrite_items_extra_ranks") or
+                              self.do_not_overwrite_items_extra_ranks is False):
             for v in self:
                 v._add_time_rank(add_time_rank, time_major)
 

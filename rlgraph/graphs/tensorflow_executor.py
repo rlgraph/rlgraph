@@ -683,7 +683,7 @@ class TensorFlowExecutor(GraphExecutor):
 
         if self.device_strategy == "multi_gpu_sync":
             assert self.num_gpus > 1 or (self.fake_gpus is True and self.max_usable_gpus > 0), \
-                "ERROR: MultiGpuSync strategy needs more than one GPU available (or more than 0 `max_usable_gpus` if" \
+                "ERROR: MultiGpuSync strategy needs more than one GPU available (or more than 0 `max_usable_gpus` if " \
                 "GPUs are faked), but there are only {} GPUs visible and {} `max_usable_gpus`.". \
                 format(self.num_gpus, self.max_usable_gpus)
             self.logger.info(
@@ -742,7 +742,7 @@ class TensorFlowExecutor(GraphExecutor):
                 gpu_names = sorted([x.name for x in self.local_device_protos if x.device_type == 'GPU'])
 
                 # Set fake_gpus to True iff `fake_gpus_if_necessary` is True AND we really don't have any GPUs.
-                self.fake_gpus = gpu_spec.get("fake_gpus_if_necessary", False) and len(gpu_names) == 0
+                self.fake_gpus = gpu_spec.get("fake_gpus_if_necessary", False)  # and len(gpu_names) == 0
 
                 if self.fake_gpus is False:
                     cuda_visible_devices = gpu_spec.get("cuda_visible_devices", None)
