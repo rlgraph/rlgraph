@@ -51,12 +51,12 @@ class SingleThreadedWorker(Worker):
                 )
                 self.state_is_preprocessed[env_id] = False
 
-            self.preprocessed_states_buffer = self.agent.preprocessed_state_space.flatten(
+            self.preprocessed_states_buffer = [self.agent.preprocessed_state_space.map(
                 mapping=lambda flat_key, primitive_space: np.zeros(
-                    shape=(self.num_environments,) + primitive_space.shape,
+                    shape=primitive_space.shape,
                     dtype=primitive_space.dtype
                 )
-            )
+            ) for _ in range(self.num_environments)]
 
         # Global statistics.
         self.env_frames = 0

@@ -782,8 +782,8 @@ class TensorFlowExecutor(GraphExecutor):
                     format(self.max_usable_gpus)
                 gpu_names = sorted([x.name for x in self.local_device_protos if x.device_type == 'GPU'])
 
-                # Set fake_gpus to True iff `fake_gpus_if_necessary` is True AND we really don't have any GPUs.
-                self.fake_gpus = gpu_spec.get("fake_gpus_if_necessary", False) and len(gpu_names) == 0
+                # Set fake_gpus to True iff `fake_gpus_if_necessary` is True.
+                self.fake_gpus = gpu_spec.get("fake_gpus_if_necessary", False)
 
                 if self.fake_gpus is False:
                     cuda_visible_devices = gpu_spec.get("cuda_visible_devices", None)
