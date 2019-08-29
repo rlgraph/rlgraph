@@ -30,7 +30,7 @@ class MultiInputStreamNeuralNetwork(NeuralNetwork):
         """
         Args:
             input_network_specs (Union[Dict[str,dict],Tuple[dict]]): A specification dict or tuple with values being
-                the spec dicts for the single streams. The `apply` method expects a dict input or a single tuple input
+                the spec dicts for the single streams. The `call` method expects a dict input or a single tuple input
                 (not as *args) in its first parameter.
 
             post_network_spec (Optional[]): The specification dict of the post-concat network or the post-concat

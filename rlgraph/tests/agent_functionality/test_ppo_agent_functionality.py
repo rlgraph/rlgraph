@@ -13,16 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import unittest
 
 from rlgraph.agents import PPOAgent
-from rlgraph.environments import OpenAIGymEnv
-from rlgraph.spaces import FloatBox, BoolBox
+from rlgraph.environments import OpenAIGymEnv, RandomEnv
+from rlgraph.execution.single_threaded_worker import SingleThreadedWorker
+from rlgraph.spaces import Dict, FloatBox, BoolBox
 from rlgraph.tests.test_util import config_from_path
 from rlgraph.utils import root_logger
 
@@ -57,3 +56,38 @@ class TestPPOAgentFunctionality(unittest.TestCase):
             terminals=terminal_space.sample(num_samples, fill_value=0),
             sequence_indices=sequence_indices_space.sample(num_samples, fill_value=0)
         ))
+
+    def test_ppo_on_container_state_and_action_spaces_and_very_large_rewards(self):
+        """
+        Tests stability of PPO on an extreme env producing strange container states and large rewards and requiring
+        container actions.
+        """
+        env = RandomEnv(
+            state_space=Dict({"F_position": FloatBox(shape=(2,), low=0.01, high=0.02)}),
+            action_space=Dict({"F_direction_low-1.0_high1.0": FloatBox(shape=(), low=-1.0, high=1.0),
+                               "F_forward_direction_low-1.0_high1.0": FloatBox(shape=(), low=-1.0, high=1.0),
+                               "B_jump": BoolBox()
+                               }),
+            reward_space=FloatBox(low=-1000.0, high=-100000.0),  # hugely negative rewards
+            terminal_prob=0.0000001
+        )
+
+        agent_config = config_from_path("configs/ppo_agent_for_random_env_with_container_spaces.json")
+        agent = PPOAgent.from_spec(
+            agent_config,
+            state_space=env.state_space,
+            action_space=env.action_space
+        )
+
+        worker = SingleThreadedWorker(
+            env_spec=lambda: env,
+            agent=agent,
+            preprocessing_spec=None,
+            worker_executes_preprocessing=True,
+            #episode_finish_callback=lambda episode_return, duration, timesteps, env_num:
+            #print("episode return {}; steps={}".format(episode_return, timesteps))
+        )
+        results = worker.execute_timesteps(num_timesteps=int(1e6), use_exploration=True)
+
+        print(results)
+

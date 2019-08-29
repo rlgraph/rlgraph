@@ -20,10 +20,9 @@ from copy import deepcopy
 
 import numpy as np
 from six.moves import xrange as range_
-
 from rlgraph.components import PreprocessorStack
 from rlgraph.execution.worker import Worker
-from rlgraph.spaces.containers import Dict, Tuple
+from rlgraph.spaces.space_utils import horizontalize_space_sample
 from rlgraph.utils.rlgraph_errors import RLGraphError
 from rlgraph.utils.util import default_dict
 
@@ -41,6 +40,7 @@ class SingleThreadedWorker(Worker):
         if preprocessing_spec is None or preprocessing_spec == []:
             worker_executes_preprocessing = False
 
+        self.preprocessed_states_buffer = None
         self.worker_executes_preprocessing = worker_executes_preprocessing
         if self.worker_executes_preprocessing:
             self.preprocessors = {}
@@ -51,11 +51,12 @@ class SingleThreadedWorker(Worker):
                 )
                 self.state_is_preprocessed[env_id] = False
 
-        self.apply_preprocessing = not self.worker_executes_preprocessing
-        self.preprocessed_states_buffer = np.zeros(
-            shape=(self.num_environments,) + self.agent.preprocessed_state_space.shape,
-            dtype=self.agent.preprocessed_state_space.dtype
-        )
+            self.preprocessed_states_buffer = [self.agent.preprocessed_state_space.map(
+                mapping=lambda flat_key, primitive_space: np.zeros(
+                    shape=primitive_space.shape,
+                    dtype=primitive_space.dtype
+                )
+            ) for _ in range(self.num_environments)]
 
         # Global statistics.
         self.env_frames = 0
@@ -224,7 +225,7 @@ class SingleThreadedWorker(Worker):
                 # TODO extra returns when worker is not applying preprocessing.
                 actions = self.agent.get_action(
                     states=self.preprocessed_states_buffer, use_exploration=use_exploration,
-                    apply_preprocessing=self.apply_preprocessing, time_percentage=time_percentage
+                    apply_preprocessing=not self.worker_executes_preprocessing, time_percentage=time_percentage
                 )
                 preprocessed_states = np.array(self.preprocessed_states_buffer)
             else:
@@ -232,40 +233,15 @@ class SingleThreadedWorker(Worker):
                     states=np.array(env_states), use_exploration=use_exploration,
                     apply_preprocessing=True, extra_returns="preprocessed_states", time_percentage=time_percentage
                 )
+                preprocessed_states = horizontalize_space_sample(
+                    self.agent.preprocessed_state_space, preprocessed_states, self.num_environments
+                )
 
             # Accumulate the reward over n env-steps (equals one action pick). n=self.frameskip.
             env_rewards = [0 for _ in range_(self.num_environments)]
             next_states = None
 
-            # For Dict action spaces, we have to treat each key as an array with batch-rank at index 0.
-            # The action-dict is then translated into a list of dicts where each dict contains the original data
-            # but without the batch-rank.
-            # E.g. {'A': array([0, 1]), 'B': array([2, 3])} -> [{'A': 0, 'B': 2}, {'A': 1, 'B': 3}]
-            if isinstance(self.agent.action_space, Dict):
-                some_key = next(iter(actions))
-                assert isinstance(actions, dict) and isinstance(actions[some_key], np.ndarray),\
-                    "ERROR: Cannot flip Dict-action batch with dict keys if returned value is not a dict OR " \
-                    "values of returned value are not np.ndarrays!"
-                # TODO: What if actions come as nested dicts (more than one level deep)?
-                # TODO: Use DataOpDict/Tuple's new `map` method.
-                if hasattr(actions[some_key], "__len__"):
-                    env_actions = [{key: value[i] for key, value in actions.items()} for i in range(len(actions[some_key]))]
-                else:
-                    # Action was not array type.
-                    env_actions = [{key: value for key, value in actions.items()}]
-            # Tuple action Spaces:
-            # E.g. Tuple(array([0, 1]), array([2, 3])) -> [(0, 2), (1, 3)]
-            elif isinstance(self.agent.action_space, Tuple):
-                assert isinstance(actions, tuple) and isinstance(actions[0], np.ndarray),\
-                    "ERROR: Cannot flip tuple-action batch if returned value is not a tuple OR " \
-                    "values of returned value are not np.ndarrays!"
-                # TODO: Use DataOpDict/Tuple's new `map` method.
-                env_actions = [tuple(value[i] for _, value in enumerate(actions)) for i in range(len(actions[0]))]
-            # No container batch-flipping necessary.
-            else:
-                env_actions = actions
-                if self.num_environments == 1 and env_actions.shape == ():
-                    env_actions = [env_actions]
+            env_actions = horizontalize_space_sample(self.agent.action_space, actions, self.num_environments)
 
             for _ in range_(frameskip):
                 next_states, step_rewards, episode_terminals, _ = self.vector_env.step(actions=env_actions)
@@ -367,7 +343,7 @@ class SingleThreadedWorker(Worker):
             env_frames=self.env_frames,
             env_frames_per_second=(self.env_frames / total_time),
             episodes_executed=episodes_executed,
-            episodes_per_minute=(episodes_executed/(total_time / 60)),
+            episodes_per_minute=(episodes_executed / (total_time / 60)),
             mean_episode_runtime=mean_episode_runtime,
             mean_episode_reward=mean_episode_reward,
             mean_episode_reward_last_10_episodes=mean_episode_reward_last_10_episodes,
@@ -397,6 +373,7 @@ class SingleThreadedWorker(Worker):
         return results
 
     def _observe(self, env_ids, states, actions, rewards, next_states, terminals):
+        #print("states={} actions={} rewards={}".format(states, actions, rewards))
         # TODO: If worker does not execute preprocessing, next state is not preprocessed here.
         # Observe per environment.
         self.agent.observe(
