@@ -23,7 +23,7 @@ from rlgraph.utils.decorators import rlgraph_api
 
 if get_backend() == "tf" and get_distributed_backend() == "horovod":
     import horovod.tensorflow as hvd
-elif get_backend() == "pytorch" and get_backend() == "horovod":
+elif get_backend() == "pytorch" and get_distributed_backend() == "horovod":
     import horovod.pytorch as hvd
 
 
