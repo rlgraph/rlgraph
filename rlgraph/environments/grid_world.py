@@ -25,17 +25,19 @@ from six.moves import xrange as range_
 
 # Init pygame?
 pygame = None
-try:
-    import pygame
-    # Only use pygame if a display is available.
-    pygame.display.init()
 
-except ImportError:
-    print("PyGame not installed. No human rendering possible.")
-    pygame = None
-except pygame.error:
-    print("No display for PyGame available. No human rendering possible.")
-    pygame = None
+# Commented out to prevent pygame from loading with every program.
+# try:
+#     import pygame
+#     # Only use pygame if a display is available.
+#     pygame.display.init()
+#
+# except ImportError:
+#     print("PyGame not installed. No human rendering possible.")
+#     pygame = None
+# except pygame.error:
+#     print("No display for PyGame available. No human rendering possible.")
+#     pygame = None
 
 from rlgraph.spaces import IntBox, FloatBox, BoolBox, Dict
 from rlgraph.environments import Environment

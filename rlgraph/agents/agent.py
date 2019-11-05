@@ -519,12 +519,6 @@ class Agent(Specifiable):
                 else:
                     actions_ = np.asarray(self.actions_buffer[env_id])
 
-                self._write_rewards_summary(
-                    rewards=self.rewards_buffer[env_id],  # No need to be converted to np
-                    terminals=self.terminals_buffer[env_id],
-                    env_id=env_id
-                )
-
                 self._observe_graph(
                     preprocessed_states=states_,
                     actions=actions_,
@@ -541,12 +535,6 @@ class Agent(Specifiable):
                 actions, _ = self.action_space.force_batch(actions)
                 rewards = [rewards]
                 terminals = [terminals]
-
-            self._write_rewards_summary(
-                rewards=rewards,  # No need to be converted to np
-                terminals=terminals,
-                env_id=env_id
-            )
 
             self._observe_graph(preprocessed_states, actions, internals, rewards, next_states, terminals)
 
@@ -568,41 +556,41 @@ class Agent(Specifiable):
         """
         raise NotImplementedError
 
-    def _write_rewards_summary(self, rewards, terminals, env_id):
-        """
-        Writes summary for the observed rewards.
-
-        Args:
-            rewards (float): The observed rewards.
-            terminals (bool): The observed episode terminal states.
-            env_id (str): The id of the environment.
-        """
-        # TODO: This is a hack to avoid failure in RandomAgent.
-        if "get_episode_reward" in self.graph_builder.api and "get_global_timestep" in self.graph_builder.api:
-            if get_backend() == "tf":
-                # TODO: 1. handle env_id
-                # TODO: 2. control the level of verbosity
-                # TODO: 3. can we reduce the graph interactions?
-                ret = self.graph_executor.execute(
-                    "get_episode_reward", "get_global_timestep"
-                )
-                episode_reward = ret["get_episode_reward"]
-                timestep = ret["get_global_timestep"]
-                for i in range(len(rewards)):
-                    summary = tf.Summary(value=[
-                        tf.Summary.Value(tag="reward/raw_reward", simple_value=rewards[i])])
-                    self.graph_executor.summary_writer.add_summary(summary, timestep)
-                    episode_reward += rewards[i]
-                    if terminals[i]:
-                        summary = tf.Summary(value=[
-                            tf.Summary.Value(tag="reward/episode_reward", simple_value=episode_reward)])
-                        self.graph_executor.summary_writer.add_summary(summary, timestep)
-                        episode_reward = 0
-                timestep += 1
-                self.graph_executor.execute(
-                    ("set_episode_reward", [episode_reward]),
-                    ("update_global_timestep", [len(rewards)])
-                )
+    # def _write_rewards_summary(self, rewards, terminals, env_id):
+    #     """
+    #     Writes summary for the observed rewards.
+    #
+    #     Args:
+    #         rewards (float): The observed rewards.
+    #         terminals (bool): The observed episode terminal states.
+    #         env_id (str): The id of the environment.
+    #     """
+    #     # TODO: This is a hack to avoid failure in RandomAgent.
+    #     if "get_episode_reward" in self.graph_builder.api and "get_global_timestep" in self.graph_builder.api:
+    #         if get_backend() == "tf":
+    #             # TODO: 1. handle env_id
+    #             # TODO: 2. control the level of verbosity
+    #             # TODO: 3. can we reduce the graph interactions?
+    #             ret = self.graph_executor.execute(
+    #                 "get_episode_reward", "get_global_timestep"
+    #             )
+    #             episode_reward = ret["get_episode_reward"]
+    #             timestep = ret["get_global_timestep"]
+    #             for i in range(len(rewards)):
+    #                 summary = tf.Summary(value=[
+    #                     tf.Summary.Value(tag="reward/raw_reward", simple_value=rewards[i])])
+    #                 self.graph_executor.summary_writer.add_summary(summary, timestep)
+    #                 episode_reward += rewards[i]
+    #                 if terminals[i]:
+    #                     summary = tf.Summary(value=[
+    #                         tf.Summary.Value(tag="reward/episode_reward", simple_value=episode_reward)])
+    #                     self.graph_executor.summary_writer.add_summary(summary, timestep)
+    #                     episode_reward = 0
+    #             timestep += 1
+    #             self.graph_executor.execute(
+    #                 ("set_episode_reward", [episode_reward]),
+    #                 ("update_global_timestep", [len(rewards)])
+    #             )
 
     def update(self, batch=None, time_percentage=None, **kwargs):
         """
